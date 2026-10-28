@@ -1,47 +1,48 @@
 # Ölçüm İstatistiği: PASS Ne Zaman Anlamlıdır
 
-Tarih: 2026-10-28 · Sürüm: 1.0 · Durum: taslak · Sahibi: operatör
+Tarih: 2026-10-28 · Sürüm: 2.1 · Durum: taslak · Sahibi: operatör
 Okunma: her çıkış testi tasarlanırken ve her verdict okunurken
-Çapa: harness raporundaki `n`, `lower_bound` ve `verdict` alanları
+Çapa: beklemede: aşama 0 — harness raporundaki n, lb ve verdict alanları
 
 ---
 
-Küçük sette eşik, yazı turadır. Beş vakalık held-out'ta "3/5 geçti" kararının %95 güven
-aralığı 0,23 ile 0,88 arasındadır; gerçek recall'u 0,40 olan bir avcı üç denemede %40 ihtimalle
-geçer, gerçek recall'u 0,60 olan %34 ihtimalle kalır. Bu kurallar o yüzden vardır.
+Küçük sette eşik yazı turadır: beş vakada "3/5" kararının %95 güven aralığı 0,23 ile 0,88
+arasındadır. Bu kurallar o yüzden vardır.
 
-## Üç verdict
+**Üç verdict.** `PASS`, `FAIL`, `UNMEASURABLE`. Örneklem yetersizse sonuç `UNMEASURABLE`'dır;
+nedeni yazılır ve vaka arzı bir gap sinyali olur. `UNMEASURABLE` asla `PASS` gibi davranmaz.
 
-`PASS`, `FAIL`, `UNMEASURABLE`. Örneklem yetersizse sonuç `UNMEASURABLE`'dır; ne geçer ne
-kalır, nedeni yazılır ve vaka arzı bir gap sinyali olur. `UNMEASURABLE` asla `PASS` gibi
-davranmaz.
-
-## Asgari örneklem
+**Alt sınır.** Tüm alt sınırlar tek yönlü Clopper–Pearson'dur; güven düzeyi `policy.json`'da,
+başlangıç %90. Vakalar aynı modül grubundan geliyorsa etkin örneklem grup sayısıdır.
 
 | Ölçüm | Asgari | Karar kuralı |
 |---|---|---|
-| K5, K6 held-out recall | 25 vaka | Nokta tahmini eşiğin üstünde VE tek yönlü %90 küme-bootstrap alt sınırı taban eşiğin üstünde |
-| K0 mutasyon recall | 60 mutasyon | Üçler kuralı: 0,95 iddiası için sıfır kaçırmayla en az 60 |
-| Clean precision | 40 karara bağlanmış bulgu, birden çok clean base | Alt sınır taban eşiğin üstünde |
-| Maliyet inişi | Aynı vakalarda eşli karşılaştırma, n ≥ 20 | McNemar non-inferiority, bir vaka marjı |
+| K5, K6 held-out recall | 25 vaka, en az 10 grup | Nokta tahmini ve alt sınır sınıf tabanının üstünde |
+| K0 mutasyon recall | 60 mutasyon | Sıfır kaçırmayla alt sınır 0,96'dır; taban 0,95 |
+| Clean precision | 40 karara bağlanmış bulgu, birden çok clean base | Alt sınır tabanın üstünde; `unresolved` kötümser sayılır, FP gibi |
+| Organ kabulü (üstünlük) | Aynı vakalarda eşli, n ≥ 20 | McNemar, p < 0,10, yön lehte |
+| Maliyet inişi (eşdeğerlik) | Aynı vakalarda eşli, n ≥ 20 | McNemar non-inferiority, bir vaka marjı |
 
-Koşu bütçesi daha çok snapshot'a, aynı snapshot'ın tekrarına değil harcanır: tekrar koşu
-koşu-arası gürültüyü ölçer, vaka örnekleme gürültüsünü değil.
+Koşu bütçesi daha çok snapshot'a harcanır; aynı snapshot'ın tekrarı vaka gürültüsünü değil, koşu
+gürültüsünü ölçer.
 
-## Mühür ve bakış bütçesi
+**Held-out kaynağı.** Held-out, Kurucu'nun hesaplayamayacağı bir havuzdan gelir: (1) mutasyonlar,
+gizli tohumla çok büyük bir aday havuzundan seçilir; (2) insan düzeltmeleri, mühürlenmiş bir kesim
+tarihinden sonra merge edilenlerden gelir; (3) hiçbir zaman yayımlanmayan bir yedek havuz
+tutulur. "Tüm vakalar eksi dev" hesabı bu yüzden held-out'u vermez.
 
-Bir held-out mührüne en fazla üç bakış vardır ve her bakış yalnız pass/fail döner. Üç bakıştan
-sonra set dev'e taşınır ve yeni held-out yeni vakalardan çekilir; en geç 90 günde rotasyon.
-Maliyet merdiveni basamakları da birer bakıştır ve aynı bütçeden düşer.
+**Exit'te ne sayılır.** `human_fix` ve `mutation`. K5 ve K6'da mutasyonların payı held-out'un en
+fazla yarısıdır ve ayrı raporlanır; anlamsal mutasyon geçerliliği: kod derlenir, mevcut testler
+yeşil kalır, operatör property'ye bağlıdır. `system_tp` ve `system_regression` aynı organ
+soyunun held-out'una ve hiçbir exit kapısına girmez.
 
-## Bulaşma
+**Bakış bütçesi.** Bir property ve organ soyu için toplam held-out bakışı `policy.json`'da sınırlıdır
+ve rotasyonla sıfırlanmaz. Bir bakış yalnız verdict, n ve alt sınır döndürür; kaçırma nedenleri
+yalnız dev koşularından raporlanır. Maliyet merdiveninde yalnız kazanan basamak bir bakış harcar.
+Bütçe bitince o soy için held-out ölçümü `UNMEASURABLE`'dır ve yeni kesim sonrası vakalar beklenir.
 
-- TP-türevi vakalar aynı avcı soyunun held-out'una giremez; avcı onları zaten bulmuştur.
-- Yalnız insan yazarlı düzeltmelerden gelen vakalar exit kapısında sayılır (`provenance`).
-- dev/held-out bölmesi modül ya da PR grubu bazında yapılır; yakın kopyalar aynı tarafta kalır.
-- Dar kapsam basamağının glob'u yalnız dev koşularının okuduğu dosyalardan türetilir.
+**Bulaşma.** dev/held-out bölmesi modül grubu bazındadır. Exit koşularında avcı ders almaz ve
+harita dondurulur. Dar kapsam basamağının glob'u yalnız dev koşularından türetilir.
 
-## Başarısız basamak
-
-Bir koşu bir hüküm değildir. Eşiği tutmayan basamak deftere yazılır ve vaka havuzu yarı yarıya
+**Başarısız basamak.** Bir koşu hüküm değildir. Eşiği tutmayan basamak vaka havuzu yarı yarıya
 büyüyünce bir kez daha denenir.

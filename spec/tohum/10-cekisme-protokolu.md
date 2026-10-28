@@ -1,6 +1,6 @@
 # Çekişme Protokolü: Her Artefakt İçin
 
-Tarih: 2026-10-28 · Sürüm: 2.0 · Durum: taslak · Sahibi: operatör
+Tarih: 2026-10-28 · Sürüm: 2.1 · Durum: taslak · Sahibi: operatör
 Okunma: her artefakt üretildiğinde
 Çapa: faz kararları ve oracle sonuçları defterde
 
@@ -41,8 +41,9 @@ modelleri `09a-bagimsizlik.md`'ye uyar.
 
 **İki sınır.** Oracle yoksa panel yoktur; artefakt `blocked`'dır (Y8). Araç karar veriyorsa
 panel yoktur; K0–K2 ve K4'te yargıç aracın kendisidir, panel mekanik kararın bittiği yerde
-başlar. Aşama 0 ve 1'de yalnız faz 1, tek rakip ve faz 5 çalışır.
+başlar. Aşama 0 ve 1'de yalnız faz 1, tek rakip ve faz 5 çalışır; bir aşamanın "açık fazları"
+onun spec'inde yazar ve genesis o fazlarla yetinir (`12`).
 
 **Panelin maliyet merdiveni.** Faz 1 mekanik ve bedava; faz 2 repo haritası varsa çoğunlukla
-mekanik; faz 3 ve 4 keşif basamağında Opus, kalibrasyon oturunca Sonnet; faz 1–2 en ucuz
+mekanik; faz 3 ve 4'ün modelleri `09a`'daki ayrıklık kuralıyla belirlenir; faz 1–2 en ucuz
 modelde koşabilir. Bulguların çoğu faz 1 ve 2'de sıfır maliyetle ölmelidir.

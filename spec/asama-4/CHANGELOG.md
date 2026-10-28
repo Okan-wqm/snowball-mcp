@@ -2,6 +2,7 @@
 
 Tarih: 2026-10-28
 
+- 2.1 (2026-10-28): property başına taban; K6 sınırı profilden; roller iki modelle ayrık; oracle düzeltmesi merge edilmez, implementer kalıcı düzeltmeyi yazar; güncel kodda yeniden üretim; bakış bütçesi; yalnız kazanan basamak held-out'a; mikro özellikler; exit USD tavanı.
 - 2.0 (2026-10-28): inceleme sonrası yeniden yazım: K5 property'leri, Savunma ve oracle Sonnet,
   held-out ≥ 25 ve alt sınır kuralı, tek koşu çok snapshot, bakış bütçesi, TP'ler entegrasyon
   dalına, K6 bloğu, yasaklar düzeltildi, panel ve oracle `tohum/04a` şartlarıyla, bütçe

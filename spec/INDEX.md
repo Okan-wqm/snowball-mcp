@@ -1,8 +1,8 @@
 # Dizin
 
-Tarih: 2026-10-28 · Sürüm: 2.0 · Durum: taslak · Sahibi: operatör
-Okunma: her oturumda, görev seçilirken
-Çapa: bu dizin dosya başlıklarından üretilir; elle düzenlenmez
+Tarih: 2026-10-28 · Sürüm: 2.1 · Durum: taslak · Sahibi: operatör
+Okunma: sayfa ararken; görev seçmek için `tohum/00b-gorev-haritasi.md`
+Çapa: bu dizin dosya başlıklarından üretilir; elle düzenlenmez ve 80 satır sınırından muaftır
 
 ---
 
@@ -12,18 +12,20 @@ Okunma: her oturumda, görev seçilirken
 |---|---|---|
 | `tohum/00-cekirdek.md` | Çekirdek — Kurucu Ajan ve Yasalar | her oturumda |
 | `tohum/00a-sinirlar-operator-ilk-gorev.md` | Kurucu'nun Sınırları, Operatörün İşi, İlk Görev | her oturumda, çekirdekten hemen sonra |
+| `tohum/00b-gorev-haritasi.md` | Görev Haritası | her oturumda, görev seçilirken |
 | `tohum/01-hedef-sistem.md` | Hedef Sistem | ilk oturumda |
-| `tohum/01a-mimari-ve-yetki.md` | Mimari ve Yetki: Beyin, Hedef Repo, Mühürlü Depo | ilk oturumda ve her yeni repoya bağlanırken |
+| `tohum/01a-mimari-ve-yetki.md` | Mimari ve Yetki: Dört Yer | ilk oturumda ve her yeni repoya bağlanırken |
+| `tohum/01b-kapi-kurallari.md` | Kapı Kuralları, Tetik, Döngü İşlemi | her merge ve her state yazımında |
 | `tohum/02-asama-protokolu.md` | Aşama Protokolü | her aşama başında ve sonunda |
 | `tohum/03-sinif-merdiveni.md` | Sınıf Merdiveni ve Aşama Sırası | yeni sınıf ya da aşama açılırken |
 | `tohum/04-is-boyutu-ve-gercek-test.md` | İş Boyutu ve Gerçek Test | her mikro görevde ve her test yazarken |
 | `tohum/04a-oracle-sertlestirme.md` | Oracle Sertleştirme: Test Yanlış Nedenle Yeşile Dönmesin | her oracle koşusunda ve test-yazıcı tasarlarken |
 | `tohum/05-etki-kumesi-ve-baglanti.md` | Etki Kümesi ve Bağlantı Kuralı | koda dokunmadan önce ve yeni organ tasarlarken |
 | `tohum/06-maliyet-merdiveni.md` | Maliyet Merdiveni ve Bütçe | bir yetenek harness'te geçtikten sonra ve her bütçe kararında |
-| `tohum/07-entegrasyon-dali-ve-geri-alma.md` | Entegrasyon Dalı, Geri Alma, Bulgu Kimliği | her döngü başında ve her merge'de |
+| `tohum/07-entegrasyon-dali-ve-geri-alma.md` | Entegrasyon Dalı, Nöbetçi, Geri Alma, Bulgu Kimliği | her döngü başında ve her merge'de |
 | `tohum/08-sandbox-ve-durust-bildirim.md` | Sandbox ve Dürüst Bildirim (Y10) | her ajan dispatch'inde |
 | `tohum/09-takim-kurma.md` | Takım Kurma Kuralları | takım kurarken ve ajan önerirken |
-| `tohum/09a-bagimsizlik.md` | Bağımsızlık ve Donmuş Koltuklar | her dispatch'te ve her koltuk ataması değiştiğinde |
+| `tohum/09a-bagimsizlik.md` | Bağımsızlık, Donmuş Koltuklar, Şerit Yazarı | her dispatch'te ve her koltuk değişikliğinde |
 | `tohum/10-cekisme-protokolu.md` | Çekişme Protokolü: Her Artefakt İçin | her artefakt üretildiğinde |
 | `tohum/10a-bulgu-paneli.md` | Bulgu Paneli (K5 ve üstü): Beş Faz | K5 ve üstü bulgu değerlendirirken |
 | `tohum/11-itibar.md` | İtibar ve Puanlama | dispatch ve yeniden yazım kararlarında |
@@ -39,9 +41,14 @@ Okunma: her oturumda, görev seçilirken
 | `tohum/21-cok-repo.md` | Çok Repo: Ne Taşınır, Ne Taşınmaz | beyin yeni bir repoya bağlanırken |
 | `tohum/22-dersler.md` | Dersler: Öğrenme Planlayıcıya ve Implementer'a Akar | plan yaparken, düzeltme yazarken, test yazarken |
 | `tohum/23-yama-degil-mimari-cozum.md` | Yama Değil, Mimari Çözüm | her düzeltme tasarlanırken ve panel faz 4'te |
-| `tohum/24-calisma-modeli.md` | Çalışma Modeli: Beyin Nasıl Koşar, Ajanlar Nasıl Dispatch Edilir | Aşama 0 inşasından önce ve her dispatch değişikliğinde |
-| `tohum/25-kurulum-gunu.md` | Kurulum Günü: Operatörün Bir Kerelik İşi | ilk başlatmadan önce, bir kez |
-| `tohum/26-semalar.md` | Şemalar, Araç İmzaları, Kanonik Biçimler | Aşama 0 inşasında ve her şema değişikliğinde |
+| `tohum/24-calisma-modeli.md` | Çalışma Modeli: Beyin, Hakem ve Kurucu Nasıl Koşar | Aşama 0 inşasından önce ve her dispatch değişikliğinde |
+| `tohum/25-kurulum-gunu.md` | Kurulum, Birinci Bölüm: İnşadan Önce | ilk başlatmadan önce, bir kez |
+| `tohum/25a-kurulum-etkinlestirme.md` | Kurulum, İkinci Bölüm: Aşama 0 Çıkışında Etkinleştirme | Aşama 0 PASS verdiğinde, bir kez |
+| `tohum/26-semalar.md` | Şemalar ve Kanonik Biçimler | Aşama 0 inşasında ve her şema değişikliğinde |
+| `tohum/26a-arac-imzalari.md` | Araç İmzaları: Aşama 0 ve 1 | araç yazarken ve çağırırken |
+| `tohum/27-sozluk-ve-okuyucular.md` | Sözlük ve Okuyucular | yeni terim ya da dosya eklerken |
+| `tohum/28-dondurma.md` | Dondurma: Ne Durur, Nasıl Kalkar | Gözcü kararlarında ve her dondurmada |
+| `tohum/29-tohum-koltuklari.md` | Tohum Koltukları: İlk Rakip ve İlk Test-Yazıcı | Aşama 0 başında |
 | `tohum/CHANGELOG.md` | Değişiklik Günlüğü — Tohum |  |
 
 ## Aşama 0 — Ölçüm Zemini
@@ -95,26 +102,12 @@ Okunma: her oturumda, görev seçilirken
 | `asama-4/04-roller.md` | Aşama 4 §4.4 — Roller | Aşama 4 çalışırken |
 | `asama-4/05-avci-bildigi-ve-ciktisi.md` | Aşama 4 §4.5 — Avcının bildiği ve çıktısı | Aşama 4 çalışırken |
 | `asama-4/06-kosu-protokolu.md` | Aşama 4 §4.6 — Koşu protokolü | Aşama 4 çalışırken |
-| `asama-4/07-panel-ve-oracle.md` | Aşama 4 §4.7 — Panel ve yürütme oracle'ı | Aşama 4 çalışırken |
+| `asama-4/07-panel-ve-oracle.md` | Aşama 4 §4.7 — Panel, oracle ve kalıcı düzeltme | Aşama 4 çalışırken |
 | `asama-4/08-cikis-birinci-kapi.md` | Aşama 4 §4.8 — Çıkış testi, birinci kapı: isabet | Aşama 4 çalışırken |
 | `asama-4/09-cikis-ikinci-kapi.md` | Aşama 4 §4.9 — Çıkış testi, ikinci kapı: maliyet inişi | Aşama 4 çalışırken |
 | `asama-4/10-yasaklar.md` | Aşama 4 §4.10 — Yasaklar | Aşama 4 çalışırken |
 | `asama-4/11-butce.md` | Aşama 4 §4.11 — Bütçe (başlangıç; yalnız operatör değiştirir) | Aşama 4 çalışırken |
 | `asama-4/12-sonuc-ve-teslim.md` | Aşama 4 §4.12 — Sonuç ne söyler ve teslim listesi | Aşama 4 çalışırken |
+| `asama-4/13-sirali-mikro-ozellikler.md` | Aşama 4 §4.13 — Sıralı mikro özellikler | Aşama 4 çalışırken |
 | `asama-4/CHANGELOG.md` | Değişiklik Günlüğü — Aşama 4 |  |
 
-## Görev → sayfa
-
-| Görev | Oku |
-|---|---|
-| Her oturum | `tohum/00`, `tohum/00a` |
-| Kurulum ve ilk başlatma | `tohum/25`, `tohum/24`, `tohum/01a` |
-| Yeni repoya bağlanma | `tohum/01`, `tohum/14`, `tohum/21` |
-| Aşama açma ve kapama | `tohum/02`, `tohum/03`, `tohum/19`, ilgili `asama-N/00-ozet.md` |
-| Koda dokunma | `tohum/04`, `tohum/04a`, `tohum/05`, `tohum/07`, `tohum/08`, `tohum/23` |
-| Artefakt üretme ve değerlendirme | `tohum/10`, `tohum/10a`, `tohum/09a`, `tohum/11` |
-| Organ yazma ve kaldırma | `tohum/09`, `tohum/12`, `tohum/17` |
-| Hafıza, defter, ders | `tohum/13`, `tohum/16`, `tohum/22` |
-| Eşik ve bütçe | `tohum/18`, `tohum/06`, `tohum/20` |
-| Şema ve araç imzası | `tohum/26` |
-| Sayfa yazma | `tohum/15` |

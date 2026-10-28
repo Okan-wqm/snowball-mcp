@@ -7,8 +7,10 @@ Okunma: yeni hafıza türü önerirken ve her defter şeması değişikliğinde
 ---
 
 Sekiz hafıza vardır ama sekiz veritabanı yoktur. Tek gerçek kaynak, zincirli olay defteridir;
-diğer hafızalar ondan türetilen görünümlerdir ve gerekirse sıfırdan yeniden kurulabilir. Ayrı
-tutulan her hafıza kendi gerçeğini taşır ve zamanla diğerleriyle çelişir.
+`ledger.jsonl`, `cost-ledger.jsonl`, `containment.jsonl` gibi dosyalar aynı defterin türe göre
+bölümleridir ve tek kök hash'e bağlanır. İtibar, ders sayaçları, kapsama ve organ durumu
+**görünümdür**: defterden yeniden kurulur ve harness'in bir kendi-testi onları sıfırdan kurup
+mevcut hâlleriyle karşılaştırır. Ayrı tutulan bir gerçek zamanla diğerleriyle çelişir.
 
 | # | Hafıza | Cevapladığı soru | Tohumda | Büyüme yolu |
 |---|---|---|---|---|

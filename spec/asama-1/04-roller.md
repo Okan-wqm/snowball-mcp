@@ -1,6 +1,6 @@
 # Aşama 1 §1.4 — Roller
 
-Tarih: 2026-10-28 · Sürüm: 2.0 · Durum: taslak · Sahibi: operatör
+Tarih: 2026-10-28 · Sürüm: 2.1 · Durum: taslak · Sahibi: operatör
 Okunma: Aşama 1 çalışırken
 Çapa: beklemede: aşama 1 çıkış raporu
 
@@ -8,9 +8,9 @@ Okunma: Aşama 1 çalışırken
 
 | Rol | Ne yapar | Ne yapamaz |
 |---|---|---|
-| Kurucu, Opus | Adapter'ı, düzelticiyi, dispatcher'ı, merge çağrısını yazar; döngüyü kurar | Puanlayamaz, merge edemez, eşik değiştiremez, donmuş koltukları yazamaz |
-| Lint adapter | Mekanik. Snapshot'ta aracı koşar, çıktıyı bulgu şemasına çevirir (`tool`, `rule_id`, satır) | LLM çağıramaz |
-| Düzeltici | Önce hedef mesajın `fix` aralığı; kalanlar için Sonnet, tek bulgu, tek dosya, izole worktree | Bulgu dışı satıra ve test yollarına yazamaz; birden fazla bulguyu tek PR'da düzeltemez |
-| Rakip, Opus, ayrı bağlam | Adapter çıktısını, düzelticinin kapsam dışına taşmasını ve kapıyı çürütmeye çalışır; Sonnet üretirse rakip Opus'tur | |
-| Gözcü, deterministik | `status.md` ve defterlerden eğilim; yumuşak dondurma | LLM değildir |
+| Kurucu, Opus | Oyuncu organlarını yazar: lint adapter, düzeltici, `map.build`, `docs.render`. Kurulum istisnasıyla hakem reposuna dispatcher, itibar puanlayıcısı, Gözcü, oracle koşucusu, kapı ve nöbetçinin ilk sürümlerini yazar | Puanlayamaz, merge edemez, eşik değiştiremez; aşama çıkışından sonra hakem bileşenlerine yazamaz |
+| Lint adapter | Mekanik; aracı koşar, çıktıyı bulgu şemasına çevirir | LLM çağıramaz |
+| Düzeltici | Önce hedef mesajın `fix` aralığı; kalanlar için Sonnet, tek bulgu, izole worktree; ders okur | Bulgu dışı satıra ve test yollarına yazamaz |
+| Tohum rakibi, Sonnet, ayrı bağlam | Kurucu'nun Opus ile yazdığı her şeyi çürütmeye çalışır; Sonnet'in yazdığı düzeltmeyi Opus rakip denetler | |
+| Gözcü, deterministik | `tohum/28` kuralları | LLM değildir |
 | Operatör | Döngü dışı | |

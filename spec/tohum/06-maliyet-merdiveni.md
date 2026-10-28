@@ -1,6 +1,6 @@
 # Maliyet Merdiveni ve Bütçe
 
-Tarih: 2026-10-28 · Sürüm: 2.0 · Durum: taslak · Sahibi: operatör
+Tarih: 2026-10-28 · Sürüm: 2.1 · Durum: taslak · Sahibi: operatör
 Okunma: bir yetenek harness'te geçtikten sonra ve her bütçe kararında
 Çapa: cost-ledger.jsonl; policy.json bütçe payları
 
@@ -27,7 +27,11 @@ basamak deftere yazılır ve vaka havuzu yarı yarıya büyüyünce bir kez daha
 ve 2'si en ucuz modelde koşabilir.
 
 **Ölçü.** USD / isabet değil, şiddet ağırlıklı değer / USD (`20-metrikler.md`); yoksa sistem
-ucuz ve önemsiz işi öğrenir.
+ucuz ve önemsiz işi öğrenir. Maliyeti sıfır olan organlar (mekanik adapter, araç yolu) bu oranla
+değil, isabet ve kapsama ile karşılaştırılır; sıfıra bölme sonsuz değer üretmez.
+
+**Held-out bakışı.** Basamaklar dev setinde karşılaştırılır; held-out'a yalnız kazanan basamak,
+bir bakışla gider (`19`).
 
 **Bütçe.** Aylık tavanı operatör koyar (`policy.json`, anayasal). Paylar başlangıçta: keşif
 ≤ %30, üretim ≤ %40, ölçüm ≤ %20, genel ≤ %10. Ölçüm payı ablasyon, held-out koşuları ve panel

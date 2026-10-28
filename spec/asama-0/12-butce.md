@@ -12,6 +12,6 @@ Okunma: Aşama 0 çalışırken
 | İnşa-zamanı LLM: Kurucu | ≤ 150 USD |
 | İnşa-zamanı LLM: rakip (Sonnet) | ≤ 15 USD |
 | Harness koşusu | paylaşılan önbellekle tek snapshot ≤ 15 dk; 20 snapshot ≤ 2 saat CI |
-| Oracle duvar saati (K0 fark oracle'ı) | snapshot başına ≤ 15 dk |
+| Oracle duvar saati (K0 araç yeniden koşusu) | snapshot başına ≤ 15 dk |
 | Operatör emeği | kurulum günü; sonra 0 |
 | Takvim | 2 hafta hedef; aşım spec'i gevşetmez |

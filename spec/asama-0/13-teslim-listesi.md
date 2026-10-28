@@ -1,21 +1,18 @@
 # Aşama 0 §0.13 — Teslim listesi
 
-Tarih: 2026-10-28 · Sürüm: 2.0 · Durum: taslak · Sahibi: operatör
+Tarih: 2026-10-28 · Sürüm: 2.1 · Durum: taslak · Sahibi: operatör
 Okunma: Aşama 0 çalışırken
 Çapa: beklemede: aşama 0 çıkış raporu
 
 ---
 
-Beyin reposunda:
+Hakem reposunda, kurulum istisnasıyla: `harness/` (`cases.build` ve mutasyon kataloğu,
+`snapshot.make`, `harness.score`, `harness.baseline` ve grep kümesi), `spec.lint`, `ledger/`
+(zincir, `chain.verify`, `chain.asof`), `drift.check` iskeleti, `seats/` (tohum koltukları),
+`schemas/`, kendi testleri, hakem CI'ı ve `hunt-harness.yml` içeriği.
 
-- `harness/`: `cases.build` (mutasyon kataloğu dahil), `snapshot.make`, `harness.score`,
-  `harness.baseline` (grep kümesi), kendi testleri, `schemas/`.
-- `cli/`: `snowball init`, `snowball harness ...`, `snowball chain verify`, `snowball docs index`.
-- `mcp/`: bu aşamanın MCP araçları (`tohum/24`), `allowed_callers` ile.
-- `spec-lint`: bölüm listesi, bütçe tavanı, kalıp sızıntısı, hedef repoya özgü ad denetimi.
-- `tests/fixtures/toy-repo/`.
-- `.github/workflows/hunt-harness.yml` şablonu: tetikler, `permissions`, `concurrency`,
-  `timeout-minutes`, tam geçmiş çekimi, önbellek yolları.
+Beyin reposunda: `cli/` (`snowball init`), `profile.propose`, `mcp/` (bu aşamanın beyin araçları,
+`tohum/26a`), `tests/fixtures/toy-repo/`.
 
 Hedef repoda (`brain/state`): `<state_root>/profile.json` (okuyucu kayıtlarıyla),
 `cases/` (dev), `cost-ledger.jsonl`, `chain/root.jsonl`, `status.md` (Aşama 0 şablonu),

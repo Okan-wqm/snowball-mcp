@@ -1,7 +1,16 @@
 # Değişiklik Günlüğü — Tohum
 
-Tarih: 2026-10-28 · Sürüm: 2.0
+Tarih: 2026-10-28 · Sürüm: 2.1
 
+- 2.1 (2026-10-28): ikinci beş incelemeden (istekler ve kararlar, bağlantı ve veri akışı, mantık,
+  uçtan uca simülasyon, kırmızı takım) doğrulanan bulgular. Hakem reposu: oyuncu kendi hakemini
+  yazamaz; kapı, kullanıcı hesabında da çalışan, yalnız hakem App'inin raporlayabildiği zorunlu
+  durum kontrolüdür. Kurulum iki bölüm. Tohum koltukları, sözlük ve okuyucu tablosu, dondurma,
+  araç imzaları sayfaları. Held-out hesaplanamaz havuzdan; bakış bütçesi rotasyonla sıfırlanmaz;
+  Clopper–Pearson. Çıkış tabanları anayasal, prosedür yalnız sıkılaştırır. Keşif tüm ihlaller ve
+  mandal; nöbetçi ve birinci ebeveyn bisect. Model kuralı iki modelle uygulanabilir hâle geldi.
+  Oracle: property'den test, hunk kapsaması, kapı yeniden koşturur. Dersler: ilk okuyucu
+  düzeltici, test-yazıcı okumaz, kredi rastgele saklamayla. Yasaklı ifade listesi tanımlandı.
 - 2.0 (2026-10-28): beş bağımsız incelemeden (tutarlılık, istekler, uygulanabilirlik, kırmızı
   takım, ölçüm ekonomisi) sonra yeniden yazım. Yetki üç yere ayrıldı (beyin reposu, hedef repo,
   mühürlü depo) çünkü tek repoda dosya bazlı izin yok; held-out mühürlü depoya taşındı; cevap

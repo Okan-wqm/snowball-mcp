@@ -6,9 +6,10 @@ Okunma: plan yaparken, düzeltme yazarken, test yazarken
 
 ---
 
-Hafıza, okuyucusu olmadan arşivdir. Derslerin okuyucuları iş yapan ajanlardır: planlayıcı
-sıralama, kapsam ve etki tahmini için; implementer yaklaşım ve nereye dokunmama için;
-test-yazıcı neyi test edeceği için.
+Hafıza, okuyucusu olmadan arşivdir. Derslerin okuyucuları iş yapan ajanlardır: Aşama 1'den
+itibaren düzeltici yaklaşım ve nereye dokunmama için; Aşama 2'den itibaren planlayıcı sıralama,
+kapsam ve etki tahmini için. **Test-yazıcı ve oracle ders okumaz**; oracle'ın bağımsızlığı derslere
+bağlı olamaz. Exit koşularında avcı ders almaz.
 
 ## Ders nedir
 
@@ -36,14 +37,16 @@ gün için doğru olanı yapar ve bunu şöyle sağlar:
 
 ## Kullanım izi
 
-Her plan, düzeltme ve test, hangi dersleri okuduğunu `run_meta.lessons_read`'e yazar. İşin
-sonucu (hayatta kaldı ya da geri alındı) o derslerin `hit` ve `miss` sayaçlarına mekanik olarak
-işlenir; bunu bir LLM değil, puanlayıcı yapar. İki pencere boyunca okunmayan ders arşive iner;
-okunup hep `miss` alan ders `superseded` olur.
+Hangi derslerin hangi koşuya verildiğini ajan değil **dispatcher** yazar (`lessons_injected`).
+Sonuç (hayatta kaldı ya da geri alındı) o derslerin `hit` ve `miss` sayaçlarına itibar
+puanlayıcısı tarafından mekanik olarak işlenir. Kredinin nedenselliği için dispatcher bazı uygun
+koşularda dersi rastgele saklar; ders yalnız verilen ve saklanan koşular arasındaki farkla kredi
+alır. İki pencere boyunca okunmayan ders arşive iner; okunup hep `miss` alan ders `superseded` olur.
 
 ## Doğuş ve ilk okuyucu
 
-İlk dersler Aşama 1'de olay defterinin `cause` alanından doğar: geri alınan ilk düzeltmenin nedeni
-ilk derstir. İlk okuyucu Aşama 2'nin planlayıcısıdır; o güne kadar dersler yalnız yazılır ve
-raporlanır. Dersler de bir organdır: çok sayıda ders bir kalıp oluşturursa genesis onlardan bir
-skill ya da dedektör taslaklar (`17-kas-buyutme-sinyalleri.md`).
+İlk dersler Aşama 1'de doğar: geri alınan ilk düzeltmenin `cause`'u ilk derstir. Hayatta kalan
+başarılar da ders doğurur: aynı tür düzeltmenin işe yarayan yolu. Aşama 1'de ders metni LLM
+yazmaz; yapısal alanlardan sabit şablonla üretilir. Serbest metinli dersler Aşama 2'nin
+planlayıcısıyla gelir ve her biri kanıt referansı taşır. İlk okuyucu Aşama 1'in düzelticisidir.
+Aynı `cause` üç kez tekrarlanınca genesis derslerden bir skill ya da dedektör taslaklar (`17`).

@@ -1,31 +1,42 @@
-# Bağımsızlık ve Donmuş Koltuklar
+# Bağımsızlık, Donmuş Koltuklar, Şerit Yazarı
 
-Tarih: 2026-10-28 · Sürüm: 2.0 · Durum: taslak · Sahibi: operatör
-Okunma: her dispatch'te ve her koltuk ataması değiştiğinde
-Çapa: run_meta model alanları; kapıdaki koltuk hash'leri; rakip kanarya oranı
+Tarih: 2026-10-28 · Sürüm: 2.1 · Durum: taslak · Sahibi: operatör
+Okunma: her dispatch'te ve her koltuk değişikliğinde
+Çapa: beklemede: aşama 1 — run_meta model alanları; hakem reposundaki koltuk özetleri
 
 ---
 
-Yalnız iki model ailesiyle bağımsızlık, yapıyla sağlanır:
+**Model kuralı.** Yalnız iki model ailesiyle bağımsızlık yapıyla sağlanır:
 
-1. **İkili ayrıklık.** Bir artefaktın üreticisi, yargıcı ve oracle'ı ikili olarak farklı
-   modeldedir ve her zaman ayrı bağlamda koşar. Avcı Opus ise Savunma ve test-yazıcı Sonnet'tir;
-   Savcı, avcıyla aynı tarafta olduğu için aynı modelde olabilir. Kapı, `run_meta`'daki model
-   alanlarından ayrıklığı doğrular; ayrıklığı bozan koşu geçersizdir. Maliyet merdiveni
-   ayrıklığı bozan bir inişi atlar.
-2. **Aynı aileden iki model birlikte yanılabilir.** Bu bilinir ve kabul edilir; bu yüzden
-   hiçbir karar model görüşüyle kapanmaz, yürütmeyle kapanır (Y8). Operatör, spec dondurma ve
-   harness şeridi rakipleri için başka bir sağlayıcı yapılandırabilir; yapılandırılmışsa kapı
-   onu zorunlu kılar.
-3. **Donmuş koltuklar.** Rakip koltukları, oracle takımı, Gözcü, taban avcı, puanlayıcı ve
-   dispatcher'ın tanımları Kurucu'nun yazamadığı bir dizindedir; hash'leri kapıda pinlidir.
-   Değişiklikleri yalnız harness şeridinden ve arşivde yeniden oynatma oracle'ıyla geçer.
-   Kurucu kendi yargıcını yazamaz (Y6).
-4. **Rakip kanaryası.** Harness, rakiplere ara sıra bilerek kusurlu artefaktlar verir: sızdıran
-   snapshot, önemsizce sağlanan eşleşme, belirti düzelten yama. Kanaryaların eşiğin altını
-   çürüten rakip dondurulur ve yeniden yazılır; pasif rakip, rakip değildir.
-5. **Gözcü deterministik koddur.** LLM değildir, defter metnini okurken yönlendirilemez, itibarla
-   puanlanmaz; eşikleri `policy.json`'dadır.
-6. **Bağımsızlık ölçülür.** İki koltuğun karar ve referans benzerliği eşiği aşarsa Gözcü işaretler.
-   Hiçbir bulgunun 1–4. fazlarda ölmediği bir pencere, çalışan bir panelin değil, birbirini
-   onaylayan bir panelin izidir.
+1. Bir artefaktın **karşı koltukları** (Savunma, Uygulayıcı temsilcisi, rakip) ve **oracle'ı**
+   üreticiden farklı modeldedir. Karşı koltuk ile oracle aynı modelde olabilir; o zaman ayrı
+   bağlamda koşar ve birbirinin çıktısını görmez. Savcı üreticiyle aynı taraftadır, aynı modelde
+   olabilir.
+2. Kapı ayrıklığı `run_meta`'dan doğrular: her koşu yargıladığı koşuyu `subject_run_id` ile
+   gösterir; model alanlarını dispatcher yazar.
+3. Aynı aileden iki model birlikte yanılabilir. Bu yüzden hiçbir karar model görüşüyle kapanmaz,
+   yürütmeyle kapanır (Y8). Operatör, rakip için başka bir sağlayıcı yapılandırabilir; yapılandırılmışsa
+   kapı onu zorunlu kılar.
+
+**Donmuş koltuklar.** Rakip ve oracle koltukları, Gözcü, taban avcı, itibar puanlayıcısı,
+dispatcher, harness ve kapı hakem reposundadır.
+
+- **Tohum koltukları.** Tohum rakibinin ve test-yazıcının ilk promptları tohumla gelir (`29`);
+  Kurucu onları yazmaz.
+- **Kurulum istisnası.** Diğer koltukların ilk sürümlerini Aşama 0 ve 1'de Kurucu yazar, çünkü
+  başka yazar yoktur. Her biri tohum rakibinden ve harness kendi testlerinden geçer, aşama çıkışında
+  hakem reposuna taşınır ve donar. Bu sistemin güven köküdür; zayıflığı açıktır ve çıkış raporunda
+  yazılır.
+- **Şerit yazarı.** Donmuş bir koltuğu yalnız şerit yazarı değiştirebilir: Kurucu değildir,
+  Kurucu'nun defterini görmez, gerekçesini hakem raporlarından ve kanaryalardan alır. Değişikliği
+  görevdeki kapı arşivde yeniden oynatır ve farklı modelden rakip çürütmeye çalışır.
+- **Geri dönüş.** Kanaryada başarısız olan koltuk, son pinli sürümüne geri döner ve şerit yazarına
+  bir görev düşer; sistem koltuksuz kalmaz.
+
+**Rakip kanaryası.** Hakem, rakiplere ara sıra kusurlu artefaktlar verir: gerçek geçmiş
+artefaktlara mekanik olarak enjekte edilmiş kusurlar (sızdıran snapshot, önemsizce sağlanan
+eşleşme, belirti düzelten yama). Eşiğin altını çürüten rakip son pinli sürüme döner.
+
+**Gözcü deterministik koddur.** LLM değildir, itibarla puanlanmaz; kuralları `28`'de, eşikleri
+`policy.json`'dadır. **Bağımsızlık ölçülür:** iki koltuğun karar ve referans benzerliği eşiği
+aşarsa Gözcü işaret yazar; işaretin okuyucusu şerit yazarıdır.

@@ -1,6 +1,6 @@
 # İş Boyutu ve Gerçek Test
 
-Tarih: 2026-10-28 · Sürüm: 2.0 · Durum: taslak · Sahibi: operatör
+Tarih: 2026-10-28 · Sürüm: 2.1 · Durum: taslak · Sahibi: operatör
 Okunma: her mikro görevde ve her test yazarken
 Çapa: profildeki CI erişilebilirlik denetimi; PR'daki kasıtlı bozma kaydı
 

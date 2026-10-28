@@ -1,51 +1,45 @@
 # Politika Dosyası ve Dinamik Eşikler
 
-Tarih: 2026-10-28 · Sürüm: 1.0 · Durum: taslak · Sahibi: operatör
+Tarih: 2026-10-28 · Sürüm: 2.1 · Durum: taslak · Sahibi: operatör
 Okunma: her kapı kararında ve her eşik değişikliği önerisinde
-Çapa: `<state_root>/policy.json` ve onun zincirdeki hash geçmişi
+Çapa: beklemede: aşama 0 — policy.json ve zincirdeki hash geçmişi
 
 ---
 
-Eşik sayı değil, prosedürdür. Sistem kendi eşiğini serbestçe oynatabilseydi ilk işi eşiği her
-şeyin geçeceği yere çekmek olurdu. Organizma benzetmesi tam bunu söyler: vücut ısısı dinamiktir,
-termostatın kuralı sabittir.
+Eşik sayı değil, prosedürdür. Ama sistem kendi eşiğini serbestçe oynatabilseydi ilk işi eşiği
+her şeyin geçeceği yere çekmek olurdu. Organizma benzetmesi tam bunu söyler: vücut ısısı
+dinamiktir, termostatın kuralı ve canlılık sınırı sabittir.
 
 ## policy.json ne tutar
 
-Tek hash'li dosya; her kapı kararı onu okur, değişikliği zincire yazılır. İçinde iki sınıf
-vardır:
+Tek hash'li dosya; şeması `26`'da. Her kapı kararı onu okur, değişikliği zincire yazılır.
 
-| Sınıf | Ne | Kim değiştirir |
+| Sınıf | İçerik | Kim değiştirir |
 |---|---|---|
-| Anayasal | Regresyon oranı dondurması, aylık bütçe tavanı ve payları, güvenlik sınırı bloğu, kapsayıcılık, aşama sırası | Yalnız operatör |
-| Performans | Recall, precision, maliyet, itibar, SHADOW süresi, pencere uzunlukları, merdiven sırası | Prosedür; değişiklik çekişme protokolünden geçer |
+| Anayasal | Aylık tavan ve paylar, **sınıf başına çıkış ve merge tabanları**, regresyon dondurma kuralı, döngü ve gün tavanları, güvenlik yolu listesi, yasaklı ifadeler, aşama sırası | Yalnız operatör |
+| Performans | SHADOW, ACTIVE, genesis ve sıralama kararlarının eşikleri; pencere uzunlukları; merdiven sırası; itibar parametreleri | Prosedür; değişiklik çekişme protokolünden geçer |
 
-Performans eşikleri değer olarak değil, kural olarak yazılır. Örnekler:
+Performans eşikleri kural olarak yazılır, örnek:
 
-- `recall_gate`: "taban avcının alt sınırının üstü + gürültü marjı; en az son üç pencerede
-  üretim basamağının alt sınırı".
+- `recall_gate`: "anayasal tabanın ve taban avcının alt sınırının büyüğü + gürültü marjı".
 - `precision_gate`: "clean koşularda gözlenen dağılımın Q yüzdeliği; en az anayasal taban".
-- `shadow_min_runs`: "pencere başına koşu sayısının yarısı, en az 5".
+- `shadow_min_runs`: "pencere başına koşu sayısının yarısı, en az 3".
 
-Başlangıç sayıları yalnız ilk pencere içindir. İlk ölçüm gelince prosedür devralır.
+## Yönlülük
 
-## Eşik keşfi durdurmaz
-
-Eşik eylemi kapılar, keşfi değil. Eşiğin altında kalan organ SHADOW'da koşmaya ve ölçülmeye
-devam eder; bulguları atılmaz, yalnız karara girmez. "Bu pencerede hiçbir şey geçmedi" bir
-sonuçtur: nedeni yazılır ve gap sinyali olarak genesis'e gider (`17-kas-buyutme-sinyalleri.md`).
-Yanlış bir eşik bulguyu değil, eylemi geciktirir.
+- **Çıkış ve merge kapıları yalnız sıkılaşabilir.** Prosedür bu kapılarda eşiği anayasal tabanın
+  altına indiremez; tabanın üstünde yalnız yukarı oynar. Bir organın kendi sonucu kendi kapısını
+  belirleyemez: `recall_gate` üretim basamağının değil, tabanın ve taban avcının sayılarına bakar.
+- **Diğer kararlarda iki yönlü.** SHADOW, genesis tetikleri ve sıralama eşikleri veriyle iki yöne
+  oynar; bunlar eylemi değil dikkat ve sırayı yönetir.
+- **Eşik keşfi durdurmaz.** Eşiğin altında kalan organ SHADOW'da koşar ve ölçülür; bulguları
+  atılmaz, yalnız karara girmez. "Bu pencerede hiçbir şey geçmedi" bir sonuçtur ve gap sinyalidir.
 
 ## Eşik değişikliği bir artefakttır
 
-Çekişme protokolünden geçer (`10-cekisme-protokolu.md`). Oracle'ı **arşivde yeniden
-oynatmadır**: önerilen kural zincirdeki geçmiş kararlara uygulanır. Geri alınmış bir işi
-geçirecek ya da hayatta kalmış bir işi düşürecek kural reddedilir. Bu Pareto kuralıdır: sistem
-eşiği oynatabilir, kendi lehine oynatamaz. Gözcü, eşiklerin yalnız tek yöne hareket ettiği
-pencereleri işaretler; sürekli gevşeme oyun izidir.
-
-## Aynı ilke her yerde
-
-Prosedür sabit, değer dinamik ayrımı bütçe paylarına, pencere uzunluklarına, SHADOW süresine
-ve merdiven sırasına da uygulanır. Hiçbiri sayfalarda sabit sayı olarak yaşamaz; hepsi
-`policy.json`'da kural olarak durur ve `as-of` ile "o gün ne idi" sorgulanabilir.
+Çekişme protokolünden geçer. Oracle'ı **dev arşivinde yeniden oynatmadır**: önerilen kural
+geçmiş kararlara uygulanır; geri alınmış bir işi geçirecek ya da hayatta kalmış bir işi
+düşürecek kural reddedilir. Hayatta kalma etiketi olmayan, eski kuralla geçmiş işler geri alınmış
+sayılır. Gözcü kümülatif kaymayı izler: bir eşiğin başlangıçtan bu yana net hareketi `policy.json`'daki
+sınırı aşarsa işaret yazar; işaretin okuyucusu şerit yazarıdır. Her değişiklik zincire yazılır;
+`chain.asof` ile "o gün eşik neydi" görülür.

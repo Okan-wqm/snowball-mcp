@@ -1,6 +1,6 @@
 # İtibar ve Puanlama
 
-Tarih: 2026-10-28 · Sürüm: 2.0 · Durum: taslak · Sahibi: operatör
+Tarih: 2026-10-28 · Sürüm: 2.1 · Durum: taslak · Sahibi: operatör
 Okunma: dispatch ve yeniden yazım kararlarında
 Çapa: reputation.jsonl; puanlayıcı deterministik koddur
 
@@ -12,8 +12,9 @@ karar "bu işi kime, hangi modelle, ne bütçeyle vereceğim ve kimi yeniden yaz
 hiçbir zaman bir LLM vermez.
 
 **Skor.** `skor = Σ hayatta kalan sonuçların şiddet ağırlığı − λ · USD`; sıralama noktaya göre
-değil, Beta posteriorunun alt sınırına göre yapılır. Şiddet ağırlıkları `20-metrikler.md`'de,
-λ `policy.json`'dadır. Hacim puan getirmez; kredi parmak izi başına değil kök neden başına verilir.
+değil, Beta posteriorunun alt sınırına göre yapılır. λ, Beta önseli ve pencere `policy.json`'dadır.
+Hacim puan getirmez; kredi kök neden başınadır. **Şiddet avcıdan gelmez:** property ve sınıftan
+`policy.json`'daki haritayla türetilir; avcının yazdığı şiddet yalnız ipucudur.
 
 | Rol | Artı | Eksi |
 |---|---|---|
@@ -24,7 +25,8 @@ değil, Beta posteriorunun alt sınırına göre yapılır. Şiddet ağırlıkla
 | Oracle takımı | Flake'siz, geri alınmayan TP | Flaky test; geri alınan TP düzeltmesi |
 
 **Soğuk başlangıç ve dilimler.** Bir ajan en az on karara bağlanmış sonucu olmadan sırasızdır;
-SHADOW'daki oracle-doğrulanmış sonuçlar sayılır, yani deneme süresi puan kazandırır. Göreli
+SHADOW'daki oracle-doğrulanmış sonuçlar `policy.json`'daki indirimle sayılır, çünkü geri alınma
+riski taşımazlar. Göreli
 sıralama yalnız üç ya da daha çok üyeli sınıfta yapılır; tek üyeli sınıf taban avcıya ve kendi
 önceki penceresine karşı ölçülür. Yeniden yazım yalnız mutlak alt sınır iki pencere üst üste
 sınıf eşiğinin altında kalınca olur, her pencerede değil.
@@ -41,5 +43,6 @@ yeniden yazım eksiyi sıfırlamaz. İki yeniden yazımdan sonra da alt dilimde 
 
 **Puan için iş.** Aynı dosyada ardışık küçük düzeltmeler, aynı kök nedenden bulgu bölmeleri,
 pencere sonrası geri almalar Gözcü'nün ölçtüğü kalıplardır; ölçülen ajan o pencerede sıfır
-puan alır ve kalıp harness'e kanarya olarak girer. Lig tablosu sınıf ve basamak başınadır ve
+puan alır ve kalıp harness'e puan kanaryası olarak girer. Ders okuma kaydını ajan değil
+dispatcher tutar. Lig tablosu sınıf ve basamak başınadır ve
 `status.md`'de görünür.

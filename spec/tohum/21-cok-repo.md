@@ -32,15 +32,18 @@ baskın çerçeve için uzman" vardır ve o uzman genesis'ten geçer.
 
 | Taşınır | Taşınmaz |
 |---|---|
-| Beyin kodu | Vakalar, held-out, mühür |
-| Organ tanımları, yeni repoda DRAFT'tan başlar ve kanıtını orada toplar | Profil |
-| Kaçırma nedeni kategorileri | İtibar |
-| Dersler, hit/miss sayaçları sıfırlanmış, "başka repoda öğrenildi" etiketiyle | Harita, kapsama, defterler |
+| Beyin ve hakem kodu | Vakalar, held-out, mühür |
+| Organ tanımları; yeni repoda DRAFT'tan başlar, kanıtını orada toplar | Profil |
+| Kaçırma nedeni kategorileri | İtibar ve `derived_from` zinciri: repo sınırında kesilir |
+| Dersler yalnız yapısal alanlarıyla (`cause`, kapsam, kural); serbest metin, kaynak reponun tanımlayıcılarından temizlenmiş olarak | Harita, kapsama, defterler |
+
+Taşıma yalnız aynı sahibin repoları arasında yapılır. Taşınan her prompt ve ders, kaynak reponun
+yol, sembol ve ad listesine karşı taranır; eşleşme varsa taşınmaz.
 
 Bir repoda doğan tarif öbür repoda ancak ablasyonla gerekliliğini kanıtlarsa kalır.
 
 ## Kullanıcının dosyaları kullanıcının sisteminde
 
-Repoya özgü her şey kullanıcının reposunda ya da kullanıcının mühürlü deposunda durur. Beynin
-tarafında yalnız kod ve kök hash'lerin imzalı kaydı vardır. Beyin kaldırıldığında repo bütün
+Repoya özgü her şey kullanıcının reposunda ya da kullanıcının mühürlü deposunda durur, kök hash
+attestation'ları dahil. Beynin tarafında yalnız kod vardır. Beyin kaldırıldığında repo bütün
 hafızasıyla kullanıcının elinde kalır; başka bir beyin aynı dosyalardan devam edebilir.

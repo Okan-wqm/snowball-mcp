@@ -1,6 +1,6 @@
 # Yama Değil, Mimari Çözüm
 
-Tarih: 2026-10-28 · Sürüm: 2.0 · Durum: taslak · Sahibi: operatör
+Tarih: 2026-10-28 · Sürüm: 2.1 · Durum: taslak · Sahibi: operatör
 Okunma: her düzeltme tasarlanırken ve panel faz 4'te
 Çapa: düzeltme PR'ındaki katman iddiası; faz 4 kararları
 
@@ -27,14 +27,19 @@ Katman 4 iddiası, 1–3'ün neden imkânsız olduğunun kanıtını ister; kan�
 ölür. İddia edilen katmanın altında kalan düzeltme de faz 4'te ölür: "katman 1" denip yazılan
 bir null kontrolü kabul edilmez.
 
-**Yasak kalıplar.** Deterministik diff-guard (`04a-oracle-sertlestirme.md`) şunları reddeder:
-savunmacı `?.` ve boş yakalama, tip kaçışları, bastırma yorumları, tek seferlik uyumluluk
-katmanları, "ileride düzeltilecek" notları, yasaklı ifadeler. Bunlar kod incelemesine bile
-ulaşmaz.
+**Yasak kalıplar.** Deterministik diff-guard (`04a` 9) iki listeyi uygular. Dil başına
+**yasak yapılar** profildeki `banned_constructs`'tadır ve repo tanıma onları dilden türetir; örneğin
+savunmacı isteğe bağlı erişim, boş yakalama blokları, tip kaçışları, bastırma yorumları, test
+atlama. **Yasaklı ifadeler** `policy.json`'dadır; başlangıç listesi: "şimdilik", "geçici",
+"geçici çözüm", "pragmatik", "daha basit yaklaşım", "orta yol", "yeterince iyi", "sonra düzeltilir",
+"başka bir PR halleder", "kapsam dışı", "ertelendi" ve İngilizce karşılıkları ("for now",
+"temporary", "workaround", "pragmatic", "good enough", "follow-up", "out of scope", "deferred",
+"TODO later"). Bunlar kod incelemesine bile ulaşmaz.
 
-**Kapsam kuralı.** Kök neden dokunduğu her çağrı yerini aynı değişiklikte günceller; "başka bir
-PR halleder" bir plan değil, yasaklı ifadedir. Değişiklik büyüyorsa mikro görev bölünür, kapsam
-daraltılmaz.
+**Kapsam kuralı.** Kök neden dokunduğu her çağrı yerini aynı değişiklikte günceller; bir kök
+neden bir PR'dır ve `required_change` bu yüzden bir dizidir. Değişiklik büyüyorsa mikro görev
+bölünür ama kök neden bölünmez: büyük kök neden kendi aşamalı planını alır ve her parçası
+kendi başına yeşil ve geri alınabilir olur; kapsam daraltılmaz.
 
 **Olgunluk bir sıfat değil, ölçümdür.** "Kıdemli" ajan, deftere göre kıdemlidir: düzeltmelerinin
 hayatta kalma oranı, katman iddialarının panelde tutma oranı, geri alınma oranı ve kök neden

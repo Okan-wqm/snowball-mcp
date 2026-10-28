@@ -8,7 +8,8 @@ by execution (a test, a tool rerun, a measured harness), not by a model's opinio
 ## Status
 
 This repository currently holds the **specification** a single founder agent builds from. No
-brain code exists yet; Stage 0 creates it.
+brain code exists yet; Stage 0 creates it. The system is split into a player (this brain) and a
+separate referee repository (harness, gate, scoring), so the player can never grade itself.
 
 ## Where to start
 
@@ -17,7 +18,8 @@ brain code exists yet; Stage 0 creates it.
 | [`spec/INDEX.md`](spec/INDEX.md) | Every page, when to read it, and the task-to-page map |
 | [`spec/tohum/00-cekirdek.md`](spec/tohum/00-cekirdek.md) | The founder agent's core and the laws |
 | [`spec/tohum/00a-sinirlar-operator-ilk-gorev.md`](spec/tohum/00a-sinirlar-operator-ilk-gorev.md) | Founder limits, the operator's role, the first task |
-| [`spec/tohum/25-kurulum-gunu.md`](spec/tohum/25-kurulum-gunu.md) | One-time operator setup before the first run |
+| [`spec/tohum/00b-gorev-haritasi.md`](spec/tohum/00b-gorev-haritasi.md) | Which pages to read for which task |
+| [`spec/tohum/25-kurulum-gunu.md`](spec/tohum/25-kurulum-gunu.md), [`25a`](spec/tohum/25a-kurulum-etkinlestirme.md) | One-time operator setup: before the build, and after Stage 0 |
 
 ## Layout
 

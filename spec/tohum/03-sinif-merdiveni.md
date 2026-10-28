@@ -1,6 +1,6 @@
 # Sınıf Merdiveni ve Aşama Sırası
 
-Tarih: 2026-10-28 · Sürüm: 2.0 · Durum: taslak · Sahibi: operatör
+Tarih: 2026-10-28 · Sürüm: 2.1 · Durum: taslak · Sahibi: operatör
 Okunma: yeni sınıf ya da aşama açılırken
 Çapa: harness PASS raporları, sınıf başına; profile.json araç zinciri
 
@@ -27,8 +27,8 @@ bozmadır. Her açılış aynı döngüyü yeniden koşturur: adapter → oracle
 
 | Aşama | Döngüde canlı olan | Oracle |
 |---|---|---|
-| 0 | Asgari harness: K0 için hata seti, puanlama, mühür, zincirli defterler, taban avcı. LLM avcı yok | Harness'in zorunlu kendi testleri |
-| 1 | K0 döngüsü uçtan uca: lint adapter → araç oracle'ı → `--fix`, olmazsa Sonnet → entegrasyon dalına merge → defter → üretilmiş organ ve bulgu sayfaları | Araç yeniden koşusu, profildeki etkilenen-test komutu |
+| 0 | Asgari harness hakem reposunda: K0 için hata seti, puanlama, mühür, zincirli defterler, taban avcı, `spec.lint`. LLM avcı yok | Harness'in Aşama 0 kendi testleri |
+| 1 | K0 döngüsü uçtan uca: taban, lint adapter, harita (a), düzeltici, oracle, hakem kapısı, nöbetçi, defter, üretilmiş sayfalar | Araç yeniden koşusu ve mandal; kapının etkilenen-test koşusu |
 | 2 | K1 ve K2 adapter'ları; **Plan fazı**: Opus planlayıcı kuyruğu kapsama haritası, `blocked` listesi ve derslerden sıralar; ders okuyucusu doğar | Araç; planlayıcı sırası rastgele sıradan daha yüksek değer / USD verir |
 | 3 | K3 ve K4; ilk araç-dışı mekanik dedektörler; maliyet inişi canlı; harita katmanı (b) | Kasıtlı bozma, araç |
 | 4 | K5: kalıpsız LLM avcı, beş fazlı panel, test oracle'ı, TP'den dedektör üretimi | Held-out recall alt sınırı, yürütme oracle'ı, değer / USD |

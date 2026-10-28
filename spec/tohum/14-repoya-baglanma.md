@@ -1,6 +1,6 @@
 # Repoya Bağlanma
 
-Tarih: 2026-10-28 · Sürüm: 2.0 · Durum: taslak · Sahibi: operatör
+Tarih: 2026-10-28 · Sürüm: 2.1 · Durum: taslak · Sahibi: operatör
 Okunma: yeni repoda ve property eklerken
 Çapa: profile.json
 
@@ -18,11 +18,16 @@ Okunma: yeni repoda ve property eklerken
 - **Doğrulama motoru reponun kendi araçlarıdır.** Paralel bir test evreni kurulmaz; derleme
   grafiğinin dışında kalan diller için profil o dilin araç zincirini tanımlar, tanımlamıyorsa o
   dizin kapsama boşluğudur.
-- **Güvenlik yolları** profilde mekanik kuralla türetilir: yetki, kimlik, oturum, sır, satır
-  düzeyi güvenlik, PII ve ödeme ile ilgili dizinler; reponun kendi yönlendirme ya da sahiplik
-  dosyaları varsa onlardan.
-- **Hariç tutulan dizinler** profilde listelenir: önceki otomasyon sistemlerinin kod ve durum
-  dizinleri, ajan çalışma alanları, üretilmiş çıktı. Bunlar uygulama kodu olarak taranmaz.
+- **Güvenlik yolları** profilde mekanik kuralla türetilir: yol ve dosya adlarında `auth`,
+  `guard`, `security`, `session`, `token`, `secret`, `crypto`, `tenant`, `permission`, `role`,
+  `policy`, `payment`, `billing`, `pii` ve sahiplik dosyalarının güvenlik ekibine verdiği yollar.
+  Liste `policy.json`'da sürümlüdür; daralma rakip ve yeniden oynatmadan geçer (`01b`).
+- **Hariç tutulan dizinler** profilde listelenir: kendi durumunu, defterlerini ya da ajan
+  tanımlarını tutan otomasyon dizinleri, ajan çalışma alanları, inceleme kayıtları, üretilmiş çıktı.
+  Hariç tutma da daralma gibi rakipten geçer. Bunlar uygulama kodu olarak taranmaz.
+- **Mevcut otomasyonlarla bir arada yaşama.** Hedef repodaki mevcut otomasyonlar `brain/*`
+  dallarında koşmaz (`25a` 5); beyin onların dallarına ve durumlarına dokunmaz.
+- **Profil korunur.** Profili hakem işi türetir; beyin yalnız önerir (`01b`).
 - **Property'ler de büyür.** Doğruluk özellikleri başlangıç kümesiyle sınırlı değildir. Repodaki
   her kabul edilmiş mimari karar bir property adayıdır: Kurucu ondan bir property spec taslaklar,
   rakip çürütmeyi dener, harness o property için yeterli vaka bulursa property aktif olur.

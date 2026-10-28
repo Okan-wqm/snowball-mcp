@@ -1,6 +1,6 @@
 # Takım Kurma Kuralları
 
-Tarih: 2026-10-28 · Sürüm: 2.0 · Durum: taslak · Sahibi: operatör
+Tarih: 2026-10-28 · Sürüm: 2.1 · Durum: taslak · Sahibi: operatör
 Okunma: takım kurarken ve ajan önerirken
 Çapa: ajan dosyalarındaki köken alanları; reputation.jsonl; contracts/
 
@@ -21,11 +21,13 @@ Okunma: takım kurarken ve ajan önerirken
   mühendisi, ajan ve prompt yazarı, maliyet mühendisi, her artefakt için rakip ve yargıç. Alan
   uzmanları (dil, çerçeve, veri katmanı, kenar) tohumda adla geçmez; profildeki baskın
   teknolojiler için genesis'ten doğar ve ablasyonla kalır.
-- **Model politikası.** Yüksek işler Opus: Kurucu, spec taslakçısı, planlayıcı, keşif
-  basamağındaki avcı, düzeltme tasarımı. Düşük işler Sonnet: test-yazıcı, küçük düzeltmeler,
-  merdivenin alt basamakları, defter bakımı. En ucuz model panelin faz 1 ve 2'si için izinlidir.
-  Bağımsızlık kuralı `09a-bagimsizlik.md`'dedir ve model politikasının üstündedir.
-- **Takım boyutu aşama spec'inde yazar.** Aşama 0 için iki ajan: harness mühendisi ve rakibi.
+- **Model politikası.** Yüksek işler **Opus 5.5** (`claude-opus-5-5`): Kurucu, spec taslakçısı,
+  planlayıcı, keşif basamağındaki avcı, K5 ve üstü implementer. Düşük işler **Sonnet 5.5**
+  (`claude-sonnet-5-5`): test-yazıcı, oracle düzelticisi, K0–K2 düzelticisi, merdivenin alt
+  basamakları, defter bakımı. En ucuz model `policy.json`'da adlandırılır ve yalnız panelin faz 1–2'si
+  için izinlidir. Kimlikler `24`'tedir; bağımsızlık kuralı `09a`'dadır ve model politikasının
+  üstündedir.
+- **Takım boyutu aşama spec'inde yazar.** Aşama 0 için iki ajan: Kurucu ve tohum rakibi.
   Aşama 2 ve 3'te altı ya da yedi. Sayı bütçeyle sınırlıdır; her ajanın hangi sayıyı oynattığı
   çıkış raporunda yazar.
 - **Anlaşma değil, çürütme.** İki ajanın aynı sonuca varması kanıt değildir. Bir artefakt ancak

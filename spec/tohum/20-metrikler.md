@@ -11,7 +11,7 @@ sistemi şunları da sayar; hepsi `status.md`'de, hepsi zincirde.
 
 | Metrik | Tanım | Kullanımı |
 |---|---|---|
-| Regresyon oranı | 100 merge başına geri alma + bisect ile sisteme bağlanan merge sonrası kırmızı, 30 gün | Anayasal: eşiğin üstü dondurma |
+| Regresyon oranı | 100 merge başına geri alma + bisect ile sisteme bağlanan kırmızı, 30 gün | Anayasal (`28`): en az 50 merge varken > %2 ya da 50'den azken pencerede ≥ 2 geri alma → yumuşak dondurma |
 | Kaçış oranı | Sistemin taradığı dosyalarda, hata oradayken, insanların yazdığı düzeltmeler; property başına | Her kaçış yeni vaka; koşular arası capture–recapture ile gerçek kaçırma tahmini |
 | Değer / USD | Şiddet ağırlıklı hayatta kalan sonuç (CRIT 10, HIGH 5, MED 2, LOW 1, lint 0,05) bölü USD | USD / isabetin yerine; itibar ve merdiven bunu okur |
 | Düzeltme süresi | Bulgudan merge'e medyan ve p90, sınıf başına; `blocked` işlerin yaşı | Gözcü eğilimi |

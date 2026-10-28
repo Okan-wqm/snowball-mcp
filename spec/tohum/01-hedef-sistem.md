@@ -1,6 +1,6 @@
 # Hedef Sistem
 
-Tarih: 2026-10-28 · Sürüm: 2.0 · Durum: taslak · Sahibi: operatör
+Tarih: 2026-10-28 · Sürüm: 2.1 · Durum: taslak · Sahibi: operatör
 Okunma: ilk oturumda
 Çapa: profile.json; status.md amaç tablosu
 

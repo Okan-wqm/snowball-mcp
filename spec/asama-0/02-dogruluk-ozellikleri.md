@@ -1,6 +1,6 @@
 # Aşama 0 §0.2 — Doğruluk özellikleri
 
-Tarih: 2026-10-28 · Sürüm: 2.0 · Durum: taslak · Sahibi: operatör
+Tarih: 2026-10-28 · Sürüm: 2.1 · Durum: taslak · Sahibi: operatör
 Okunma: Aşama 0 çalışırken
 Çapa: beklemede: aşama 0 çıkış raporu
 
@@ -19,5 +19,6 @@ Harness'in kendisi için korunan özellikler; her biri bir kendi-testiyle (§0.9
    koduna ya da tohuma hedef repoya özgü ad sızmışsa kırmızı.
 6. **Zincir:** her defter satırı `prev_hash`/`row_hash` taşır; bozulmuş satır yakalanır.
 7. **Şema:** her artefakt `tohum/26`'daki şemaya karşı doğrulanır.
-8. **Held-out gizliliği:** held-out vakalar ve mühür hedef repoda değil, mühürlü depodadır;
-   `harness.score` held-out için yalnız CI exit işinden çağrılabilir ve yalnız pass/fail döner.
+8. **Held-out gizliliği:** held-out vakalar, yedek havuz ve mühür mühürlü depodadır; held-out
+   havuzdan hesaplanamaz; `harness.score` held-out için yalnız hakem exit işinden çağrılır ve yalnız
+   verdict, n ve alt sınır döner.

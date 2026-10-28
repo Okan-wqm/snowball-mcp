@@ -1,32 +1,37 @@
-# Entegrasyon Dalı, Geri Alma, Bulgu Kimliği
+# Entegrasyon Dalı, Nöbetçi, Geri Alma, Bulgu Kimliği
 
-Tarih: 2026-10-28 · Sürüm: 2.0 · Durum: taslak · Sahibi: operatör
+Tarih: 2026-10-28 · Sürüm: 2.1 · Durum: taslak · Sahibi: operatör
 Okunma: her döngü başında ve her merge'de
-Çapa: merge ve geri alma defteri; bulgu parmak izleri
+Çapa: beklemede: aşama 1 — merge ve geri alma defteri
 
 ---
 
-**Entegrasyon dalı `main`'i takip eder.** Her döngü başında `main` entegrasyon dalına merge
-edilir. Çakışma çözülmez: çakışan değişiklik geri alınır, `blocked` yazılır ve yeni bir mikro
-görev olarak kuyruğa girer. Zorla itme yoktur.
+**Entegrasyon dalı `main`'i takip eder.** Her döngü başında `main` `brain/integration`'a merge
+edilir. Çakışma çözülmez: çakışan beyin değişikliği geri alınır, `blocked` yazılır ve yeni bir
+mikro görev olarak kuyruğa girer. Zorla itme yoktur.
 
-**Tavanlar.** Döngü başına PR, merge ve CI dakikası tavanı vardır (`policy.json`); merge kuyruğu
-sırayla çalışır. Sıfır maliyetli `--fix` yolu da bu tavana tabidir.
+**Taban ve mandal.** Beyin bir repoya bağlandığında her aracın mevcut ihlallerinden bir taban
+çıkarır ve deftere yazar. Keşif tabandaki ve sonradan doğan tüm ihlalleri bulgu sayar; mevcut borç
+kapsam içindedir. Mandal kuralı: hiçbir merge bir aracın toplam ihlal sayısını artıramaz.
 
-**Kendi merge'ünü geri alır.** Entegrasyon dalında bir regresyon `git bisect` ile beynin merge
-ettiği bir değişikliğe bağlanıyorsa, beyin o değişikliği otomatik geri alır, geri almayı deftere
-`cause` ile yazar ve regresyonu yeni bir vaka adayı olarak sete ekler (`provenance: system`).
-Geri alma, merge kadar sıradan bir işlemdir ve aynı kapıdan geçer. Bisect'ten önce testin flaky
-olmadığı 3/3 kuralıyla doğrulanır.
+**Nöbetçi.** Her merge'den sonra hakemin nöbetçi işi `brain/integration` başında etkilenen testleri
+koşar. Kırmızı çıkarsa önce 3/3 kuralıyla flaky olmadığı doğrulanır, sonra `git bisect
+--first-parent` yalnız son yeşilden bu yana beynin merge commit'leri üzerinde yürür; insan
+commit'leri bölünmez. Bisect adımı başına süre ve toplam adım sayısı `policy.json`'dadır.
 
-**Hayatta kalma penceresi.** Hiçbir merge, pencere dolmadan sayılmaz ya da puanlanmaz. Pencere
-sınıfa göredir: K0 ve K1 için 3 gün, K5 ve K6 için 14 gün (`policy.json`). Pencerede geri
-alınan iş, artısını almadan eksisini alır.
+**Kendi merge'ünü geri alır.** Bisect beynin bir merge'ünü gösterirse beyin onu otomatik geri
+alır, geri almayı `cause` ile yazar (`26`'daki kapalı küme) ve regresyonu vaka adayı olarak
+ekler (`provenance: system_regression`). Geri alma, merge kadar sıradan bir işlemdir ve aynı
+kapıdan geçer. Bisect bir insan commit'ini gösterirse beyin geri almaz; bunu raporlar.
 
-**Bulgu kimliği.** Her bulgunun parmak izi `property + dosya + sembol + normalize(claim)`'den
-türetilir; satır numarası parmak izine girmez, çünkü kod kayınca kimlik değişmemelidir. Aynı
-parmak izi ikinci kez bulunursa yeni bulgu değil, yeniden gözlemdir. Yaşam döngüsü
-`open → fixed → verified → reopened`. Üç kez `reopened` olan bulgu salınımdır: iki düzeltme
-birbirini geri açıyordur; `blocked`'a düşer ve ikisini birlikte ele alan tek bir mikro görev
-olmadan yeniden denenmez. İtibar kredisi parmak izi başına değil, kök neden başına verilir
-(çakışan hunk ya da aynı sembol).
+**Hayatta kalma penceresi.** Hiçbir merge pencere dolmadan sayılmaz ya da puanlanmaz. Pencere
+sınıfa göredir ve `policy.json`'dadır: başlangıç K0 ve K1 için 72 saat, K5 ve K6 için 14 gün.
+Pencerede geri alınan iş artısını almadan eksisini alır.
+
+**Bulgu kimliği.** Parmak izi `property + dosya + sembol + normalize(iddia)`'dan türetilir.
+Sembol yoksa, örneğin dosya düzeyindeki lint ihlallerinde, `kural + kapsayan sembol ya da dosya
++ normalize(satır içeriği)` kullanılır; satır numarası hiçbir parmak izine girmez. Aynı parmak
+izi ikinci kez bulunursa yeni bulgu değil, yeniden gözlemdir. Yaşam döngüsü
+`open → fixed → verified → reopened`. Üç kez `reopened` olan bulgu salınımdır; `blocked`'a
+düşer ve ikisini birlikte ele alan tek bir mikro görev olmadan yeniden denenmez. İtibar kredisi
+kök neden başınadır (çakışan hunk ya da aynı sembol).

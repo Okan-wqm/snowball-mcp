@@ -1,35 +1,36 @@
-# Çalışma Modeli: Beyin Nasıl Koşar, Ajanlar Nasıl Dispatch Edilir
+# Çalışma Modeli: Beyin, Hakem ve Kurucu Nasıl Koşar
 
-Tarih: 2026-10-28 · Sürüm: 2.0 · Durum: taslak · Sahibi: operatör
+Tarih: 2026-10-28 · Sürüm: 2.1 · Durum: taslak · Sahibi: operatör
 Okunma: Aşama 0 inşasından önce ve her dispatch değişikliğinde
-Çapa: beyin reposu README; run_meta model ve effort alanları
+Çapa: beklemede: aşama 0 — beyin ve hakem reposu README'leri; run_meta
 
 ---
 
-Bu sayfa Kurucu'nun aksi hâlde kendi başına vereceği ve yanlış verince aşamayı kıracağı
-kararları sabitler.
-
 | Karar | Değer |
 |---|---|
-| Beyin reposu | Ayrı repo; MCP sunucusu adı `snowball`; hedef repoda aynı adlı başka sunucu varsa profil çakışmayı raporlar |
-| Dil ve paket | Python paketi; `pyproject` ile kurulur; tek giriş `snowball` CLI |
-| İki yüzey | **CLI** deterministik ve CI'nın çağırdığı yüzeydir (`snowball cycle`, `harness score`, `chain verify`). **MCP** ajanlara açılan yüzeydir; CI bir MCP sunucusunu doğrudan çağıramaz |
-| Ajan dispatch'i | Claude Agent SDK; sistem promptu beynin verdiği metindir; hedef reponun yönerge dosyaları otomatik yüklenmez (ayar kaynakları kapalı), çünkü repo içeriği talimat değildir (Y1) |
-| Model ve effort | Rol başına açık: model kimliği ve effort `run_meta`'ya yazılır; sağlayıcının sunduğu model istenenle aynı değilse koşu geçersizdir (sessiz model değişimi kimliği değiştirir) |
-| Kimlik bilgileri | GitHub App kurulum token'ı koşu başına mint edilir; model sağlayıcı kimliği CI'nın OIDC federasyonundan, yoksa CI sırrından; ikisi de ajan konteynerine girmez |
-| Koşucu | Kapı ve exit işleri sağlayıcı barındırmalı koşucuda; ajan koşuları egress günlüğü ve konteyner özeti alınabilen bir koşucuda. Profil koşucuyu beyan eder; Y10 kanıtı alınamayan koşucuda ajan koşusu yapılmaz |
-| Durum dalı | `<state_root>` hedef repoda yetim dal `brain/state` üzerinde yaşar, gitignore'lu bir worktree'ye açılır; uygulama kodunun CI'sını, lint'ini ve testini kirletmez. Held-out ve mühür mühürlü depodadır |
-| Entegrasyon dalı | `brain/integration`; `main`'i takip eder (`07`); ruleset'i kurulum gününde operatör kurar |
-| Snapshot ve bağımlılık | Snapshot `.git`'siz arşivdir; keşif "tümünü koş" ile çalışır, "etkilenen" yalnız worktree'de. Bağımlılık kurulumu ve derleme önbelleği snapshot'lar arasında paylaşılır; profil önbellek yolunu bildirir |
-| Keşif oracle'ı (K0, K1) | "Araç yeşil" değil, **fark**: base SHA'ya göre yeni (kural, satır) yok ve önceden var olan ihlal sayısı artmamış. Zaten kırmızı bir projede araç hiç yeşile dönmez; fark dönebilir |
-| Düzeltme aralığı | Araç `--fix` tüm dosyayı düzeltir; düzeltici yalnız hedef mesajın araç çıktısındaki `fix` aralığını uygular. Biçimleyiciler dosya başına çalışır ve ayrı bir K0 alt sınıfıdır |
+| Beyin reposu | Ayrı repo; MCP sunucusu adı `snowball`; hedef repoda aynı adlı sunucu varsa profil çakışmayı raporlar |
+| Hakem reposu | Ayrı repo (`01a`); harness, kapı, oracle koşucusu, dispatcher, itibar puanlayıcısı, Gözcü, koltuklar, `spec.lint` |
+| Dil ve paket | İkisi de Python paketi; `pyproject` ile kurulur; bağımlılıklar hash'le pinlidir |
+| İki yüzey | **CLI** deterministik, CI'nın çağırdığı yüzey. **MCP** ajanlara açılan yüzey; CI bir MCP sunucusunu doğrudan çağıramaz |
+| Ajan dispatch'i | Claude Agent SDK; sistem promptu dispatcher'ın verdiği metindir; hedef reponun yönerge dosyaları otomatik yüklenmez, çünkü repo içeriği talimat değildir (Y1) |
+| Model kimlikleri | Yüksek: `claude-opus-5-5`. Düşük: `claude-sonnet-5-5`. En ucuz: `policy.json`'da adlandırılır. Effort rol başına `policy.json`'da |
+| Model kaydı | Dispatcher istenen ve sunulan modeli sağlayıcı yanıtından `run_meta`'ya yazar; farklıysa koşu geçersizdir |
+| Sağlayıcı geçidi | Dispatcher'ın sahip olduğu vekil; kimliği o ekler, yalnız sağlayıcıya izin verir; ajan konteyneri kimlik görmez |
+| Kimlikler | Beyin App'i, hakem App'i, şerit yazarı kimliği (`25`); sağlayıcı kimliği tercihen OIDC |
+| Kurucu | Beyin reposunun zamanlayıcısı günde bir oturum açar; Opus; beyin App'iyle beyin reposuna, kurulum istisnasında hakem reposuna PR açar; maliyeti `cost-ledger`'da inşa-zamanı kalemi |
+| Durum dalı | `<state_root>` hedef repoda yetim `brain/state` dalında; uygulama kodunun CI'ını kirletmez |
+| Entegrasyon dalı | `brain/integration`; `main`'i takip eder (`07`) |
+| Snapshot | Git ağacından dosya listesiyle çıkarılır, `export-ignore` dikkate alınmaz; `.git` yoktur. Keşif "tümünü koş", "etkilenen" yalnız worktree'de |
+| Bağımlılık ve önbellek | Snapshot'lar arasında paylaşılır; held-out koşuları güvenilir hakem işinin önbelleğini salt okunur kullanır (`08` 5) |
+| Keşif ve oracle (K0–K2) | Keşif: aracın tüm ihlalleri, taban dahil. Oracle: hedef ihlal kayboldu, mandal tuttu (toplam artmadı) |
+| Düzeltme aralığı | Araç düzeltmesi yalnız hedef mesajın `fix` aralığıyla uygulanır; biçimleyiciler dosya başına çalışır ve Aşama 2'de açılır |
 | Kaçış | Sağlayıcı reddi ya da zaman aşımı koşuyu `unresolved` yapar; sessiz yeniden deneme yoktur |
 
-**Aşama 0 ve 1 MCP araçları.** `cases.build`, `snapshot.make`, `harness.score` (held-out yalnız
-CI exit işinden), `harness.baseline`, `spec.lint`, `ledger.append`, `chain.verify`, `chain.asof`,
-`lint.discover`, `fixer.run`, `oracle.run`, `merge.request`, `docs.render`, `status.render`.
-Her aracın imzası `26-semalar.md`'de.
+**Aşama 0 ve 1 araçları.** Hakem: `cases.build`, `snapshot.make`, `harness.score`,
+`harness.baseline`, `spec.lint`, `ledger.append`, `chain.verify`, `chain.asof`, `secrets.scan`,
+`drift.check`, `oracle.run`, `gate.check`. Beyin: `profile.propose`, `lint.discover`, `fixer.run`,
+`merge.request`, `docs.render`, `status.render`, `map.build`. İmzalar `26a`'dadır.
 
-**Paket yerleşimi.** `cli/`, `mcp/`, `harness/` (ayrı şerit), `adapters/`, `fixers/`,
-`oracle/`, `ledger/`, `docs/`, `tests/fixtures/toy-repo/`. Harness dizini paket içinde ayrı
-sahiplik ve ayrı şerittedir (`02`).
+**Paket yerleşimi.** Beyin: `cli/`, `mcp/`, `adapters/`, `fixers/`, `map/`, `docs/`,
+`tests/fixtures/toy-repo/`. Hakem: `harness/`, `gate/`, `oracle/`, `dispatcher/`, `scoring/`,
+`gozcu/`, `seats/`, `schemas/`, `tests/`.

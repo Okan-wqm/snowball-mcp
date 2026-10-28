@@ -1,6 +1,6 @@
 # Aşama 4 §4.9 — Çıkış testi, ikinci kapı: maliyet inişi
 
-Tarih: 2026-10-28 · Sürüm: 2.0 · Durum: hedef taslak · Sahibi: operatör
+Tarih: 2026-10-28 · Sürüm: 2.1 · Durum: hedef taslak · Sahibi: operatör
 Okunma: Aşama 4 çalışırken
 Çapa: beklemede: aşama 4 çıkış raporu
 
@@ -11,7 +11,7 @@ Sonnet (ayrıklığı bozmuyorsa); kısa prompt; TP'lerden üretilen mekanik ded
 tabanlı dar kapsam.
 
 Her basamak aynı dev vakalarında eşli denenir ve non-inferiority kuralıyla (n ≥ 20, bir vaka
-marjı) doğrulanır; held-out'ta bir bakışla teyit edilir ve o bakış mühür bütçesinden düşer.
+marjı) doğrulanır. Held-out'a yalnız kazanan basamak gider ve bir bakış harcar.
 Birinci kapıyı tutan en ucuz basamak üretim basamağı olur; tutmayan basamak deftere yazılır ve
 vaka havuzu yarı yarıya büyüyünce bir kez daha denenir.
 

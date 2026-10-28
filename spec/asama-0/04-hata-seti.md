@@ -1,35 +1,38 @@
 # Aşama 0 §0.4 — Hata seti
 
-Tarih: 2026-10-28 · Sürüm: 2.0 · Durum: taslak · Sahibi: operatör
+Tarih: 2026-10-28 · Sürüm: 2.1 · Durum: taslak · Sahibi: operatör
 Okunma: Aşama 0 çalışırken
 Çapa: beklemede: aşama 0 çıkış raporu
 
 ---
 
-**Kaynak, iki yol.** (1) Reponun geçmişinde lint kuralı ihlali düzelten commit'ler; commit türü
-filtresi yoktur, çünkü lint düzeltmeleri çoğu repoda `chore`, `refactor` ya da `test` olarak
-gelir. (2) **Mutasyon:** aracın kural kataloğundan bilinen ihlaller temiz dosyalara deterministik
-operatörlerle enjekte edilir. K0'da ana kaynak mutasyondur; gerçek düzeltmeler azdır ve geçmişe
-göre uygulanamaz olur.
+**Kaynak, iki yol.** (1) Geçmişte lint kuralı ihlali düzelten commit'ler; commit türü filtresi
+yoktur. (2) **Mutasyon:** aracın kural kataloğundan bilinen ihlaller temiz dosyalara
+deterministik operatörlerle enjekte edilir. K0'da ana kaynak mutasyondur.
 
-**Vaka, ebeveyne sabitlenir.** Gerçek düzeltme F için `base_sha` = F'nin ebeveyni; snapshot
-`archive(base_sha)`'dır, HEAD'e ters yama uygulanmaz. Böylece eski düzeltmeler de vaka olur.
+**Vaka ebeveyne sabitlenir.** Gerçek düzeltme F için `base_sha` F'nin ebeveynidir; snapshot o
+ağaçtan çıkarılır, HEAD'e ters yama uygulanmaz.
 
-**Geçerlilik.** K0 vakası geçerlidir ancak ve ancak araç, snapshot'ta tam olarak o (kural, satır)
-için kırmızı verir ve clean snapshot'ta aynı (kural, satır) yoktur. "Araç kırmızı" tek başına
-anlamsızdır, çünkü birçok proje zaten kırmızıdır; ölçü farktır.
+**Geçerlilik.** Araç mutasyonlu ve mutasyonsuz ağaçta koşar; satırlar mutasyon hunk'ı üzerinden
+eşlenir, böylece kayan satırlar yeni ihlal sayılmaz. Vaka, mutasyon bölgesinde **tam olarak bir**
+yeni (kural, satır) ihlali doğuyorsa geçerlidir; birden fazla ihlal doğuran mutasyon reddedilir.
+Zaten kırmızı projelerde ölçü "araç kırmızı" değil, bu farktır.
 
-**Provenance.** Her vaka `provenance` taşır: `human_fix`, `mutation`, `system_tp`,
-`system_regression`. Exit kapısında ve held-out'ta yalnız `human_fix` ve `mutation` sayılır;
-sistemin kendi ürettiği vakalar aynı organ soyunun held-out'una giremez.
+**Sınıf etiketi.** `class_level` deterministik haritayla verilir. Profildeki `rule_property_map`,
+anlamsal lint kurallarını (örneğin beklenmeyen promise kuralları) K0'a değil, ilgili K5
+property'sine bağlar; böylece K5 havuzu aç kalmaz.
 
-**Yerleşim.** Dev vakalar `<state_root>/cases/`; held-out vakalar ve mühür mühürlü depoda.
-Vaka kaydı şeması `tohum/26`.
+**Provenance.** `human_fix`, `mutation`, `system_tp`, `system_regression`. Exit kapısında
+`human_fix` ve `mutation` sayılır (`tohum/19`); sistemin ürettiği vakalar aynı organ soyunun
+held-out'una ve hiçbir exit kapısına girmez.
 
-**Bölme.** `cases.build`, vakaları CI sırrından türetilen tohumla **dev** ve **held-out** olarak
-ayırır; bölme mutasyon operatörü ya da modül grubu bazındadır, yakın kopyalar aynı tarafta kalır.
-Held-out: K0 için en az 60 mutasyon, K5 ve üstü için en az 25 vaka (`tohum/19`). Mühür HMAC
-tuzludur; yalnız CI `rotate` işi yazar. Mühre en fazla üç bakış, sonra rotasyon.
+**Üç iş.** Vaka üretimi sırlı hakem işinde koşar (**hazırla**); avcı ve adapter sırsız işte koşar
+(**koş**); puanlama sırlı hakem işinde koşar (**puanla**) (`tohum/08` 1). Kurucu `cases.build`'i
+yalnız dev için çağırabilir.
 
-**Sınıf etiketi.** `class_level` deterministik bir haritayla verilir: kural kimliği ve araç →
-K0–K2; property → K3–K8 (§0.5). Harita `cases.build` içinde sürümlüdür.
+**Held-out kaynağı.** Mutasyonlar gizli tohumla çok büyük bir aday havuzundan seçilir; insan
+düzeltmeleri mühürlü kesim tarihinden sonra merge edilenlerden gelir; ayrıca yayımlanmayan bir
+yedek havuz tutulur. Bölme modül ya da mutasyon operatörü grubuna göredir. Held-out: K0 için en az
+60 mutasyon. Mühür HMAC'lidir; yalnız hakem rotate işi yazar; bakış bütçesi `tohum/19`.
+
+**Yerleşim.** Dev vakalar `<state_root>/cases/`; held-out, yedek havuz ve mühür mühürlü depoda.

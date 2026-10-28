@@ -1,6 +1,6 @@
 # Bulgu Paneli (K5 ve üstü): Beş Faz
 
-Tarih: 2026-10-28 · Sürüm: 2.0 · Durum: taslak · Sahibi: operatör
+Tarih: 2026-10-28 · Sürüm: 2.1 · Durum: taslak · Sahibi: operatör
 Okunma: K5 ve üstü bulgu değerlendirirken
 Çapa: faz ölüm sayıları; yargıç kalibrasyon defteri
 
@@ -13,8 +13,8 @@ Panelin amacı bulguyu "doğru mu" diye oylamak değil, beş fazda kanıtla çü
 dört şey yazılır: zıt ispat yükü (üç koltuk, üç farklı soru), mühürlü karar (her fazda kararlar
 hash'lenir, sonra açılır, tek çürütme turu), ayrı bağlam ve ikili ayrık model (`09a`), ve son
 sözü yürütmenin söylemesi. Tartışmayı bitirmenin en ucuz yolu kanıttır: herhangi bir yargıç
-herhangi bir fazda üreme testini yazıp koşturursa tartışma biter ve faz 5'e atlanır. "Bir an
-önce teslim edip kurtulma" dürtüsü sisteme böyle bağlanır.
+herhangi bir fazda üreme testi **talep ederse** tartışma durur ve test-yazıcı testi yazar; testi
+hiçbir yargıç yazmaz. "Bir an önce teslim edip kurtulma" dürtüsü sisteme böyle bağlanır.
 
 | Faz | Soru | Yük | Kapanış |
 |---|---|---|---|
@@ -27,7 +27,8 @@ herhangi bir fazda üreme testini yazıp koşturursa tartışma biter ve faz 5'e
 **Konuşma kuralları.** Her tur, her yargıç için en fazla bir cümle ve en az bir `path:line`.
 Referanssız "katılıyorum" ya da "katılmıyorum" geçersizdir; o yargıç o turda söz hakkını
 kaybeder. Kabul eden yargıç hangi referansın onu ikna ettiğini yazar. İki turda kapanmayan faz
-faz 5'e gider: test karar verir. Bir bulgu bir fazı geçemezse orada ölür ve defter fazı yazar.
+faz 5'e gider: test karar verir. Turda karar mühürlemeyen yargıç o fazda eksi puan alır. Bir
+bulgu bir fazı geçemezse orada ölür ve defter fazı, her yargıcın kararını ve referansını yazar.
 
 **Implementer'a giden dosya.** Yalnız beş fazı geçen bulgu gider ve yalnız şunlarla: iddia,
 kanıt referansları, erişim yolu, görünür sonuç, yapısal `required_change`, etki kümesi, üreme
