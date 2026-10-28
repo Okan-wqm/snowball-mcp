@@ -61,7 +61,8 @@ MUTANTS = [
      "the MCP server outlives a timed-out CLI"),
     ("toolbox_escapes_the_tree", f"{PKG}/rival.py", "if not target.is_relative_to(self.root):", "if False:",
      "the model reads files outside the extracted tree"),
-    ("mcp_result_secret_scan_off", f"{PKG}/rival_mcp.py", "if secretscan.scan(text):", "if False:",
+    ("mcp_result_secret_scan_off", f"{PKG}/rival_mcp.py",
+     "if secretscan.scan(text) or secretscan.scan(text.replace(chr(0), '')):", "if False:",
      "a tool result with a secret reaches the model"),
     ("mcp_accepts_invalid_verdicts", f"{PKG}/rival_mcp.py", "validate_verdict(args, self.box)", "None",
      "the model is never told its verdict is malformed (the real e2e failure)"),
@@ -75,22 +76,67 @@ MUTANTS = [
      "a Windows-shaped member name reaches the filesystem"),
     ("unknown_config_keys_pass", f"{PKG}/config.py", "unknown = sorted(set(obj) - known)", "unknown = []",
      "removed or misspelled operator settings are silently ignored"),
+    ("outage_never_parked", f"{PKG}/cli.py", 'int(prev.get("outage_count", 0)) >= OUTAGE_RETRY_LIMIT',
+     'int(prev.get("outage_count", 0)) >= 10**9', "a dead token re-runs the whole pipeline every hour"),
+    ("parked_forever", f"{PKG}/cli.py", "age < datetime.timedelta(days=1)", "True",
+     "a parked commit is never tried again"),
+    ("outage_count_never_grows", f"{PKG}/decide.py", 'state["outage_count"] += 1', 'state["outage_count"] += 0',
+     "the outage memory never reaches its limit"),
+    ("verdict_keeps_outage_count", f"{PKG}/decide.py", 'state["outage_sha"], state["outage_count"] = None, 0', "pass",
+     "an old outage streak parks a commit that has since been judged"),
+    ("outage_not_announced", f"{PKG}/cli.py", "if outage:  # the job stays green", "if False:  # the job stays green",
+     "an outage leaves no trace in the job: the operator sees a green run and nothing else"),
+    ("utf16_secret_passes", f"{PKG}/rival_mcp.py", "or secretscan.scan(text.replace(chr(0), ''))", "",
+     "a UTF-16 file carries a token past the scan"),
+    ("api_key_source_unchecked", f"{PKG}/rival.py", 'if init.get("apiKeySource") != "none":', "if False:",
+     "a run using an API key is accepted"),
+    ("grep_hides_skipped_files", f"{PKG}/rival.py", 'if skipped else ""', 'if False else ""',
+     "the model reads (no matches) for a file grep never opened"),
+    ("interrupt_leaves_children", f"{PKG}/rival.py", "except BaseException:  # a timeout, Ctrl-C, SIGTERM",
+     "except subprocess.TimeoutExpired:  # a timeout, Ctrl-C, SIGTERM",
+     "Ctrl-C or SIGTERM leaves the CLI and its MCP server running and spending"),
+    ("stream_split_on_unicode_lines", f"{PKG}/rival.py", "stdout.split(", "stdout.splitlines(",
+     "a result text with U+2028 cuts the result event in two and the whole run is lost"),
+    ("deadline_can_be_swallowed", f"{PKG}/rival_mcp.py", "class _Deadline(BaseException):", "class _Deadline(OSError):",
+     "pathlib's directory walk swallows the signal's exception and the call runs without any limit"),
+    ("secret_file_read_by_lines", f"{PKG}/rival.py", 'raise SecretWithheld("withheld: the file matches a secret pattern")',
+     "pass", "a PEM body is returned by asking for line 2 onwards"),
+    ("verdict_not_checked_for_canonical_json", f"{PKG}/rival.py", 'canon.canonical({"verdict": raw["verdict"], "attempts": clean})',
+     "None", "a verdict the signed artifacts cannot hold crashes the job and loses the run's cost"),
+    ("deep_json_kills_the_server", f"{PKG}/rival_mcp.py", "except (ValueError, RecursionError):", "except ValueError:",
+     "one 10 000-level JSON line ends the session"),
+    ("links_followed", f"{PKG}/rival.py", 'base.rglob("*") if p.is_file() and not p.is_symlink()',
+     'base.rglob("*") if p.is_file()', "grep reads through a link out of the tree"),
+    ("refutations_signed_by_position", f"{PKG}/decide.py", "reason['detail_sha256'][:12]", "reason['ref']",
+     "three different defects in a row read as one rejection and stop the Founder"),
+    ("test_output_republished", f"{PKG}/decide.py", 'output_tail=_redacted(t.get("output_tail"))', 'output_tail=t.get("output_tail")',
+     "a secret printed by a failing test is published in the signed result"),
+    ("unchanged_tree_polled_forever", f"{PKG}/decide.py", "elif evaluate:  # an unchanged tree", "elif False:  # an unchanged tree",
+     "an empty commit is picked up again every hour"),
+    ("vector_flake_blamed_on_founder", f"{PKG}/vectors.py", "for _ in range(2):", "for _ in range(1):",
+     "a container the host killed under load is recorded as the Founder's failed vector"),
+    ("not_learning_one_early", f"{PKG}/decide.py", "if n >= limit)", "if n >= limit - 1)",
+     "the Founder is stopped after two identical rejections instead of three"),
+    ("bare_hex_threshold_dropped", f"{PKG}/secretscan.py", "[0-9a-f]{32,}", "[0-9a-f]{3,}",
+     "short hex or plain numbers assigned to a token-named variable refuse innocent pushes"),
 ]
 
 
-def run_mutant(index: int, mutant: tuple[str, str, str, str, str]) -> tuple[bool, str, float]:
-    name, rel, old, new, _why = mutant
+def run_mutant(index: int, mutant: tuple[str, str, str, str, str] | None) -> tuple[bool, str, float]:
+    """Apply one mutant (or none: the baseline) to a fresh copy and run the unit tests there."""
     started = time.monotonic()
     with tempfile.TemporaryDirectory(prefix=f"mutant-{index}-") as tmp:
         work = Path(tmp)
         ignore = shutil.ignore_patterns("__pycache__", "node_modules", ".git")
         shutil.copytree(ROOT / "seed", work / "seed", ignore=ignore)
         shutil.copytree(ROOT / "spec" / "tohum", work / "spec" / "tohum", ignore=ignore)
-        target = work / rel
-        text = target.read_text(encoding="utf-8")
-        if text.count(old) != 1:
-            return False, f"ANCHOR MISSING in {rel} (found {text.count(old)}x): update the mutant", 0.0
-        target.write_text(text.replace(old, new), encoding="utf-8", newline="")
+        if mutant is not None:
+            _name, rel, old, new, _why = mutant
+            target = work / rel
+            text = target.read_text(encoding="utf-8")
+            if text.count(old) != 1:
+                return False, f"ANCHOR MISSING in {rel} (found {text.count(old)}x): update the mutant", 0.0
+            target.write_text(text.replace(old, new), encoding="utf-8", newline="")
         boot = work / "seed" / "bootstrap"
         env = {"PATH": "/usr/local/bin:/usr/bin:/bin", "PYTHONDONTWRITEBYTECODE": "1", "PYTHONPATH": ".:tests",
                "HOME": str(work)}
@@ -114,6 +160,10 @@ def main() -> int:
         for _i, m in chosen:
             print(f"{m[0]:34} {m[4]}")
         return 0
+    killed, detail, _ = run_mutant(-1, None)  # without this a failing environment makes every mutant "killed"
+    if killed:
+        print(f"the unmutated code already fails its tests ({detail}); fix that first", file=sys.stderr)
+        return 2
     survivors = []
     for i, m in chosen:
         killed, detail, seconds = run_mutant(i, m)

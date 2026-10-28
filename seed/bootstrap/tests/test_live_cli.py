@@ -37,7 +37,7 @@ class LiveCliContractTest(unittest.TestCase):
         # A renamed flag or a changed output format gives cli_exit_N or bad_cli_result instead.
         self.assertEqual(out.verdict, "unresolved")
         self.assertEqual(len(out.reasons), 1, out.reasons)
-        self.assertRegex(out.reasons[0], r"^api_error:(http_[0-9]+|unknown)$", out.reasons)
+        self.assertRegex(out.reasons[0], r"^api_error:(http_[0-9]+|not_logged_in|unknown)$", out.reasons)
         self.assertEqual(out.cost_usd_micros, 0)
 
     def test_every_visible_flag_in_use_is_still_in_the_help(self):

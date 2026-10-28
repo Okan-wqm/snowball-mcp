@@ -18,6 +18,7 @@ import unittest
 
 from snowball_bootstrap.canon import row_hash
 from snowball_bootstrap.container import RunResult
+from snowball_bootstrap.rival import TOOL_NAMES
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "drill"))
 from snowball_drill import judge as drill_judge  # noqa: E402  (reference judge, `tohum/29c`)
@@ -160,16 +161,23 @@ posix_only = unittest.skipIf(os.name == "nt", "needs a POSIX shell (shebang scri
 # ---------------------------------------------------------------- the claude CLI double
 
 # A stand-in for the `claude` binary. It reads the real argv, starts the MCP server named in
-# --mcp-config, speaks the real protocol to it with the scripted tool calls, and prints the JSON a
-# real `claude -p --output-format json` run would print.
+# --mcp-config, speaks the real protocol to it with the scripted tool calls, and prints the stream a
+# real `claude -p --output-format stream-json` run would print.
 FAKE_CLAUDE = textwrap.dedent('''\
     #!{python}
     import json, os, subprocess, sys, time
     here = os.path.dirname(os.path.abspath(__file__))
     scenario = json.load(open(os.path.join(here, "scenario.json")))
     argv = sys.argv[1:]
-    stdin = sys.stdin.read()
-    json.dump({{"argv": argv, "stdin": stdin, "cwd": os.getcwd(), "env": sorted(os.environ)}},
+    mcp_cfg = json.load(open(argv[argv.index("--mcp-config") + 1]))["mcpServers"]["snowball"] if "--mcp-config" in argv else {{}}
+    open(os.path.join(here, "claude.pid"), "w").write(str(os.getpid()))
+    stdin = sys.stdin.buffer.read()
+    system_path = argv[argv.index("--system-prompt-file") + 1] if "--system-prompt-file" in argv else None
+    pinned = ("DISABLE_AUTOUPDATER", "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC", "CLAUDE_CODE_DISABLE_AUTO_MEMORY",
+              "CLAUDE_CODE_NO_MODEL_FALLBACK")
+    json.dump({{"argv": argv, "stdin": stdin.decode("utf-8", "replace"), "stdin_hex": stdin.hex(),
+                "cwd": os.getcwd(), "mcp_args": mcp_cfg.get("args"), "env": sorted(os.environ), "env_values": {{k: os.environ.get(k) for k in pinned}},
+                "system_hex": open(system_path, "rb").read().hex() if system_path else None}},
               open(os.path.join(here, "seen.json"), "w"))
     if scenario.get("grandchild"):
         child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"])
@@ -178,7 +186,7 @@ FAKE_CLAUDE = textwrap.dedent('''\
         time.sleep(scenario["sleep"])
     if scenario.get("garbage"):
         print("not json"); sys.exit(1)
-    cfg = json.load(open(argv[argv.index("--mcp-config") + 1]))["mcpServers"]["snowball"]
+    cfg = mcp_cfg
     proc = subprocess.Popen([cfg["command"]] + cfg["args"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
     def rpc(i, method, params=None):
         proc.stdin.write(json.dumps({{"jsonrpc": "2.0", "id": i, "method": method, "params": params or {{}}}}) + "\\n")
@@ -190,7 +198,13 @@ FAKE_CLAUDE = textwrap.dedent('''\
     for n, (name, args) in enumerate(scenario.get("calls", []), start=2):
         replies.append(rpc(n, "tools/call", {{"name": name, "arguments": args}})["result"])
     proc.stdin.close(); proc.wait()
+    if scenario.get("write_verdict_raw") is not None:  # a verdict file that did not come through the server
+        open(cfg["args"][cfg["args"].index("--verdict-out") + 1], "w").write(json.dumps(scenario["write_verdict_raw"]))
     json.dump({{"tools": [t["name"] for t in listed], "replies": replies}}, open(os.path.join(here, "mcp.json"), "w"))
+    if scenario.get("raw") is not None:
+        sys.stdout.buffer.write(scenario["raw"].encode("utf-8")); sys.stdout.flush(); sys.exit(scenario.get("exit", 0))
+    if scenario.get("raw_hex") is not None:
+        sys.stdout.buffer.write(bytes.fromhex(scenario["raw_hex"])); sys.stdout.flush(); sys.exit(scenario.get("exit", 0))
     events = scenario.get("events")
     if events is None:
         result = scenario.get("result", {{}})
@@ -222,11 +236,39 @@ def submit(verdict="not_refuted", attempts=None):
     return ["submit_verdict", {"verdict": verdict, "attempts": attempts or []}]
 
 
+def good_init(**over):
+    """The init event of a correctly isolated run (shape recorded from the real CLI)."""
+    init = {"type": "system", "subtype": "init", "model": "x", "apiKeySource": "none", "skills": [],
+            "slash_commands": [], "tools": list(TOOL_NAMES), "mcp_servers": [{"name": "snowball", "status": "connected"}]}
+    init.update(over)
+    return init
+
+
 def install_fake_claude(bin_dir: Path) -> Path:
-    claude = bin_dir / "claude"
-    claude.write_text(FAKE_CLAUDE.format(python=sys.executable))
-    claude.chmod(claude.stat().st_mode | stat.S_IEXEC)
-    return claude
+    """A POSIX shebang script, or on Windows a claude.cmd that runs the same script like the real npm shim."""
+    script = bin_dir / ("fake_claude.py" if os.name == "nt" else "claude")
+    script.write_text(FAKE_CLAUDE.format(python=sys.executable))
+    script.chmod(script.stat().st_mode | stat.S_IEXEC)
+    if os.name != "nt":
+        return script
+    shim = bin_dir / "claude.cmd"
+    shim.write_bytes(("@echo off" + chr(13) + chr(10) + f'"{sys.executable}" "{script}" %*' + chr(13) + chr(10)).encode())
+    return shim
+
+
+def process_alive(pid: int) -> bool:
+    if os.name == "nt":
+        listing = subprocess.run(["tasklist", "/FI", f"PID eq {pid}", "/NH"], capture_output=True, text=True).stdout
+        return str(pid) in listing.split()
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    try:  # a dead child nobody has reaped yet (no init in the container) still answers kill(pid, 0)
+        with open(f"/proc/{pid}/stat") as handle:
+            return handle.read().rsplit(")", 1)[1].split()[0] != "Z"
+    except OSError:
+        return True
 
 
 # ---------------------------------------------------------------- git helpers

@@ -316,6 +316,9 @@ class ClaudeCliPinTest(unittest.TestCase):
         self.assertEqual(pin[platform], version)
         self.assertRegex(version, r"^[0-9]+\.[0-9]+\.[0-9]+$")
         self.assertEqual(lock["packages"][""]["dependencies"], pin)
+        # npm 12 blocks install scripts unless allowed; without them the binary stays a 500-byte stub
+        package = json.loads((folder / "package.json").read_text())
+        self.assertEqual(package["allowScripts"], {f"{main}@{version}": True})
         binary = lock["packages"]["node_modules/" + platform]
         # The package holding the real binary is a hard dependency: npm skips an optional package whose digest
         # is wrong (and re-resolves it without the lock), a required one fails the install with EINTEGRITY.
@@ -341,6 +344,13 @@ class TreeHardeningTest(unittest.TestCase):
                 with self.assertRaises(TreeError, msg=name):
                     extract(buf.getvalue(), Path(tmp) / "dest" / "tree", 1000)
             self.assertEqual(list(Path(tmp).rglob("x")), [])
+            buf = io.BytesIO()  # a legal git member name longer than the file system allows: a TreeError, not a traceback
+            with tarfile.open(fileobj=buf, mode="w") as tar:
+                info = tarfile.TarInfo("a/" + "b" * 1000)
+                info.size = 1
+                tar.addfile(info, io.BytesIO(b"x"))
+            with self.assertRaises(TreeError):
+                extract(buf.getvalue(), Path(tmp) / "long", 1000)
 
 
 class BootstrapConfigTest(unittest.TestCase):
@@ -379,3 +389,55 @@ class BootstrapConfigTest(unittest.TestCase):
         for model in ("sonnet", "", "  ", "claude-sonnet-5-5[1m]", "gpt-5"):
             with self.assertRaisesRegex(ConfigError, "full model id", msg=model):
                 self.load(lambda d: d["rival"].update(model=model))
+
+
+class SecretScanCoverageTest(unittest.TestCase):
+    """Found by a real run: the model read GITHUB_TOKEN-style lines through grep, quoted them in its claims, and
+    they went to the provider and into rival.json, because the scan only knew a few shapes."""
+
+    TOK = "A" * 10 + "b" * 10 + "7" * 8
+
+    def test_the_commonest_credential_shapes_are_found(self):
+        cases = {
+            "generic_assignment": ['GITHUB_TOKEN = "' + self.TOK + '"', "db_password: '" + self.TOK + "'",
+                                   'AWS_SECRET_ACCESS_KEY = "' + "wJalrXUtnFEMI/K7MDENG" + "bPxRfiCY" + '"'],
+            "generic_assignment_bare": ["AWS_SECRET_ACCESS_KEY=" + "wJalrXUtnFEMI/K7MDENG" + "bPxRfiCY",
+                                        "api_key: " + self.TOK, "TOKEN=" + "0123456789abcdef" * 2],
+            "openai_key": ["OPENAI = " + "sk-" + "proj-" + "A" * 40],
+            "stripe_key": ["sk_" + "live_" + "A" * 24],
+            "google_api_key": ["AI" + "za" + "A" * 35],
+            "npm_token": ["npm" + "_" + "A" * 36],
+            "jwt": ["ey" + "J" + "A" * 12 + ".ey" + "J" + "A" * 12 + "." + "A" * 12],
+        }
+        for name, samples in cases.items():
+            for sample in samples:
+                self.assertIn(name, secretscan.scan(sample), sample)
+
+    def test_identifiers_numbers_and_lookups_are_not_secrets(self):
+        for line in ("token = tokenizer_pretrained_model_name_v2", "secret = get_secret_value_from_vault_1",
+                     "token_count = 12345678901234567890", 'api_key = os.environ["API_KEY"]', "max_tokens = 100000",
+                     'password = "changeme"', "password_field = hash_password_with_salt_and_pepper",
+                     "SECRET_KEY = config.get('secret_key_name')", "token: Bearer",
+                     "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"):
+            self.assertEqual(secretscan.scan(line), [], line)
+
+    def test_the_repository_itself_has_no_false_positive(self):
+        root = Path(__file__).resolve().parents[3]
+        checked = 0
+        for base in (root / "seed", root / "spec", root / "README.md"):
+            for path in ([base] if base.is_file() else base.rglob("*")):
+                parts = path.parts
+                if (not path.is_file() or "node_modules" in parts or "__pycache__" in parts or path.stat().st_size > 2_000_000
+                        or path.suffix not in (".py", ".md", ".json", ".yml", ".txt", ".cjs")):
+                    continue
+                checked += 1
+                self.assertEqual(secretscan.scan(path.read_text(encoding="utf-8", errors="replace")), [],
+                                 str(path.relative_to(root)))
+        self.assertGreater(checked, 100)
+
+
+class SecretScanBoundaryTest(unittest.TestCase):
+    def test_a_token_glued_to_other_characters_is_still_a_token(self):
+        for text in ("x" + "gh" + "p_" + "A" * 36, "_" + "gh" + "p_" + "A" * 36, "a-" + "AKIA" + "ABCDEFGHIJKLMNOP",
+                     "-----BEGIN PGP PRIV" + "ATE KEY BLOCK-----"):
+            self.assertNotEqual(secretscan.scan(text), [], text)

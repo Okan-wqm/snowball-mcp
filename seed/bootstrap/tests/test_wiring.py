@@ -88,6 +88,11 @@ class WorkflowWiringTest(unittest.TestCase):
 
     def test_the_model_credential_reaches_only_the_rival_step(self):
         self.assertEqual(WORKFLOW.count("${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}"), 1)
+        used = re.findall(r"\$\{\{\s*secrets\.([A-Za-z0-9_]+)\s*\}\}", WORKFLOW)
+        self.assertEqual(sorted(used), ["CLAUDE_CODE_OAUTH_TOKEN", "READER_APP_KEY"])  # no other way to read a secret
+        self.assertNotIn("toJSON(secrets", WORKFLOW)
+        self.assertNotIn("secrets[", WORKFLOW)
+        self.assertNotIn("secrets: inherit", WORKFLOW)
         rival_step = WORKFLOW[WORKFLOW.index("name: Seed rival"):]
         rival_step = rival_step[:rival_step.index("- id: pack")]
         self.assertIn("${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}", rival_step)

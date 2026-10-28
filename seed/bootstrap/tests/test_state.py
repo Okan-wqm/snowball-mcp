@@ -196,3 +196,16 @@ class ControlTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class OutageMemoryTest(unittest.TestCase):
+    def test_the_outage_fields_are_validated_and_required(self):
+        from snowball_bootstrap.config import ConfigError
+        s = st.initial(Summary("a" * 40, "b" * 64), "2026-10")
+        self.assertEqual((s["outage_sha"], s["outage_count"]), (None, 0))
+        st.validate(dict(s, outage_sha="c" * 40, outage_count=2))
+        for bad in (dict(s, outage_sha="not-a-sha"), dict(s, outage_count=-1), dict(s, outage_count=True),
+                    {k: v for k, v in s.items() if k != "outage_count"},
+                    {k: v for k, v in s.items() if k != "outage_sha"}):
+            with self.assertRaises(ConfigError):
+                st.validate(bad)

@@ -1,5 +1,7 @@
 """End to end over local git repositories: pull -> decide, across spec, code and exit requests."""
 
+import contextlib
+import datetime
 import io
 import json
 import os
@@ -7,7 +9,9 @@ import stat
 import tarfile
 import tempfile
 import unittest
+import zipfile
 from pathlib import Path
+from unittest import mock
 
 from snowball_bootstrap import cli, gitio
 from snowball_bootstrap.container import DockerRunner
@@ -53,7 +57,8 @@ class Flow(unittest.TestCase):
         self.state = {"schema": "snowball-bootstrap-state/1", "origin": "initial",
                       "last_accepted_sha": self.seed_sha, "last_evaluated_sha": None, "frozen_specs": {},
                       "rival_artifacts": [], "month": "2026-10", "month_spend_usd_micros": 0,
-                      "stage_spend_usd_micros": 0, "runs": 0, "reject_streaks": {}, "repeat_events": 0}
+                      "stage_spend_usd_micros": 0, "runs": 0, "reject_streaks": {}, "repeat_events": 0,
+                      "outage_sha": None, "outage_count": 0}
         self.n = 0
 
     def tearDown(self):
@@ -83,6 +88,75 @@ class Flow(unittest.TestCase):
                  for t in meta["manifest"]["tests"]]
         return {"controls": [{"id": "exit_one", "ok": True}], "tests": tests, "vectors": [], "green": True}
 
+    def test_the_rivals_own_failures_are_evaluated_not_retried(self):
+        """Unlike an outage, these end the commit's evaluation (what they count toward is the owner's call)."""
+        commit(self.brain, {"spec/asama-0/00-ozet.md": "# stage 0, revised" + chr(10)}, "spec only")
+        for reason in ("model_mismatch", "refusal", "max_turns", "budget", "no_verdict:end_turn",
+                       "malformed_verdict:x", "secret_in_verdict:aws_access_key", "prompt_too_large"):
+            self.state["last_evaluated_sha"] = None  # the same head, polled again for the next reason
+            meta = self.pull()
+            rival = {"verdict": "unresolved", "attempts": [], "reasons": [reason], "cost_usd_micros": 100,
+                     "reproducer_count": 0}
+            result = self.finish(meta, rival=rival, jobs={"cagir": "success"})
+            self.assertEqual(result["verdict"], "rejected", reason)
+            self.assertEqual(result["state"]["last_evaluated_sha"], meta["head"], reason)
+            self.assertEqual(result["state"]["outage_count"], 0, reason)
+
+    def test_a_crashed_job_is_one_infrastructure_reason_not_two(self):
+        commit(self.brain, {"spec/asama-0/00-ozet.md": "# stage 0, revised" + chr(10)}, "spec only")
+        meta = self.pull()
+        result = self.finish(meta, rival=None, jobs={"cagir": "failure"})
+        self.assertEqual([r["kind"] for r in result["reasons"]], ["infra"])  # no misleading rival_missing
+        self.assertEqual(result["state"]["outage_count"], 1)
+
+    def test_a_commit_that_keeps_failing_is_parked_and_the_outage_is_booked(self):
+        commit(self.brain, {"spec/asama-0/00-ozet.md": "# stage 0, revised" + chr(10)}, "spec only")
+        meta = self.pull()
+        outage = {"verdict": "unresolved", "attempts": [], "reasons": ["api_error:http_429"],
+                  "cost_usd_micros": 500, "reproducer_count": 0}
+        seen = []
+        for _ in range(3):
+            result = self.finish(meta, rival=outage, jobs={"cagir": "success"})
+            seen.append((result["state"]["outage_sha"] == meta["head"], result["state"]["outage_count"]))
+            meta = self.pull()  # not evaluated, so the same commit comes back
+        self.assertEqual(seen, [(True, 1), (True, 2), (True, 3)])
+        self.assertEqual(self.state["month_spend_usd_micros"], 1500)  # what an outage spent is on the books
+        self.assertEqual(self.state["reject_streaks"], {})
+        result = self.finish(meta, rival=self.rival_ok(), jobs={"cagir": "success"})  # a verdict ends the streak
+        self.assertEqual((result["state"]["outage_sha"], result["state"]["outage_count"]), (None, 0))
+
+    def poll(self, prev_state, age_hours, head="c" * 40, with_keys=True):
+        created = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=age_hours))
+        archive = io.BytesIO()
+        state = dict(prev_state) if with_keys else {k: v for k, v in prev_state.items() if not k.startswith("outage")}
+        with zipfile.ZipFile(archive, "w") as zf:
+            zf.writestr("result.json", json.dumps({"state": state}))
+            zf.writestr("result.json.sigstore.json", "{}")
+        gh = Path(self.tmp.name) / "poll_gh"
+        gh.write_text("")
+        env = {"GH_TOKEN": "t", "GITHUB_REPOSITORY": "o/r", "GITHUB_OUTPUT": str(gh)}
+        with contextlib.ExitStack() as stack:
+            stack.enter_context(mock.patch.dict(os.environ, env))
+            stack.enter_context(mock.patch.object(cli.gitio, "remote_head", return_value=head))
+            stack.enter_context(mock.patch.object(cli.ghapi, "latest_artifact", return_value={
+                "id": 1, "created_at": created.isoformat().replace("+00:00", "Z")}))
+            stack.enter_context(mock.patch.object(cli.ghapi, "download_zip", return_value=archive.getvalue()))
+            stack.enter_context(contextlib.redirect_stdout(io.StringIO()))
+            rc = cli.main(["poll", "--root", str(self.referee), "--out", str(Path(self.tmp.name) / "poll_out"),
+                           "--remote", "x"])
+        self.assertEqual(rc, 0)
+        return dict(line.split("=", 1) for line in gh.read_text().split())["skip"]
+
+    def test_poll_parks_a_failing_commit_and_retries_it_once_a_day(self):
+        head = "c" * 40
+        parked = dict(self.state, outage_sha=head, outage_count=3)
+        self.assertEqual(self.poll(parked, age_hours=2), "true")  # parked: not an hourly re-run
+        self.assertEqual(self.poll(parked, age_hours=30), "false")  # a day later: one more try
+        self.assertEqual(self.poll(dict(parked, outage_count=2), age_hours=2), "false")  # not yet parked
+        self.assertEqual(self.poll(dict(parked, outage_sha="d" * 40), age_hours=2), "false")  # another commit
+        self.assertEqual(self.poll(parked, age_hours=2, head="e" * 40), "false")  # a new push is never parked
+        self.assertEqual(self.poll(parked, age_hours=2, with_keys=False), "false")  # an older state shape: no crash
+
     def test_no_rival_result_is_never_acceptance(self):
         commit(self.brain, {"spec/asama-0/00-ozet.md": "# stage 0, revised" + chr(10)}, "spec only")
         meta = self.pull()
@@ -106,7 +180,6 @@ class Flow(unittest.TestCase):
             again = self.pull()
             self.assertEqual((again["kind"], again["head"]), ("spec", first["head"]), reason)
 
-    @posix_only
     def test_rival_command_end_to_end_and_when_the_rival_cannot_run(self):
         seats = self.referee / "seats"
         seats.mkdir()
@@ -139,11 +212,16 @@ class Flow(unittest.TestCase):
         signed_out = json.loads((Path(__file__).resolve().parent / "fixtures" / "cli" /
                                  "unauthenticated_bad_token.json").read_text())
         (bin_dir / "scenario.json").write_text(json.dumps({"events": signed_out["events"], "exit": 1}))
-        rc, rival = run_rival_command("signed_out")
-        self.assertEqual((rc, rival["verdict"], rival["reasons"]), (3, "unresolved", ["api_error:http_401"]))
-        result = self.finish(meta, jobs={"cagir": "failure"})  # the red job: no rival.json reaches decide
+        shown = io.StringIO()
+        with contextlib.redirect_stdout(shown):
+            rc, rival = run_rival_command("signed_out")
+        # An outage is a warning, not a red job: rival.json must reach `decide`, which books it and retries.
+        self.assertEqual((rc, rival["verdict"], rival["reasons"]), (0, "unresolved", ["api_error:http_401"]))
+        self.assertIn("::warning title=The seed rival could not run::api_error:http_401", shown.getvalue())
+        result = self.finish(meta, rival=rival, jobs={"cagir": "success"})
         self.assertEqual((result["verdict"], result["state"]["reject_streaks"]), ("rejected", {}))
         self.assertIsNone(result["state"]["last_evaluated_sha"])
+        self.assertEqual((result["state"]["outage_sha"], result["state"]["outage_count"]), (meta["head"], 1))
 
     def test_full_stage0_path(self):
         meta = self.pull()
@@ -319,7 +397,9 @@ class Flow(unittest.TestCase):
 
         first = red_push(1)
         self.assertEqual(first["learning"], {"repeated": [], "not_learning": [], "repeat_events": 0})
-        self.assertEqual(red_push(2)["learning"]["repeated"], [same])
+        second = red_push(2)
+        self.assertEqual(second["learning"]["repeated"], [same])
+        self.assertEqual(second["learning"]["not_learning"], [])  # two is a repeat, three is "not learning"
         third = red_push(3)
         self.assertEqual(third["learning"]["not_learning"], [same])
         self.assertEqual(third["state"]["repeat_events"], 2)
