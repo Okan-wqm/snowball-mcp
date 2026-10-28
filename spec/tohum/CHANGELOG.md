@@ -62,5 +62,8 @@ Okunma: bir sayfanın geçmişi aranırken
   bileşik skor; zincir için CI attestation; çalışma modeli, kurulum günü ve şema sayfaları;
   hafıza modeli, kas sinyalleri, dersler, metrikler, çok repo, yama değil mimari çözüm sayfaları;
   tohumdan hedef repoya özgü adlar çıkarıldı; sistem çıktıları İngilizce ve bulgular iki formatta.
+  Sonra rakip API anahtarsız çalışır oldu (iç kullanım; ticari kullanımda anahtara geçilir): `claude` CLI
+  oturumuyla, hakemin kendi MCP sunucusuyla ve pinli npm kilidiyle; model SDK'sı ve fiyat tablosu kalktı,
+  her koşu izolasyonunu CLI'nin `init` olayından kanıtlar (`29b`).
 - 1.0 (2026-10-28): tek dosya özellik başına sayfalara bölündü.
 - 0.1–0.11 (2026-10-28): tek dosya taslak dönemi; geçmişi zincirde ve git'te.

@@ -55,6 +55,23 @@ cd seed/bootstrap && PYTHONPATH=.:tests python3 -m unittest discover -s tests
 cd seed/drill && python3 -m unittest discover -s tests
 ```
 
+Linux is the reference platform: several tests need a POSIX shell and skip elsewhere, so on Windows run
+them in a `python:3.12-slim` container with git installed. Three more checks go beyond the unit tests:
+
+- `python3 local/e2e.py [--rival]` (needs git, Python 3.12 and Docker) runs the whole referee against
+  real containers. With `--rival` the real rival runs through your own `claude` login, so it also needs
+  Claude Code signed in; there is no API key anywhere while this system is for internal use.
+- `python3 local/mutate.py` breaks the referee's code on purpose and demands that a test
+  notices. A mutant that survives names behaviour no test measures.
+- `tests/test_live_cli.py` runs when `claude` is on `PATH`. It spends nothing (a made-up token) and fails
+  when the CLI renames a flag or changes its output format.
+
+The rival's CLI is pinned in `seed/bootstrap/requirements/claude-cli/`. To move the pin, edit the version
+of both packages in `package.json` (the platform package holding the binary is a hard dependency, so that
+a wrong digest fails the install instead of being skipped), regenerate the lock on Linux x64
+(`docker run --rm -v <that dir>:/lock -w /lock node:22 npx -y npm@11 install --package-lock-only`), and run
+`tests/test_live_cli.py`; the workflow refuses a CLI whose `--version` differs from the pin.
+
 ## Where to start
 
 | Read | Why |
