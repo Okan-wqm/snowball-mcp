@@ -1,15 +1,20 @@
-"""Test doubles for the outside world: the container runtime, the model provider and git remotes."""
+"""Test doubles for the outside world: the container runtime and git remotes."""
 
 from __future__ import annotations
 
 import json
 import math
 import shlex
+import stat
 import subprocess
 import sys
+import textwrap
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
+
+import os
+import unittest
 
 from snowball_bootstrap.canon import row_hash
 from snowball_bootstrap.container import RunResult
@@ -149,50 +154,79 @@ class FakeRunner:
         return RunResult(1, b"", b"unknown command", 1)
 
 
-# ---------------------------------------------------------------- model provider double
+posix_only = unittest.skipIf(os.name == "nt", "needs a POSIX shell (shebang scripts, symlinks, /bin/false)")
 
 
-@dataclass
-class Block:
-    type: str
-    id: str = ""
-    name: str = ""
-    input: Any = None
-    text: str = ""
+# ---------------------------------------------------------------- the claude CLI double
+
+# A stand-in for the `claude` binary. It reads the real argv, starts the MCP server named in
+# --mcp-config, speaks the real protocol to it with the scripted tool calls, and prints the JSON a
+# real `claude -p --output-format json` run would print.
+FAKE_CLAUDE = textwrap.dedent('''\
+    #!{python}
+    import json, os, subprocess, sys, time
+    here = os.path.dirname(os.path.abspath(__file__))
+    scenario = json.load(open(os.path.join(here, "scenario.json")))
+    argv = sys.argv[1:]
+    stdin = sys.stdin.read()
+    json.dump({{"argv": argv, "stdin": stdin, "cwd": os.getcwd(), "env": sorted(os.environ)}},
+              open(os.path.join(here, "seen.json"), "w"))
+    if scenario.get("grandchild"):
+        child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"])
+        open(os.path.join(here, "grandchild.pid"), "w").write(str(child.pid))
+    if scenario.get("sleep"):
+        time.sleep(scenario["sleep"])
+    if scenario.get("garbage"):
+        print("not json"); sys.exit(1)
+    cfg = json.load(open(argv[argv.index("--mcp-config") + 1]))["mcpServers"]["snowball"]
+    proc = subprocess.Popen([cfg["command"]] + cfg["args"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+    def rpc(i, method, params=None):
+        proc.stdin.write(json.dumps({{"jsonrpc": "2.0", "id": i, "method": method, "params": params or {{}}}}) + "\\n")
+        proc.stdin.flush()
+        return json.loads(proc.stdout.readline())
+    rpc(0, "initialize", {{"protocolVersion": "2024-11-05"}})
+    listed = rpc(1, "tools/list")["result"]["tools"]
+    replies = []
+    for n, (name, args) in enumerate(scenario.get("calls", []), start=2):
+        replies.append(rpc(n, "tools/call", {{"name": name, "arguments": args}})["result"])
+    proc.stdin.close(); proc.wait()
+    json.dump({{"tools": [t["name"] for t in listed], "replies": replies}}, open(os.path.join(here, "mcp.json"), "w"))
+    events = scenario.get("events")
+    if events is None:
+        result = scenario.get("result", {{}})
+        allowed = [a.split("=", 1)[1] for a in argv if a.startswith("--allowedTools=")]
+        init = scenario.get("init", {{"type": "system", "subtype": "init", "model": "x", "apiKeySource": "none",
+                                      "tools": allowed[0].split(",") if allowed else [], "skills": [],
+                                      "slash_commands": [],
+                                      "mcp_servers": [{{"name": "snowball", "status": "connected"}}]}})
+        usage = result.get("modelUsage", {{}}) if isinstance(result, dict) else {{}}
+        models = scenario.get("api_models", list(usage) if isinstance(usage, dict) else [])
+        events = ([init] if init is not None else []) + [
+            {{"type": "assistant", "message": {{"model": m, "content": [{{"type": "text"}}]}}}} for m in models]
+        events.append(result)
+    for event in events:
+        print(json.dumps(event))
+    sys.exit(scenario.get("exit", 0))
+''')
 
 
-@dataclass
-class Usage:
-    input_tokens: int = 1000
-    output_tokens: int = 200
-    cache_creation_input_tokens: int | None = 0
-    cache_read_input_tokens: int | None = 0
+def ok_result(model="claude-sonnet-5-5", **extra):
+    result = {"type": "result", "subtype": "success", "is_error": False, "num_turns": 3,
+              "total_cost_usd": 0.0123, "stop_reason": "end_turn", "terminal_reason": "completed",
+              "modelUsage": {model: {"costUSD": 0.0123}}}
+    result.update(extra)
+    return result
 
 
-@dataclass
-class Response:
-    content: list[Block]
-    stop_reason: str
-    model: str = "claude-sonnet-5-5"
-    usage: Usage = field(default_factory=Usage)
-    stop_details: Any = None
+def submit(verdict="not_refuted", attempts=None):
+    return ["submit_verdict", {"verdict": verdict, "attempts": attempts or []}]
 
 
-class FakeMessages:
-    def __init__(self, script: list[Callable[[dict], Response]]):
-        self.script = list(script)
-        self.requests: list[dict] = []
-
-    def create(self, **kwargs: Any) -> Response:
-        self.requests.append(kwargs)
-        if not self.script:
-            raise RuntimeError("no scripted response left")
-        return self.script.pop(0)(kwargs)
-
-
-class FakeClient:
-    def __init__(self, script: list[Callable[[dict], Response]]):
-        self.messages = FakeMessages(script)
+def install_fake_claude(bin_dir: Path) -> Path:
+    claude = bin_dir / "claude"
+    claude.write_text(FAKE_CLAUDE.format(python=sys.executable))
+    claude.chmod(claude.stat().st_mode | stat.S_IEXEC)
+    return claude
 
 
 # ---------------------------------------------------------------- git helpers

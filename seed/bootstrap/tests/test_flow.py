@@ -16,7 +16,7 @@ from snowball_bootstrap.importer import ImportErrorStop, run_import
 from snowball_bootstrap.manifest import STAGE0_MF_TESTS
 from snowball_bootstrap.treehash import TreeError, tree_hash
 
-from helpers import commit, make_repo, sh
+from helpers import commit, install_fake_claude, make_repo, ok_result, posix_only, sh, submit
 
 SEED_FILES = {"spec/tohum/00-cekirdek.md": "# core\n", "spec/asama-0/00-ozet.md": "# stage 0\n"}
 
@@ -41,10 +41,8 @@ class Flow(unittest.TestCase):
         (self.referee / "bootstrap.json").write_text(json.dumps({
             "brain_repo": "owner/brain", "brain_branch": "main",
             "image": "docker.io/library/python:3.12-slim@sha256:" + "a" * 64,
-            "rival": {"model": "claude-sonnet-5-5", "effort": "medium", "max_turns": 30, "max_tokens": 16000,
-                      "per_run_cap_usd_micros": 3_000_000,
-                      "price_micros_per_mtok": {"input": 2_000_000, "output": 10_000_000,
-                                                "cache_write": 2_500_000, "cache_read": 200_000}},
+            "rival": {"model": "claude-sonnet-5-5", "effort": "medium", "max_turns": 30,
+                      "per_run_cap_usd_micros": 3_000_000},
             "limits": {"test_timeout_s": 600, "reproducer_timeout_s": 120, "max_prompt_chars": 600_000,
                        "max_tree_bytes": 50_000_000}}))
         (self.referee / "policy.json").write_text(json.dumps({"constitutional": {
@@ -84,6 +82,68 @@ class Flow(unittest.TestCase):
         tests = [{"id": t["id"], "cmd_sha256": "c", "ok": True, "output_tail": ""}
                  for t in meta["manifest"]["tests"]]
         return {"controls": [{"id": "exit_one", "ok": True}], "tests": tests, "vectors": [], "green": True}
+
+    def test_no_rival_result_is_never_acceptance(self):
+        commit(self.brain, {"spec/asama-0/00-ozet.md": "# stage 0, revised" + chr(10)}, "spec only")
+        meta = self.pull()
+        result = self.finish(meta, rival=None, jobs={"cagir": "success"})  # the job ran, its result is missing
+        self.assertEqual(result["verdict"], "rejected")
+        self.assertIn("rival_missing", [r["kind"] for r in result["reasons"]])
+        self.assertEqual(result["state"]["frozen_specs"], {})
+
+    def test_rival_infrastructure_failure_is_retried_and_never_held_against_the_push(self):
+        commit(self.brain, {"spec/asama-0/00-ozet.md": "# stage 0, revised" + chr(10)}, "spec only")
+        first = self.pull()
+        self.assertEqual((first["kind"], first["run_rival"]), ("spec", True))
+        for reason in ("api_error:http_401", "api_error:http_429", "api_error:unknown", "api_error:bad_cli_result"):
+            rival = {"verdict": "unresolved", "attempts": [], "reasons": [reason], "cost_usd_micros": 0,
+                     "reproducer_count": 0}
+            result = self.finish(first, rival=rival, jobs={"cagir": "success"})
+            self.assertEqual(result["verdict"], "rejected", reason)
+            self.assertEqual(result["state"]["reject_streaks"], {}, reason)
+            self.assertEqual(result["learning"]["not_learning"], [], reason)
+            self.assertIsNone(result["state"]["last_evaluated_sha"], reason)
+            again = self.pull()
+            self.assertEqual((again["kind"], again["head"]), ("spec", first["head"]), reason)
+
+    @posix_only
+    def test_rival_command_end_to_end_and_when_the_rival_cannot_run(self):
+        seats = self.referee / "seats"
+        seats.mkdir()
+        seats_source = Path(__file__).resolve().parents[3] / "spec" / "tohum" / cli.SEATS_FILE
+        (seats / cli.SEATS_FILE).write_text(seats_source.read_text(encoding="utf-8"), encoding="utf-8")
+        commit(self.brain, {"spec/asama-0/00-ozet.md": "# stage 0, revised" + chr(10)}, "spec only")
+        meta = self.pull()
+        pulled = Path(self.tmp.name) / f"pulled{self.n}"
+        bin_dir = Path(self.tmp.name) / "bin"
+        bin_dir.mkdir()
+        claude = install_fake_claude(bin_dir)
+        gh_output = Path(self.tmp.name) / "gh_output"
+        os.environ["GITHUB_OUTPUT"] = str(gh_output)
+        self.addCleanup(os.environ.pop, "GITHUB_OUTPUT", None)
+
+        def run_rival_command(tag):
+            out = Path(self.tmp.name) / f"rival_{tag}"
+            rc = cli.main(["rival", "--root", str(self.referee), "--pulled", str(pulled),
+                           "--work", str(Path(self.tmp.name) / f"work_{tag}"), "--out", str(out),
+                           "--claude", str(claude)])
+            return rc, json.loads((out / "rival.json").read_text())
+
+        (bin_dir / "scenario.json").write_text(json.dumps({"calls": [submit()], "result": ok_result()}))
+        rc, rival = run_rival_command("ok")
+        self.assertEqual((rc, rival["verdict"], rival["model_served"], rival["cost_usd_micros"]),
+                         (0, "not_refuted", "claude-sonnet-5-5", 12300))
+        self.assertIn("has_repro=false", gh_output.read_text())
+        self.assertEqual(self.finish(meta, rival=rival, jobs={"cagir": "success"})["verdict"], "frozen")
+
+        signed_out = json.loads((Path(__file__).resolve().parent / "fixtures" / "cli" /
+                                 "unauthenticated_bad_token.json").read_text())
+        (bin_dir / "scenario.json").write_text(json.dumps({"events": signed_out["events"], "exit": 1}))
+        rc, rival = run_rival_command("signed_out")
+        self.assertEqual((rc, rival["verdict"], rival["reasons"]), (3, "unresolved", ["api_error:http_401"]))
+        result = self.finish(meta, jobs={"cagir": "failure"})  # the red job: no rival.json reaches decide
+        self.assertEqual((result["verdict"], result["state"]["reject_streaks"]), ("rejected", {}))
+        self.assertIsNone(result["state"]["last_evaluated_sha"])
 
     def test_full_stage0_path(self):
         meta = self.pull()
@@ -151,6 +211,7 @@ class Flow(unittest.TestCase):
                              jobs={"getir": "success", "kos": "success", "cagir": "success", "yeniden": "success"})
         self.assertEqual(result["reasons"][0]["kind"], "refutation_reproduced")
 
+    @posix_only
     def test_exit_request_and_import(self):
         # Freeze the spec, then accept a complete stage 0.
         commit(self.brain, {"spec/asama-0/00-ozet.md": "# stage 0 v2\n"}, "spec")
@@ -306,6 +367,7 @@ class Flow(unittest.TestCase):
         self.assertIn("history_rewritten", meta["pre_reasons"])
         self.assertEqual(meta["kind"], "rejected")
 
+    @posix_only
     def test_symlink_and_export_ignore(self):
         (self.brain / "referee").mkdir()
         os.symlink("/etc/passwd", self.brain / "referee" / "link")
@@ -344,6 +406,7 @@ class DockerRunnerTest(unittest.TestCase):
         self.assertFalse([e for e in envs if e.startswith(("ACTIONS_", "GITHUB_", "ANTHROPIC"))])
         self.assertIn("SNOWBALL_CMD=python -m unittest", envs)
 
+    @posix_only
     def test_exit_code_and_timeout_through_a_fake_docker(self):
         with tempfile.TemporaryDirectory() as tmp:
             fake = Path(tmp) / "docker"

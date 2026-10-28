@@ -1,5 +1,7 @@
+import io
 import json
 import re
+import tarfile
 import tempfile
 import unittest
 import zipfile
@@ -7,8 +9,10 @@ from pathlib import Path
 
 from snowball_bootstrap import canon, licenses, secretscan
 from snowball_bootstrap.classify import classify, spec_stage_dirs
+from snowball_bootstrap.config import ConfigError, load_bootstrap
 from snowball_bootstrap.controls import run_controls
 from snowball_bootstrap.manifest import ManifestError, check_stage0, parse_lockfile, parse_manifest
+from snowball_bootstrap.treehash import TreeError, extract
 from snowball_bootstrap.vectors import run_vectors
 
 from helpers import FakeRunner
@@ -286,15 +290,92 @@ class LicensePolicyTest(unittest.TestCase):
 class PinnedRequirementLicenseTest(unittest.TestCase):
     """The bootstrap's own pinned wheels: every one has a recorded, allowed license."""
 
-    def test_record_matches_the_lock_files_and_the_spec_allowlist(self):
+    def test_record_matches_the_lock_file_and_the_spec_allowlist(self):
         allow = spec_allowlist()
         self.assertIn("MIT", allow)
         self.assertNotIn("GPL-3.0-only", allow)
         record = json.loads((BOOTSTRAP / "requirements" / "licenses.json").read_text())["packages"]
         pins = set()
-        for lock in ("call.txt", "sign.txt"):
-            for req in parse_lockfile((BOOTSTRAP / "requirements" / lock).read_text()):
-                pins.add(f"{re.sub(r'[-_.]+', '-', req.name).lower()}=={req.version}")
+        for req in parse_lockfile((BOOTSTRAP / "requirements" / "sign.txt").read_text()):
+            pins.add(f"{re.sub(r'[-_.]+', '-', req.name).lower()}=={req.version}")
         self.assertEqual(pins, set(record))
         for pin, expr in record.items():
             self.assertTrue(licenses.allowed(expr, allow), f"{pin}: {expr}")
+
+
+class ClaudeCliPinTest(unittest.TestCase):
+    """The claude CLI is the one npm package the workflow installs: an exact version, every package by sha512."""
+
+    def test_the_lock_file_pins_one_exact_version_with_integrity(self):
+        folder = BOOTSTRAP / "requirements" / "claude-cli"
+        pin = json.loads((folder / "package.json").read_text())["dependencies"]
+        lock = json.loads((folder / "package-lock.json").read_text())
+        main, platform = "@anthropic-ai/claude-code", "@anthropic-ai/claude-code-linux-x64"
+        self.assertEqual(sorted(pin), [main, platform])
+        version = pin[main]
+        self.assertEqual(pin[platform], version)
+        self.assertRegex(version, r"^[0-9]+\.[0-9]+\.[0-9]+$")
+        self.assertEqual(lock["packages"][""]["dependencies"], pin)
+        binary = lock["packages"]["node_modules/" + platform]
+        # The package holding the real binary is a hard dependency: npm skips an optional package whose digest
+        # is wrong (and re-resolves it without the lock), a required one fails the install with EINTEGRITY.
+        self.assertFalse(binary.get("optional"))
+        self.assertEqual((binary["os"], binary["libc"]), (["linux"], ["glibc"]))
+        for path, entry in lock["packages"].items():
+            if path:
+                self.assertTrue(entry["integrity"].startswith("sha512-"), path)
+                self.assertTrue(entry["resolved"].startswith("https://registry.npmjs.org/"), path)
+                self.assertEqual(entry["version"], version, path)
+
+
+class TreeHardeningTest(unittest.TestCase):
+    def test_unsafe_member_names_never_reach_the_filesystem(self):
+        names = ("..\\..\\x", "C:\\x", "a:b", "/abs", "a/../b", "x\\y")  # a NUL cannot be written into a tar name
+        with tempfile.TemporaryDirectory() as tmp:
+            for name in names:
+                buf = io.BytesIO()
+                with tarfile.open(fileobj=buf, mode="w") as tar:
+                    info = tarfile.TarInfo(name)
+                    info.size = 1
+                    tar.addfile(info, io.BytesIO(b"x"))
+                with self.assertRaises(TreeError, msg=name):
+                    extract(buf.getvalue(), Path(tmp) / "dest" / "tree", 1000)
+            self.assertEqual(list(Path(tmp).rglob("x")), [])
+
+
+class BootstrapConfigTest(unittest.TestCase):
+    BASE = {"brain_repo": "owner/brain", "brain_branch": "main",
+            "image": "docker.io/library/python:3.12-slim@sha256:" + "a" * 64,
+            "rival": {"model": "claude-sonnet-5-5", "effort": "medium", "max_turns": 30,
+                      "per_run_cap_usd_micros": 3_000_000},
+            "limits": {"test_timeout_s": 600, "reproducer_timeout_s": 120, "max_prompt_chars": 600_000,
+                       "max_tree_bytes": 50_000_000}}
+
+    def load(self, mutate):
+        doc = json.loads(json.dumps(self.BASE))
+        mutate(doc)
+        with tempfile.TemporaryDirectory() as tmp:
+            (Path(tmp) / "bootstrap.json").write_text(json.dumps(doc))
+            return load_bootstrap(Path(tmp))
+
+    def test_the_shipped_shape_loads(self):
+        boot = self.load(lambda d: None)
+        self.assertEqual((boot.rival.model, boot.rival.max_turns, boot.rival.per_run_cap_usd_micros),
+                         ("claude-sonnet-5-5", 30, 3_000_000))
+
+    def test_keys_of_the_old_api_design_are_refused_by_name(self):
+        for key in ("max_tokens", "price_micros_per_mtok"):
+            with self.assertRaisesRegex(ConfigError, f"{key} was removed"):
+                self.load(lambda d: d["rival"].update({key: 1}))
+
+    def test_unknown_keys_are_refused_everywhere(self):
+        for where, mutate in (("top", lambda d: d.update(api_key="x")),
+                              ("rival", lambda d: d["rival"].update(fallback_model="claude-opus-5-5")),
+                              ("limits", lambda d: d["limits"].update(extra=1))):
+            with self.assertRaisesRegex(ConfigError, "unknown key", msg=where):
+                self.load(mutate)
+
+    def test_the_model_must_be_a_full_id(self):
+        for model in ("sonnet", "", "  ", "claude-sonnet-5-5[1m]", "gpt-5"):
+            with self.assertRaisesRegex(ConfigError, "full model id", msg=model):
+                self.load(lambda d: d["rival"].update(model=model))

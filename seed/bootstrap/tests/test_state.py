@@ -1,7 +1,6 @@
 import io
 import json
 import os
-import stat
 import tempfile
 import threading
 import unittest
@@ -12,7 +11,7 @@ from pathlib import Path
 from snowball_bootstrap import cli, state as st
 from snowball_bootstrap.config import ConfigError, Summary
 
-from helpers import commit, make_repo
+from helpers import commit, make_repo, posix_only
 
 
 class _Api(BaseHTTPRequestHandler):
@@ -99,6 +98,7 @@ class StateTest(unittest.TestCase):
         self.assertIsNone(captured["auth"])
         self.assertEqual(_Api.seen[-1][1], "Bearer tok")
 
+    @posix_only
     def test_unverifiable_previous_state_stops_the_run(self):
         _Api.artifacts = [{"id": 5, "name": "bootstrap-state", "expired": False,
                            "created_at": "2026-10-28T00:00:00Z"}]
@@ -121,9 +121,8 @@ class StateTest(unittest.TestCase):
         (self.root / "bootstrap.json").write_text(json.dumps({
             "brain_repo": "owner/brain", "brain_branch": "main",
             "image": "docker.io/library/python:3.12-slim@sha256:" + "a" * 64,
-            "rival": {"model": "claude-sonnet-5-5", "effort": "medium", "max_turns": 30, "max_tokens": 16000,
-                      "per_run_cap_usd_micros": 1, "price_micros_per_mtok": {
-                          "input": 1, "output": 1, "cache_write": 1, "cache_read": 1}},
+            "rival": {"model": "claude-sonnet-5-5", "effort": "medium", "max_turns": 30,
+                      "per_run_cap_usd_micros": 1},
             "limits": {"test_timeout_s": 1, "reproducer_timeout_s": 1, "max_prompt_chars": 1, "max_tree_bytes": 1}}))
         outputs = self.root / "outputs.txt"
         os.environ["GITHUB_OUTPUT"] = str(outputs)
