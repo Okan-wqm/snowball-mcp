@@ -117,13 +117,6 @@ def special_entries(repo: Path, head: str) -> list[str]:
     return sorted(f"{SPECIAL_MODES[m]}:{p}" for m, _s, p in _entries(repo, head) if m in SPECIAL_MODES)
 
 
-def read_blob(repo: Path, head: str, path: str) -> bytes | None:
-    try:
-        return git(repo, "show", f"{head}:{path}")
-    except GitError:
-        return None
-
-
 def archive(repo: Path, head: str) -> bytes:
     """Deterministic tar of the regular files at ``head``, read blob by blob."""
     entries = [(m, s, p) for m, s, p in _entries(repo, head) if m in ("100644", "100755")]

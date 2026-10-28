@@ -54,21 +54,11 @@ def _pos_int(obj: Any, key: str, where: str) -> int:
 
 
 @dataclass(frozen=True)
-class Prices:
-    input: int
-    output: int
-    cache_write: int
-    cache_read: int
-
-
-@dataclass(frozen=True)
 class RivalConfig:
     model: str
     effort: str
     max_turns: int
-    max_tokens: int
     per_run_cap_usd_micros: int
-    prices: Prices
 
 
 @dataclass(frozen=True)
@@ -96,9 +86,23 @@ class Bootstrap:
         return self.brain_repo.split("/", 1)[1]
 
 
+MODEL_RE = re.compile(r"^claude-[a-z0-9][a-z0-9.-]*$")
+REMOVED_KEYS = {"max_tokens": "the rival runs through the claude CLI, which has no token limit setting",
+                "price_micros_per_mtok": "cost is the CLI's own list-price estimate"}
+
+
+def _only_known(obj: dict[str, Any], known: set[str], where: str) -> None:
+    unknown = sorted(set(obj) - known)
+    if unknown:
+        hints = "; ".join(f"{k} was removed: {REMOVED_KEYS[k]}" for k in unknown if k in REMOVED_KEYS)
+        raise ConfigError(f"{where}: unknown key(s) {', '.join(unknown)}" + (f" ({hints})" if hints else ""))
+
+
 def load_bootstrap(root: Path) -> Bootstrap:
     data = _load(root / "bootstrap.json")
     where = "bootstrap.json"
+    if isinstance(data, dict):
+        _only_known(data, {"brain_repo", "brain_branch", "image", "rival", "limits"}, where)
     repo = _req(data, "brain_repo", str, where)
     if not REPO_RE.match(repo):
         raise ConfigError(f"{where}.brain_repo must be owner/name")
@@ -110,14 +114,17 @@ def load_bootstrap(root: Path) -> Bootstrap:
         raise ConfigError(f"{where}.image must be pinned by digest (name@sha256:<64 hex>)")
     rival = _req(data, "rival", dict, where)
     rw = f"{where}.rival"
+    _only_known(rival, {"model", "effort", "max_turns", "per_run_cap_usd_micros"}, rw)
     model = _req(rival, "model", str, rw)
+    if not MODEL_RE.match(model):
+        raise ConfigError(f"{rw}.model must be a full model id such as claude-sonnet-5-5 (the served model is "
+                          "compared with it)")
     effort = _req(rival, "effort", str, rw)
     if effort not in {"low", "medium", "high", "xhigh", "max"}:
         raise ConfigError(f"{rw}.effort is not a known effort level")
-    prices = _req(rival, "price_micros_per_mtok", dict, rw)
-    pw = f"{rw}.price_micros_per_mtok"
     limits = _req(data, "limits", dict, where)
     lw = f"{where}.limits"
+    _only_known(limits, {"test_timeout_s", "reproducer_timeout_s", "max_prompt_chars", "max_tree_bytes"}, lw)
     return Bootstrap(
         brain_repo=repo,
         brain_branch=branch,
@@ -126,14 +133,7 @@ def load_bootstrap(root: Path) -> Bootstrap:
             model=model,
             effort=effort,
             max_turns=_pos_int(rival, "max_turns", rw),
-            max_tokens=_pos_int(rival, "max_tokens", rw),
             per_run_cap_usd_micros=_pos_int(rival, "per_run_cap_usd_micros", rw),
-            prices=Prices(
-                input=_pos_int(prices, "input", pw),
-                output=_pos_int(prices, "output", pw),
-                cache_write=_pos_int(prices, "cache_write", pw),
-                cache_read=_pos_int(prices, "cache_read", pw),
-            ),
         ),
         limits=Limits(
             test_timeout_s=_pos_int(limits, "test_timeout_s", lw),

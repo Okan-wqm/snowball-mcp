@@ -23,7 +23,7 @@ from .decide import decide
 from .importer import ImportErrorStop, run_import, verify_signature
 from .manifest import ManifestError, check_stage0, parse_lockfile, parse_manifest
 from .reproduce import run_reproducers
-from .rival import build_context, extract_seat_prompt, run_rival
+from .rival import build_context, extract_seat_prompt, resolve_claude, run_rival
 from .treehash import TreeError, extract, iter_files, tree_hash
 from .vectors import run_vectors
 
@@ -415,15 +415,16 @@ def cmd_rival(args: argparse.Namespace) -> int:
     seat = extract_seat_prompt((root / "seats" / SEATS_FILE).read_text(encoding="utf-8"))
     context = build_context(meta["kind"], meta["base"], meta["head"], meta["changed"],
                             (pulled / "diff.patch").read_text(encoding="utf-8"), _pages(tar_bytes, meta["kind"]))
-    import anthropic  # installed only in this job, from requirements/call.txt
-
-    client = anthropic.Anthropic(max_retries=2, timeout=600.0)
-    outcome = run_rival(client, boot.rival, seat_prompt=seat, context=context, tree_root=tree,
-                        budget_usd_micros=remaining_budget(policy, meta["state"]),
+    outcome = run_rival(boot.rival, claude_bin=resolve_claude(args.claude), seat_prompt=seat, context=context,
+                        tree_root=tree, budget_usd_micros=remaining_budget(policy, meta["state"]),
                         max_prompt_chars=boot.limits.max_prompt_chars)
     result = outcome.as_dict()
     write_json(out / "rival.json", result)
     output(has_repro=result["reproducer_count"] > 0 and result["verdict"] in ("refuted", "not_refuted"))
+    outage = [r for r in result["reasons"] if str(r).startswith("api_error")]
+    if outage:
+        print(f"the rival could not run: {', '.join(outage)}", file=sys.stderr)
+        return 3
     return 0
 
 
@@ -518,7 +519,8 @@ def build_parser() -> argparse.ArgumentParser:
     add("pull", cmd_pull, root, ("--state", req), ("--work", req), ("--out", req), ("--remote", {}))
     add("fetch-deps", cmd_fetch_deps, ("--pulled", req), ("--work", req), ("--out", req))
     add("run-tests", cmd_run_tests, root, ("--pulled", req), ("--deps", req), ("--work", req), ("--out", req))
-    add("rival", cmd_rival, root, ("--pulled", req), ("--work", req), ("--out", req))
+    add("rival", cmd_rival, root, ("--pulled", req), ("--work", req), ("--out", req),
+        ("--claude", {"help": "path of the claude CLI (default: the one on PATH)"}))
     add("reproduce", cmd_reproduce, root, ("--pulled", req), ("--deps", req), ("--rival", req),
         ("--work", req), ("--out", req))
     add("decide", cmd_decide, root, ("--pulled", req), ("--run", {}), ("--rival", {}), ("--repro", {}),

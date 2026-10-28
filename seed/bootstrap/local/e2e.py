@@ -7,9 +7,9 @@ the workflow runs: pull -> fetch-deps (real PyPI download) -> run-tests (real do
 
     cd seed/bootstrap && python3 local/e2e.py [--keep DIR] [--rival]
 
-Without ``--rival`` the rival's verdict is stubbed. With it the real rival runs (Anthropic SDK from
-``requirements/call.txt`` importable, ``ANTHROPIC_API_KEY`` set; one call costs at most the
-``per_run_cap_usd_micros`` below) and its reproducers run in the container.
+Without ``--rival`` the rival's verdict is stubbed. With it the real rival runs through the
+``claude`` CLI on PATH, signed in as whoever runs this (no API key; one call is capped at the
+``per_run_cap_usd_micros`` below, a list-price estimate) and its reproducers run in the container.
 
 Exit 0 means: the red controls behaved, the founder-style tests ran offline in the pinned image,
 every seed vector passed (including the drill group), the licence gate passed and the push was
@@ -145,7 +145,7 @@ def manifest() -> str:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--keep", help="keep the work directory here instead of a temporary one")
-    parser.add_argument("--rival", action="store_true", help="call the real rival (API key needed)")
+    parser.add_argument("--rival", action="store_true", help="run the real rival through your claude CLI login")
     parser.add_argument("--model", default="claude-sonnet-5-5", help="rival model when --rival is set")
     args = parser.parse_args()
     work = Path(args.keep) if args.keep else Path(tempfile.mkdtemp(prefix="snowball-e2e-"))
@@ -169,10 +169,7 @@ def main() -> int:
     (referee / "control.json").write_text(json.dumps({"kill_switch": False, "budget_state": "ok"}))
     (referee / "bootstrap.json").write_text(json.dumps({
         "brain_repo": "local/brain", "brain_branch": "main", "image": IMAGE,
-        "rival": {"model": args.model, "effort": "medium", "max_turns": 30, "max_tokens": 16000,
-                  "per_run_cap_usd_micros": 3_000_000,
-                  "price_micros_per_mtok": {"input": 3_000_000, "output": 15_000_000,
-                                            "cache_write": 3_750_000, "cache_read": 300_000}},
+        "rival": {"model": args.model, "effort": "medium", "max_turns": 30, "per_run_cap_usd_micros": 3_000_000},
         "limits": {"test_timeout_s": 600, "reproducer_timeout_s": 120, "max_prompt_chars": 600_000,
                    "max_tree_bytes": 50_000_000}}))
     allow = ["MIT", "MIT-0", "BSD-2-Clause", "BSD-3-Clause", "0BSD", "Apache-2.0", "ISC", "PSF-2.0",
@@ -200,9 +197,9 @@ def main() -> int:
     assert meta["kind"] == "spec" and not meta["pre_reasons"], meta
     rival_ok = {"verdict": "not_refuted", "attempts": [], "reasons": [], "cost_usd_micros": 0, "reproducer_count": 0}
     state = decide(meta, None, rival_ok, None, {"cagir": "success"}, 5, 3)["state"]
-    print("1/4 spec push frozen (rival result stubbed: the real rival needs the operator's API key)")
+    print("1/4 spec push frozen (rival result stubbed; --rival runs the real one through your claude CLI)")
 
-    lock = sh(BOOT, "grep", "-A1", "^annotated-types==", "requirements/call.txt")
+    lock = sh(BOOT, "grep", "-A1", "^annotated-types==", "requirements/sign.txt")
     judge_src = (SEED / "drill" / "snowball_drill" / "judge.py").read_text()
     commit(brain, {
         "referee/ledger/__init__.py": "", "referee/ledger/chain.py": CHAIN,
@@ -236,7 +233,7 @@ def main() -> int:
         rc = cli.main(["rival", "--root", str(referee), "--pulled", str(pulled), "--work", str(work / "rv"),
                        "--out", str(work / "rival")])
         rival = json.loads((work / "rival" / "rival.json").read_text())
-        print("rival:", rival["verdict"], "served", rival.get("model_served"), "cost micros",
+        print("rival:", rival["verdict"], "served", rival.get("model_served"), "cost (list-price estimate, micros)",
               rival.get("cost_usd_micros"), "reasons", rival.get("reasons"))
         if rival["verdict"] in ("refuted", "not_refuted") and rival.get("reproducer_count"):
             cli.main(["reproduce", "--root", str(referee), "--pulled", str(pulled), "--deps", str(deps),

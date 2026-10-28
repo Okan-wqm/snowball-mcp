@@ -7,19 +7,22 @@
 #   seats/                  <- spec/tohum/29-tohum-koltuklari.md
 #   bootstrap.json, control.json, policy.json, setup/summary.json
 # Repository settings: default workflow permissions read-only; no App with write access.
-# Variables and secrets: vars.READER_APP_ID, secrets.READER_APP_KEY, secrets.ANTHROPIC_API_KEY.
+# Variables and secrets: vars.READER_APP_ID, secrets.READER_APP_KEY, secrets.CLAUDE_CODE_OAUTH_TOKEN
+# (the operator's `claude setup-token`). No API key is held anywhere while this system is for internal use.
 #
 # Schedule: hourly at a fixed odd minute. An idle poll is one job of under a minute (it installs
 # and verifies nothing), so idling costs about 24 x 30 = 720 Actions minutes a month; see tohum/29b
 # "Dakika hesabı" before changing the cadence.
 #
-# Every wheel this workflow installs passes the license gate first (`licenses`, tohum/24 "Lisans").
+# Every wheel this workflow installs passes the license gate first (`licenses`, tohum/24 "Lisans"). The one
+# npm package it installs, the claude CLI, is a vendor tool and not a wheel: requirements/claude-cli/
+# package-lock.json pins it and its platform binary by sha512, and `npm ci` refuses anything else.
 #
 # Jobs and what they may hold (tohum/08 1):
 #   cek     reader App token, GITHUB_TOKEN (contents, actions: read) - runs no brain code
 #   getir   nothing; network for wheels only                         - runs no brain code
 #   kos     nothing; brain code only inside --network none containers
-#   cagir   model provider key                                        - runs no brain code
+#   cagir   operator's Claude login (CLAUDE_CODE_OAUTH_TOKEN)        - runs no brain code
 #   yeniden nothing; reproducers only inside --network none containers
 #   yaz     OIDC (Sigstore) and contents: read                         - runs no brain code
 
@@ -216,7 +219,7 @@ jobs:
       always() && needs.cek.result == 'success' && needs.cek.outputs.run_rival == 'true' &&
       (needs.cek.outputs.kind == 'spec' || needs.kos.outputs.green == 'true')
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 30
     permissions: {}
     outputs:
       rival_sha: ${{ steps.pack.outputs.rival_sha }}
@@ -233,19 +236,20 @@ jobs:
           mkdir snap pulled && tar -xf snapshot.tar -C snap && tar -xf pulled.tar -C pulled
       - name: Kill switch (snapshot of this run)
         run: python3 -m snowball_bootstrap control --root snap
-      - name: Anthropic SDK (hash-pinned, license-checked)
+      - name: Claude CLI (lock-pinned and sha512-checked; this step holds no secret)
         run: |
-          python3 -m venv /tmp/call
-          /tmp/call/bin/pip download --quiet --require-hashes --only-binary=:all: --no-deps \
-            -d /tmp/callw -r snap/bootstrap/requirements/call.txt
-          python3 -m snowball_bootstrap licenses --root snap --wheels /tmp/callw
-          /tmp/call/bin/pip install --quiet --no-index --find-links /tmp/callw --require-hashes \
-            --only-binary=:all: --no-deps -r snap/bootstrap/requirements/call.txt
+          node -e 'process.exit(Number(process.versions.node.split(".")[0]) >= 22 ? 0 : 1)'
+          npm ci --prefix snap/bootstrap/requirements/claude-cli --no-audit --no-fund
+          pinned=$(node -p 'require("./snap/bootstrap/requirements/claude-cli/package.json").dependencies["@anthropic-ai/claude-code"]')
+          test "$(snap/bootstrap/requirements/claude-cli/node_modules/.bin/claude --version | cut -d' ' -f1)" = "$pinned"
       - id: rival
         name: Seed rival
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        run: /tmp/call/bin/python -m snowball_bootstrap rival --root snap --pulled pulled --work work --out rival
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: |
+          : "${CLAUDE_CODE_OAUTH_TOKEN:?secrets.CLAUDE_CODE_OAUTH_TOKEN is empty (run claude setup-token)}"
+          python3 -m snowball_bootstrap rival --root snap --pulled pulled --work work --out rival \
+            --claude snap/bootstrap/requirements/claude-cli/node_modules/.bin/claude
       - id: pack
         run: python3 -m snowball_bootstrap pack --dir rival --out rival.tar | sed -n 's/^sha256=/rival_sha=/p' >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

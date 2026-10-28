@@ -22,7 +22,7 @@ class TreeError(ValueError):
 
 def _clean(name: str) -> PurePosixPath:
     path = PurePosixPath(name)
-    if path.is_absolute() or ".." in path.parts:
+    if path.is_absolute() or ".." in path.parts or "\\" in name or ":" in name or "\x00" in name:
         raise TreeError(f"unsafe path in archive: {name}")
     return path
 
@@ -75,6 +75,8 @@ def extract(tar_bytes: bytes, dest: Path, max_bytes: int, prefix: str = "") -> i
         if total > max_bytes:
             raise TreeError(f"tree larger than {max_bytes} bytes")
         target = dest.joinpath(*path.parts)
+        if not target.resolve().is_relative_to(dest.resolve()):
+            raise TreeError(f"path leaves the destination: {path}")
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(content)
         target.chmod(0o755 if executable else 0o644)
