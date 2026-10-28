@@ -24,15 +24,20 @@ from typing import Any, Iterator
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
     from snowball_bootstrap import secretscan
-    from snowball_bootstrap.rival import TOOLS, ToolBox, validate_verdict
+    from snowball_bootstrap.rival import SecretWithheld, TOOLS, ToolBox, validate_verdict
 else:
     from . import secretscan
-    from .rival import TOOLS, ToolBox, validate_verdict
+    from .rival import SecretWithheld, TOOLS, ToolBox, validate_verdict
 
 PROTOCOL_VERSION = "2024-11-05"
 READ_TOOLS = ("read_file", "grep", "glob")
 MAX_INVALID_SUBMISSIONS = 3
 TOOL_TIMEOUT_S = 20
+
+
+class _Deadline(BaseException):
+    """Not an Exception, and above all not an OSError: pathlib's directory walk swallows OSError and would
+    silently spend the one-shot timer, leaving the call without any limit."""
 
 
 @contextmanager
@@ -44,7 +49,7 @@ def _deadline(seconds: float) -> Iterator[None]:
         return
 
     def expired(signum: int, frame: Any) -> None:
-        raise TimeoutError
+        raise _Deadline
 
     previous = signal.signal(signal.SIGALRM, expired)
     signal.setitimer(signal.ITIMER_REAL, seconds)
@@ -68,8 +73,7 @@ class RivalServer:
 
     def _write_stats(self) -> None:
         tmp = self.stats_path.with_suffix(".tmp")
-        tmp.write_text(json.dumps({"withheld": self.withheld, "invalid": self.invalid,
-                                   "last_invalid": self.last_invalid}), encoding="utf-8")
+        tmp.write_text(json.dumps({"withheld": self.withheld, "last_invalid": self.last_invalid}), encoding="utf-8")
         os.replace(tmp, self.stats_path)
 
     def call(self, name: str, args: Any) -> tuple[str, bool]:
@@ -81,7 +85,10 @@ class RivalServer:
             if self.invalid >= MAX_INVALID_SUBMISSIONS:
                 return "error: too many invalid submissions; no further verdict is accepted", True
             try:
-                validate_verdict(args, self.box)
+                with _deadline(self.tool_timeout_s):
+                    validate_verdict(args, self.box)
+            except _Deadline:
+                return f"error: checking the verdict took longer than {self.tool_timeout_s:g} s", True
             except ValueError as exc:
                 self.invalid += 1
                 self.last_invalid = str(exc)[:300]
@@ -102,13 +109,17 @@ class RivalServer:
                     text = self.box.grep(args.get("pattern"), args.get("path_prefix", ""))
                 else:
                     text = self.box.glob(args.get("pattern"))
-        except TimeoutError:
+        except _Deadline:
             self._write_stats()
             return f"error: the call took longer than {self.tool_timeout_s:g} s and was stopped", True
-        except (ValueError, TypeError, OSError, OverflowError, NotImplementedError, re.error) as exc:
+        except SecretWithheld as exc:
+            self.withheld += 1
+            self._write_stats()
+            return str(exc), True
+        except Exception as exc:  # whatever a tool raises is an error result, never the end of the session
             self._write_stats()
             return f"error: {exc}", True
-        if secretscan.scan(text):
+        if secretscan.scan(text) or secretscan.scan(text.replace(chr(0), '')):  # UTF-16 hides a token from a plain scan
             self.withheld += 1
             self._write_stats()
             return "withheld: the result matched a secret pattern", True
@@ -145,7 +156,7 @@ def serve(server: RivalServer, stdin: Any, stdout: Any) -> None:
             continue
         try:
             msg = json.loads(line)
-        except ValueError:
+        except (ValueError, RecursionError):
             continue
         if not isinstance(msg, dict):
             continue

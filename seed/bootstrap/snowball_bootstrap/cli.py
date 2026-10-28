@@ -19,7 +19,7 @@ from . import canon, config, ghapi, gitio, licenses, state as st
 from .classify import classify, spec_stage_dirs
 from .container import DockerRunner
 from .controls import run_controls
-from .decide import decide
+from .decide import OUTAGE_RETRY_LIMIT, decide
 from .importer import ImportErrorStop, run_import, verify_signature
 from .manifest import ManifestError, check_stage0, parse_lockfile, parse_manifest
 from .reproduce import run_reproducers
@@ -160,11 +160,16 @@ def cmd_poll(args: argparse.Namespace) -> int:
     try:
         prev = read_json(prev_dir / "result.json")["state"]
         seen = {prev["last_accepted_sha"], prev["last_evaluated_sha"]}
-    except (KeyError, TypeError, json.JSONDecodeError):
-        seen = set()
+        parked = prev.get("outage_sha") if int(prev.get("outage_count", 0)) >= OUTAGE_RETRY_LIMIT else None
+    except (KeyError, TypeError, ValueError, AttributeError, json.JSONDecodeError):
+        seen, parked = set(), None
     created = datetime.datetime.fromisoformat(art["created_at"].replace("Z", "+00:00"))
-    reupload = (datetime.datetime.now(datetime.timezone.utc) - created).days >= 7
-    output(skip=head in seen, reupload=reupload, head=head)
+    age = datetime.datetime.now(datetime.timezone.utc) - created
+    waiting = parked == head and age < datetime.timedelta(days=1)  # parked: one retry a day, not one an hour
+    if waiting:
+        print(f"::notice title=Commit parked::{head} failed {OUTAGE_RETRY_LIMIT} times for infrastructure "
+              "reasons and is retried once a day")
+    output(skip=head in seen or waiting, reupload=age.days >= 7, head=head)
     return 0
 
 
@@ -422,9 +427,8 @@ def cmd_rival(args: argparse.Namespace) -> int:
     write_json(out / "rival.json", result)
     output(has_repro=result["reproducer_count"] > 0 and result["verdict"] in ("refuted", "not_refuted"))
     outage = [r for r in result["reasons"] if str(r).startswith("api_error")]
-    if outage:
-        print(f"the rival could not run: {', '.join(outage)}", file=sys.stderr)
-        return 3
+    if outage:  # the job stays green so rival.json reaches `decide`, which books the cost and retries the commit
+        print(f"::warning title=The seed rival could not run::{', '.join(outage)}")
     return 0
 
 

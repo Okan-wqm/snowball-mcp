@@ -7,6 +7,9 @@ Sigstore before use. If none exists, the run starts from the setup summary and s
 ``reject_streaks`` counts, per rejection signature, how many evaluated rejections in a row carried
 it; ``repeat_events`` counts the times a signature came back on the very next rejection. They
 measure whether the founder uses what a rejection told it (`tohum/29b`, "Ret hafızası").
+``outage_sha`` and ``outage_count`` count the consecutive infrastructure failures of one commit, so
+that a dead token or an exhausted plan parks that commit instead of re-running the whole pipeline
+every hour (`decide.OUTAGE_RETRY_LIMIT`).
 """
 
 from __future__ import annotations
@@ -21,7 +24,8 @@ SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 HEX64_RE = re.compile(r"^[0-9a-f]{64}$")
 MONTH_RE = re.compile(r"^\d{4}-\d{2}$")
 KEYS = {"schema", "origin", "last_accepted_sha", "last_evaluated_sha", "frozen_specs", "rival_artifacts",
-        "month", "month_spend_usd_micros", "stage_spend_usd_micros", "runs", "reject_streaks", "repeat_events"}
+        "month", "month_spend_usd_micros", "stage_spend_usd_micros", "runs", "reject_streaks", "repeat_events",
+        "outage_sha", "outage_count"}
 
 
 def initial(summary: Summary, month: str) -> dict[str, Any]:
@@ -38,6 +42,8 @@ def initial(summary: Summary, month: str) -> dict[str, Any]:
         "runs": 0,
         "reject_streaks": {},
         "repeat_events": 0,
+        "outage_sha": None,
+        "outage_count": 0,
     }
 
 
@@ -48,6 +54,8 @@ def validate(state: Any) -> dict[str, Any]:
         raise ConfigError("previous state: bad last_accepted_sha")
     if state["last_evaluated_sha"] is not None and not SHA_RE.match(str(state["last_evaluated_sha"])):
         raise ConfigError("previous state: bad last_evaluated_sha")
+    if state["outage_sha"] is not None and not SHA_RE.match(str(state["outage_sha"])):
+        raise ConfigError("previous state: bad outage_sha")
     if not isinstance(state["frozen_specs"], dict) or not all(
             isinstance(k, str) and isinstance(v, str) and HEX64_RE.match(v) for k, v in state["frozen_specs"].items()):
         raise ConfigError("previous state: bad frozen_specs")
@@ -60,7 +68,7 @@ def validate(state: Any) -> dict[str, Any]:
             isinstance(k, str) and isinstance(v, int) and not isinstance(v, bool) and v > 0
             for k, v in state["reject_streaks"].items()):
         raise ConfigError("previous state: bad reject_streaks")
-    for key in ("month_spend_usd_micros", "stage_spend_usd_micros", "runs", "repeat_events"):
+    for key in ("month_spend_usd_micros", "stage_spend_usd_micros", "runs", "repeat_events", "outage_count"):
         if not isinstance(state[key], int) or isinstance(state[key], bool) or state[key] < 0:
             raise ConfigError(f"previous state: bad {key}")
     return state

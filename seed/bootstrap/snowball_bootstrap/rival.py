@@ -29,7 +29,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from . import secretscan
+from . import canon, secretscan
 from .config import RivalConfig
 
 MAX_READ_LINES = 400
@@ -41,6 +41,7 @@ MAX_ATTEMPTS = 10
 MAX_CLAIM_CHARS = 2000
 MAX_CMD_CHARS = 1000
 MAX_EXPECT_CHARS = 500
+MAX_PATH_CHARS = 300
 MAX_REPRODUCERS = 5
 
 PROTOCOL = """
@@ -99,8 +100,9 @@ TOOLS: list[dict[str, Any]] = [
     },
     {
         "name": "submit_verdict",
-        "description": "Submit the final verdict. Call exactly once, at the end. A submission that breaks the "
-                       "limits below is returned as an error so you can correct it and submit again.",
+        "description": "Submit the final verdict. Call exactly once, at the end. A malformed submission (wrong "
+                       "types, a missing field, an empty claim or evidence list, an invalid reproducer, too many "
+                       "attempts) is returned as an error so you can correct it and submit again.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -118,7 +120,7 @@ TOOLS: list[dict[str, Any]] = [
                                 "items": {
                                     "type": "object",
                                     "properties": {
-                                        "path": {"type": "string", "minLength": 1},
+                                        "path": {"type": "string", "minLength": 1, "maxLength": MAX_PATH_CHARS},
                                         "line_start": {"type": "integer", "minimum": 1},
                                         "line_end": {"type": "integer", "minimum": 1},
                                     },
@@ -170,6 +172,10 @@ def extract_seat_prompt(seats_markdown: str) -> str:
     return " ".join(quoted)
 
 
+class SecretWithheld(ValueError):
+    """A file the model asked for matches a secret pattern; it is refused whole (a PEM body has no header)."""
+
+
 class ToolBox:
     """Read-only access to one extracted tree; nothing outside it is reachable."""
 
@@ -177,8 +183,8 @@ class ToolBox:
         self.root = root.resolve()
 
     def _resolve(self, rel: str) -> Path:
-        if not isinstance(rel, str) or not rel or "\x00" in rel:
-            raise ValueError("path must be a non-empty string")
+        if not isinstance(rel, str) or not rel or "\x00" in rel or len(rel) > 1000:
+            raise ValueError("path must be a non-empty string of at most 1000 characters")
         if "\\" in rel or ":" in rel or rel.startswith("//"):
             raise ValueError("path must be a plain relative POSIX path")
         target = (self.root / rel).resolve()
@@ -192,7 +198,10 @@ class ToolBox:
             raise ValueError(f"no such file: {path}")
         if target.stat().st_size > MAX_FILE_BYTES:
             raise ValueError("file too large to read")
-        lines = target.read_text(encoding="utf-8", errors="replace").splitlines()
+        text = target.read_text(encoding="utf-8", errors="replace")
+        if secretscan.scan(text) or secretscan.scan(text.replace(chr(0), "")):  # the whole file, not only the lines asked for
+            raise SecretWithheld("withheld: the file matches a secret pattern")
+        lines = text.splitlines()
         start = max(1, int(start_line))
         end = min(len(lines), int(end_line) if end_line else start + MAX_READ_LINES - 1, start + MAX_READ_LINES - 1)
         body = "\n".join(f"{n}: {lines[n - 1]}" for n in range(start, end + 1))
@@ -203,27 +212,37 @@ class ToolBox:
             raise ValueError("pattern must be 1-200 characters")
         regex = re.compile(pattern)
         base = self._resolve(path_prefix) if path_prefix else self.root
-        files = [base] if base.is_file() else sorted(p for p in base.rglob("*") if p.is_file())
+        files = [base] if base.is_file() else sorted(p for p in base.rglob("*") if p.is_file() and not p.is_symlink())
         matches: list[str] = []
+        skipped = withheld = 0
         for file in files:
             if file.stat().st_size > MAX_FILE_BYTES:
+                skipped += 1
                 continue
             data = file.read_bytes()
             if b"\x00" in data[:8192]:
+                skipped += 1
                 continue
             rel = file.relative_to(self.root).as_posix()
-            for n, line in enumerate(data.decode("utf-8", "replace").splitlines(), start=1):
+            text = data.decode("utf-8", "replace")
+            if secretscan.scan(text):
+                withheld += 1
+                continue
+            for n, line in enumerate(text.splitlines(), start=1):
                 if regex.search(line):
                     matches.append(f"{rel}:{n}: {line[:300]}")
                     if len(matches) >= MAX_GREP_MATCHES:
                         return "\n".join(matches) + "\n(truncated at 200 matches)"
-        return "\n".join(matches) if matches else "(no matches)"
+        note = f"\n(skipped {skipped} file(s): binary or larger than {MAX_FILE_BYTES} bytes)" if skipped else ""
+        note += f"\n(withheld {withheld} file(s) that match a secret pattern)" if withheld else ""
+        return ("\n".join(matches) if matches else "(no matches)") + note
 
     def glob(self, pattern: str) -> str:
         if (not isinstance(pattern, str) or not pattern or pattern.startswith("/") or ".." in pattern
                 or "\\" in pattern or ":" in pattern):
             raise ValueError("pattern must be a relative glob without '..', ':' or backslashes")
-        found = sorted(p.relative_to(self.root).as_posix() for p in self.root.glob(pattern) if p.is_file())
+        found = sorted(p.relative_to(self.root).as_posix() for p in self.root.glob(pattern)
+                       if p.is_file() and not p.is_symlink())
         if len(found) > MAX_GLOB_RESULTS:
             return "\n".join(found[:MAX_GLOB_RESULTS]) + f"\n(truncated at {MAX_GLOB_RESULTS})"
         return "\n".join(found) if found else "(no matches)"
@@ -231,11 +250,11 @@ class ToolBox:
     def line_count(self, path: str) -> int | None:
         try:
             target = self._resolve(path)
-        except ValueError:
+            if not target.is_file() or target.stat().st_size > MAX_FILE_BYTES:
+                return None
+            return len(target.read_text(encoding="utf-8", errors="replace").splitlines())
+        except (ValueError, OSError):
             return None
-        if not target.is_file():
-            return None
-        return len(target.read_text(encoding="utf-8", errors="replace").splitlines())
 
 
 def validate_verdict(raw: Any, box: ToolBox) -> dict[str, Any]:
@@ -256,8 +275,11 @@ def validate_verdict(raw: Any, box: ToolBox) -> dict[str, Any]:
         for r in refs:
             if not isinstance(r, dict) or not isinstance(r.get("path"), str):
                 raise ValueError("evidence ref needs a path")
+            if len(r["path"]) > MAX_PATH_CHARS:
+                raise ValueError(f"evidence path longer than {MAX_PATH_CHARS} characters")
             ls, le = r.get("line_start"), r.get("line_end")
-            if not isinstance(ls, int) or not isinstance(le, int) or ls < 1 or le < ls:
+            if (not isinstance(ls, int) or not isinstance(le, int) or isinstance(ls, bool) or isinstance(le, bool)
+                    or ls < 1 or le < ls):
                 raise ValueError("evidence ref lines must satisfy 1 <= line_start <= line_end")
             count = box.line_count(r["path"])
             if count is None or le > count:
@@ -270,6 +292,8 @@ def validate_verdict(raw: Any, box: ToolBox) -> dict[str, Any]:
                 raise ValueError("reproducer needs a cmd")
             if len(rep["cmd"]) > MAX_CMD_CHARS:
                 raise ValueError(f"reproducer cmd longer than {MAX_CMD_CHARS} characters")
+            if any(ord(c) < 32 and c not in "\n\t" for c in rep["cmd"]):
+                raise ValueError("reproducer cmd must not contain control characters")
             exp_exit = rep.get("expect_exit")
             exp_out = rep.get("expect_stdout_contains")
             if exp_exit is None and exp_out is None:
@@ -282,6 +306,10 @@ def validate_verdict(raw: Any, box: ToolBox) -> dict[str, Any]:
         clean.append(item)
     if raw["verdict"] == "refuted" and not clean:
         raise ValueError("a refutation needs at least one attempt")
+    try:  # whatever passes here is written into signed, canonical artifacts later: refuse what they cannot hold
+        canon.canonical({"verdict": raw["verdict"], "attempts": clean})
+    except ValueError as exc:
+        raise ValueError(f"the verdict cannot be recorded: {exc}") from exc
     return {"verdict": raw["verdict"], "attempts": clean}
 
 
@@ -348,17 +376,31 @@ def _kill_tree(proc: subprocess.Popen) -> None:
             pass
 
 
+def _terminate(signum: int, frame: Any) -> None:
+    raise SystemExit(128 + signum)
+
+
 def _run_cli(argv: list[str], stdin: str, cwd: Path, env: dict[str, str]) -> tuple[int, str]:
     group = {"start_new_session": True} if os.name != "nt" else {}
     with subprocess.Popen(argv, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
-                          text=True, encoding="utf-8", cwd=cwd, env=env, **group) as proc:
+                          cwd=cwd, env=env, **group) as proc:  # bytes: no newline translation on Windows
+        try:  # a plain SIGTERM would end this process and leave the CLI (and its spend) running
+            previous = signal.signal(signal.SIGTERM, _terminate)
+        except ValueError:  # not the main thread
+            previous = None
         try:
-            stdout, _ = proc.communicate(stdin, timeout=CLI_TIMEOUT_S)
-        except subprocess.TimeoutExpired:
+            stdout, _ = proc.communicate(stdin.encode("utf-8"), timeout=CLI_TIMEOUT_S)
+        except BaseException:  # a timeout, Ctrl-C, SIGTERM or any error: nothing of the CLI may outlive this call
             _kill_tree(proc)
-            proc.communicate()
+            try:
+                proc.communicate(timeout=10)
+            except subprocess.TimeoutExpired:  # a descendant that left the process group still holds the pipe
+                pass
             raise
-        return proc.returncode, stdout
+        finally:
+            if previous is not None:
+                signal.signal(signal.SIGTERM, previous)
+        return proc.returncode, stdout.decode("utf-8", "replace")
 
 
 def _cli_argv(claude_bin: str, cfg: RivalConfig, run_dir: Path, tree_root: Path, budget_usd_micros: int) -> list[str]:
@@ -370,27 +412,24 @@ def _cli_argv(claude_bin: str, cfg: RivalConfig, run_dir: Path, tree_root: Path,
         claude_bin, "-p", "--output-format", "stream-json", "--verbose", "--no-session-persistence",
         "--model", cfg.model, "--effort", cfg.effort,
         "--max-turns", str(cfg.max_turns + 1),  # the closing message after submit_verdict is one more turn
-        "--system-prompt-file", str(run_dir / "system.txt"),
+        "--system-prompt-file", "../system.txt",  # relative to the empty cwd (run_dir/cwd): cmd.exe breaks on & and ^
         "--tools", "", "--setting-sources", "", "--disable-slash-commands",
-        "--strict-mcp-config", "--mcp-config", str(run_dir / "mcp.json"),
+        "--strict-mcp-config", "--mcp-config", "../mcp.json",
         f"--allowedTools={','.join(TOOL_NAMES)}",
         "--max-budget-usd", f"{budget_usd_micros / 1_000_000:.6f}",
     ]
-
-
-API_KEY_SOURCES = ("user", "project", "org", "temporary")
 
 
 def _parse_stream(stdout: str) -> tuple[dict[str, Any] | None, dict[str, Any] | None, set[str]]:
     """The init event, the final result and the models the API itself named in its replies."""
     init = result = None
     models: set[str] = set()
-    for line in stdout.splitlines():
+    for line in stdout.split("\n"):  # not splitlines(): Node writes U+2028 and U+0085 raw inside a string
         if not line.startswith("{"):
             continue
         try:
             event = json.loads(line)
-        except ValueError:
+        except (ValueError, RecursionError):
             continue
         if not isinstance(event, dict):
             continue
@@ -420,7 +459,7 @@ def _isolation_fault(init: dict[str, Any] | None, usage: dict[str, Any]) -> str 
         return "mcp_servers"
     if init.get("skills") or init.get("slash_commands"):
         return "skills"
-    if init.get("apiKeySource") in API_KEY_SOURCES:
+    if init.get("apiKeySource") != "none":  # every real run, signed in or with a token, reports none
         return "api_key"
     if any(isinstance(u, dict) and u.get("provider") not in (None, "firstParty") for u in usage.values()):
         return "provider"
@@ -447,7 +486,7 @@ def run_rival(cfg: RivalConfig, *, claude_bin: str | None, seat_prompt: str, con
         return out
     with tempfile.TemporaryDirectory(prefix="snowball-rival-") as tmp:
         run_dir = Path(tmp)
-        (run_dir / "system.txt").write_text(system_text, encoding="utf-8")
+        (run_dir / "system.txt").write_text(system_text, encoding="utf-8", newline="\n")
         cwd = run_dir / "cwd"
         cwd.mkdir()
         argv = _cli_argv(claude_bin, cfg, run_dir, tree_root, budget)
@@ -494,6 +533,8 @@ def run_rival(cfg: RivalConfig, *, claude_bin: str | None, seat_prompt: str, con
                 status, terminal = result.get("api_error_status"), str(result.get("terminal_reason") or "")
                 if status:
                     code = f"http_{status}"
+                elif "not logged in" in str(result.get("result") or "").lower():
+                    code = "not_logged_in"
                 elif subtype.startswith("error"):
                     code = subtype
                 else:

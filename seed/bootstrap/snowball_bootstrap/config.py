@@ -86,8 +86,8 @@ class Bootstrap:
         return self.brain_repo.split("/", 1)[1]
 
 
-MODEL_RE = re.compile(r"^claude-[a-z0-9][a-z0-9.-]*$")
-REMOVED_KEYS = {"max_tokens": "the rival runs through the claude CLI, which has no token limit setting",
+MODEL_RE = re.compile(r"^claude-[a-z0-9][a-z0-9.-]*\Z")
+REMOVED_KEYS = {"max_tokens": "the rival runs through the claude CLI, which takes no per-request token limit flag",
                 "price_micros_per_mtok": "cost is the CLI's own list-price estimate"}
 
 

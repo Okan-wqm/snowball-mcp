@@ -11,8 +11,8 @@
 # (the operator's `claude setup-token`). No API key is held anywhere while this system is for internal use.
 #
 # Schedule: hourly at a fixed odd minute. An idle poll is one job of under a minute (it installs
-# and verifies nothing), so idling costs about 24 x 30 = 720 Actions minutes a month; see tohum/29b
-# "Dakika hesabı" before changing the cadence.
+# and verifies nothing), so idling costs about 24 x 30 = 720 Actions minutes a month; see tohum/25
+# "Actions dakikası hesabı" before changing the cadence.
 #
 # Every wheel this workflow installs passes the license gate first (`licenses`, tohum/24 "Lisans"). The one
 # npm package it installs, the claude CLI, is a vendor tool and not a wheel: requirements/claude-cli/

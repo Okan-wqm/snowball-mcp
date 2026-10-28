@@ -77,7 +77,10 @@ def extract(tar_bytes: bytes, dest: Path, max_bytes: int, prefix: str = "") -> i
         target = dest.joinpath(*path.parts)
         if not target.resolve().is_relative_to(dest.resolve()):
             raise TreeError(f"path leaves the destination: {path}")
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_bytes(content)
-        target.chmod(0o755 if executable else 0o644)
+        try:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(content)
+            target.chmod(0o755 if executable else 0o644)
+        except OSError as exc:  # e.g. a name longer than the file system allows
+            raise TreeError(f"cannot write {path}: {exc.strerror or type(exc).__name__}") from exc
     return total
