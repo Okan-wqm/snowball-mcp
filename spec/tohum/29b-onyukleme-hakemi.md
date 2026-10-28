@@ -49,11 +49,11 @@ arayüzle, sahibi olan mikro özellik bitince uygulanır.
 **Rakip çağrısı.** Şimdilik iç kullanımda API anahtarı yoktur, ticari kullanımda anahtara geçilir: rakip,
 çağıranın oturumuyla koşan, `requirements/claude-cli/`'de sha512'yle pinli `claude` CLI'sidir. Yerleşik
 araç, ayar kaynağı, slash komutu ve oturum kaydı yoktur; tek MCP sunucusu hakemin `rival_mcp.py`'sidir:
-`read_file`, `grep`, `glob` yalnız çıkarılmış ağacı okur, karar `submit_verdict` ile gelir. Her koşu bunu
-CLI'nin `init` olayından kanıtlar. API'nin döndürdüğü model istenenden farklıysa, ret, zaman aşımı, bütçe
-ya da tur sonu ya da biçimsiz karar `unresolved`'dır, yani kabul değildir; yedek model yoktur. Kimlik,
-kota ya da ağ hatası altyapı arızasıdır (`api_error`): ret sayılmaz, sonraki turda yeniden denenir. Giden
-metinde ve karar metninde sır deseni varsa çağrı ya da karar atılır; fikstürdeki sahte sırlar çalışma anında birleştirilir.
+`read_file`, `grep`, `glob` yalnız çıkarılmış ağacı okur, karar `submit_verdict` ile gelir; her koşu bunu
+CLI'nin `init` olayından kanıtlar (CLI ortam bilgisini ve hesap adını da ekler). API'nin döndürdüğü model
+istenenden farklıysa, ret, bütçe sonu, tur sonu ya da biçimsiz karar `unresolved`'dır, yani kabul değildir;
+yedek model yoktur. Kimlik, kota, ağ hatası ve zaman aşımı altyapı arızasıdır (`api_error`): ret sayılmaz,
+yeniden denenir; aynı SHA'da üçüncüsünden sonra günde bir. Sır desenli metin ve karar atılır; fikstür sırları koşuda birleştirilir.
 
 **Kabul.** Kod SHA'sı: Aşama 0 testleri yeşil; vektörler geçer ve değiştirilmiş girdiyi reddeder;
 kırmızı kontroller doğru; rakip geçerli bir karar verdi ve hiçbir çürütmesi yeniden üretilmedi.
