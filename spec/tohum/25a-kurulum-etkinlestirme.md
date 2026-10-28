@@ -12,7 +12,7 @@ olmalıdır (`asama-0/10`).
 
 | # | İş | Neden |
 |---|---|---|
-| 1 | **Operatör aktarımı:** aktarım betiğini koştur. Betik pinli SHA'daki `referee/` ağacını hakem reposuna kopyalar ve ağaç hash'inin Rekor'daki (A) kaydıyla aynı olduğunu doğrular; farklıysa durur. Aktarım sayacı bir artar | Hakem kodu yalnız aktarımla değişir (`01a`) |
+| 1 | **Operatör aktarımı:** aktarım betiğini koştur. Betik pinli SHA'daki `referee/` ağacını hakem reposuna kopyalar ve kod ağacının hash'inin, operatör dosyaları (`policy.json`, `control.json`, `setup/`, `seats/`, `vectors/`) hariç, Rekor'daki (A) kaydıyla aynı olduğunu doğrular; farklıysa durur. `referee/` bu adlarla dosya taşıyamaz. Aktarım sayacı bir artar | Hakem kodu yalnız aktarımla değişir (`01a`) |
 | 2 | Aynı betik `tests/fixtures/toy-repo/`'yu oyuncak hedefin `main`'ine iter | Etkinleştirme provası için içerik |
 | 3 | Hedefte ruleset'ler: `brain/state` için `deletion`, `non_fast_forward`; `brain/integration` için `deletion`, `non_fast_forward`, `pull_request` ve zorunlu kontrol (strict, `integration_id` = yazar App'i). Hiçbirinde bypass aktörü yok | Zincir ve entegrasyon dalı yazar App'ine bile yeniden yazılamasın |
 | 4 | **Yazma modu şartı:** hedef `main` ruleset'inde yazar App'i bypass değildir ve `main` güncellemesi ya onaylı inceleme ister ya da güncelleme kısıtıyla yalnız operatör rolüne açıktır. Hedef bunu taşıyamıyorsa (özel repo, Free) bağlanma `mode: training`'dir | Yazar App'i `main`'e ulaşamasın (`21`) |

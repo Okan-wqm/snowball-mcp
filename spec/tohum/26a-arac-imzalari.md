@@ -20,7 +20,7 @@ yazar App'ini tutar. Oyuncu kodu yalnız `koş`ta koşar; sırlı işler oyuncu 
 | `harness.baseline` | Hakem | `çek` | `snapshot_id`, property | bulgu dosyası | yok | hakem |
 | `spec.lint` | Hakem | `koş` | spec dizini, `required_exit_rows` | ihlal listesi | yok | Kurucu, `brain.accept`, `lock.check` |
 | `ledger.append` | Hakem | `yaz` | bölüm, satırlar | `row_hash`'ler | döngü başına tek `brain/state` commit'i | hakem işleri |
-| `chain.verify` | Hakem | `yaz` | dal ya da commit | geçerli / kırık satır | kırıksa sert duruş | herkes |
+| `chain.verify` | Hakem | `yaz` | dal ya da commit; yalnız-ekleme için önceki sürüm (`--previous`) | geçerli / kırık satır | kırıksa sert duruş | herkes |
 | `rekor.anchor` | Hakem | `yaz` | kök hash | Rekor kayıt kimliği | Rekor'a ekleme | `ledger.append` |
 | `secrets.scan` | Hakem | `çağır`, `yaz` | diff, satır, prompt | eşleşmeler | koşuyu geçersiz kılar | `llm.call`, `gate.check`, `ledger.append` |
 | `drift.check` | Hakem | `yaz` | kurulum özeti | fark | sert duruş | hakem döngü başı |

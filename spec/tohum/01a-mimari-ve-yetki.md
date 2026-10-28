@@ -20,8 +20,8 @@ oyuncu kendi reposu dışına hiçbir şey yazmaz: aday yayımlar, hakem çeker 
 Eğitim modundaki hedeflerin durumu operatörün özel **eğitim deposunda**, hedef başına bir dalda
 durur; yazarı yazar App'idir, bütünlüğü Rekor köküdür; ilk eğitim hedefiyle açılır (`21`).
 
-**Beyin bir MCP sunucusudur.** Repo-bağımsız koddur; hedefe bağlanınca `<state_root>` açar
-(varsayılan `.brain/`). Her dosya ancak okuyucusu doğunca açılır, okuyucusu kalmayınca kapanır (Y4).
+**Beyin bir MCP sunucusudur.** Repo-bağımsız koddur; hedefe bağlanınca `<state_root>` açar:
+`brain/state` yetim dalının kökündeki dizin (varsayılan `.brain/`). Her dosya ancak okuyucusu doğunca açılır, okuyucusu kalmayınca kapanır (Y4).
 
 **Kimlikler** (`24`, `25`). Kurucu kimliği beyin reposuna yazar, hakem reposunu okur, açık hedefi
 kimliksiz okur. Okuyucu App'i yalnız okur; beyin reposuna ve özel hedeflere kurulur. Yazar App'i
@@ -47,7 +47,8 @@ yazma modu bunu taşıyan bir `main` ruleset'i ister (`21`, `25a`).
 
 **Hakem değişikliği ve bilinen sınır.** Hakem reposu Free özel planda korunamadığı için hiçbir App
 ona yazmaz. Hakem kodu yalnız operatör aktarımıyla değişir: aşama çıkışında, mekanik betikle; ağaç
-hash'i beyin reposundaki pinli SHA'nın `referee/` ağacıyla aynı olmalıdır ve aktarım insan
+hash'i, operatör dosyaları (`policy.json`, `control.json`, `setup/`, `seats/`, `vectors/`) hariç,
+beyin reposundaki pinli SHA'nın `referee/` ağacıyla aynı olmalıdır ve aktarım insan
 dokunuşu sayacına yazılır. Adayı şerit yazarı yazar (`29`): Kurucu değildir, yalnız tipli hakem
 raporlarını ve kanaryaları okur, çıktısı rakipten ve kanaryadan geçer. Tek yazma anahtarı yazar
 App'idir ve ortam sırları olmadığından hakem reposundaki her iş onu adlandırabilir; bunu Rekor kökü,

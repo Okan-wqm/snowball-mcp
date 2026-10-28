@@ -54,7 +54,8 @@ typecheck[], test[], format[], build[], coverage[]}}`, `affected_test_cmd`, `gra
 class_floors{K0, K1, K2, K4: {kind: census, misses: 0}, K3, K5..K8: {recall_lb, precision_lb}},
 required_exit_rows{capability: [row]}, regression_freeze, cycle_caps, daily_caps,
 security_keywords[], banned_phrases[], stage_order, look_budget, confidence_level,
-noninferiority_margin, n_min_paired, mcnemar_min_discordant, survival_windows{}, gate_rules{}}`,
+noninferiority_margin, n_min_paired, mcnemar_min_discordant, survival_windows{}, gate_rules{},
+stage_params{}, stage_budgets{}}`,
 `performance{rules{name: expr}, windows{}, lambda, beta_prior, shadow_discount, shadow_min_runs,
 shadow_max_windows, ablation_margin, severity_map{}, op_allow{}, cheapest_model, effort{},
 signal_thresholds{}}`. Eylemi kapılayan her şey anayasal bölümdedir ve yalnız sıkılaşır.
@@ -69,6 +70,10 @@ havuz başınadır; tüm soylar paylaşır.
 
 **heldout.seal.json**: `seal_id`, `hmac_sha256`, `case_count`, `created_at`, `rotation_due`,
 `cutoff_ts`, `sealed_prompt_sha256`; vaka listesi mühürlü depodadır.
+
+**snowball-tests.json** (beyin reposu kökü): `{tests: [{id, cmd, stage}], done_mf: [], lockfiles: []}`;
+`id` §0.9 test numarasıdır (`T13`). **exit-request.json** (beyin reposu kökü): `{stage, sha,
+spec_sha256}`; Kurucu'nun çıkış isteğidir (`asama-0/10`).
 
 **contract**: `contract_id`, `producer`, `consumer`, `schema_ref`, `state` (`proposed`|`frozen`),
 `tests[]`. Bulgu biçimi sözleşme değil bu şemadır; ilk sözleşme ikinci ortak arayüzle doğar.

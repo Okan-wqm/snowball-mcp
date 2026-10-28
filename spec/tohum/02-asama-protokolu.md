@@ -6,9 +6,11 @@ Okunma: her aşama başında ve sonunda
 
 ---
 
-1. Kurucu spec'i taslaklar. Bölümleri sabittir: amaç, doğruluk özellikleri, roller, sıralı mikro
-   özellikler, çıkış testi, yasaklar, bütçe, teslim listesi. Aşama özeti ön koşulu ve çıkış
-   kapısını taşır.
+1. Kurucu spec'i taslaklar. En az şu sekiz bölümü vardır: amaç, doğruluk özellikleri, roller,
+   sıralı mikro özellikler, çıkış testi, yasaklar, bütçe, teslim listesi; aşamaya özgü ek bölüm
+   ayrı sayfa olabilir. Aşama özeti ön koşulu ve çıkış kapısını taşır. Tohumla gelen Aşama 0 ve 1
+   spec'i Kurucu'nun ilk taslağı sayılır: listeden geçmezse Kurucu düzeltip rakibe sunar; anayasal
+   bir değer gerektiren düzeltme `blocked` olur.
 2. Spec **yapısal kontrol listesinden** geçer ve tohum rakibi (`29`) onu çürütmeyi dener. Çürütme
    ancak hakemin yeniden koşturduğu bir yeniden üreticiyle sayılır; açık `not_refuted` dışındaki her
    sonuç kabul değildir. Liste temiz ve çürütme yoksa spec donar ve hash'i zincire yazılır (Aşama

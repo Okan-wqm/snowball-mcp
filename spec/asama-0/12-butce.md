@@ -17,4 +17,6 @@ Okunma: Aşama 0 çalışırken
 | Takvim | ≤ 30 Kurucu oturumu; sonraki oturum öncekinin önyükleme sonucu yeşilken başlar; aşım spec'i gevşetmez |
 
 Kurucu oturumları Actions'ta koşmaz (`tohum/24`); dakika tavanı yalnız hakem işlerine aittir.
-Tavana varılınca iş temiz durur ve Gözcü bunu bütçe dondurması olarak yazar.
+Tavana varılınca iş temiz durur ve Gözcü bunu bütçe dondurması olarak yazar. Tablodaki değerler
+`stage_budgets.asama_0`'dır ve aşama toplamıdır; aylık tavan (`monthly_cap_usd`) ayrıca bağlar:
+dolunca bütçe dondurması gelir ve takvim uzar. Kurucu maliyetinin ölçümü `tohum/24`'tedir.

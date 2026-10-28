@@ -64,5 +64,5 @@ düzeltir. Bu iş K8 sınıfıdır (`03`): bayat doküman ve davranışı deği�
   oranı; K8 bulgu birikimi doküman organının doğum sinyalidir (`17`).
 
 **Yerleşim.** Beyne ait sayfalar `tohum/`, aşama sayfaları `asama-N/`, repoya özgü üretilmiş
-sayfalar `<state_root>/docs/`. Kurucu her oturum `00` ve `00a` ile başlar; görev başına `INDEX.md`'nin
-gösterdiği sayfaları okur, fazlasını değil.
+sayfalar `<state_root>/docs/`. Kurucu her oturum `00` ve `00a` ile başlar; görev başına `00b`'nin
+gösterdiği sayfaları okur, fazlasını değil; `INDEX.md` sayfa aramak içindir.

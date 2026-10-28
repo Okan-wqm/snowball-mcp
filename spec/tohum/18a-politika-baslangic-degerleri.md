@@ -42,6 +42,12 @@ değerleri `18`'deki prosedürle değişir. Adlar `26b` şemasıyla aynıdır.
 | `gate_rules.soft_freeze_limit` | Pencerede 2'den fazla yumuşak dondurma → sert duruş | `28` |
 | `gate_rules.containment_freeze` | Aynı pencerede 2 kapsayıcılık ihlali → yumuşak dondurma | `08`, `28` |
 | `gate_rules.gross_delete_cap` | Aday başına brüt silme ≤ 200 satır (K2 silmeleri hariç) | `04a` 9 |
+| `stage_params.census_min_groups` | 45 modül grubu ya da mevcut olanın tamamı | `asama-0/04`, `exit.sample` |
+| `stage_params.planted_max_cases` | Snapshot başına 5 vaka | `asama-0/06` |
+| `stage_params.evidence_ref_max_lines` | Birincil ref ≤ 30 satır | `asama-0/07` |
+| `stage_params.match_window_lines` | K3 ve üstü eşleme penceresi ±15 satır | `asama-0/08` |
+| `stage_params.rival_min_attempts` | Aşama başına 5 ayrı artefakt, artefakt başına 1 deneme | `asama-0/10`, `29` |
+| `stage_budgets` | Aşama sayfalarının bütçe tabloları; toplamdır, aylık tavan ayrıca bağlar | aşama bütçe sayfaları, Gözcü |
 
 ## Performans (`performance`)
 

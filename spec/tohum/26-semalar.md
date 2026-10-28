@@ -18,7 +18,7 @@ da yeni kategori önerisini genesis değil şerit yazarı yapar (`09a`).
 | `founder` | beyin reposunda `founder-ledger.jsonl` | Kurucu | Aşama 0 |
 | `events`, `cost`, `freeze`, `rival`, `accept` | `<state_root>/ledger.jsonl` | Hakem işleri | Etkinleştirme |
 | `looks` | `<state_root>/ledger.jsonl` | Hakem exit işi | İlk held-out havuzu |
-| — (bulgu satırları) | `<state_root>/findings.jsonl` | Hakem, adapter önerisinden | Aşama 1 |
+| — (bulgu satırları) | `<state_root>/findings.jsonl` | Hakem, adapter önerisinden | Etkinleştirme |
 | — (unresolved satırları) | `<state_root>/unresolved.jsonl` | Hakem kapısı | Aşama 1 |
 | — (kökler) | `<state_root>/chain/root.jsonl` | Hakem `yaz` işi | Etkinleştirme |
 
@@ -27,7 +27,11 @@ da yeni kategori önerisini genesis değil şerit yazarı yapar (`09a`).
 `prev_hash`, `row_hash`. Satırı her zaman hakem yazar; oyuncunun önerdiği içerik `proposed_by`
 ile işaretlenir ve `trust: inferred` saklanır. Kanonik biçim RFC 8785; `row_hash =
 sha256(canonical(row − row_hash) ‖ prev_hash)`, küçük harf onaltılık; ilk satırın `prev_hash`'i
-64 sıfır. Vektörler `29a`'da. `findings.jsonl` ve `unresolved.jsonl` satırları da `prev_hash`,
+64 sıfır. Vektörler `29a`'da. **Sayılar:** hash'lenen hiçbir artefaktta kayan nokta yoktur;
+tamsayı (para `*_micros`, süre `*_ms`) ya da en çok altı ondalıklı sabit ondalık dizgi
+(`"0.962400"`) kullanılır. **`founder` satırı:** `kind` ∈ {`session_start`, `decision`, `build`,
+`blocked`, `seed_issue`, `cost`, `session_end`}, `payload` `{summary, refs[]}`, `snapshot_id` beyin
+reposunun o anki SHA'sı. `findings.jsonl` ve `unresolved.jsonl` satırları da `prev_hash`,
 `row_hash` taşır.
 
 **derivation** (kapalı küme): `tool`, `static_analysis`, `test_verified`, `llm_inference`,

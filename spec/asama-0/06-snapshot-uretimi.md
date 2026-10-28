@@ -12,7 +12,7 @@ Okunma: Aşama 0 çalışırken
 - **Temizleme.** Planted vakalara bağlı her kimlik (bulgu kimliği, fix commit SHA'sı, bulgu
   başlığı) her dosyada yer tutucuyla değiştirilir. Profildeki `finding_id_patterns` yalnız yorum
   ve doküman satırlarında temizlenir; string literal'lara dokunulmaz, testler kırılmaz.
-- **Planted.** Tek property'den en fazla 5 vaka, dokunulan yolları kesişmeyen.
+- **Planted.** Tek property'den en fazla `stage_params.planted_max_cases` (5) vaka, dokunulan yolları kesişmeyen.
 - **Clean.** Hiç vaka yok; hangisinin clean olduğu söylenmez.
 - **Yaş ayırt ettirmez.** Aşama 4'ten itibaren clean tabanlar en az beş geçmiş `brain/integration`
   başından, planted tabanlar `human_fix` ebeveynlerinden gelir; ikisi de eski ağaçtır, yaşından

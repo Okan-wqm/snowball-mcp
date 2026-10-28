@@ -40,6 +40,8 @@ Performans eşikleri kural olarak yazılır, örnek:
 
 `required_exit_rows` anayasaldır. Bir aşama yeni bir yetenek getiriyorsa spec'i o yeteneğin
 satırlarının hepsini çıkış testinde taşır; `spec.lint` bir satırı eksik spec'i reddeder (`02`).
+Yetenek, aşama onu gerçek hedefte sistemin bir kararına soktuğunda getirilmiş sayılır; inşa
+zamanındaki rakip çağrıları ve oyuncak hedefteki etkinleştirme provası yetenek getirmez.
 
 | Yetenek | Zorunlu çıkış satırları |
 |---|---|

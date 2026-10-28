@@ -11,7 +11,7 @@ Okunma: Aşama 0 çalışırken
 - **K0–K2:** bulgu, vakayı ancak `tool`, `rule_id` ve hunk üzerinden eşlenmiş satır aynıysa
   isabet eder; dokuz yüz ihlali döken bir adapter tesadüfen isabet alamaz.
 - **K3 ve üstü:** `evidence_refs`'ten biri vakanın dokunulan dosyasında ve aynı sembolde ya da
-  hunk'ın ±15 satırı içinde; `property` eşit; `required_change` dolu.
+  hunk'ın ±`stage_params.match_window_lines` (15) satırı içinde; `property` eşit; `required_change` dolu.
 - Bir bulgu en fazla bir vakayı, bir vaka bir koşuda en fazla bir kez.
 
 | Metrik | Tanım |

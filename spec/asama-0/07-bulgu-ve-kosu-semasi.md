@@ -17,7 +17,7 @@ anlamlarını söyler.
 | `class_level`, `property` | §0.5 |
 | `tool`, `rule_id` | K0–K2 için zorunlu; K0 isabeti kural + eşlenmiş satırdır |
 | `claim` | Ürün hakkında tek cümle |
-| `evidence_refs` | `[{path, line_start, line_end}]`; manifestte var olmalı; tek birincil ref ≤ 30 satır |
+| `evidence_refs` | `[{path, line_start, line_end}]`; manifestte var olmalı; tek birincil ref ≤ `stage_params.evidence_ref_max_lines` (30) satır |
 | `required_change` | Dizi: `[{file, symbol?, op}]`; boşsa gözlemdir, puanlanmaz |
 | `severity_hint` | Yalnız ipucu; şiddeti property ve sınıftan politika haritası türetir |
 | `confidence`, `derivation`, `trust`, `snapshot_id` | `tohum/26` |

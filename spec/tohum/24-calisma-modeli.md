@@ -34,7 +34,9 @@ klonudur; yazabildiği tek yer beyin reposudur. Hedefi çalışma dizininin dı�
 klondan **veri olarak** okur; hedefin yönerge, ayar, hook ve MCP dosyaları ona yüklenmez. Her
 oturum `control.json`'u okuyarak başlar, oturum tavanı (`policy.json`, başlangıç 20 USD) aşılınca
 temiz durur. Takvim oturum sayısıyla ölçülür; sonraki oturum öncekinin sonucu önyükleme hakeminde
-ya da kapıda yeşilken başlar. Maliyeti `cost` bölümünde inşa-zamanı kalemidir.
+ya da kapıda yeşilken başlar. Kurucu kendi maliyetini ölçemez: çalışma ortamı kullanım raporu
+veriyorsa defterine `kind: cost` satırı olarak yazar, vermiyorsa `unmeasured` yazar; sertlik
+sağlayıcı harcama tavanındadır (`25` 8). Etkinleştirmeden sonra `cost` bölümünde inşa kalemidir.
 
 ## Dispatch sözleşmesi (araç kullanan her ajan)
 

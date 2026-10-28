@@ -33,7 +33,7 @@ Kurucu'ya vaka bazında açıktır. Bölme modül grubuna göredir.
 **K0 çıkış örneklemi, held-out havuzu değil.** K0 için mühürlü bir havuz tutulmaz. `exit.sample`
 her çıkış isteğinde, adapter SHA'sı pinlendikten sonra gizli tohumla taze bir örneklem çeker:
 profildeki etkin kataloğun mutasyonla üretilebilen **her kuralı** ve her araç zinciri için en az bir
-vaka, dev gruplarının dışındaki en az min(45, mevcut) modül grubundan. Ölçü kural sayımıdır: sıfır
+vaka, dev gruplarının dışındaki en az `stage_params.census_min_groups` (45) ya da mevcut modül grubundan. Ölçü kural sayımıdır: sıfır
 kaçırma. Deterministik bir sarıcıda kaçırma örneklem gürültüsü değil, o kuralın sarma kusurudur;
 CP alt sınırı raporlanır, kapılamaz (`tohum/19`). Seçici kod Aşama 0 çıkışında donar.
 

@@ -1,6 +1,8 @@
 # Değişiklik Günlüğü — Tohum
 
 Tarih: 2026-10-28 · Sürüm: 2.2
+Okunma: bir sayfanın geçmişi aranırken
+Çapa: git geçmişi ve zincirdeki spec hash satırları
 
 - 2.2 (2026-10-28): üçüncü inceleme (altı inceleyici, iki tur, birbirlerinin bulgularını kanıtla
   çapraz denetleyerek) sonrası. Çekme modeli: oyuncu yalnız kendi reposuna yazar ve aday yayımlar;
@@ -15,6 +17,10 @@ Tarih: 2026-10-28 · Sürüm: 2.2
   bağlama bağlı, ithal bilgi hipotez, alan bilgisi yerel, okuyarak öğrenme ve diğer yetenekler
   organ değil sinyal, kopyalamak yerine sentez, öğrenmenin ölçüsü hata, doküman koda göre bayat
   olabilir, snowball hedef reponun dokümanını da yazar. Aşama 2 ve 3'ün neden yazılmadığı açıklandı.
+  Ardından yalnız tohumla çalışan tek oturumluk bir Kurucu denemesinin bulduğu boşluklar kapatıldı:
+  Kurucu defteri ilk oturumdan yazılır; spec isteği ile kod isteği ayrıldı; önyükleme hakeminin
+  test bildirimi, ret artefaktı ve vektör arayüzü tanımlandı; aktarım operatör dosyalarını hariç
+  tutar; hash'lenen artefaktta kayan nokta yoktur; aşama tasarım sabitleri politika anahtarı oldu.
 - 2.1 (2026-10-28): ikinci beş incelemeden (istekler ve kararlar, bağlantı ve veri akışı, mantık,
   uçtan uca simülasyon, kırmızı takım) doğrulanan bulgular. Hakem reposu: oyuncu kendi hakemini
   yazamaz; kapı, kullanıcı hesabında da çalışan, yalnız hakem App'inin raporlayabildiği zorunlu

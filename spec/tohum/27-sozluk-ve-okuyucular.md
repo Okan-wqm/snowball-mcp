@@ -34,7 +34,8 @@ Okunma: yeni terim ya da dosya eklerken
 
 ## Okuyucular (Y4)
 
-Bir dosya ancak okuyucusunun bir kararı değiştirebildiği aşamada açılır.
+Bir dosya ancak okuyucusunun bir kararı değiştirebildiği aşamada açılır. Tablo durum ve denetim
+dosyaları içindir; kod dizinlerinin çağıranları `24` ve `26a`'dadır.
 
 | Dosya | Yazar | Okuyucu | Değişen karar | Açılış |
 |---|---|---|---|---|
@@ -47,6 +48,7 @@ Bir dosya ancak okuyucusunun bir kararı değiştirebildiği aşamada açılır.
 | `spec/`, `INDEX.md`, beyin reposu | Kurucu, `docs.index` | Kurucu, `spec.lint`, `lock.check` | Aşama açma, kilit | Aşama 0 |
 | `referee/`, beyin reposu | Kurucu | önyükleme hakemi, aktarım betiği | Aktarılacak hakem | Aşama 0 |
 | `candidates/`, beyin reposu | Kurucu | etkinleştirme, hakem | Merge adayı | Aşama 0 |
+| `snowball-tests.json`, `exit-request.json`, beyin reposu | Kurucu | önyükleme hakemi | Hangi testlerin koşacağı, pinlenecek çıkış SHA'sı | Aşama 0 |
 | `profile.json` | `profile.derive` | tüm organlar, kapı | Araç ve kapsam | Etkinleştirme |
 | `policy.json` performans | prosedür (`18`), `yaz` | her kapı | Dikkat ve sıra eşiği | Etkinleştirme |
 | `ledger.jsonl` `events` | hakem işleri | Gözcü, kapı, `lock.check` | Dondurma, geri alma, kilit | Etkinleştirme |
@@ -56,9 +58,9 @@ Bir dosya ancak okuyucusunun bir kararı değiştirebildiği aşamada açılır.
 | `chain/root.jsonl` | `yaz` | `chain.verify`, `rekor.anchor` | Sert duruş | Etkinleştirme |
 | `cases/` (dev) | `cases.build` | `harness.score`, Kurucu | Adapter değişikliği | Etkinleştirme |
 | `status.md` | `status.block`, `docs.render` | operatör | Kill switch | Etkinleştirme |
-| `findings.jsonl` | hakem, adapter önerisinden | düzelticiler, kapı | İş kuyruğu | Aşama 1 |
+| `findings.jsonl` | hakem, adapter önerisinden | düzelticiler, kapı | İş kuyruğu | Etkinleştirme |
 | `unresolved.jsonl` | kapı | düzeltici seçimi | Aynı tabanda yeniden denememe | Aşama 1 |
-| `runs/` | `koş`, `çağır` | `gate.check`, hash ile | Merge | Aşama 1 |
+| `runs/` | `koş`, `çağır` | `gate.check`, hash ile | Merge | Etkinleştirme |
 | `docs/findings/`, `docs/organs/` | `docs.render`, `yaz` | operatör | Kill switch | Aşama 1 |
 | Mühürlü depo, `ledger.jsonl` `looks` | mühür App'i, hakem exit | `harness.score` exit | Verdict, bakış bütçesi | İlk held-out havuzu |
 | `map/edges.jsonl` | `map.build` | düzeltici, kapı | Etki kümesi | İlk `impact_miss` sinyali ya da K2 silmesi |

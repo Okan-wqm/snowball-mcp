@@ -25,18 +25,33 @@ kabul edilmiş SHA'dan farklı bir SHA görünce beş iş koşar:
 | `çağır` | Sağlayıcı kimliği | Tohum rakibini (`29`) tam diff ve ilgili tohum sayfalarıyla, Read/Grep/Glob araçlarıyla, `24`'teki dispatch sözleşmesiyle çağırır; rakibin yeniden üreticilerini bir sonraki `koş`a verir | Rakip kararı ve yeniden üretme sonucu |
 | `yaz` | OIDC | Sonuçları hash'leriyle hakem reposunun koşu artefaktlarına ve Rekor'a yazar | Rekor kayıt kimliği |
 
-**Girdi.** Yalnız beyin reposunun SHA'sı. Kurucu rakibin neyi göreceğini seçemez: diff her zaman
-son kabul edilmiş SHA'dan bu yana tamdır.
+**Girdi ve taban.** Yalnız beyin reposunun SHA'sı. İlk kabul edilmiş SHA, kurulumda özete yazılan
+tohum commit'idir; diff her zaman son kabul edilmiş SHA'dan bu yana tamdır, Kurucu rakibin neyi
+göreceğini seçemez.
 
-**Kabul.** Bir SHA ancak şu dördü birlikte doğruysa kabul edilmiş SHA olur: Kurucu'nun "Aşama 0"
-işaretli kendi testleri yeşil; vektörlerin hepsi geçer ve bozulmuş girdileri reddeder; kırmızı
-kontrol kırmızı; rakip açık `not_refuted` verdi ya da hiçbir çürütmesi yeniden üretilemedi. Kabul
-edilmeyen SHA'nın nedeni artefaktta tipli alanlarla yazar; Kurucu oradan okur.
+**Test bildirimi.** Kurucu beyin reposunun kökünde `snowball-tests.json` tutar (`26b`): her §0.9
+test numarası için koşturulacak komut, bittiğini söylediği mikro özellikler (`done_mf`) ve
+bağımlılık kilit dosyaları. Önyükleme hakemi yalnız bu komutları koşturur; bitti denen her mikro
+özelliğin `asama-0/14`'teki test numarası bildirimde bir komuta bağlı değilse ya da hiç komut yoksa
+sonuç kırmızıdır (sıfır test kırmızıdır, `04`). Vektörleri hakem kendi koşturucusuyla, `29a`'daki
+arayüz üzerinden Kurucu'nun koduna uygular.
 
-**Aşama 0 çıkışının (A) parçası.** Kurucu bir SHA'yı çıkış adayı olarak işaretler; önyükleme
-hakemi o SHA'da Aşama 0'ın tüm kendi-testlerini, vektörleri, kırmızı kontrolü, `spec.lint`'i ve
-etkinleştirme provasını koşar ve rakibin o SHA'ya en az beş denemesini toplar. Hepsi tutarsa
-`referee/` ağacının hash'iyle birlikte Rekor'a "aktarılabilir" kaydı yazar (`25a` 1).
+**İki tür push.** Yalnız `spec/asama-*/` değiştiren push **spec isteğidir**: test aranmaz; rakip
+spec'i tam diff ve ilgili tohum sayfalarıyla çürütmeyi dener; açık `not_refuted` gelirse spec'in
+hash'i "donmuş" olarak Rekor'a yazılır. Diğer her push **kod isteğidir** ve aşağıdaki kabulden geçer.
+İkisini karıştıran push reddedilir.
+
+**Kabul.** Bir kod SHA'sı ancak şu dördü birlikte doğruysa kabul edilmiş SHA olur: bildirimdeki
+Aşama 0 testleri yeşil; vektörlerin hepsi geçer ve bayt değiştirilmiş girdileri reddeder; kırmızı
+kontrol kırmızı; rakip açık `not_refuted` verdi ya da hiçbir çürütmesi yeniden üretilemedi.
+**Ret artefaktı** tiplidir: `{sha, kind: spec|code, reasons: [{kind, test_id?, ref, detail_sha256}]}`;
+Kurucu nedeni oradan okur.
+
+**Aşama 0 çıkışının (A) parçası.** Kurucu `exit-request.json`'a SHA'yı yazar; önyükleme hakemi o
+SHA'da Aşama 0'ın tüm kendi-testlerini, vektörleri, kırmızı kontrolü, `spec.lint`'i ve etkinleştirme
+provasını koşar. Rakip aşama boyunca en az `stage_params.rival_min_attempts` ayrı artefakta birer
+deneme yapmış ve çıkış SHA'sına da bir deneme yapmış olmalıdır. Hepsi tutarsa `referee/` kod
+ağacının hash'iyle birlikte Rekor'a "aktarılabilir" kaydı yazar (`25a` 1).
 
 **Asla yapmadıkları.** Hedef repoya, beyin reposuna ve hakem reposunun koduna yazmaz; merge
 etmez; Kurucu'nun kodunu sırlı bir işte koşturmaz; Actions önbelleği kullanmaz; kill switch

@@ -30,14 +30,14 @@ tüm tohum sayfaları geçerlidir.
 | `01-amac.md` | Amaç | 23 |
 | `02-dogruluk-ozellikleri.md` | Doğruluk özellikleri | 32 |
 | `03-roller.md` | Roller | 17 |
-| `04-hata-seti.md` | Hata seti ve K0 çıkış örneklemi | 41 |
+| `04-hata-seti.md` | Hata seti | 41 |
 | `05-property-ve-sinif-etiketleri.md` | Property ve sınıf etiketleri | 39 |
 | `06-snapshot-uretimi.md` | Snapshot üretimi | 28 |
 | `07-bulgu-ve-kosu-semasi.md` | Bulgu ve koşu şeması | 33 |
 | `08-puanlama-ve-metrikler.md` | Puanlama ve metrikler | 34 |
-| `09-harness-in-kendi-testleri.md` | Harness'in ve hakemin kendi testleri | 42 |
-| `10-cikis-testi.md` | Çıkış testi: (A) önyükleme hakemi, (B) aktarım ve etkinleştirme | 44 |
+| `09-harness-in-kendi-testleri.md` | Harness'in ve hakemin kendi testleri | 58 |
+| `10-cikis-testi.md` | Çıkış testi (hepsi birlikte PASS) | 47 |
 | `11-yasaklar.md` | Yasaklar | 22 |
-| `12-butce.md` | Bütçe (başlangıç değerleri; yalnız operatör değiştirir) | 20 |
+| `12-butce.md` | Bütçe (başlangıç değerleri; yalnız operatör değiştirir) | 22 |
 | `13-teslim-listesi.md` | Teslim listesi | 33 |
-| `14-sirali-mikro-ozellikler.md` | Sıralı mikro özellikler | 42 |
+| `14-sirali-mikro-ozellikler.md` | Sıralı mikro özellikler | 46 |

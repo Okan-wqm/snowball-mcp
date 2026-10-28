@@ -14,22 +14,25 @@ Kurucu çıkış isteğini beyin reposunda tipli bir dosyayla yapar; önyükleme
 şunları makine doğrulamalı olarak koşu artefaktlarına ve Rekor'a yazar:
 
 - §0.9'da "Aşama 0" işaretli testler yeşil; tohum vektörleri geçer; kırmızı kontrol kırmızı.
-- Tohum rakibi en az beş deneme yapmış; hiçbir çürütmesi hakemin `koş`ta yeniden koşturduğu bir
-  yeniden üreticiyle doğrulanmamış. Zaman aşımı, ret ve `unresolved` kabul değildir; deneme
-  sayısına girmez.
+- Tohum rakibi aşama boyunca en az `stage_params.rival_min_attempts` (5) ayrı artefakta ve çıkış
+  SHA'sına birer deneme yapmış; hiçbir çürütmesi hakemin `koş`ta yeniden koşturduğu bir yeniden
+  üreticiyle doğrulanmamış. Zaman aşımı, ret ve `unresolved` kabul değildir; deneme sayısına girmez.
 - `spec.lint` bu aşamanın spec'ini temiz geçer, `required_exit_rows` dahil.
+- `lock.check`: (0, donmuş spec hash'i, çıkış isteği) eşleşir.
+- Okuyucusuz dosya 0: bu aşamanın açtığı her dosyanın `tohum/27`'de satırı var.
 - Etkinleştirme provası (yerel git uzağı, taklit GitHub API'si) yeşil.
 - Pinli SHA ile çıkış koşusu arasında beyin reposunda değişiklik yok.
 
 ## (B) Aktarım ve etkinleştirme (`tohum/25a`)
 
-- Operatör aktarım betiğini koşar: hakem reposundaki yeni ağaç, pinli SHA'nın `referee/` ağacıyla
-  aynıdır; oyuncak hedefin `main`'i `tests/fixtures/toy-repo/` ağacıdır.
+- Operatör aktarım betiğini koşar: hakem reposundaki yeni kod ağacı, operatör dosyaları hariç,
+  pinli SHA'nın `referee/` ağacıyla aynıdır; oyuncak hedefin `main`'i `tests/fixtures/toy-repo/` ağacıdır.
 - Aktarılan hakem oyuncak hedefte ve gerçek hedefte `brain/state`'i genesis satırıyla açar: hakem
   ağaç hash'i, tohum hash'i, anayasal politika hash'i, kurulum özeti hash'i, (A) sonuçlarının Rekor
   kimlikleri. `brain/integration` `main`'den kesilir.
 - **Oyuncak hedefte canlı döngü:** hazır iyi aday kapıdan geçip `brain/integration`'a merge olur;
-  hazır kötü aday reddedilir; nöbetçi yeşil; `drift.check` yeşil; kök hash Rekor'da.
+  hazır kötü aday reddedilir; mandal tuttu, sıfır test yok; nöbetçi yeşil; `drift.check` yeşil;
+  kırmızı kontrol kırmızı; kök hash Rekor'da. Bu bir provadır, yetenek getirmez (`tohum/18`).
 - **Gerçek hedefte:** profil türetilir, K0 dev vakaları `cases/`'e yazılır; taban avcı koşar,
   taban recall ve maliyeti `cost` bölümüne yazılır. Sonraki her avcı tabanı geçmek zorundadır.
 - PASS satırını aktarılan hakem `brain/state`'e yazar. Çıkış raporu bu satırın kopyası olarak

@@ -1,6 +1,8 @@
 # Değişiklik Günlüğü — Aşama 4
 
 Tarih: 2026-10-28
+Okunma: bir sayfanın geçmişi aranırken
+Çapa: git geçmişi ve zincirdeki spec hash satırları
 
 - 2.2 (2026-10-28): mühürlü depo ve held-out havuzu ön koşul; ileriye dönük held-out; kapı yalnız `human_fix` katmanında; clean precision geçmiş entegrasyon başlarından; panel tek oturum ve yapılandırılmış karar; ikinci kapıda tam non-inferiority ve tüm basamaklar başarısızsa FAIL; bütçe dev ölçümünden; test-yazıcı ve kapsayıcılık kanaryaları burada kurulur.
 - 2.1 (2026-10-28): property başına taban; K6 sınırı profilden; roller iki modelle ayrık; oracle düzeltmesi merge edilmez, implementer kalıcı düzeltmeyi yazar; güncel kodda yeniden üretim; bakış bütçesi; yalnız kazanan basamak held-out'a; mikro özellikler; exit USD tavanı.

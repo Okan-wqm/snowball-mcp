@@ -36,7 +36,23 @@ Testleri Kurucu yazar; önyükleme hakemi onları her push'ta `koş`ta koşturur
 | 23 | Yalnız düz dosya: sembolik bağ, alt modül, `../` yolu ya da ret listesindeki yol içeren aday reddedilir | Aşama 0 |
 | 24 | Kayma: kurulum özetinden farklı kural, beyan dışı App ya da `brain/**`'da sırla tetiklenen hedef iş akışı taklidi sert duruş üretir | Aşama 0 |
 | 25 | Geri alma: nöbetçi kırmızısında hakem son merge'ü geri alır, `cause` yazılır | Aşama 0 |
-| 26 | Kapalıya düşme: kill switch, bütçe tavanı, Rekor hatası, rakip zaman aşımı işi durdurur ya da reddeder | Aşama 0 |
+| 26 | Kapalıya düşme: kill switch, bütçe tavanı, Rekor hatası, kayma, rakip zaman aşımı işi durdurur ya da reddeder | Aşama 0 |
 | 27 | Çıkış örneklemi: aynı tohum aynı örneklem, farklı tohum farklı; mutasyonla üretilebilen her kural en az bir vaka | Aşama 0 |
 | 28 | İstatistik: vektörlerdeki CP, `x_eff` ve tam McNemar değerleri | Aşama 0 |
 | 29 | Kilit: (aşama, spec hash, çıkış satırı) eşleşmeyen geçiş reddedilir | Aşama 0 |
+| 30 | Kurucu defteri: zincirsizden zincirliye geçişte önceki dosyanın sha256'sı ilk zincirli satırda; `kind` kümesi; oyuncu kodu `referee/`'yi import etmez | Aşama 0 |
+| 31 | Profil önerisi: oyuncak repoda diller, araç zincirleri, etkilenen-test komutu ve güvenlik yolları çıkarılır ve şemaya uyar | Aşama 0 |
+| 32 | Taban avcı: LLM yok; aynı snapshot iki koşuda aynı bulgu dosyası | Aşama 0 |
+| 33 | `spec.lint`: kasıtlı bozulmuş spec'lerde eksik bölüm, anahtarsız eşik, eksik zorunlu çıkış satırı, iki mekanizmalı mikro özellik, okuyucusuz dosya ve yasaklı ifade yakalanır | Aşama 0 |
+| 34 | `deps.fetch`: kurulum betiği isteyen paket profilde işaretli değilse reddedilir; aynı kilit dosyası aynı içerik adresi | Aşama 0 |
+| 35 | Kapı: sıfır test, mandal artışı, izin listesi dışı tanım hash'i ve artefakt hash uyuşmazlığı reddedilir; iki aday aynı anda merge olmaz | Aşama 0 |
+| 36 | Nöbetçi: merge sonrası etkilenen testler `koş`ta; kırmızıda 3/3 flaky kuralı | Aşama 0 |
+| 37 | `llm.call` (taklit sağlayıcıyla): tipli girdi dışı alan prompta girmez; bütçe belirteci aşımı kesilir; sunulan model farklıysa koşu geçersiz | Aşama 0 |
+| 38 | `secrets.scan`: diff, satır ve promptta gömülü sahte sır yakalanır; prompt gönderilmez | Aşama 0 |
+| 39 | `ledger.append`: döngü başına tek commit; oyuncu önerisi `trust: inferred`; yazımdan önce `chain.verify` | Aşama 0 |
+| 40 | `rekor.anchor` (taklit Rekor'la): kök kaydı yazılır; yazılamazsa sert duruş | Aşama 0 |
+| 41 | Gözcü: `tohum/28`'deki her tetik yapay girdiyle doğru dondurmayı ya da sert duruşu üretir | Aşama 0 |
+| 42 | `status.block`: dondurma, bütçe ve insan dokunuşu bloğu defterden üretilir; elle düzenleme ret | Aşama 0 |
+| 43 | `brain.accept`: test, vektör ya da rakip satırından biri eksik ya da kırmızıysa kabul yok; spec ve kod isteği karışık push ret | Aşama 0 |
+| 44 | `docs.index`: başlıklardan üretilen dizin deterministik | Aşama 0 |
+| 45 | Etkinleştirme provası: yerel git uzağı ve taklit GitHub API'sine karşı aktarım, genesis satırı, iyi aday merge, kötü aday ret | Aşama 0 |

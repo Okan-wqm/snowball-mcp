@@ -54,7 +54,7 @@ Okunma: sayfa ararken; görev seçmek için `tohum/00b-gorev-haritasi.md`
 | `tohum/29-tohum-koltuklari.md` | Tohum Koltukları: Rakip, Test-Yazıcı, Şerit Yazarı | kurulumda ve Aşama 0 başında |
 | `tohum/29a-tohum-vektorleri.md` | Tohum Vektörleri: Değişmeyen Beklenen Çıktılar | zincir, istatistik ve puanlama kodu yazarken |
 | `tohum/29b-onyukleme-hakemi.md` | Önyükleme Hakemi: Aşama 0'ın Yargıcı | kurulumda ve Aşama 0 boyunca |
-| `tohum/CHANGELOG.md` | Değişiklik Günlüğü — Tohum |  |
+| `tohum/CHANGELOG.md` | Değişiklik Günlüğü — Tohum | bir sayfanın geçmişi aranırken |
 
 ## Aşama 0 — Ölçüm Zemini ve Hakem
 
@@ -75,7 +75,7 @@ Okunma: sayfa ararken; görev seçmek için `tohum/00b-gorev-haritasi.md`
 | `asama-0/12-butce.md` | Aşama 0 §0.12 — Bütçe (başlangıç değerleri; yalnız operatör değiştirir) | Aşama 0 çalışırken |
 | `asama-0/13-teslim-listesi.md` | Aşama 0 §0.13 — Teslim listesi | Aşama 0 çalışırken |
 | `asama-0/14-sirali-mikro-ozellikler.md` | Aşama 0 §0.14 — Sıralı mikro özellikler | Aşama 0 çalışırken |
-| `asama-0/CHANGELOG.md` | Değişiklik Günlüğü — Aşama 0 |  |
+| `asama-0/CHANGELOG.md` | Değişiklik Günlüğü — Aşama 0 | bir sayfanın geçmişi aranırken |
 
 ## Aşama 1 — İlk Adapter: Lint (K0), Döngü En Basit Hâliyle
 
@@ -94,7 +94,7 @@ Okunma: sayfa ararken; görev seçmek için `tohum/00b-gorev-haritasi.md`
 | `asama-1/10-butce.md` | Aşama 1 §1.10 — Bütçe (başlangıç değerleri; yalnız operatör değiştirir) | Aşama 1 çalışırken |
 | `asama-1/11-sonuc-ne-soyler.md` | Aşama 1 §1.11 — Sonuç ne söyler | Aşama 1 çalışırken |
 | `asama-1/12-teslim-listesi.md` | Aşama 1 §1.12 — Teslim listesi | Aşama 1 çalışırken |
-| `asama-1/CHANGELOG.md` | Değişiklik Günlüğü — Aşama 1 |  |
+| `asama-1/CHANGELOG.md` | Değişiklik Günlüğü — Aşama 1 | bir sayfanın geçmişi aranırken |
 
 ## Aşama 4 — LLM Avcı: Mantık Hataları (K5), Kalıpsız
 
@@ -114,4 +114,4 @@ Okunma: sayfa ararken; görev seçmek için `tohum/00b-gorev-haritasi.md`
 | `asama-4/11-butce.md` | Aşama 4 §4.11 — Bütçe (başlangıç; yalnız operatör değiştirir) | Aşama 4 çalışırken |
 | `asama-4/12-sonuc-ve-teslim.md` | Aşama 4 §4.12 — Sonuç ne söyler ve teslim listesi | Aşama 4 çalışırken |
 | `asama-4/13-sirali-mikro-ozellikler.md` | Aşama 4 §4.13 — Sıralı mikro özellikler | Aşama 4 çalışırken |
-| `asama-4/CHANGELOG.md` | Değişiklik Günlüğü — Aşama 4 |  |
+| `asama-4/CHANGELOG.md` | Değişiklik Günlüğü — Aşama 4 | bir sayfanın geçmişi aranırken |

@@ -60,5 +60,19 @@ Tam tek yönlü McNemar p-değeri (b: eskinin lehine, c: yeninin lehine uyuşmaz
 - K0: aynı kural, eşlenmiş satır farklı → isabet değil.
 - Bir bulgu iki vakayı alamaz; bir vaka bir koşuda bir kez sayılır.
 
+## Arayüz
+
+Önyükleme hakemi vektörleri Kurucu'nun koduna şu komutlarla, `referee/` kökünden uygular; çıktı
+stdout'ta tek satır JSON'dur:
+
+- `python -m ledger.chain hash` (stdin: tek satır) → `{"row_hash": ...}`
+- `python -m ledger.chain verify <dosya> [--previous <dosya>]` → `{"valid": bool, "broken_row": ...}`
+- `python -m harness.stats cp_lower <x> <n> <alpha>` → `{"lb": "0.962400"}` (altı ondalık dizgi)
+- `python -m harness.stats mcnemar <b> <c>` → `{"p": "0.062500"}`
+- `python -m harness.score <bulgu> <vaka>` → `{"hits": int}`; eşleme fikstürleri önyükleme
+  hakemiyle birlikte `seed/bootstrap/vectors/` altında gelir.
+
+Karşılaştırma tablodaki basamak sayısıyla yapılır.
+
 Her vektörün testi hem doğru sonucu hem de bir bayt değiştirilmiş girdide yanlış sonucun
 reddedildiğini gösterir; yalnız doğru girdide yeşil kalan vektör testi test değildir (`04`).

@@ -13,7 +13,7 @@ reddedilir. Oyuncunun önerdiği her satır `trust: inferred` saklanır; `brain/
 yalnız hakem yazar.
 
 **Ret listesi.** Kapının diff-guard'ı (`gate.diffguard`) şunlara dokunan adayı reddeder:
-`.github/**`, `.gitattributes`, lint, tip ve test yapılandırmaları, bağımlılık manifestleri ve
+kökteki `.github/**`, `.gitattributes`, lint, tip ve test yapılandırmaları, bağımlılık manifestleri ve
 lockfile'lar, `<state_root>/**`; profildeki `banned_constructs`; `policy.json`'daki yasaklı
 ifadeler; tavanın üstünde brüt silme; K6 canlı olana kadar güvenlik yolları, biçimleyici dahil.
 **Yalnız düz dosya:** sembolik bağ, alt modül, `../` içeren ya da depo kökü dışına çözülen yol
