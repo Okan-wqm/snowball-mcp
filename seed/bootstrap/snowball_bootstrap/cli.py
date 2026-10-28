@@ -15,7 +15,7 @@ import zipfile
 from pathlib import Path
 from typing import Any
 
-from . import canon, config, ghapi, gitio, state as st
+from . import canon, config, ghapi, gitio, licenses, state as st
 from .classify import classify, spec_stage_dirs
 from .container import DockerRunner
 from .controls import run_controls
@@ -106,6 +106,12 @@ def tar_page(tar_bytes: bytes, prefix: str) -> tuple[str, str] | None:
     return None
 
 
+def is_green(controls: list[dict], tests: list[dict], vectors: list[dict], lic: list[dict]) -> bool:
+    """Green means: controls behaved, at least one test ran, and every test, vector and wheel passed."""
+    return (all(c["ok"] for c in controls) and bool(tests) and all(t["ok"] for t in tests)
+            and all(v["ok"] for v in vectors) and all(x["allowed"] for x in lic))
+
+
 def remaining_budget(policy: config.Policy, prev: dict[str, Any]) -> int:
     return min(policy.monthly_cap_usd_micros - prev["month_spend_usd_micros"],
                policy.stage0_rival_usd_micros - prev["stage_spend_usd_micros"])
@@ -127,6 +133,53 @@ def cmd_config_value(args: argparse.Namespace) -> int:
     boot = config.load_bootstrap(Path(args.root))
     output(brain_owner=boot.brain_owner, brain_name=boot.brain_name, brain_branch=boot.brain_branch,
            image=boot.image)
+    return 0
+
+
+def cmd_poll(args: argparse.Namespace) -> int:
+    """Cheap first look: is there anything new to judge? Installs nothing and verifies nothing.
+
+    The previous state is read unverified here only to decide whether to skip; skipping is the
+    safe outcome. Anything that is evaluated goes through ``fetch-state``, which verifies it.
+    """
+    root, out = Path(args.root), Path(args.out)
+    boot = config.load_bootstrap(root)
+    token = os.environ["GH_TOKEN"]
+    repo = os.environ["GITHUB_REPOSITORY"]
+    remote = args.remote or f"https://github.com/{boot.brain_repo}.git"
+    head = gitio.remote_head(remote, boot.brain_branch, os.environ.get("BRAIN_TOKEN"))
+    art = ghapi.latest_artifact(repo, STATE_ARTIFACT, token)
+    if art is None:
+        output(skip=False, reupload=False, head=head)
+        return 0
+    prev_dir = out / "prev"
+    prev_dir.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(io.BytesIO(ghapi.download_zip(repo, art["id"], token))) as zf:
+        for name in ("result.json", "result.json.sigstore.json"):
+            (prev_dir / name).write_bytes(zf.read(name))
+    try:
+        prev = read_json(prev_dir / "result.json")["state"]
+        seen = {prev["last_accepted_sha"], prev["last_evaluated_sha"]}
+    except (KeyError, TypeError, json.JSONDecodeError):
+        seen = set()
+    created = datetime.datetime.fromisoformat(art["created_at"].replace("Z", "+00:00"))
+    reupload = (datetime.datetime.now(datetime.timezone.utc) - created).days >= 7
+    output(skip=head in seen, reupload=reupload, head=head)
+    return 0
+
+
+def cmd_licenses(args: argparse.Namespace) -> int:
+    """Check a directory of wheels against the license allowlist; stop on any violation."""
+    policy = config.load_policy(Path(args.root))
+    report = licenses.check_dir(Path(args.wheels), policy.license_allowlist, policy.license_exceptions)
+    if args.out:
+        write_json(Path(args.out), report)
+    for r in report:
+        print(f"{r['name']}=={r['version']}: {r['expression']} ({'allowed' if r['allowed'] else 'NOT ALLOWED'})")
+    bad = licenses.violations(report)
+    if not report or bad:
+        print(f"stop: license gate: {', '.join(bad) or 'no wheels found'}", file=sys.stderr)
+        return 2
     return 0
 
 
@@ -312,10 +365,12 @@ def _runner(boot: config.Bootstrap, src: Path, deps: Path, vectors: Path, lockfi
 def cmd_run_tests(args: argparse.Namespace) -> int:
     root, pulled, out = Path(args.root), Path(args.pulled), Path(args.out)
     boot = config.load_bootstrap(root)
+    policy = config.load_policy(root)
     meta = read_json(pulled / "meta.json")
     src = Path(args.work) / "src"
     extract((pulled / "brain.tar").read_bytes(), src, boot.limits.max_tree_bytes)
     manifest = meta["manifest"]
+    lic = licenses.check_dir(Path(args.deps), policy.license_allowlist, policy.license_exceptions)
     runner = _runner(boot, src, Path(args.deps), root / "vectors", manifest["lockfiles"])
     controls = run_controls(runner)
     tests: list[dict[str, Any]] = []
@@ -330,9 +385,9 @@ def cmd_run_tests(args: argparse.Namespace) -> int:
                           "stderr_sha256": hashlib.sha256(res.stderr).hexdigest(),
                           "ok": res.ok, "output_tail": tail})
         vectors = run_vectors(runner, root / "vectors", tuple(manifest["done_mf"]))
-    green = (all(c["ok"] for c in controls) and bool(tests) and all(t["ok"] for t in tests)
-             and all(v["ok"] for v in vectors))
-    write_json(out / "run.json", {"controls": controls, "tests": tests, "vectors": vectors, "green": green})
+    green = is_green(controls, tests, vectors, lic)
+    write_json(out / "run.json", {"controls": controls, "tests": tests, "vectors": vectors, "licenses": lic,
+                                  "green": green})
     output(green=green)
     return 0
 
@@ -402,7 +457,7 @@ def cmd_decide(args: argparse.Namespace) -> int:
     repro_doc = optional(args.repro, "repro.json")
     jobs = dict(item.split("=", 1) for item in args.job or [])
     result = decide(meta, run, rival, None if repro_doc is None else repro_doc["results"], jobs,
-                    policy.rival_min_attempts)
+                    policy.rival_min_attempts, policy.repeat_reject_limit)
     result["run"] = {"id": os.environ.get("GITHUB_RUN_ID", "local"),
                      "attempt": os.environ.get("GITHUB_RUN_ATTEMPT", "1")}
     write_json(out / "result.json", result)
@@ -410,6 +465,8 @@ def cmd_decide(args: argparse.Namespace) -> int:
              f"- kind: `{result['kind']}`", f"- head: `{result['head']}`", f"- base: `{result['base']}`"]
     for r in result["reasons"]:
         lines.append(f"- reason: `{r['kind']}` {r.get('test_id', '')} `{r['ref']}`")
+    for sig in result["learning"]["not_learning"]:
+        lines.append(f"- **not learning**: `{sig}` rejected {policy.repeat_reject_limit} or more times in a row")
     if result["exit"].get("transferable"):
         lines.append(f"- **transferable**: referee tree `{result['exit']['referee_tree_sha256']}`")
     summary("\n".join(lines))
@@ -455,6 +512,8 @@ def build_parser() -> argparse.ArgumentParser:
     req = {"required": True}
     add("control", cmd_control, root)
     add("config-value", cmd_config_value, root)
+    add("poll", cmd_poll, root, ("--out", req), ("--remote", {}))
+    add("licenses", cmd_licenses, root, ("--wheels", req), ("--out", {}))
     add("fetch-state", cmd_fetch_state, root, ("--out", req), ("--identity", req), ("--sigstore-python", req))
     add("pull", cmd_pull, root, ("--state", req), ("--work", req), ("--out", req), ("--remote", {}))
     add("fetch-deps", cmd_fetch_deps, ("--pulled", req), ("--work", req), ("--out", req))

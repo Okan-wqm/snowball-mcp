@@ -25,4 +25,5 @@ Okunma: Aşama 0 çalışırken
 - **Kimlik.** Her snapshot `snapshot_id` (içerik hash'i) ve manifest (dosya → sha256) taşır.
 - **Bağımlılık.** `deps.fetch` bağımlılıkları `getir` işinde, kurulum betikleri kapalı getirir;
   çıktı içerik adresli artefakttır, her koşu onu hash'iyle doğrulayarak alır. Actions önbelleği
-  kullanılmaz; artımlı araç önbellekleri kapalıdır (`tohum/08`).
+  kullanılmaz; artımlı araç önbellekleri kapalıdır (`tohum/08`). Her tekerleğin lisansı lisans
+  kapısından geçer (`tohum/24`); izinli olmayan ya da bulunamayan lisans koşuyu kırmızı yapar.

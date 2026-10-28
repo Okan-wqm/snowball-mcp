@@ -16,15 +16,17 @@ makine okunur vektörler `vectors/` ve kendi testleri `tests/`. Operatör kurulu
 kurar (`25` 3); Kurucu ona yazamaz (`seed/**` değiştiren push reddedilir). Aşama 0 çıkışında
 aktarılan hakem onun yerini alır; aktarım betiği aynı paketin `import` komutudur (`25a` 1).
 
-**Boru hattı.** Zamanlayıcı her 15 dakikada beyin reposunun izlenen dalını yoklar; son kabul
-edilmiş ya da son değerlendirilmiş SHA'dan farklı bir SHA görünce işler koşar. Kod koşturan işin
-izni ve sırrı, sır taşıyan işin kod koşturması yoktur; işler arası her artefakt hash'le doğrulanır.
+**Boru hattı.** Zamanlayıcı saatte bir, sabit bir dakikada beyin reposunun izlenen dalını
+`ls-remote` ile yoklar; son kabul edilmiş ya da son değerlendirilmiş SHA'dan farklı bir SHA yoksa
+hiçbir şey kurmaz ve doğrulamaz (dakika hesabı `25`'te). Yeni SHA varsa işler koşar. Kod koşturan
+işin izni ve sırrı, sır taşıyan işin kod koşturması yoktur; işler arası her artefakt hash'le
+doğrulanır.
 
 | İş | Sır ya da izin | Ne yapar |
 |---|---|---|
 | `çek` | Okuyucu App'i; içerik ve Actions okuma | Önceki imzalı durumu Sigstore ile doğrular; SHA'yı çeker, sınıflandırır, ağacı blob blob kurar (`export-ignore` etkisizdir) |
 | `getir` | Yok, ağ var | Kilit dosyalarındaki tekerlekleri `--only-binary`, `--require-hashes` ile indirir; kurulum betiği koşmaz |
-| `koş` | Yok | Kırmızı kontroller, bildirimdeki Aşama 0 testleri ve vektörler; her biri `--network none --cap-drop ALL --read-only --user 65534` konteynerde |
+| `koş` | Yok | Tekerleklerin lisans kapısı (`24`); kırmızı kontroller, bildirimdeki Aşama 0 testleri ve vektörler, her biri `--network none --cap-drop ALL --read-only --user 65534` konteynerde |
 | `çağır` | Sağlayıcı kimliği | Tohum rakibi (aşağıda) |
 | `yeniden` | Yok | Rakibin yeniden üreticileri, `koş` ile aynı kumda |
 | `yaz` | OIDC, içerik okuma | Kararı verir, sonucu Sigstore ile imzalayıp Rekor'a bağlar, imzalı durum artefaktını yükler |
@@ -55,7 +57,14 @@ birleştirilir.
 **Kabul.** Kod SHA'sı: Aşama 0 testleri yeşil; vektörler geçer ve değiştirilmiş girdiyi reddeder;
 kırmızı kontroller doğru; rakip geçerli bir karar verdi ve hiçbir çürütmesi yeniden üretilmedi.
 Testler kırmızıysa rakip bütçe harcanmasın diye çağrılmaz. **Ret artefaktı** tiplidir: `{sha, kind,
-reasons: [{kind, test_id?, ref, detail_sha256, detail?}]}`; Kurucu nedeni oradan okur.
+reasons: [{kind, test_id?, ref, detail_sha256, detail?}]}`; Kurucu nedeni oradan okur. Hakemin
+kendi tekerlekleri (Sigstore, model SDK'sı) de kurulmadan önce lisans kapısından geçer; kaydı
+`requirements/licenses.json`'dadır ve testi onu kilit dosyalarıyla ve `18a`'daki listeyle karşılaştırır.
+
+**Ret hafızası.** Her değerlendirilmiş ret, nedenlerinin imzasıyla (`tür:test` ya da `tür:ref`)
+sayılır; kabul sayaçları sıfırlar, altyapı arızası dokunmaz. Sonuç `learning {repeated,
+not_learning, repeat_events}` taşır. Aynı imza ardışık `stage_params.repeat_reject_limit` retten
+geçerse `not_learning`'dir ve Kurucu oturumu durur (`22a`); çıkış bloğu `repeat_events`'i taşır.
 
 **Çıkış isteği, Aşama 0 çıkışının (A) parçası.** `exit-request.json` son kabul edilmiş SHA'yı ve
 donmuş `spec/asama-0` hash'ini adlandırır. Hakem tüm testleri ve vektörleri yeniden koşar; 30 mikro
@@ -66,4 +75,5 @@ donmuş `spec/asama-0` hash'ini adlandırır. Hakem tüm testleri ve vektörleri
 **Asla yapmadıkları.** Hedefe, beyin reposuna ve hakem reposuna yazmaz; merge etmez; Kurucu'nun
 kodunu sırlı işte koşturmaz; Actions önbelleği kullanmaz; kill switch açıksa ya da bütçe bittiyse
 iş başlatmaz. Okuduğu politika anahtarları: `monthly_cap_usd`, `stage_budgets.asama_0.rival_usd`,
-`stage_params.rival_min_attempts`.
+`stage_params.rival_min_attempts`, `stage_params.repeat_reject_limit`, `license_allowlist`,
+`license_exceptions`.

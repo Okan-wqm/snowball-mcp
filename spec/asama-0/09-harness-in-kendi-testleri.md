@@ -35,7 +35,7 @@ Testleri Kurucu yazar; önyükleme hakemi onları her push'ta `koş`ta koşturur
 | 22 | Dispatch kanaryası: oyuncak repodaki hook, `.mcp.json` sunucusu ve yönerge dosyası `agent.dispatch` oturumunda yüklenmez | Aşama 0 |
 | 23 | Yalnız düz dosya: sembolik bağ, alt modül, `../` yolu ya da ret listesindeki yol içeren aday reddedilir | Aşama 0 |
 | 24 | Kayma: kurulum özetinden farklı kural, beyan dışı App ya da `brain/**`'da sırla tetiklenen hedef iş akışı taklidi sert duruş üretir | Aşama 0 |
-| 25 | Geri alma: nöbetçi kırmızısında hakem son merge'ü geri alır, `cause` yazılır | Aşama 0 |
+| 25 | Geri alma: nöbetçi kırmızısında hakem son merge'ü geri alır, `cause` yazılır. `exit.drill`: cevap anahtarının hash'i koşudan önce zincirde; açılım eşleşmezse prova `FAIL`; tohumlanmış kötü merge'ün `cause`'u anahtarla aynı | Aşama 0 |
 | 26 | Kapalıya düşme: kill switch, bütçe tavanı, Rekor hatası, kayma, rakip zaman aşımı işi durdurur ya da reddeder | Aşama 0 |
 | 27 | Çıkış örneklemi: aynı tohum aynı örneklem, farklı tohum farklı; mutasyonla üretilebilen her kural en az bir vaka | Aşama 0 |
 | 28 | İstatistik: vektörlerdeki CP, `x_eff` ve tam McNemar değerleri | Aşama 0 |
@@ -44,7 +44,7 @@ Testleri Kurucu yazar; önyükleme hakemi onları her push'ta `koş`ta koşturur
 | 31 | Profil önerisi: oyuncak repoda diller, araç zincirleri, etkilenen-test komutu ve güvenlik yolları çıkarılır ve şemaya uyar | Aşama 0 |
 | 32 | Taban avcı: LLM yok; aynı snapshot iki koşuda aynı bulgu dosyası | Aşama 0 |
 | 33 | `spec.lint`: kasıtlı bozulmuş spec'lerde eksik bölüm, anahtarsız eşik, eksik zorunlu çıkış satırı, iki mekanizmalı mikro özellik, okuyucusuz dosya ve yasaklı ifade yakalanır | Aşama 0 |
-| 34 | `deps.fetch`: kurulum betiği isteyen paket profilde işaretli değilse reddedilir; aynı kilit dosyası aynı içerik adresi | Aşama 0 |
+| 34 | `deps.fetch`: kurulum betiği isteyen paket profilde işaretli değilse reddedilir; aynı kilit dosyası aynı içerik adresi; lisansı `license_allowlist` dışında ya da bulunamayan paket, ve lisansı söyleyen yerlerden biri izinsiz olan paket reddedilir (`tohum/24`) | Aşama 0 |
 | 35 | Kapı: sıfır test, mandal artışı, izin listesi dışı tanım hash'i ve artefakt hash uyuşmazlığı reddedilir; iki aday aynı anda merge olmaz | Aşama 0 |
 | 36 | Nöbetçi: merge sonrası etkilenen testler `koş`ta; kırmızıda 3/3 flaky kuralı | Aşama 0 |
 | 37 | `llm.call` (taklit sağlayıcıyla): tipli girdi dışı alan prompta girmez; bütçe belirteci aşımı kesilir; sunulan model farklıysa koşu geçersiz | Aşama 0 |

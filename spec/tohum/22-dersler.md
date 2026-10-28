@@ -63,3 +63,6 @@ altında kalan ders zarar veriyordur ve kanıtıyla `superseded` olur.
 başarılar da satır doğurur. Yapısal dersler sabit şablondan üretilir; serbest metinli dersler
 Aşama 2'nin planlayıcısıyla gelir ve her biri kanıt referansı taşır. Aynı `cause` üç kez
 tekrarlanınca genesis derslerden bir skill ya da dedektör taslaklar (`17`).
+
+Dersin doğduğu, doğru işe verildiği ve hatayı azalttığı provayla sınanır (`22a`); ders görünümünü
+getiren aşama provanın satırlarını çıkış testinde taşır (`18`).

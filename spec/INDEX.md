@@ -30,18 +30,21 @@ Okunma: sayfa ararken; görev seçmek için `tohum/00b-gorev-haritasi.md`
 | `tohum/10a-bulgu-paneli.md` | Bulgu Paneli (K5 ve üstü): Beş Faz | K5 ve üstü bulgu değerlendirirken |
 | `tohum/11-itibar.md` | İtibar ve Puanlama | dispatch ve yeniden yazım kararlarında |
 | `tohum/12-genesis.md` | Genesis: Organ Yazma, Ölçme, Kaldırma, Yeniden Yazma | yeni organ yazarken ve ablasyonda |
+| `tohum/12a-genesis-provasi.md` | Genesis Provası: Kendini Geliştirmenin Testi | bir sınıfta organ yaşam döngüsünü canlıya alan aşamanın spec'i yazılırken |
 | `tohum/13-memory-ve-zincir.md` | Memory Kuralları ve Zincirli Defterler | yeni memory açarken ve her defter yazımında |
 | `tohum/14-repoya-baglanma.md` | Repoya Bağlanma | yeni repoda ve property eklerken |
 | `tohum/15-dokumantasyon.md` | Dokümantasyon: Tarihli Sayfalar, Üretilmiş Raporlar, Hedefin Kendi Dokümanı | her sayfa yazarken, her döngüde doküman üretilirken ve her K8 işinde |
 | `tohum/16-hafiza-modeli.md` | Hafıza Modeli: Sekiz Hafıza, Tek Defter | yeni hafıza türü önerirken ve her defter şeması değişikliğinde |
 | `tohum/17-kas-buyutme-sinyalleri.md` | Kas Büyütme Sinyalleri: Hangi Ölçüm Hangi Organı Doğurur | her döngü sonunda, genesis kuyruğu kurulurken |
 | `tohum/18-politika-ve-dinamik-esikler.md` | Politika Dosyası ve Dinamik Eşikler | her kapı kararında, her aşama spec'i dondurulurken ve her eşik değişikliği önerisinde |
-| `tohum/18a-politika-baslangic-degerleri.md` | Politika Başlangıç Değerleri | kurulumda `policy.json` yazılırken ve bir eşiğin ilk değeri aranırken |
+| `tohum/18a-politika-baslangic-degerleri.md` | Politika Başlangıç Değerleri: Anayasal Bölüm | kurulumda `policy.json` yazılırken ve bir eşiğin ilk değeri aranırken |
+| `tohum/18b-politika-performans-degerleri.md` | Politika Başlangıç Değerleri: Performans Bölümü | etkinleştirmede performans bölümü yazılırken ve bir eşiğin ilk değeri aranırken |
 | `tohum/19-olcum-istatistigi.md` | Ölçüm İstatistiği: PASS Ne Zaman Anlamlıdır | her çıkış testi tasarlanırken ve her verdict okunurken |
 | `tohum/20-metrikler.md` | Metrikler: Bir Bakım Sistemi Neyi Sayar | `status.md` üretilirken ve her Gözcü değerlendirmesinde |
 | `tohum/21-cok-repo.md` | Çok Repo: Bağlanma Modu, Ne Taşınır, Ne Taşınmaz | beyin yeni bir repoya bağlanırken |
 | `tohum/21a-kuresel-bilgi-ve-terfi.md` | Küresel Bilgi: Bağlam, Koşul, Sentez ve Terfi | ikinci repo bağlanınca, ithal bilgi kullanılırken ve bir bilgi ya da organ terfi edilirken |
 | `tohum/22-dersler.md` | Dersler: Öğrenme Planlayıcıya ve Implementer'a Akar | plan yaparken, düzeltme yazarken |
+| `tohum/22a-ders-provasi.md` | Ders Provası: Öğrenmenin ve Kullanmanın Testi | ders görünümünü, merge'ü ya da çok repolu terfiyi getiren aşamanın spec'i yazılırken |
 | `tohum/23-yama-degil-mimari-cozum.md` | Yama Değil, Mimari Çözüm | her düzeltme tasarlanırken ve panel faz 4'te |
 | `tohum/24-calisma-modeli.md` | Çalışma Modeli: Beyin, Hakem ve Kurucu Nasıl Koşar | Aşama 0 inşasından önce ve her dispatch değişikliğinde |
 | `tohum/25-kurulum-gunu.md` | Kurulum, Birinci Bölüm: İnşadan Önce | ilk başlatmadan önce, bir kez |

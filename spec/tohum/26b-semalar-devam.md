@@ -55,11 +55,11 @@ class_floors{K0, K1, K2, K4: {kind: census, misses: 0}, K3, K5..K8: {recall_lb, 
 required_exit_rows{capability: [row]}, regression_freeze, cycle_caps, daily_caps,
 security_keywords[], banned_phrases[], stage_order, look_budget, confidence_level,
 noninferiority_margin, n_min_paired, mcnemar_min_discordant, survival_windows{}, gate_rules{},
-stage_params{}, stage_budgets{}}`,
+stage_params{}, stage_budgets{}, license_allowlist[], license_exceptions{pin: {expression, evidence}}}`,
 `performance{rules{name: expr}, windows{}, lambda, beta_prior, shadow_discount, shadow_min_runs,
 shadow_max_windows, ablation_margin, severity_map{}, op_allow{}, cheapest_model, effort{},
 signal_thresholds{}}`. Eylemi kapılayan her şey anayasal bölümdedir ve yalnız sıkılaşır.
-Başlangıç değerleri `18a`'da.
+Başlangıç değerleri `18a` (anayasal) ve `18b`'de (performans).
 
 **test-writer output**: `{status: test|not_derivable, expected_assertion_message, test_file,
 must_cover_lines[]}`. Kırmızı koşu ancak başarısız assertion mesajı

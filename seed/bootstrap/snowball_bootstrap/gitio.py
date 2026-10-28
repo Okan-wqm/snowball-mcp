@@ -67,6 +67,15 @@ def fetch(dest: Path, remote: str, branch: str, base_sha: str, token: str | None
     return head
 
 
+def remote_head(remote: str, branch: str, token: str | None) -> str:
+    """The branch head on the remote, read with ``ls-remote`` (no objects are fetched)."""
+    out = git(Path("."), "ls-remote", "--heads", remote, f"refs/heads/{branch}", env=auth_env(token)).decode()
+    lines = [line.split("\t") for line in out.splitlines() if line.strip()]
+    if len(lines) != 1 or lines[0][1] != f"refs/heads/{branch}":
+        raise GitError(f"branch {branch!r} not found on the brain remote")
+    return lines[0][0]
+
+
 def has_commit(repo: Path, sha: str) -> bool:
     try:
         git(repo, "cat-file", "-e", f"{sha}^{{commit}}")

@@ -153,11 +153,18 @@ def check_control(root: Path) -> None:
         raise ConfigError("control.json: budget_state is not 'ok'")
 
 
+SPDX_ID_RE = re.compile(r"^[A-Za-z0-9.+-]{1,64}$")
+PIN_RE = re.compile(r"^[a-z0-9][a-z0-9-]*==[A-Za-z0-9.+!-]+$")
+
+
 @dataclass(frozen=True)
 class Policy:
     monthly_cap_usd_micros: int
     stage0_rival_usd_micros: int
     rival_min_attempts: int
+    repeat_reject_limit: int
+    license_allowlist: frozenset[str]
+    license_exceptions: dict[str, str]
 
 
 def load_policy(root: Path) -> Policy:
@@ -167,10 +174,22 @@ def load_policy(root: Path) -> Policy:
     params = _req(const, "stage_params", dict, cw)
     budgets = _req(const, "stage_budgets", dict, cw)
     stage0 = _req(budgets, "asama_0", dict, f"{cw}.stage_budgets")
+    allow = _req(const, "license_allowlist", list, cw)
+    if not allow or not all(isinstance(a, str) and SPDX_ID_RE.match(a) for a in allow):
+        raise ConfigError(f"{cw}.license_allowlist must be a non-empty list of SPDX identifiers")
+    exceptions = _req(const, "license_exceptions", dict, cw)
+    for pin, entry in exceptions.items():
+        if not PIN_RE.match(pin) or not isinstance(entry, dict) or set(entry) != {"expression", "evidence"} \
+                or not all(isinstance(v, str) and v.strip() for v in entry.values()):
+            raise ConfigError(f"{cw}.license_exceptions[{pin!r}] must be "
+                              "{{expression, evidence}} keyed by normalised name==version")
     return Policy(
         monthly_cap_usd_micros=_pos_int(const, "monthly_cap_usd", cw) * 1_000_000,
         stage0_rival_usd_micros=_pos_int(stage0, "rival_usd", f"{cw}.stage_budgets.asama_0") * 1_000_000,
         rival_min_attempts=_pos_int(params, "rival_min_attempts", f"{cw}.stage_params"),
+        repeat_reject_limit=_pos_int(params, "repeat_reject_limit", f"{cw}.stage_params"),
+        license_allowlist=frozenset(allow),
+        license_exceptions={pin: entry["expression"] for pin, entry in exceptions.items()},
     )
 
 

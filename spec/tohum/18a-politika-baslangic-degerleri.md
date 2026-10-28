@@ -1,4 +1,4 @@
-# Politika Başlangıç Değerleri
+# Politika Başlangıç Değerleri: Anayasal Bölüm
 
 Tarih: 2026-10-28 · Sürüm: 2.2 · Durum: taslak · Sahibi: operatör
 Okunma: kurulumda `policy.json` yazılırken ve bir eşiğin ilk değeri aranırken
@@ -6,9 +6,9 @@ Okunma: kurulumda `policy.json` yazılırken ve bir eşiğin ilk değeri aranır
 
 ---
 
-`policy.json`'un her anahtarı burada bir başlangıç değeriyle durur; anahtarı olmayan eşik
-yoktur. Anayasal değerleri operatör kurulumda yazar (`25`); bu tablo onun önerisidir. Performans
-değerleri `18`'deki prosedürle değişir. Adlar `26b` şemasıyla aynıdır.
+`policy.json`'un her anahtarı burada ya da `18b`'de bir başlangıç değeriyle durur; anahtarı
+olmayan eşik yoktur. Anayasal değerleri operatör kurulumda yazar (`25`); bu tablo onun önerisidir.
+Performans değerleri `18b`'dedir ve `18`'deki prosedürle değişir. Adlar `26b` şemasıyla aynıdır.
 
 ## Anayasal (`constitutional`)
 
@@ -42,37 +42,15 @@ değerleri `18`'deki prosedürle değişir. Adlar `26b` şemasıyla aynıdır.
 | `gate_rules.soft_freeze_limit` | Pencerede 2'den fazla yumuşak dondurma → sert duruş | `28` |
 | `gate_rules.containment_freeze` | Aynı pencerede 2 kapsayıcılık ihlali → yumuşak dondurma | `08`, `28` |
 | `gate_rules.gross_delete_cap` | Aday başına brüt silme ≤ 200 satır (K2 silmeleri hariç) | `04a` 9 |
+| `gate_rules.lesson_drill` | k = 12 eşli örnek; ≥ 8 uyuşmaz çift; tam tek yönlü McNemar p < 0,10, yön dersten yana; yanlış ders ve plasebo zorunlu | `22a` |
+| `gate_rules.context_drill` | İki oyuncak hedef; hedef başına ≥ 8 uygun örnek; zararlı enjeksiyon 0 | `22a` |
+| `gate_rules.genesis_drill` | Prova penceresi 20 koşu; büyüme ve yeniden yazım `12`'nin kabul yolundan; budamada iki ablasyon; sessizlikte ACTIVE 0 | `12a` |
+| `license_allowlist` | `MIT`, `MIT-0`, `BSD-2-Clause`, `BSD-3-Clause`, `0BSD`, `Apache-2.0`, `ISC`, `PSF-2.0`, `Python-2.0`, `Unlicense`, `CC0-1.0`, `Zlib`, `MPL-2.0`; GPL, LGPL, AGPL, SSPL, BUSL, ticari olmayan, tescilli ve bulunamayan lisans listede yoktur | `24`, `29b` |
+| `license_exceptions` | Boş. Operatör tek bir `ad==sürüm` için incelediği ifadeyi kanıtıyla yazar (`{expression, evidence}`); ifade yine listeden geçer | `24`, `29b` |
 | `stage_params.census_min_groups` | 45 modül grubu ya da mevcut olanın tamamı | `asama-0/04`, `exit.sample` |
 | `stage_params.planted_max_cases` | Snapshot başına 5 vaka | `asama-0/06` |
 | `stage_params.evidence_ref_max_lines` | Birincil ref ≤ 30 satır | `asama-0/07` |
 | `stage_params.match_window_lines` | K3 ve üstü eşleme penceresi ±15 satır | `asama-0/08` |
 | `stage_params.rival_min_attempts` | Aşama başına 5 ayrı artefakt, artefakt başına 1 deneme | `asama-0/10`, `29` |
+| `stage_params.repeat_reject_limit` | Aynı imzalı 3 ardışık ret → `not_learning` | `24`, `29b` |
 | `stage_budgets` | Aşama sayfalarının bütçe tabloları; toplamdır, aylık tavan ayrıca bağlar | aşama bütçe sayfaları, Gözcü |
-
-## Performans (`performance`)
-
-| Anahtar | Başlangıç | Okuyan |
-|---|---|---|
-| `windows.measure` | Ölçüm penceresi 14 gün | `11`, `12`, `17`, `28` |
-| `rules.recall_gate`, `rules.precision_gate` | `18`'deki örnek kurallar | `12`, kapı |
-| `shadow_min_runs` | Pencere başına koşu sayısının yarısı, en az 3 | `12` |
-| `shadow_max_windows` | 4 pencere; sonunda SHADOW → RETIRED | `12` |
-| `ablation_margin` | Katkının %90 üst sınırı < 0,02 bileşik skor → emeklilik | `12` |
-| `lambda` | 0,5 değer birimi / USD | `11` |
-| `beta_prior` | Beta(1, 1) | `11` |
-| `rules.reputation_half_life` | 30 gün; yalnız yeni karar varken işler | `11` |
-| `shadow_discount` | 0,5 | `11`, `12` |
-| `severity_map` | CRIT 10, HIGH 5, MED 2, LOW 1, lint 0,05 | `11`, `17`, `20` |
-| `op_allow` | K0 `lint_fix`; K1 `lint_fix`, `change_type`; K2 `remove`; K5–K6 `doc_fix` dışı hepsi; K8 `doc_fix` | `04a` 8, `26` |
-| `cheapest_model` | `claude-haiku-5-5`; yalnız panel faz 1–2 | `06`, `09` |
-| `effort` | Kurucu `high`; rakip `medium`; panel koltuğu `low`; düzeltici `low` | `24`, `10a` |
-| `rules.max_turns` | Rakip 30, avcı 60, panel koltuğu 12 | `24` |
-| `rules.gap_rule` | gap ≥ 0,2 iki pencere üst üste ve havuz ≥ 20 vaka | `17` |
-| `signal_thresholds` | `17`'deki tablonun eşik sütunu | `17` |
-| `rules.drift_bound` | Bir eşiğin başlangıçtan net hareketi > %20 → Gözcü işareti | `18` |
-| `rules.probe_cycle` | Sonda döngüsü başına 5 düzeltme; üst üste 2 temiz → kalkış | `28` |
-| `rules.lesson_n_min` | Ders başına kol başına 250 koşu; altında UNMEASURABLE | `22` |
-| `rules.seat_similarity` | Karar ve referans benzerliği > 0,8 → Gözcü işareti | `09a` |
-| `rules.genesis_drafts` | Pencere başına ≤ 3 taslak; kuyruk derinliği ≤ 10 | `12`, `17` |
-| `rules.lease_ttl` | Görev kirası 2 saat | `16` |
-| `rules.bisect` | Adım ≤ 15 dk, en çok 12 adım; bisect açılınca okunur | `07` |

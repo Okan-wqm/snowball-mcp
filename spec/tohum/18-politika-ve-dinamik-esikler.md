@@ -12,7 +12,8 @@ dinamiktir, termostatın kuralı ve canlılık sınırı sabittir.
 
 ## policy.json ne tutar
 
-Tek hash'li dosya; şeması `26b`'de, başlangıç değerleri `18a`'da. Her kapı kararı onu okur.
+Tek hash'li dosya; şeması `26b`'de, başlangıç değerleri `18a` (anayasal) ve `18b`'de (performans).
+Her kapı kararı onu okur.
 
 | Bölüm | İçerik | Kim değiştirir |
 |---|---|---|
@@ -41,19 +42,25 @@ Performans eşikleri kural olarak yazılır, örnek:
 `required_exit_rows` anayasaldır. Bir aşama yeni bir yetenek getiriyorsa spec'i o yeteneğin
 satırlarının hepsini çıkış testinde taşır; `spec.lint` bir satırı eksik spec'i reddeder (`02`).
 Yetenek, aşama onu gerçek hedefte sistemin bir kararına soktuğunda getirilmiş sayılır; inşa
-zamanındaki rakip çağrıları ve oyuncak hedefteki etkinleştirme provası yetenek getirmez.
+zamanındaki rakip çağrıları ve oyuncak hedefteki etkinleştirme provası yetenek getirmez. Aşama
+özeti getirdiği yetenekleri bu tablodaki adlarla listeler; her satırın `#kimlik`'i çıkış testinde
+onu karşılayan satırın başında (tablo satırının ilk hücresi ya da madde başı) durur. `spec.lint`
+listedeki her yeteneğin her kimliğini arar; `lock.check` listede olmayan yeteneğin aracını açmaz.
 
 | Yetenek | Zorunlu çıkış satırları |
 |---|---|
-| Her aşama | `spec.lint` temiz; `lock.check`; her döngü zincir ve Rekor kökü; her döngü `drift.check`; okuyucusuz dosya 0; her koşuda kırmızı kontrol kırmızı |
-| Çalışma-zamanı LLM çağrısı | Sunulan model doğrulanmış; koşu başına bütçe belirteci; giden prompt taranmış |
-| Araç kullanan çalışma-zamanı ajanı | Dispatch kanaryası yeşil; kapsayıcılık özetleri; sandbox kanaryası |
-| Entegrasyona merge | En az bir canlı merge; hayatta kalma penceresi; mandal; sıfır test kırmızı; nöbetçi |
-| Held-out havuzu | Mühür; havuz başına bakış bütçesi; ileriye dönük kesim; ham artefakt mühürde; üyelik testi (`19`) |
-| LLM avcı | Clean ve planted snapshot kanaryası; kalıp sızıntısı denetimi; `human_fix` katman tabanı |
-| Panel | Yargıç kalibrasyonu; bağımsızlık ölçümü |
-| Güvenlik yoluna dokunma | K6 kapısı; özel, çatallanmamış ayna (`15`) |
-| Daha ucuz basamak | Tam non-inferiority testi, δ ve n ≥ 45 (`19`) |
+| Her aşama | #lint `spec.lint` temiz; #lock `lock.check`; #kok her döngü zincir ve Rekor kökü; #drift her döngü `drift.check`; #okuyucu okuyucusuz dosya 0; #kirmizi her koşuda kırmızı kontrol kırmızı; #lisans bağımlılık lisans kapısı temiz (`24`) |
+| Çalışma-zamanı LLM çağrısı | #model sunulan model doğrulanmış; #belirtec koşu başına bütçe belirteci; #prompt giden prompt taranmış |
+| Araç kullanan çalışma-zamanı ajanı | #dispatch dispatch kanaryası yeşil; #kapsayicilik kapsayıcılık özetleri; #sandbox sandbox kanaryası |
+| Entegrasyona merge | #merge en az bir canlı merge; #hayatta hayatta kalma penceresi; #mandal mandal; #sifir-test sıfır test kırmızı; #nobetci nöbetçi; #geri-alma geri alma provası (`22a`) |
+| Held-out havuzu | #muhur mühür; #bakis havuz başına bakış bütçesi; #kesim ileriye dönük kesim; #ham ham artefakt mühürde; #uyelik üyelik testi (`19`) |
+| LLM avcı | #kanarya clean ve planted snapshot kanaryası; #sizinti kalıp sızıntısı denetimi; #human-fix `human_fix` katman tabanı |
+| Panel | #kalibrasyon yargıç kalibrasyonu; #bagimsizlik bağımsızlık ölçümü |
+| Güvenlik yoluna dokunma | #k6 K6 kapısı; #ayna özel, çatallanmamış ayna (`15`) |
+| Daha ucuz basamak | #non-inferiority tam non-inferiority testi, δ ve n ≥ 45 (`19`) |
+| Ders görünümü ve enjeksiyonu | #ders-dogus doğuş; #ders-kullanim kullanım; #ders-etki etki; #ders-yanlis yanlış ders; #ders-plasebo plasebo; #ders-kalicilik kalıcılık (`22a`) |
+| Genesis yaşam döngüsü | #genesis-buyume büyüme; #genesis-budama budama; #genesis-yeniden yeniden yazım; #genesis-sessizlik gereksiz büyümeme (`12a`) |
+| Çok repolu terfi | #baglam bağlam provası (`22a`); #terfi terfi testi (`21a`) |
 
 ## Eşik değişikliği bir artefakttır
 

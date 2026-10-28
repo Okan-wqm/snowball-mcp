@@ -36,7 +36,7 @@ durum mimarisine kendi başına varır; varamıyorsa ölçüm o parçanın gerek
 | Sınıflandırılamayan kaçırma | Pencerede ≥ 3 | Yeni `miss_reason` kategorisi ve yeni sinyal |
 
 Eşikler başlangıç değeridir; `policy.json`'un performans bölümünde `signal_thresholds` olarak
-durur ve `18`'deki prosedürle değişir. Pencere uzunlukları da oradadır (`18a`). Başarı tek başına
+durur ve `18`'deki prosedürle değişir. Pencere uzunlukları da oradadır (`18b`). Başarı tek başına
 organ doğurmaz: bir aracın zaten yaptığı düzeltme üç kez hayatta kaldı diye skill yazılmaz;
 gerekçe her zaman ölçülmüş bir maliyet ya da başarısızlık boşluğudur. Yeni `miss_reason` ya da
 `cause` kategorisi şema değişikliğidir; genesis değil şerit yazarı önerir (`26`).

@@ -22,6 +22,7 @@ Okunma: Aşama 0 inşasından önce ve her dispatch değişikliğinde
 | Entegrasyon dalı | `brain/integration`; etkinleştirmede `main`'den kesilir, Aşama 0–1'de senkronlanmaz (`07`) |
 | Snapshot | Git ağacından dosya listesiyle çıkarılır, `export-ignore` dikkate alınmaz; `.git` yoktur. Keşif "tümünü koş", "etkilenen" yalnız worktree'de |
 | Bağımlılık | `getir` işinde, kurulum betikleri kapalı, içerik adresli artefakt; Actions önbelleği kullanılmaz (`08` 5) |
+| Lisans | Ürüne giren her bağımlılık ticari kullanıma açık, `license_allowlist`'teki bir lisanstadır (`18a`). Lisans tekerleğin kendisinden okunur (`License-Expression`, `License`, sınıflandırıcılar, `dist-info` lisans dosyaları) ve lisansı söyleyen her yer izinli olmalıdır; lisansı bulunamayan paket reddedilir; istisna yalnız operatörün `license_exceptions`'ıdır. MPL-2.0 dosyaları değiştirilmez. Dağıtılan sürüm lisans raporundan üretilen üçüncü taraf bildirimini taşır. Konteyner imajı, git ve docker ürünü koşturur, ürüne girmez; model sağlayıcı, Sigstore ve GitHub ticari şartlarıyla kullanılan servislerdir |
 | Keşif ve oracle (K0–K2) | Keşif: aracın tüm ihlalleri, taban dahil. Oracle: hedef ihlal kayboldu, mandal tuttu (toplam artmadı) |
 | Düzeltme aralığı | Araç düzeltmesi yalnız hedef mesajın `fix` aralığıyla uygulanır; biçimleyiciler dosya başına çalışır ve Aşama 2'de açılır |
 | Kaçış | Sağlayıcı reddi, zaman aşımı ya da `stop_reason: refusal` koşuyu `unresolved` yapar; sessiz yeniden deneme yoktur |
@@ -37,6 +38,8 @@ temiz durur. Takvim oturum sayısıyla ölçülür; sonraki oturum öncekinin so
 ya da kapıda yeşilken başlar. Kurucu kendi maliyetini ölçemez: çalışma ortamı kullanım raporu
 veriyorsa defterine `kind: cost` satırı olarak yazar, vermiyorsa `unmeasured` yazar; sertlik
 sağlayıcı harcama tavanındadır (`25` 8). Etkinleştirmeden sonra `cost` bölümünde inşa kalemidir.
+Her itmeden önce son imzalı sonucu okur; ret nedenleri tiplidir ve nedeni giderilmemiş bir itme
+öğrenilmemiş ret sayılır. Sonuç `not_learning` derse oturum durur (`22a`, `29b`).
 
 ## Dispatch sözleşmesi (araç kullanan her ajan)
 
@@ -60,8 +63,8 @@ yapısal olarak imkânsızdır.
 Hakem: `exit.sample`, `cases.build`, `snapshot.make`, `harness.score`, `harness.baseline`,
 `spec.lint`, `ledger.append`, `chain.verify`, `rekor.anchor`, `secrets.scan`, `drift.check`,
 `profile.derive`, `deps.fetch`, `run.contained`, `llm.call`, `agent.dispatch`, `gate.diffguard`,
-`gate.check`, `sentinel.run`, `gate.revert`, `gozcu.evaluate`, `status.block`, `lock.check`,
-`brain.accept`. Beyin: `profile.propose`, `lint.discover`, `fixer.range`, `fixer.llm`,
+`gate.check`, `sentinel.run`, `gate.revert`, `exit.drill`, `gozcu.evaluate`, `status.block`,
+`lock.check`, `brain.accept`. Beyin: `profile.propose`, `lint.discover`, `fixer.range`, `fixer.llm`,
 `candidate.publish`, `docs.render`, `docs.index`. İmzalar ve ilk çağıranıyla açılan araçlar `26a`'da.
 
 ## Paket yerleşimi

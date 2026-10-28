@@ -22,3 +22,8 @@ basamağınınkinden yüksektir. **FAIL:** her basamak denenmiş ve hiçbiri ge�
 modelle ucuzlamadığının ölçülmüş cevabıdır, Aşama 4'ü bitirmez ve mekanik dedektör üretimine
 sinyal olur (`tohum/17`). Gerekçe: pahalı bulmak bir kez kabul edilir; ikinci kez aynı maliyet,
 ölçülmemiş bir tercihtir.
+
+| Koşul | Kural |
+|---|---|
+| #non-inferiority Daha ucuz basamak | Aynı dev vakalarında eşli, tam non-inferiority; δ = 0,05, n ≥ 45 (`tohum/19`) |
+| #genesis-buyume #genesis-budama #genesis-yeniden #genesis-sessizlik Genesis provası | TP'den üretilen dedektör K5'te ikinci adaydır; yaşam döngüsü canlıya girmeden `tohum/12a`'nın dört sorusu geçer |

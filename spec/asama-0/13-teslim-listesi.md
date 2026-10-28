@@ -8,7 +8,7 @@ Okunma: Aşama 0 çalışırken
 
 **Beyin reposunda, `referee/` altında (aktarılacak hakem):** `ledger/` (`ledger.append`,
 `chain.verify`, `rekor.anchor`), kill switch ve bütçe okuyucu, `profile.derive`, `harness/`
-(`snapshot.make`, `cases.build` ve mutasyon kataloğu, `exit.sample`, `harness.score`,
+(`snapshot.make`, `cases.build` ve mutasyon kataloğu, `exit.sample`, `exit.drill`, `harness.score`,
 `harness.baseline` ve grep kümesi), `spec.lint`, `runner/` (`run.contained`, `deps.fetch`),
 `gate/` (`gate.diffguard`, `gate.check`, `sentinel.run`, `gate.revert`, `lock.check`,
 `brain.accept`), `drift.check`, `llm.call`, `secrets.scan`, `dispatcher/` (`agent.dispatch`),

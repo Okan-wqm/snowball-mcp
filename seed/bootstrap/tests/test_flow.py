@@ -48,13 +48,14 @@ class Flow(unittest.TestCase):
             "limits": {"test_timeout_s": 600, "reproducer_timeout_s": 120, "max_prompt_chars": 600_000,
                        "max_tree_bytes": 50_000_000}}))
         (self.referee / "policy.json").write_text(json.dumps({"constitutional": {
-            "monthly_cap_usd": 300, "stage_params": {"rival_min_attempts": 2},
-            "stage_budgets": {"asama_0": {"rival_usd": 30}}}}))
+            "monthly_cap_usd": 300, "stage_params": {"rival_min_attempts": 2, "repeat_reject_limit": 3},
+            "stage_budgets": {"asama_0": {"rival_usd": 30}},
+            "license_allowlist": ["MIT", "Apache-2.0"], "license_exceptions": {}}}))
         (self.referee / "control.json").write_text(json.dumps({"kill_switch": False, "budget_state": "ok"}))
         self.state = {"schema": "snowball-bootstrap-state/1", "origin": "initial",
                       "last_accepted_sha": self.seed_sha, "last_evaluated_sha": None, "frozen_specs": {},
                       "rival_artifacts": [], "month": "2026-10", "month_spend_usd_micros": 0,
-                      "stage_spend_usd_micros": 0, "runs": 0}
+                      "stage_spend_usd_micros": 0, "runs": 0, "reject_streaks": {}, "repeat_events": 0}
         self.n = 0
 
     def tearDown(self):
@@ -71,7 +72,7 @@ class Flow(unittest.TestCase):
         return json.loads((out / "meta.json").read_text())
 
     def finish(self, meta, run=None, rival=None, repro=None, jobs=None):
-        result = decide(meta, run, rival, repro, jobs or {}, rival_min_attempts=2)
+        result = decide(meta, run, rival, repro, jobs or {}, rival_min_attempts=2, repeat_reject_limit=3)
         self.state = result["state"]
         return result
 
@@ -197,6 +198,7 @@ class Flow(unittest.TestCase):
         result = self.finish(meta, run=self.green_run(meta), jobs={"getir": "success", "kos": "success"})
         self.assertEqual(result["verdict"], "accepted", result["reasons"])
         self.assertTrue(result["exit"]["transferable"])
+        self.assertEqual(result["exit"]["repeat_events"], 0)
 
         # Operator import: signature check stubbed, tree hash real.
         work = Path(self.tmp.name)
@@ -235,6 +237,50 @@ class Flow(unittest.TestCase):
         fake_sigstore.write_text("#!/bin/sh\necho bad >&2\nexit 1\n")
         with self.assertRaises(ImportErrorStop):
             run_import(work / "result.json", work / "bundle.json", "id", str(fake_sigstore), self.brain, referee, toy)
+
+    def test_rejection_memory_shows_whether_the_founder_uses_what_it_was_told(self):
+        commit(self.brain, {"spec/asama-0/00-ozet.md": "# stage 0 v4\n"}, "spec")
+        self.finish(self.pull(), rival=self.rival_ok(), jobs={"cagir": "success"})
+        red_jobs = {"getir": "success", "kos": "success", "cagir": "skipped"}
+        same = f"test_failed:T{STAGE0_MF_TESTS[1][0]}"
+
+        def red_push(n, licenses=None):
+            commit(self.brain, {"referee/ledger/chain.py": f"x = {n}\n",
+                                "snowball-tests.json": all_tests_manifest([1])}, f"try {n}")
+            meta = self.pull()
+            run = self.green_run(meta)
+            if licenses is None:
+                run["tests"][0]["ok"] = False
+            else:
+                run["licenses"] = licenses
+            run["green"] = False
+            return self.finish(meta, run=run, jobs=red_jobs)
+
+        first = red_push(1)
+        self.assertEqual(first["learning"], {"repeated": [], "not_learning": [], "repeat_events": 0})
+        self.assertEqual(red_push(2)["learning"]["repeated"], [same])
+        third = red_push(3)
+        self.assertEqual(third["learning"]["not_learning"], [same])
+        self.assertEqual(third["state"]["repeat_events"], 2)
+
+        # An infrastructure failure judges nothing, so it neither extends nor clears a streak.
+        commit(self.brain, {"referee/ledger/chain.py": "x = 4\n"}, "infra")
+        result = self.finish(self.pull(), jobs={"getir": "failure", "kos": "skipped", "cagir": "skipped"})
+        self.assertEqual(result["state"]["reject_streaks"], {same: 3})
+
+        # A different failure ends the old streak; a license violation is a rejection like any other.
+        gpl = [{"name": "gplpkg", "version": "1.0", "expression": "GPL-3.0-only", "allowed": False}]
+        result = red_push(5, licenses=gpl)
+        self.assertEqual([r["kind"] for r in result["reasons"]], ["license_not_allowed"])
+        self.assertEqual(result["state"]["reject_streaks"], {"license_not_allowed:gplpkg==1.0:GPL-3.0-only": 1})
+
+        # Acceptance clears the streaks; the count of repeats stays as the founder's record.
+        commit(self.brain, {"referee/ledger/chain.py": "x = 6\n"}, "fixed")
+        meta = self.pull()
+        result = self.finish(meta, run=self.green_run(meta), rival=self.rival_ok(),
+                             jobs={"getir": "success", "kos": "success", "cagir": "success", "yeniden": "skipped"})
+        self.assertEqual(result["verdict"], "accepted", result["reasons"])
+        self.assertEqual((result["state"]["reject_streaks"], result["state"]["repeat_events"]), ({}, 2))
 
     def test_exhausted_budget_is_recorded_once_without_calling_the_rival(self):
         self.state["stage_spend_usd_micros"] = 30_000_000

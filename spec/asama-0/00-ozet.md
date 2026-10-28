@@ -14,6 +14,9 @@ Okunma: aşama başında
 yazar. Önyükleme hakemi her push'u denetler; Kurucu kendi yazdığını puanlayamaz (Y6). Hedefe bu
 aşamada hiçbir şey yazılmaz; hedefe ilk yazım etkinleştirme koşusudur.
 
+**Getirdiği yetenekler** (`tohum/18`): Her aşama. İnşa zamanındaki rakip çağrıları ve
+etkinleştirme provası yetenek getirmez.
+
 **Çıkış kapısı:** iki parça, ikisi birlikte `PASS` (§0.10): (A) pinli beyin SHA'sında önyükleme
 hakeminin makine doğrulamalı sonucu; (B) operatör aktarımı ve aktarılan hakemin canlı etkinleştirme
 koşusu. Kurulumun ikinci bölümü (`tohum/25a`) (B)'nin parçasıdır.
@@ -32,11 +35,11 @@ tüm tohum sayfaları geçerlidir.
 | `03-roller.md` | Roller | 17 |
 | `04-hata-seti.md` | Hata seti | 41 |
 | `05-property-ve-sinif-etiketleri.md` | Property ve sınıf etiketleri | 39 |
-| `06-snapshot-uretimi.md` | Snapshot üretimi | 28 |
+| `06-snapshot-uretimi.md` | Snapshot üretimi | 29 |
 | `07-bulgu-ve-kosu-semasi.md` | Bulgu ve koşu şeması | 33 |
 | `08-puanlama-ve-metrikler.md` | Puanlama ve metrikler | 34 |
 | `09-harness-in-kendi-testleri.md` | Harness'in ve hakemin kendi testleri | 58 |
-| `10-cikis-testi.md` | Çıkış testi (hepsi birlikte PASS) | 48 |
+| `10-cikis-testi.md` | Çıkış testi (hepsi birlikte PASS) | 51 |
 | `11-yasaklar.md` | Yasaklar | 22 |
 | `12-butce.md` | Bütçe (başlangıç değerleri; yalnız operatör değiştirir) | 22 |
 | `13-teslim-listesi.md` | Teslim listesi | 33 |

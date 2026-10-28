@@ -59,3 +59,7 @@ itibar puanlayıcısını ve şemaları yazamaz; bunlar hakem reposundadır. Yen
 `miss_reason` kategorisi ihtiyacı şerit yazarının görevidir (`09a`). Bir pencerede üretilen taslak
 sayısı bütçeyle sınırlıdır; taşma Gözcü'nün işaretidir, çünkü çok taslak çoğu zaman ölçülmemiş bir
 boşluğun izidir. Tetikler `17`'dedir.
+
+**Kendini geliştirmenin testi.** Bir sınıfta yaşam döngüsünü canlıya alan aşama, genesis
+provasının satırlarını çıkış testinde taşır (`12a`, `18`): büyüme, budama, yeniden yazım ve
+gereksiz büyümeme.

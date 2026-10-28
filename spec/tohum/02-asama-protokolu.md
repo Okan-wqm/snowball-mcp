@@ -19,8 +19,9 @@ Okunma: her aşama başında ve sonunda
    - sekiz bölüm var ve boş değil;
    - her eşik ya `policy.json`'a ya da anayasal tabana atıf;
    - bütçe `policy.json` tavanının altında;
-   - aşamanın getirdiği her yetenek için anayasal `required_exit_rows` satırlarının hepsi çıkış
-     testinde var (`18`); biri eksikse spec reddedilir;
+   - aşama özeti getirdiği yetenekleri `18`'deki adlarla listeler ("Her aşama" her zaman); listedeki
+     her yeteneğin her `#kimlik`'i çıkış testinde bir satırın başında var; biri eksikse spec
+     reddedilir;
    - her mikro özellik tek mekanizma getirir (`04`);
    - property spec'lerinde kalıp yok (`asama-4/06`);
    - hedef repoya özgü yol, araç ya da karar belgesi adı yok;

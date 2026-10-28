@@ -12,6 +12,9 @@ ikinci bölümü tamamlanmış (`tohum/25a`); hedef yazma modunda (`tohum/21`).
 **Ne kurulur:** yalnız oyuncu organları: lint adapter, taban, iki düzeltici yolu, aday paketi,
 sayfa üreticisi. Hakem Aşama 0'dan donuktur ve bu aşamada değişmez.
 
+**Getirdiği yetenekler** (`tohum/18`): Her aşama; Çalışma-zamanı LLM çağrısı (araçsız Sonnet
+düzelticisi); Entegrasyona merge.
+
 **Çıkış kapısı:** §1.8'deki koşulların tamamı makine doğrulamalı; verdict `PASS`. PASS satırını
 hakem yazar.
 
@@ -33,7 +36,7 @@ yasaları ve tüm tohum sayfaları geçerlidir.
 | `05-dongu-adim-adim.md` | Döngü, adım adım | 37 |
 | `06-sirali-mikro-ozellikler.md` | Sıralı mikro özellikler | 23 |
 | `07-harness-olcumu.md` | Harness ölçümü | 21 |
-| `08-cikis-testi.md` | Çıkış testi (hepsi birlikte PASS) | 40 |
+| `08-cikis-testi.md` | Çıkış testi (hepsi birlikte PASS) | 44 |
 | `09-yasaklar.md` | Yasaklar | 21 |
 | `10-butce.md` | Bütçe (başlangıç değerleri; yalnız operatör değiştirir) | 18 |
 | `11-sonuc-ne-soyler.md` | Sonuç ne söyler | 21 |

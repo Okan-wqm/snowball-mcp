@@ -47,13 +47,18 @@ sistem hangi koşulda hangi kaynağa güveneceğini de öğrenir.
 kiracı izolasyonu) ancak üç şeyle öneri olur: kaynakta kanıt (hayatta kalmış uygulama ve
 testleri), hedefte uygulanabilirlik koşulları ve sandbox'ta ölçülmüş fayda. Ölçülebilir faydası
 olmayan şey görüştür. Güvenlik örüntüleri K6 kapısından geçer; kök neden kuralları geçerlidir (`23`).
+Öneri kalıbı tarif eder, kaynağın kodunu taşımaz: hedefe giren kod hedefte yeniden yazılır ve
+kaynağa yalnız `evidence_refs` ile atıf yapılır. Kaynak kodun kendisi ancak lisansı
+`license_allowlist`'teyse ve atfı bildirime yazılırsa alınır (`24`); lisansı bulunamayan repodan
+kod alınmaz.
 
 **Terfi: birim repodur.** Bir organ ya da bilgi beyin çekirdeğine ancak şu kuralla terfi eder
 (`gate_rules.promotion`): en az 4 repo, hepsi lehte (ya da en az 5); her repoda kendi dev
 vakalarında sabit δ ile non-inferiority; genel denen her bağlam alanında en az 2 farklı değer;
 seçim bir-repo-dışarıda yapılır; birden çok aday Benjamini–Hochberg ile düzeltilir. Terfi kararını
 hakem verir (Y6). Beyin kodundaki her değişiklik aynı kuraldan geçer. 1–3 repodan "şu bağlamda
-doğru" demek bilgi vermez; o sayıda repo yalnız hipotez üretir.
+doğru" demek bilgi vermez; o sayıda repo yalnız hipotez üretir. Terfiyi getiren aşama, koşullu
+bilginin doğru hedefe gittiğini bağlam provasıyla da gösterir (`22a`).
 
 **Seçerek sınanan çıktı.** Okuma hipotezleri ve örüntü önerileri seçilerek sınanır; isabetleri
 `19`'daki tekdüze denetim örneklemiyle ölçülür, sınanamayan iddia başarısız sayılır.

@@ -3,6 +3,10 @@
 There is no writable store in the referee repository (only the operator writes it), so state
 travels in the signed ``bootstrap-state`` artifact of the previous run and is verified with
 Sigstore before use. If none exists, the run starts from the setup summary and says so.
+
+``reject_streaks`` counts, per rejection signature, how many evaluated rejections in a row carried
+it; ``repeat_events`` counts the times a signature came back on the very next rejection. They
+measure whether the founder uses what a rejection told it (`tohum/29b`, "Ret hafızası").
 """
 
 from __future__ import annotations
@@ -17,7 +21,7 @@ SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 HEX64_RE = re.compile(r"^[0-9a-f]{64}$")
 MONTH_RE = re.compile(r"^\d{4}-\d{2}$")
 KEYS = {"schema", "origin", "last_accepted_sha", "last_evaluated_sha", "frozen_specs", "rival_artifacts",
-        "month", "month_spend_usd_micros", "stage_spend_usd_micros", "runs"}
+        "month", "month_spend_usd_micros", "stage_spend_usd_micros", "runs", "reject_streaks", "repeat_events"}
 
 
 def initial(summary: Summary, month: str) -> dict[str, Any]:
@@ -32,6 +36,8 @@ def initial(summary: Summary, month: str) -> dict[str, Any]:
         "month_spend_usd_micros": 0,
         "stage_spend_usd_micros": 0,
         "runs": 0,
+        "reject_streaks": {},
+        "repeat_events": 0,
     }
 
 
@@ -50,7 +56,11 @@ def validate(state: Any) -> dict[str, Any]:
         raise ConfigError("previous state: bad rival_artifacts")
     if not MONTH_RE.match(str(state["month"])):
         raise ConfigError("previous state: bad month")
-    for key in ("month_spend_usd_micros", "stage_spend_usd_micros", "runs"):
+    if not isinstance(state["reject_streaks"], dict) or not all(
+            isinstance(k, str) and isinstance(v, int) and not isinstance(v, bool) and v > 0
+            for k, v in state["reject_streaks"].items()):
+        raise ConfigError("previous state: bad reject_streaks")
+    for key in ("month_spend_usd_micros", "stage_spend_usd_micros", "runs", "repeat_events"):
         if not isinstance(state[key], int) or isinstance(state[key], bool) or state[key] < 0:
             raise ConfigError(f"previous state: bad {key}")
     return state

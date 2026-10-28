@@ -20,7 +20,10 @@ Okunma: yeni terim ya da dosya eklerken
 | İzin listesi | `accept` satırlarından kurulan, çıktısı merge kapısına gidebilen organ tanım hash'leri |
 | Aday paketi | Bulgu, diff ve organ tanım hash'leri (`26a`) |
 | `impact_miss` | Merge sonrası kırmızının nedeni beyan edilen etki kümesinin dışında |
-| Tohum dışı organ | Tohumda adı geçmeyen ve ablasyonda katkısı kanıtlanmış organ; sistemin kendi keşfinin ölçüsü |
+| Tohum dışı organ | Tohumda adı geçmeyen ve ablasyonda katkısı kanıtlanmış organ; sistemin kendi keşfinin ölçüsü. Provaya konan (`planted`) organ sayılmaz |
+| Prova | Cevabı önceden hash'le bağlanmış, oyuncak hedefte koşan çıkış testi: ders provası, geri alma ve bağlam provası (`22a`), genesis provası (`12a`) |
+| Ret hafızası, `not_learning` | Önyükleme hakeminin ret imzası sayacı; aynı imza ardışık sınırı aşınca Kurucu oturumu durur (`29b`) |
+| Lisans kapısı | Bağımlılığın lisansını tekerleğin kendisinden okuyup `license_allowlist`'e karşı denetleyen kapı (`24`) |
 | Harness puanı | Hakem harness'inin bir koşuya verdiği rapor |
 | Taban avcı | Hakemin property başına sabit grep kümesi; maliyeti sıfır |
 | Sınıf tabanı | `policy.json` anayasal bölümündeki çıkış alt sınırı |
@@ -55,6 +58,7 @@ dosyaları içindir; kod dizinlerinin çağıranları `24` ve `26a`'dadır.
 | `ledger.jsonl` `cost` | `çağır`, geçit | Gözcü | Bütçe duruşu | Etkinleştirme |
 | `ledger.jsonl` `freeze` | Gözcü | kapı | Merge kapanır | Etkinleştirme |
 | `ledger.jsonl` `rival`, `accept` | hakem, `brain.accept` | `brain.accept`, `gate.check` | Kabul, izin listesi | Etkinleştirme |
+| `ledger.jsonl` `drill` | `exit.drill` | hakem exit, `lock.check` | Yeteneğin canlıya girmesi | İlk prova |
 | `chain/root.jsonl` | `yaz` | `chain.verify`, `rekor.anchor` | Sert duruş | Etkinleştirme |
 | `cases/` (dev) | `cases.build` | `harness.score`, Kurucu | Adapter değişikliği | Etkinleştirme |
 | `status.md` | `status.block`, `docs.render` | operatör | Kill switch | Etkinleştirme |

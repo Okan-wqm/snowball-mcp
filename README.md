@@ -21,8 +21,27 @@ The founder cannot build the judge of its own first stage, so the **bootstrap re
 the seed under `seed/bootstrap/` (see `spec/tohum/29b-onyukleme-hakemi.md`): a GitHub Actions
 workflow and a standard-library Python package that pulls each founder commit, runs its tests and
 the seed vectors in network-less containers, asks a rival model to refute it, and signs the verdict
-into Sigstore's Rekor log. It has not yet run on GitHub Actions; setup (`spec/tohum/25-kurulum-gunu.md`)
-installs it.
+into Sigstore's Rekor log. It polls hourly, so an idle month costs about 720 of the free plan's
+Actions minutes (the arithmetic is in `spec/tohum/25-kurulum-gunu.md`). It has not yet run on
+GitHub Actions; setup installs it.
+
+Two rules run through everything:
+
+- **Only open, commercially usable licenses.** Every dependency must carry a license on the
+  allowlist in `spec/tohum/18a-politika-baslangic-degerleri.md` (MIT, BSD, Apache-2.0, ISC, PSF,
+  MPL-2.0 and similar; no GPL, LGPL, AGPL, source-available or non-commercial licenses). The
+  license is read from the wheel itself, every place in it that names a license must be allowed,
+  and an unknown license is refused. The bootstrap applies this to the founder's dependencies and
+  to its own pinned wheels before installing them (`seed/bootstrap/requirements/licenses.json`).
+  Patterns learned from other repositories are re-written, not copied.
+- **Learning and self-improvement are tested, not assumed.** Drills on a toy target, with answers
+  committed in advance, check that a lesson is born from the right event, given to the right work,
+  reduces errors there, is withdrawn when wrong, earns no credit when irrelevant, and survives a
+  restart (`spec/tohum/22a-ders-provasi.md`); and that the system grows an organ from a measured
+  gap, retires a useless one, replaces a weak one and does not grow without need
+  (`spec/tohum/12a-genesis-provasi.md`). A stage that brings one of these capabilities cannot pass
+  its exit without the drill. The bootstrap also remembers its own rejections and stops the founder
+  when the same rejection comes back three times in a row.
 
 Run its tests with:
 

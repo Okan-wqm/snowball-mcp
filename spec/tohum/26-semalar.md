@@ -18,6 +18,7 @@ da yeni kategori önerisini genesis değil şerit yazarı yapar (`09a`).
 | `founder` | beyin reposunda `founder-ledger.jsonl` | Kurucu | Aşama 0 |
 | `events`, `cost`, `freeze`, `rival`, `accept` | `<state_root>/ledger.jsonl` | Hakem işleri | Etkinleştirme |
 | `looks` | `<state_root>/ledger.jsonl` | Hakem exit işi | İlk held-out havuzu |
+| `drill` | `<state_root>/ledger.jsonl` | Hakem `exit.drill` işi | İlk prova (`18`, `22a`, `12a`) |
 | — (bulgu satırları) | `<state_root>/findings.jsonl` | Hakem, adapter önerisinden | Etkinleştirme |
 | — (unresolved satırları) | `<state_root>/unresolved.jsonl` | Hakem kapısı | Aşama 1 |
 | — (kökler) | `<state_root>/chain/root.jsonl` | Hakem `yaz` işi | Etkinleştirme |
@@ -70,6 +71,10 @@ ve `imported_used`'ı dispatcher yazar. Ajanın yazdığı tek alan `declared_ex
 **rival payload** (`part: rival`): `{subject_sha, verdict: refuted|not_refuted|unresolved,
 attempts:[{claim, evidence_refs, reproducer?}], reproduced}`. `reproduced` hakemin yeniden
 üreticiyi `koş`ta koşturmasının sonucudur; yalnız `reproduced: true` çürütmedir.
+
+**drill payload** (`part: drill`): `{drill: lesson|revert|context|genesis, question, family,
+instance_id, arm?: with|without, commitment_sha256, revealed_sha256?, outcome, verdict}`.
+Taahhüt hash'i koşudan önce, açılım koşudan sonra yazılır; ikisi eşleşmezse prova `FAIL`'dır.
 
 Diğer şemalar (ders, bilgi, öneri, harita, organ, itibar, rapor, profil, politika, test-yazıcı,
 bakış, mühür, sözleşme) `26b`'dedir.

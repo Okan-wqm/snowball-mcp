@@ -12,6 +12,8 @@ from pathlib import Path
 from snowball_bootstrap import cli, state as st
 from snowball_bootstrap.config import ConfigError, Summary
 
+from helpers import commit, make_repo
+
 
 class _Api(BaseHTTPRequestHandler):
     seen: list = []
@@ -112,14 +114,52 @@ class StateTest(unittest.TestCase):
         finally:
             ghapi.download_zip = original
 
+    def test_poll_skips_only_a_head_it_has_already_seen(self):
+        from snowball_bootstrap import ghapi
+        brain = self.root / "brain"
+        head = make_repo(brain, {"a.txt": "1\n"})
+        (self.root / "bootstrap.json").write_text(json.dumps({
+            "brain_repo": "owner/brain", "brain_branch": "main",
+            "image": "docker.io/library/python:3.12-slim@sha256:" + "a" * 64,
+            "rival": {"model": "claude-sonnet-5-5", "effort": "medium", "max_turns": 30, "max_tokens": 16000,
+                      "per_run_cap_usd_micros": 1, "price_micros_per_mtok": {
+                          "input": 1, "output": 1, "cache_write": 1, "cache_read": 1}},
+            "limits": {"test_timeout_s": 1, "reproducer_timeout_s": 1, "max_prompt_chars": 1, "max_tree_bytes": 1}}))
+        outputs = self.root / "outputs.txt"
+        os.environ["GITHUB_OUTPUT"] = str(outputs)
+
+        def poll() -> dict:
+            outputs.write_text("")
+            argv = ["poll", "--root", str(self.root), "--out", str(self.root / "p"), "--remote", str(brain)]
+            self.assertEqual(cli.main(argv), 0)
+            return dict(line.split("=", 1) for line in outputs.read_text().splitlines())
+
+        self.assertEqual(poll()["skip"], "false")  # no state yet: evaluate
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as zf:
+            zf.writestr("result.json", json.dumps({"state": {"last_accepted_sha": head, "last_evaluated_sha": None}}))
+            zf.writestr("result.json.sigstore.json", "{}")
+        _Api.artifacts = [{"id": 5, "name": "bootstrap-state", "expired": False,
+                           "created_at": "2020-01-01T00:00:00Z"}]
+        original = ghapi.download_zip
+        ghapi.download_zip = lambda repo, aid, token: buf.getvalue()
+        try:
+            seen = poll()
+            self.assertEqual((seen["skip"], seen["reupload"], seen["head"]), ("true", "true", head))
+            commit(brain, {"a.txt": "2\n"}, "new")
+            self.assertEqual(poll()["skip"], "false")
+        finally:
+            ghapi.download_zip = original
+
     def test_state_validation_and_rollover(self):
         s = st.initial(Summary("a" * 40, "b" * 64), "2026-10")
         s["month_spend_usd_micros"] = 5
         self.assertEqual(st.rollover(st.validate(s), "2026-11")["month_spend_usd_micros"], 0)
         self.assertEqual(st.rollover(s, "2026-10")["month_spend_usd_micros"], 5)
-        bad = dict(s, rival_artifacts=["not-a-sha"])
-        with self.assertRaises(ConfigError):
-            st.validate(bad)
+        for bad in (dict(s, rival_artifacts=["not-a-sha"]), dict(s, reject_streaks={"x": 0}),
+                    dict(s, repeat_events=-1)):
+            with self.assertRaises(ConfigError):
+                st.validate(bad)
 
 
 class PackTest(unittest.TestCase):

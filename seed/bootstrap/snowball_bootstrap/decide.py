@@ -32,9 +32,30 @@ def _reason(kind: str, ref: str = "", detail: str = "", test_id: str | None = No
     return item
 
 
+def signature(reason: dict[str, Any]) -> str:
+    """What makes two rejections "the same": the kind and the test, check or condition it names."""
+    return f"{reason['kind']}:{reason.get('test_id') or reason['ref']}"
+
+
+def _learning(state: dict[str, Any], reasons: list[dict[str, Any]], limit: int) -> dict[str, Any]:
+    """Update the rejection streaks of an evaluated commit and say which ones repeat.
+
+    A signature's streak grows while every evaluated commit is rejected for it and ends at the first
+    commit that is not; an accepted commit has no reasons, so it ends them all.
+    """
+    old = state["reject_streaks"]
+    now = sorted({signature(r) for r in reasons})
+    state["reject_streaks"] = {sig: old.get(sig, 0) + 1 for sig in now}
+    state["repeat_events"] += sum(1 for sig in now if sig in old)
+    streaks = state["reject_streaks"]
+    return {"repeated": sorted(s for s, n in streaks.items() if n >= 2),
+            "not_learning": sorted(s for s, n in streaks.items() if n >= limit),
+            "repeat_events": state["repeat_events"]}
+
+
 def decide(meta: dict[str, Any], run: dict[str, Any] | None, rival: dict[str, Any] | None,
            repro: list[dict[str, Any]] | None, job_results: dict[str, str],
-           rival_min_attempts: int) -> dict[str, Any]:
+           rival_min_attempts: int, repeat_reject_limit: int) -> dict[str, Any]:
     """Return the signed result (including the next state)."""
     state = copy.deepcopy(meta["state"])
     head, base, kind = meta["head"], meta["base"], meta["kind"]
@@ -65,6 +86,10 @@ def decide(meta: dict[str, Any], run: dict[str, Any] | None, rival: dict[str, An
         for v in vectors:
             if not v["ok"]:
                 reasons.append(_reason("vector_failed", ref=v["id"], detail=v.get("detail", "")))
+        for lic in (run or {}).get("licenses", []):
+            if not lic["allowed"]:
+                reasons.append(_reason("license_not_allowed",
+                                       ref=f"{lic['name']}=={lic['version']}:{lic['expression']}"))
         if not tests:
             reasons.append(_reason("zero_tests"))
 
@@ -116,8 +141,10 @@ def decide(meta: dict[str, Any], run: dict[str, Any] | None, rival: dict[str, An
     else:
         verdict = "accepted" if accepted else "rejected"
 
+    learning = {"repeated": [], "not_learning": [], "repeat_events": state["repeat_events"]}
     if evaluate and kind != "none":
         state["last_evaluated_sha"] = head
+        learning = _learning(state, reasons, repeat_reject_limit)
     if accepted:
         state["last_accepted_sha"] = head
         if kind == "spec":
@@ -128,6 +155,8 @@ def decide(meta: dict[str, Any], run: dict[str, Any] | None, rival: dict[str, An
         exit_block["transferable"] = True
         exit_block["referee_tree_sha256"] = meta["referee_tree_sha256"]
         exit_block["brain_sha"] = head
+    if kind == "exit":
+        exit_block["repeat_events"] = state["repeat_events"]
     state["runs"] += 1
     state["origin"] = "artifact"
 
@@ -147,6 +176,8 @@ def decide(meta: dict[str, Any], run: dict[str, Any] | None, rival: dict[str, An
         "rival": rival,
         "reproducers": repro or [],
         "exit": exit_block,
+        "learning": learning,
+        "licenses": (run or {}).get("licenses", []),
         "state": state,
         "rejection": rejection,
     }

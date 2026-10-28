@@ -34,7 +34,7 @@ düzeltmesiyle aynı kapıdan geçer; doküman yolları yalnız K8 adaylarında 
 |---|---|---|
 | 0 | Hakemin tamamı beyin reposunun `referee/` dizininde, önyükleme hakeminin denetiminde (`29b`): zincir, K0 dev seti ve çıkış örneklemi, puanlama, taban avcı, `spec.lint`, iş deseni, kapı, nöbetçi, `drift.check`, Gözcü, `llm.call`, dispatch sözleşmesi, Rekor. Çıkışta operatör aktarımı ve etkinleştirme. Çalışma zamanında LLM yok | Kendi-testleri, tohum vektörleri, kırmızı kontrol, rakip; etkinleştirmede oyuncak hedefte canlı döngü |
 | 1 | K0 döngüsü uçtan uca, yalnız oyuncu organları: lint adapter, taban, `fix` aralığı düzelticisi, araçsız Sonnet düzelticisi, aday yayımlama, hakem kapısı, nöbetçi, defter, üretilmiş sayfalar | Kural sayımında sıfır kaçırma; araç yeniden koşusu ve mandal; kapının etkilenen-test koşusu; canlı merge'ler |
-| 2 | K1 ve K2 adapter'ları; **Plan fazı**: Opus planlayıcı; ders görünümü ve ilk okuyucusu; harita katmanı (a), K2 silmeleri ya da ilk `impact_miss` sinyaliyle; `main` senkronu ölçülmüş ihtiyaçla | Araç; planlayıcı sırası rastgele sıradan daha yüksek değer / USD verir |
+| 2 | K1 ve K2 adapter'ları; **Plan fazı**: Opus planlayıcı; ders görünümü ve ilk okuyucusu; harita katmanı (a), K2 silmeleri ya da ilk `impact_miss` sinyaliyle; `main` senkronu ölçülmüş ihtiyaçla | Araç; planlayıcı sırası rastgele sıradan daha yüksek değer / USD verir; ders provası (`22a`) |
 | 3 | K3 ve K4; ilk araç-dışı mekanik dedektörler; maliyet inişi canlı; harita katmanı (b) | Kasıtlı bozma, araç |
 | 4 | K5: kalıpsız LLM avcı, mühürlü depo ve held-out havuzu, beş fazlı panel, test oracle'ı, TP'den dedektör üretimi | Held-out `human_fix` recall alt sınırı, yürütme oracle'ı, değer / USD |
 | 5 | K6, K7, K8; harita katmanları (c) ve (d); genesis tüm organ türlerine ve property'lere açık | Harness deltası, maliyet deltası, ablasyon; K8'de çapa çözümü |
@@ -42,7 +42,9 @@ düzeltmesiyle aynı kapıdan geçer; doküman yolları yalnız K8 adaylarında 
 
 Genesis organ ekleme yoludur (`12`). Aşama 1'de adapter ve düzeltici kapının izin listesine
 `brain.accept` ile girer; organ yaşam döngüsü ve genesis kuyruğu bir sınıfta en az iki aday organ
-doğunca canlıdır. Aşamalar genesis'in kapsamını açar.
+doğunca canlıdır ve o aşamanın çıkışı genesis provasını taşır (`12a`). Aşamalar genesis'in
+kapsamını açar. Öğrenme de aynı biçimde sınanır: merge getiren aşama geri alma provasını, ders
+görünümünü getiren aşama ders provasını taşır (`22a`).
 
 **Neden yalnız Aşama 0, 1 ve 4 yazılı.** Aşama protokolü gereği her aşamanın spec'ini Kurucu, bir
 önceki aşamanın ölçülmüş sonuçlarıyla taslaklar (`02`); tohum yalnız bu tablodaki hedef satırını

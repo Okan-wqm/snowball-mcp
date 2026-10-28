@@ -22,10 +22,22 @@ Okunma: bir sayfanın geçmişi aranırken
   test bildirimi, ret artefaktı ve vektör arayüzü tanımlandı; aktarım operatör dosyalarını hariç
   tutar; hash'lenen artefaktta kayan nokta yoktur; aşama tasarım sabitleri politika anahtarı oldu.
   Önyükleme hakemi yazıldı (`seed/bootstrap/`): altı işli iş akışı, standart kütüphaneyle paket,
-  hash'e sabitlenmiş model çağrısı ve Sigstore gereksinimleri, makine okunur vektörler, 39 test ve
-  20 kasıtlı bozmanın hepsini yakalayan bir mutasyon kontrolü. Spec koda göre güncellendi: üç tür
+  hash'e sabitlenmiş model çağrısı ve Sigstore gereksinimleri, makine okunur vektörler, testler ve
+  her kasıtlı bozmayı yakalayan bir mutasyon kontrolü. Spec koda göre güncellendi: üç tür
   push (spec, kod, çıkış isteği), imzalı durum artefaktı, rakip çağrısının yapısal yalıtımı,
   vakada `tool` alanı, kurulumdaki dosya adları.
+  Sonra, operatörün dört isteğiyle: (1) yalnız açık ve ticari kullanıma uygun lisans: anayasal
+  `license_allowlist` ve `license_exceptions` (`18a`), lisans tekerleğin kendisinden okunur ve
+  lisansı söyleyen her yer izinli olmalıdır (`24`); örüntü önerisi kod kopyalamaz (`21a`);
+  önyükleme hakemi kurucunun ve kendi tekerleklerini kurmadan önce denetler. (2–3) Öğrenmenin,
+  öğrenileni kullanmanın ve kendini geliştirmenin testi: ders provası, geri alma ve bağlam
+  provası (`22a`), genesis provası (`12a`); cevap anahtarı koşudan önce hash'le bağlanır; yeni
+  zorunlu çıkış satırları (`18`); önyükleme hakeminin ret hafızası ve `not_learning`. (4) Yolda
+  görülen eksikler: aşamalar getirdiği yetenekleri beyan etmiyordu, `spec.lint` zorunlu satırları
+  mekanik denetleyemezdi; şimdi özet yetenekleri listeler, satırlar `#kimlik` taşır ve Aşama 1
+  ile 4'ün eksik satırları eklendi. 15 dakikalık yoklama ayda ~2.900 Actions dakikası harcardı;
+  yoklama saatliktir, boşta hiçbir şey kurmaz ve dakika hesabı `25`'tedir. Politika başlangıç
+  değerleri `18a` (anayasal) ve `18b` (performans) olarak bölündü.
 - 2.1 (2026-10-28): ikinci beş incelemeden (istekler ve kararlar, bağlantı ve veri akışı, mantık,
   uçtan uca simülasyon, kırmızı takım) doğrulanan bulgular. Hakem reposu: oyuncu kendi hakemini
   yazamaz; kapı, kullanıcı hesabında da çalışan, yalnız hakem App'inin raporlayabildiği zorunlu

@@ -9,6 +9,12 @@
 # Repository settings: default workflow permissions read-only; no App with write access.
 # Variables and secrets: vars.READER_APP_ID, secrets.READER_APP_KEY, secrets.ANTHROPIC_API_KEY.
 #
+# Schedule: hourly at a fixed odd minute. An idle poll is one job of under a minute (it installs
+# and verifies nothing), so idling costs about 24 x 30 = 720 Actions minutes a month; see tohum/29b
+# "Dakika hesabı" before changing the cadence.
+#
+# Every wheel this workflow installs passes the license gate first (`licenses`, tohum/24 "Lisans").
+#
 # Jobs and what they may hold (tohum/08 1):
 #   cek     reader App token, GITHUB_TOKEN (contents, actions: read) - runs no brain code
 #   getir   nothing; network for wheels only                         - runs no brain code
@@ -21,7 +27,7 @@ name: snowball-bootstrap
 
 on:
   schedule:
-    - cron: "*/15 * * * *"
+    - cron: "23 * * * *"
   workflow_dispatch: {}
 
 permissions: {}
@@ -42,7 +48,7 @@ jobs:
       contents: read
       actions: read
     outputs:
-      skip: ${{ steps.pull.outputs.skip }}
+      skip: ${{ steps.poll.outputs.skip == 'true' || steps.pull.outputs.skip == 'true' }}
       kind: ${{ steps.pull.outputs.kind }}
       run_tests: ${{ steps.pull.outputs.run_tests }}
       run_rival: ${{ steps.pull.outputs.run_rival }}
@@ -64,19 +70,6 @@ jobs:
         run: python3 -m snowball_bootstrap control --root snap
       - id: cfg
         run: python3 -m snowball_bootstrap config-value --root snap
-      - name: Sigstore (hash-pinned)
-        run: |
-          python3 -m venv /tmp/sig
-          /tmp/sig/bin/pip install --quiet --require-hashes --only-binary=:all: --no-deps \
-            -r snap/bootstrap/requirements/sign.txt
-      - id: state
-        name: Previous signed state
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: >
-          python3 -m snowball_bootstrap fetch-state --root snap --out state
-          --sigstore-python /tmp/sig/bin/python
-          --identity "https://github.com/${{ github.repository }}/.github/workflows/bootstrap.yml@${{ github.ref }}"
       - id: app
         uses: actions/create-github-app-token@df432ceedc7162793a195dd1713ff69aefc7379e # v2.0.6
         with:
@@ -84,24 +77,49 @@ jobs:
           private-key: ${{ secrets.READER_APP_KEY }}
           owner: ${{ steps.cfg.outputs.brain_owner }}
           repositories: ${{ steps.cfg.outputs.brain_name }}
+      - id: poll
+        name: Anything new to judge? (installs and verifies nothing)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRAIN_TOKEN: ${{ steps.app.outputs.token }}
+        run: python3 -m snowball_bootstrap poll --root snap --out state
+      - name: Sigstore (hash-pinned, license-checked)
+        if: steps.poll.outputs.skip == 'false'
+        run: |
+          python3 -m venv /tmp/sig
+          /tmp/sig/bin/pip download --quiet --require-hashes --only-binary=:all: --no-deps \
+            -d /tmp/sigw -r snap/bootstrap/requirements/sign.txt
+          python3 -m snowball_bootstrap licenses --root snap --wheels /tmp/sigw
+          /tmp/sig/bin/pip install --quiet --no-index --find-links /tmp/sigw --require-hashes \
+            --only-binary=:all: --no-deps -r snap/bootstrap/requirements/sign.txt
+      - id: state
+        name: Previous signed state
+        if: steps.poll.outputs.skip == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >
+          python3 -m snowball_bootstrap fetch-state --root snap --out state
+          --sigstore-python /tmp/sig/bin/python
+          --identity "https://github.com/${{ github.repository }}/.github/workflows/bootstrap.yml@${{ github.ref }}"
       - id: pull
         name: Pull and classify the brain commit
+        if: steps.poll.outputs.skip == 'false'
         env:
           BRAIN_TOKEN: ${{ steps.app.outputs.token }}
         run: python3 -m snowball_bootstrap pull --root snap --state state/state.json --work work --out pulled
       - id: pack
-        if: steps.pull.outputs.skip != 'true'
+        if: steps.pull.outputs.skip == 'false'
         run: |
           python3 -m snowball_bootstrap pack --dir snap --out snapshot.tar | sed -n 's/^sha256=/snap_sha=/p' >> "$GITHUB_OUTPUT"
           python3 -m snowball_bootstrap pack --dir pulled --out pulled.tar | sed -n 's/^sha256=/pulled_sha=/p' >> "$GITHUB_OUTPUT"
-      - if: steps.pull.outputs.skip != 'true'
+      - if: steps.pull.outputs.skip == 'false'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: snapshot
           path: snapshot.tar
           retention-days: 7
           if-no-files-found: error
-      - if: steps.pull.outputs.skip != 'true'
+      - if: steps.pull.outputs.skip == 'false'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: pulled
@@ -109,7 +127,9 @@ jobs:
           retention-days: 7
           if-no-files-found: error
       - name: Keep the signed state alive while idle
-        if: steps.pull.outputs.skip == 'true' && steps.state.outputs.reupload == 'true'
+        if: >-
+          (steps.poll.outputs.skip == 'true' && steps.poll.outputs.reupload == 'true') ||
+          (steps.pull.outputs.skip == 'true' && steps.state.outputs.reupload == 'true')
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: bootstrap-state
@@ -213,11 +233,14 @@ jobs:
           mkdir snap pulled && tar -xf snapshot.tar -C snap && tar -xf pulled.tar -C pulled
       - name: Kill switch (snapshot of this run)
         run: python3 -m snowball_bootstrap control --root snap
-      - name: Anthropic SDK (hash-pinned)
+      - name: Anthropic SDK (hash-pinned, license-checked)
         run: |
           python3 -m venv /tmp/call
-          /tmp/call/bin/pip install --quiet --require-hashes --only-binary=:all: --no-deps \
-            -r snap/bootstrap/requirements/call.txt
+          /tmp/call/bin/pip download --quiet --require-hashes --only-binary=:all: --no-deps \
+            -d /tmp/callw -r snap/bootstrap/requirements/call.txt
+          python3 -m snowball_bootstrap licenses --root snap --wheels /tmp/callw
+          /tmp/call/bin/pip install --quiet --no-index --find-links /tmp/callw --require-hashes \
+            --only-binary=:all: --no-deps -r snap/bootstrap/requirements/call.txt
       - id: rival
         name: Seed rival
         env:
@@ -325,8 +348,11 @@ jobs:
       - name: Sign the result into Rekor (Sigstore, keyless)
         run: |
           python3 -m venv /tmp/sig
-          /tmp/sig/bin/pip install --quiet --require-hashes --only-binary=:all: --no-deps \
-            -r snap/bootstrap/requirements/sign.txt
+          /tmp/sig/bin/pip download --quiet --require-hashes --only-binary=:all: --no-deps \
+            -d /tmp/sigw -r snap/bootstrap/requirements/sign.txt
+          python3 -m snowball_bootstrap licenses --root snap --wheels /tmp/sigw
+          /tmp/sig/bin/pip install --quiet --no-index --find-links /tmp/sigw --require-hashes \
+            --only-binary=:all: --no-deps -r snap/bootstrap/requirements/sign.txt
           /tmp/sig/bin/python -m sigstore sign --bundle out/result.json.sigstore.json out/result.json
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
