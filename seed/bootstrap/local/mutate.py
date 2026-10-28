@@ -5,7 +5,7 @@ The check copies the repository layout to a temporary directory, applies the cha
 tests there and demands a failure. A mutant that survives names behaviour no test measures. An
 anchor that no longer matches fails loudly, so the list cannot rot while the code moves on.
 
-    cd seed/bootstrap && python3 local/mutate.py [--only NAME] [--list]
+    cd seed/bootstrap && python3 local/mutate.py [--only NAME] [--list] [--shard K/N]
 
 Run it on Linux (several tests need a POSIX shell). Exit 0 means every mutant was killed.
 """
@@ -151,8 +151,12 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--only", help="run only the mutant with this name")
     parser.add_argument("--list", action="store_true", help="list the mutants and what each stands for")
+    parser.add_argument("--shard", help="K/N: run every N-th mutant starting at K, so N containers can share the list")
     args = parser.parse_args()
     chosen = [(i, m) for i, m in enumerate(MUTANTS) if not args.only or m[0] == args.only]
+    if args.shard:
+        k, n = (int(part) for part in args.shard.split("/"))
+        chosen = [(i, m) for i, m in chosen if i % n == k]
     if not chosen:
         print("no such mutant", file=sys.stderr)
         return 2
