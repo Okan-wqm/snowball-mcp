@@ -7,9 +7,19 @@ by execution (a test, a tool rerun, a measured harness), not by a model's opinio
 
 ## Status
 
-This repository currently holds the **specification** a single founder agent builds from. No
-brain code exists yet; Stage 0 creates it. The system is split into a player (this brain) and a
-separate referee repository (harness, gate, scoring), so the player can never grade itself.
+This repository currently holds the **specification** (version 2.2) a single founder agent builds
+from. No brain code exists yet. Three places keep the player from grading itself:
+
+- **Brain repository** (this one): player code, plus the referee's candidate code while Stage 0 builds it.
+- **Referee repository** (private): the accepted referee. Only the operator writes it, because a
+  free-plan private repository cannot carry rulesets; referee changes are imported by the operator
+  at stage exits and counted as human touches.
+- **Target repository**: the repository being maintained. Only the referee's writer App writes there,
+  on the `brain/*` branches.
+
+Before setup, one piece still has to be written by an author other than the founder: the bootstrap
+referee under `seed/bootstrap/` (see `spec/tohum/29b-onyukleme-hakemi.md`). The founder cannot build
+the judge of its own first stage.
 
 ## Where to start
 
@@ -27,10 +37,17 @@ separate referee repository (harness, gate, scoring), so the player can never gr
 spec/
   INDEX.md      generated index
   tohum/        seed: core, laws, protocols (one feature per dated page)
-  asama-0/      Stage 0: measurement harness
-  asama-1/      Stage 1: first adapter (lint), simplest closed loop
+  asama-0/      Stage 0: measurement harness and the whole referee
+  asama-1/      Stage 1: first adapter (lint), simplest closed loop, player organs only
   asama-4/      Stage 4: pattern-free LLM hunter for logic bugs (target draft)
 ```
+
+**Why there is no Stage 2 or Stage 3 directory.** The stage protocol makes the founder draft each
+stage's specification from the measured results of the stage before it, and only the next stage is
+ever frozen. The seed therefore holds just the goal row of every stage (`spec/tohum/03-sinif-merdiveni.md`).
+Stages 0 and 1 are written in full because they are the starting point and the trust root. Stage 4
+is written as a target draft to show where the system is heading, so earlier stages know what they
+must deliver. Stages 2 and 3 are drafted by the founder when Stage 1 passes.
 
 The specification is written in Turkish, the operator's language. Everything the system itself
 produces (findings, organ pages, ledgers, status reports) is in English.

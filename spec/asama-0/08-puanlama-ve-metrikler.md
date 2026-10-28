@@ -1,6 +1,6 @@
 # Aşama 0 §0.8 — Puanlama ve metrikler
 
-Tarih: 2026-10-28 · Sürüm: 2.1 · Durum: taslak · Sahibi: operatör
+Tarih: 2026-10-28 · Sürüm: 2.2 · Durum: taslak · Sahibi: operatör
 Okunma: Aşama 0 çalışırken
 Çapa: beklemede: aşama 0 çıkış raporu
 
@@ -16,13 +16,19 @@ Okunma: Aşama 0 çalışırken
 
 | Metrik | Tanım |
 |---|---|
-| `recall`, `recall_lb` | İsabet / planted; tek yönlü Clopper–Pearson alt sınırı, etkin n = grup sayısı |
-| `clean_findings` | Clean'deki bulgu sayısı; avcı precision'ı hepsini sayar |
-| `precision`, `precision_lb` | Oracle'ın karara bağladığı bulgular; `unresolved` FP gibi sayılır |
-| `cost_usd`, `value_per_usd` | Şiddet ağırlıklı değer / USD; maliyet sıfırsa oran raporlanmaz, isabet ve kapsama karşılaştırılır |
+| `census` | Deterministik sarıcı sınıflarda (K0, K1, K2, K4) çıkış ölçüsü: kapsanan kural sayısı, toplam kural, kaçırma. Kapı: her kural kapsanmış, kaçırma sıfır |
+| `recall`, `recall_lb` | İsabet / planted. Tek yönlü Clopper–Pearson alt sınırı; etkin n = grup sayısı G, etkin başarı `x_eff = recall · G` (gerçel argümanlı Beta). Sayım sınıflarında raporlanır, kapılamaz |
+| `clean_findings` | Clean'deki her bulgu sayılır; hiçbiri sayımdan düşürülmez |
+| `precision`, `precision_lb` | n = TP + FP + unresolved; unresolved FP gibi sayılır. Aşama 4'ten itibaren panelin öldürdüğü bulgulardan rastgele bir örnek oracle'la denetlenir ve sonucu sayıma girer |
+| `cost_usd`, `value_per_usd` | Şiddet ağırlıklı değer / USD; basamak USD'si karara bağlanmış bulgu başına avcı + panel + oracle'dır. Maliyet sıfırsa oran raporlanmaz, isabet ve kapsama karşılaştırılır |
 | `verdict` | `PASS` / `FAIL` / `UNMEASURABLE` |
 
-**Görünümler.** Mühürlü görünüm vaka bazlıdır, yalnız mühürlü depoya yazılır. Ajan görünümü
-toplamlardır. Held-out bakışı yalnız verdict, n ve alt sınır döndürür; kaçırma nedenleri yalnız dev
-koşularından gelir. **Maliyet defteri** her koşuya satır ekler; Aşama 0'daki okuyucusu harness'in
-taban satırıdır, Aşama 3'ten itibaren maliyet merdivenidir.
+**Görünümler.** Vaka bazlı görünüm yalnız hakemde kalır; Aşama 4'ten itibaren held-out'unki
+mühürlü depodadır. Ajan görünümü toplamlardır. K0 çıkışı her seferinde taze bir örneklemdir; bu
+yüzden kaçırılan kurallar raporlanır: deterministik sarıcıda kaçırma bir kural kusurudur ve
+sonraki çıkış yeni tohumla çekilir. Held-out havuzlu sınıflarda bir bakış yalnız verdict
+döndürür; kaçırma nedenleri yalnız dev koşularından gelir (`tohum/19`).
+
+**Maliyet bölümü.** `ledger.jsonl`'ın `cost` bölümü her koşuya satır ekler. Okuyucuları: bütçe
+denetimi ve Gözcü (tavanda temiz duruş), Aşama 0'da taban satırı, Aşama 3'ten itibaren maliyet
+merdiveni.

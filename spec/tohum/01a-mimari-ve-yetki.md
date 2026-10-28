@@ -1,42 +1,64 @@
 # Mimari ve Yetki: Dört Yer
 
-Tarih: 2026-10-28 · Sürüm: 2.1 · Durum: taslak · Sahibi: operatör
+Tarih: 2026-10-28 · Sürüm: 2.2 · Durum: taslak · Sahibi: operatör
 Okunma: ilk oturumda ve her yeni repoya bağlanırken
-Çapa: beklemede: aşama 0 — hakem reposu korumalı dalı; brain/state ruleset'i
+Çapa: kurulum özeti (hakem reposu); her döngünün `drift.check` satırı
 
 ---
 
-GitHub'da bir repo içinde dosya bazlı izin yoktur. Oyuncu kendi hakemini yazamasın diye yetki
-dört ayrı yerde durur.
+GitHub'da repo içinde dosya bazlı izin yoktur, App izinleri kurulumun tamamında geçerlidir ve Free
+planda özel repoda ruleset, dal koruması ve ortam yoktur. Bu yüzden yetki dört yerde durur ve
+oyuncu kendi reposu dışına hiçbir şey yazmaz: aday yayımlar, hakem çeker (çekme modeli).
 
 | Yer | İçerik | Kim yazar |
 |---|---|---|
-| **Beyin reposu** (oyuncu) | MCP sunucusu, CLI, adapter'lar, düzelticiler, avcılar, planlayıcı, doküman üreticisi | Kurucu, PR'larla |
-| **Hakem reposu** | Kapı, harness (vaka üretici, snapshot, puanlama, taban avcı, `spec.lint`), oracle koşucusu, dispatcher, itibar puanlayıcısı, Gözcü, rakip ve oracle koltuk tanımları, kayma denetimi | Kurulum istisnası dışında yalnız şerit yazarı, PR ile; merge'ü görevdeki kapı yapar |
-| **Hedef repo** | `brain/state` dalında `<state_root>`; `brain/integration` dalı; beyni çağıran iş akışı | Hakem işleri, tipli kurallarla (`01b`) |
-| **Mühürlü depo** | Held-out vakalar ve yedek havuz, mühür, mühürlü görünümler, kurulum özeti, kök hash attestation'ları, K6 artefaktları | Yalnız hakem exit, rotate ve attestation işleri |
+| **Beyin reposu** (özel, oyuncu) | MCP sunucusu, CLI, adapter'lar, düzelticiler, avcılar, planlayıcı, doküman üreticisi; `candidates/`; `founder-ledger.jsonl`; spec; Aşama 0'da hakem adayı `referee/` | Kurucu kimliği; `workflows` izni yok |
+| **Hakem reposu** (özel) | Kabul edilmiş hakem (kapı, harness, oracle koşucusu, dispatcher, Gözcü, koltuk promptları, tohum vektörleri); anayasal `policy.json`, `control.json`, kurulum özeti. Aşama 0 çıkışına kadar önyükleme hakemi (`29b`) | Yalnız operatör; yazma izinli App kurulu değil; iş akışı varsayılan izni salt okunur |
+| **Hedef repo** | `brain/state` (yetim dal, `<state_root>`), `brain/integration`, `brain/c/<id>` aday dalları | Yazar App'i, yalnız hakemin `yaz` işinden |
+| **Mühürlü depo** (özel) | Held-out havuzu, mühür, mühürlü görünümler, held-out koşularının ham çıktıları, K6 artefaktları | Yalnız mühür App'i; ilk held-out havuzuyla açılır (Aşama 4 ön koşulu) |
 
-**Beyin bir MCP sunucusudur.** Repo-bağımsız koddur. Hedef repoya bağlanınca `<state_root>` açar
-(varsayılan `.brain/`). Beyin repoda ne bırakacağını önceden bilmez: her dosya ancak okuyucusu
-doğunca açılır (Y4), okuyucusu kalmayınca canlı yoldan çıkar.
+Eğitim modundaki hedeflerin durumu operatörün özel **eğitim deposunda**, hedef başına bir dalda
+durur; yazarı yazar App'idir, bütünlüğü Rekor köküdür; ilk eğitim hedefiyle açılır (`21`).
 
-**Hakem, oyuncudan ayrıdır.** Beynin GitHub App'i hakem reposunda yalnız okuma ve PR açma iznine
-sahiptir; `workflows` izni hiçbir yerde yoktur. Hedef repodaki kapı, repo ruleset'inde zorunlu bir
-durum kontrolüdür ve kaynağı **hakem App'i** olarak sabitlenmiştir: kontrolü başka hiçbir kimlik
-raporlayamaz. Bu, kullanıcı hesabındaki repolarda da çalışır; org düzeyi kural gerekmez. Kontrolü
-hakem reposunun kendi CI'ı koşar: hedef repodaki tetik bir olay gönderir, hakem işi PR'ı kendi
-işinde çeker, kapıyı koşturur ve sonucu hakem App'iyle yazar. Hakem reposuna merge yalnız
-görevdeki kapının adayı doğrulamasıyla olur: adayın kendi testleri yeşil, arşiv yeniden
-oynatması geçmiş bir kararı gevşetmiyor, farklı modelden rakip çürütemiyor. Böylece kapı
-halefini kendisi doğrular ve hiçbir insan pin güncellemez.
+**Beyin bir MCP sunucusudur.** Repo-bağımsız koddur; hedefe bağlanınca `<state_root>` açar
+(varsayılan `.brain/`). Her dosya ancak okuyucusu doğunca açılır, okuyucusu kalmayınca kapanır (Y4).
 
-**Şerit yazarı** hakem reposuna PR açabilen tek ajan kimliğidir. Kurucu değildir, Kurucu'nun
-defterini görmez, kendi promptu ve kimliği vardır; değişiklik gerekçesini yalnız hakem
-raporlarından ve kanaryalardan alır (`09a`).
+**Kimlikler** (`24`, `25`). Kurucu kimliği beyin reposuna yazar, hakem reposunu okur, açık hedefi
+kimliksiz okur. Okuyucu App'i yalnız okur; beyin reposuna ve özel hedeflere kurulur. Yazar App'i
+hedeflere ve eğitim deposuna kurulur; içerik, PR ve check yazar, `workflows` izni yoktur. Mühür
+App'i yalnız mühürlü depodadır. Beyin App'i yoktur.
+
+**İş başına haklar.** Hiçbir iş hem sır tutup hem oyuncu ya da hedef kodu koşturmaz (`08`).
+
+| İş | Kimlik ve sır | Okur | Yazar | Kod koşturur |
+|---|---|---|---|---|
+| `çek` | Okuyucu App'i | Beyin reposu, hedef | İçerik kimlikli artefakt | Hayır |
+| `getir` | Sır yok; ağ var | Paket kayıt defterleri | İçerik adresli bağımlılık artefaktı | Paket yöneticisi, betikler kapalı |
+| `koş` | Sır yok, `permissions: {}`; ağ yok | Artefaktlar | Sonuç dosyaları; hash'leri konteyner dışında | Evet, iç içe konteynerde |
+| `çağır` | Sağlayıcı kimliği | Tipli girdi | Yanıt, sunulan model, maliyet | Hayır |
+| `yaz` | Yazar App'i, Sigstore OIDC | `koş`, `çağır` çıktıları, kimlikle | `brain/state`, `brain/integration`, check, Rekor | Hayır |
+| Held-out exit (Aşama 4'ten) | Mühür App'i | Mühürlü depo | Mühürlü görünüm | Hayır; oyuncu koşusu `koş`ta |
+
+**Hakem, oyuncudan ayrıdır.** Hedefte beynin hiçbir kimliği ve iş akışı yoktur. Hakem reposunun
+zamanlayıcısı beyin reposunu ve hedefi yoklar, adayı çeker, sırsız işte yeniden koşturur ve kararı
+hakem koduyla verir. `brain/integration`'daki zorunlu kontrolün kaynağı yazar App'ine sabittir;
+başka kimlik raporlayamaz ve bu kullanıcı hesabında da çalışır. Yazar App'i `main`'e yazamaz:
+yazma modu bunu taşıyan bir `main` ruleset'i ister (`21`, `25a`).
+
+**Hakem değişikliği ve bilinen sınır.** Hakem reposu Free özel planda korunamadığı için hiçbir App
+ona yazmaz. Hakem kodu yalnız operatör aktarımıyla değişir: aşama çıkışında, mekanik betikle; ağaç
+hash'i beyin reposundaki pinli SHA'nın `referee/` ağacıyla aynı olmalıdır ve aktarım insan
+dokunuşu sayacına yazılır. Adayı şerit yazarı yazar (`29`): Kurucu değildir, yalnız tipli hakem
+raporlarını ve kanaryaları okur, çıktısı rakipten ve kanaryadan geçer. Tek yazma anahtarı yazar
+App'idir ve ortam sırları olmadığından hakem reposundaki her iş onu adlandırabilir; bunu Rekor kökü,
+kırmızı kontrol ve `drift.check` tespit edilebilir kılar, imkânsız kılmaz. Hakem reposu ruleset ve
+ortam taşıyabildiği gün (açık repo ya da Pro) ayrı denetçi ve yazar App'leri, ortam sırları ve
+aktarımsız şerit yolu açılır (`09a`).
 
 **Genellik testi.** Beyin ve hakem, kendi testlerinde boş bir oyuncak repoya bağlanır ve
 `<state_root>` sıfırdan büyür. Beyin koduna, hakem koduna ya da tohum sayfalarına hedef repoya
 özgü bir yol, araç ya da karar belgesi adı sızmışsa test kırmızıdır.
 
-**Kurulum.** `25` inşadan önceki, `25a` Aşama 0 çıkışındaki operatör işidir. Bundan sonra döngü
-içinde insan yoktur; kurulumun bozulmadığını her döngü hakem kayma denetimi doğrular.
+**Kurulum.** `25` inşadan önceki, `25a` Aşama 0 çıkışındaki operatör işidir; `25a` her yeni hedef
+için tekrarlanır. Döngü içinde insan yoktur; kurulumun bozulmadığını her döngü `drift.check`
+doğrular (`01b`).

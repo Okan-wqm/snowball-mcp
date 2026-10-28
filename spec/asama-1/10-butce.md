@@ -1,6 +1,6 @@
 # Aşama 1 §1.10 — Bütçe (başlangıç değerleri; yalnız operatör değiştirir)
 
-Tarih: 2026-10-28 · Sürüm: 2.0 · Durum: taslak · Sahibi: operatör
+Tarih: 2026-10-28 · Sürüm: 2.2 · Durum: taslak · Sahibi: operatör
 Okunma: Aşama 1 çalışırken
 Çapa: beklemede: aşama 1 çıkış raporu
 
@@ -8,10 +8,11 @@ Okunma: Aşama 1 çalışırken
 
 | Kalem | Tavan |
 |---|---|
-| Adapter koşusu | 0 USD; paylaşılan önbellekle ≤ 15 dk |
-| Sonnet düzeltmesi | bulgu başına ≤ 0,50 USD ve ≤ 5 dk |
+| Adapter koşusu | 0 USD; ≤ 15 dk |
+| Sonnet düzeltmesi | Bulgu başına ≤ 0,50 USD ve ≤ 5 dk; sınırı `llm.call`'ın bütçe belirteci uygular |
 | Çalışma-zamanı LLM, aşama toplamı | ≤ 50 USD |
-| İnşa-zamanı LLM: Kurucu | ≤ 300 USD; rakip ≤ 30 USD |
-| CI dakikası | döngü başına ≤ 120 dk; aşama toplamı `policy.json` |
+| İnşa-zamanı LLM: Kurucu | ≤ 150 USD; oturum başına tavan `policy.json`'da |
+| İnşa-zamanı LLM: tohum rakibi | ≤ 15 USD |
+| Actions dakikası | Döngü başına ≤ 45 dk; döngü sıklığı aylık anayasal tavandan türetilir (`policy.json`) |
 | Operatör emeği | 0 |
-| Takvim | 3 hafta hedef; 72 saatlik pencere takvime sığar |
+| Takvim | ≤ 12 Kurucu oturumu; 72 saatlik hayatta kalma penceresi takvime eklenir |

@@ -1,6 +1,6 @@
 # Aşama 0 §0.3 — Roller
 
-Tarih: 2026-10-28 · Sürüm: 2.1 · Durum: taslak · Sahibi: operatör
+Tarih: 2026-10-28 · Sürüm: 2.2 · Durum: taslak · Sahibi: operatör
 Okunma: Aşama 0 çalışırken
 Çapa: beklemede: aşama 0 çıkış raporu
 
@@ -8,8 +8,10 @@ Okunma: Aşama 0 çalışırken
 
 | Rol | Var mı | Ne yapar |
 |---|---|---|
-| Operatör | Döngü dışı | Kurulumun birinci bölümü (`tohum/25`), bütçe, kill switch. Onay vermez |
-| Kurucu, Opus | Evet, inşa zamanı | Kurulum istisnasıyla hakem reposuna harness'i, vaka üreticisini, taban avcıyı, `spec.lint`'i yazar; beyin reposuna CLI ve `profile.propose`'u yazar. Puanlayamaz |
-| Tohum rakibi, Sonnet, ayrı bağlam | Evet, inşa zamanı | Promptu tohumla gelir (`tohum/29`); harness kodunu, vaka setini ve snapshot üretimini çürütmeye çalışır; denemeleri rakip defterine yazılır |
-| Taban avcı | Evet, mekanik | Hakem reposunda, puanlama kodundan ayrı modül |
-| LLM avcı, yargıç | Yok | |
+| Operatör | Döngü dışı | Kurulumun birinci bölümü (`tohum/25`); çıkışta aktarım ve ikinci bölüm (`tohum/25a`); bütçe, kill switch. Onay vermez |
+| Kurucu, Opus | Evet, inşa zamanı | Beyin reposunda `referee/` altında hakemin tamamını, oyuncu iskeletini (`snowball init`, `profile.propose`, `docs.index`, oyuncak repo) ve kendi testlerini yazar. Puanlayamaz, aktaramaz, hakem reposuna yazamaz |
+| Önyükleme hakemi | Evet, tohumla | Hakem reposunda; her push'ta Kurucu'nun testlerini ve tohum vektörlerini `koş`ta, tohum rakibini `çağır`da koşar; sonuçları koşu artefaktlarına ve Rekor'a yazar (`tohum/29b`) |
+| Tohum rakibi, Sonnet, ayrı bağlam | Evet, inşa zamanı | Promptu tohumla gelir (`tohum/29`); son kabul edilmiş SHA'dan bu yana tam diff'i görür, girdisini Kurucu seçmez; Read, Grep, Glob; çürütmesi ancak hakemin yeniden koşturduğu bir yeniden üreticiyle sayılır |
+| Taban avcı | Evet, mekanik | `referee/` içinde, puanlama kodundan ayrı modül; maliyeti sıfır |
+| Aktarılan hakem | Çıkışta | Etkinleştirme koşusunu yapar ve PASS satırını yazar (§0.10) |
+| LLM avcı, yargıç, düzeltici | Yok | |

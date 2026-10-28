@@ -1,6 +1,6 @@
 # Aşama 0 §0.4 — Hata seti
 
-Tarih: 2026-10-28 · Sürüm: 2.1 · Durum: taslak · Sahibi: operatör
+Tarih: 2026-10-28 · Sürüm: 2.2 · Durum: taslak · Sahibi: operatör
 Okunma: Aşama 0 çalışırken
 Çapa: beklemede: aşama 0 çıkış raporu
 
@@ -19,20 +19,23 @@ yeni (kural, satır) ihlali doğuyorsa geçerlidir; birden fazla ihlal doğuran 
 Zaten kırmızı projelerde ölçü "araç kırmızı" değil, bu farktır.
 
 **Sınıf etiketi.** `class_level` deterministik haritayla verilir. Profildeki `rule_property_map`,
-anlamsal lint kurallarını (örneğin beklenmeyen promise kuralları) K0'a değil, ilgili K5
-property'sine bağlar; böylece K5 havuzu aç kalmaz.
+anlamsal lint kurallarını K0'a değil, ilgili K5 property'sine bağlar; böylece K5 havuzu aç kalmaz.
 
-**Provenance.** `human_fix`, `mutation`, `system_tp`, `system_regression`. Exit kapısında
-`human_fix` ve `mutation` sayılır (`tohum/19`); sistemin ürettiği vakalar aynı organ soyunun
-held-out'una ve hiçbir exit kapısına girmez.
+**Provenance.** `human_fix`, `mutation`, `system_tp`, `system_regression`. Sistemin ürettiği
+vakalar aynı organ soyunun ölçümüne ve hiçbir çıkış kapısına girmez (`tohum/19`).
 
-**Üç iş.** Vaka üretimi sırlı hakem işinde koşar (**hazırla**); avcı ve adapter sırsız işte koşar
-(**koş**); puanlama sırlı hakem işinde koşar (**puanla**) (`tohum/08` 1). Kurucu `cases.build`'i
-yalnız dev için çağırabilir.
+**İş deseni.** Aracı koşturan her adım `koş`ta, sırsız ve ağsız koşar; seçim ve puanlama hakem
+kodudur (`tohum/08` 1). Kurucu `cases.build`'i yalnız dev için, oyuncak repoda çağırabilir.
 
-**Held-out kaynağı.** Mutasyonlar gizli tohumla çok büyük bir aday havuzundan seçilir; insan
-düzeltmeleri mühürlü kesim tarihinden sonra merge edilenlerden gelir; ayrıca yayımlanmayan bir
-yedek havuz tutulur. Bölme modül ya da mutasyon operatörü grubuna göredir. Held-out: K0 için en az
-60 mutasyon. Mühür HMAC'lidir; yalnız hakem rotate işi yazar; bakış bütçesi `tohum/19`.
+**Dev seti.** Etkinleştirmede gerçek hedef için kurulur, `<state_root>/cases/`'e yazılır ve
+Kurucu'ya vaka bazında açıktır. Bölme modül grubuna göredir.
 
-**Yerleşim.** Dev vakalar `<state_root>/cases/`; held-out, yedek havuz ve mühür mühürlü depoda.
+**K0 çıkış örneklemi, held-out havuzu değil.** K0 için mühürlü bir havuz tutulmaz. `exit.sample`
+her çıkış isteğinde, adapter SHA'sı pinlendikten sonra gizli tohumla taze bir örneklem çeker:
+profildeki etkin kataloğun mutasyonla üretilebilen **her kuralı** ve her araç zinciri için en az bir
+vaka, dev gruplarının dışındaki en az min(45, mevcut) modül grubundan. Ölçü kural sayımıdır: sıfır
+kaçırma. Deterministik bir sarıcıda kaçırma örneklem gürültüsü değil, o kuralın sarma kusurudur;
+CP alt sınırı raporlanır, kapılamaz (`tohum/19`). Seçici kod Aşama 0 çıkışında donar.
+
+**Held-out havuzu.** İlk held-out havuzu ve mühürlü depo Aşama 4'ün ön koşuludur; bakış bütçesi,
+ileriye dönük kesim ve üyelik testi onunla gelir (`asama-4/03`).

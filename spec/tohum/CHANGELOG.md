@@ -1,7 +1,20 @@
 # Değişiklik Günlüğü — Tohum
 
-Tarih: 2026-10-28 · Sürüm: 2.1
+Tarih: 2026-10-28 · Sürüm: 2.2
 
+- 2.2 (2026-10-28): üçüncü inceleme (altı inceleyici, iki tur, birbirlerinin bulgularını kanıtla
+  çapraz denetleyerek) sonrası. Çekme modeli: oyuncu yalnız kendi reposuna yazar ve aday yayımlar;
+  hakem reposu özel ve yalnız operatörün yazdığı yerdir; hedefe yalnız yazar App'i yazar; GitHub
+  Free'de özel repoda ruleset olmadığı için hakem kodu aşama çıkışında operatör aktarımıyla değişir
+  ve bu insan dokunuşu sayılır. Beş iş deseni (çek, getir, koş, çağır, yaz); kod yürüten işin ağı
+  ve sırrı yoktur; kırmızı kontrol; kök hash Rekor'a. Önyükleme hakemi ve tohum vektörleri tohumla
+  gelir; Aşama 0 hakemin tamamını kurar, Aşama 1 yalnız oyuncu organlarını. Yazma ve eğitim modu.
+  Ajan dispatch sözleşmesi ve kanarya testi. İstatistik: deterministik sınıflarda kural sayımı,
+  gerçel etkin başarı, tam testler, havuz başına bakış bütçesi, ileriye dönük held-out, `human_fix`
+  katman kapısı. Yeteneğe anahtarlı zorunlu çıkış satırları. Kullanıcı kararları K1–K9: bilgi
+  bağlama bağlı, ithal bilgi hipotez, alan bilgisi yerel, okuyarak öğrenme ve diğer yetenekler
+  organ değil sinyal, kopyalamak yerine sentez, öğrenmenin ölçüsü hata, doküman koda göre bayat
+  olabilir, snowball hedef reponun dokümanını da yazar. Aşama 2 ve 3'ün neden yazılmadığı açıklandı.
 - 2.1 (2026-10-28): ikinci beş incelemeden (istekler ve kararlar, bağlantı ve veri akışı, mantık,
   uçtan uca simülasyon, kırmızı takım) doğrulanan bulgular. Hakem reposu: oyuncu kendi hakemini
   yazamaz; kapı, kullanıcı hesabında da çalışan, yalnız hakem App'inin raporlayabildiği zorunlu

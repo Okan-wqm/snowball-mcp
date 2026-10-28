@@ -1,6 +1,6 @@
 # Çalışma Modeli: Beyin, Hakem ve Kurucu Nasıl Koşar
 
-Tarih: 2026-10-28 · Sürüm: 2.1 · Durum: taslak · Sahibi: operatör
+Tarih: 2026-10-28 · Sürüm: 2.2 · Durum: taslak · Sahibi: operatör
 Okunma: Aşama 0 inşasından önce ve her dispatch değişikliğinde
 Çapa: beklemede: aşama 0 — beyin ve hakem reposu README'leri; run_meta
 
@@ -8,29 +8,64 @@ Okunma: Aşama 0 inşasından önce ve her dispatch değişikliğinde
 
 | Karar | Değer |
 |---|---|
-| Beyin reposu | Ayrı repo; MCP sunucusu adı `snowball`; hedef repoda aynı adlı sunucu varsa profil çakışmayı raporlar |
-| Hakem reposu | Ayrı repo (`01a`); harness, kapı, oracle koşucusu, dispatcher, itibar puanlayıcısı, Gözcü, koltuklar, `spec.lint` |
+| Beyin reposu | Ayrı, özel repo; MCP sunucusu adı `snowball`; hedef repoda aynı adlı sunucu varsa profil çakışmayı raporlar |
+| Hakem reposu | Ayrı, özel repo (`01a`); yalnız operatör yazar; kabul edilmiş hakem kodu, anayasal `policy.json`, `control.json`, kurulum özeti, tohum vektörleri ve koltuk promptları |
 | Dil ve paket | İkisi de Python paketi; `pyproject` ile kurulur; bağımlılıklar hash'le pinlidir |
 | İki yüzey | **CLI** deterministik, CI'nın çağırdığı yüzey. **MCP** ajanlara açılan yüzey; CI bir MCP sunucusunu doğrudan çağıramaz |
-| Ajan dispatch'i | Claude Agent SDK; sistem promptu dispatcher'ın verdiği metindir; hedef reponun yönerge dosyaları otomatik yüklenmez, çünkü repo içeriği talimat değildir (Y1) |
+| Tetik | Hakem reposunun zamanlayıcısı beyin reposunu ve hedefi okuyucu App'iyle yoklar; hedefte beynin iş akışı ve kimliği yoktur (`01b`) |
+| İşler | `çek`, `getir`, `koş`, `çağır`, `yaz` (`08` 1); oyuncu kodu yalnız `koş`ta, iç içe ağsız konteynerde |
+| Kimlikler | Kurucu kimliği, okuyucu App'i, yazar App'i, Aşama 4'ten mühür App'i (`25`). Beyin App'i yoktur |
 | Model kimlikleri | Yüksek: `claude-opus-5-5`. Düşük: `claude-sonnet-5-5`. En ucuz: `policy.json`'da adlandırılır. Effort rol başına `policy.json`'da |
-| Model kaydı | Dispatcher istenen ve sunulan modeli sağlayıcı yanıtından `run_meta`'ya yazar; farklıysa koşu geçersizdir |
-| Sağlayıcı geçidi | Dispatcher'ın sahip olduğu vekil; kimliği o ekler, yalnız sağlayıcıya izin verir; ajan konteyneri kimlik görmez |
-| Kimlikler | Beyin App'i, hakem App'i, şerit yazarı kimliği (`25`); sağlayıcı kimliği tercihen OIDC |
-| Kurucu | Beyin reposunun zamanlayıcısı günde bir oturum açar; Opus; beyin App'iyle beyin reposuna, kurulum istisnasında hakem reposuna PR açar; maliyeti `cost-ledger`'da inşa-zamanı kalemi |
+| Model kaydı | Sunulan model ve maliyeti ajan değil `çağır` işi ya da sağlayıcı geçidi yanıttan yazar; istenenden farklıysa koşu geçersizdir |
+| Sağlayıcı kimliği | Hakem reposunun sırlarında; yalnız `çağır` işinde ve sağlayıcı geçidinde. Oyuncu kodu koşan hiçbir işte yoktur |
 | Durum dalı | `<state_root>` hedef repoda yetim `brain/state` dalında; uygulama kodunun CI'ını kirletmez |
-| Entegrasyon dalı | `brain/integration`; `main`'i takip eder (`07`) |
+| Entegrasyon dalı | `brain/integration`; etkinleştirmede `main`'den kesilir, Aşama 0–1'de senkronlanmaz (`07`) |
 | Snapshot | Git ağacından dosya listesiyle çıkarılır, `export-ignore` dikkate alınmaz; `.git` yoktur. Keşif "tümünü koş", "etkilenen" yalnız worktree'de |
-| Bağımlılık ve önbellek | Snapshot'lar arasında paylaşılır; held-out koşuları güvenilir hakem işinin önbelleğini salt okunur kullanır (`08` 5) |
+| Bağımlılık | `getir` işinde, kurulum betikleri kapalı, içerik adresli artefakt; Actions önbelleği kullanılmaz (`08` 5) |
 | Keşif ve oracle (K0–K2) | Keşif: aracın tüm ihlalleri, taban dahil. Oracle: hedef ihlal kayboldu, mandal tuttu (toplam artmadı) |
 | Düzeltme aralığı | Araç düzeltmesi yalnız hedef mesajın `fix` aralığıyla uygulanır; biçimleyiciler dosya başına çalışır ve Aşama 2'de açılır |
-| Kaçış | Sağlayıcı reddi ya da zaman aşımı koşuyu `unresolved` yapar; sessiz yeniden deneme yoktur |
+| Kaçış | Sağlayıcı reddi, zaman aşımı ya da `stop_reason: refusal` koşuyu `unresolved` yapar; sessiz yeniden deneme yoktur |
 
-**Aşama 0 ve 1 araçları.** Hakem: `cases.build`, `snapshot.make`, `harness.score`,
-`harness.baseline`, `spec.lint`, `ledger.append`, `chain.verify`, `chain.asof`, `secrets.scan`,
-`drift.check`, `oracle.run`, `gate.check`. Beyin: `profile.propose`, `lint.discover`, `fixer.run`,
-`merge.request`, `docs.render`, `status.render`, `map.build`. İmzalar `26a`'dadır.
+## Kurucu
 
-**Paket yerleşimi.** Beyin: `cli/`, `mcp/`, `adapters/`, `fixers/`, `map/`, `docs/`,
-`tests/fixtures/toy-repo/`. Hakem: `harness/`, `gate/`, `oracle/`, `dispatcher/`, `scoring/`,
-`gozcu/`, `seats/`, `schemas/`, `tests/`.
+Kurucu oturumu Actions'ta koşmaz: zamanlanmış bir bulut ajan oturumu ya da operatörün makinesi
+onu açar; Actions dakikası hakem işlerine kalır. Model Opus. Çalışma dizini beyin reposunun
+klonudur; yazabildiği tek yer beyin reposudur. Hedefi çalışma dizininin dışındaki salt okunur bir
+klondan **veri olarak** okur; hedefin yönerge, ayar, hook ve MCP dosyaları ona yüklenmez. Her
+oturum `control.json`'u okuyarak başlar, oturum tavanı (`policy.json`, başlangıç 20 USD) aşılınca
+temiz durur. Takvim oturum sayısıyla ölçülür; sonraki oturum öncekinin sonucu önyükleme hakeminde
+ya da kapıda yeşilken başlar. Maliyeti `cost` bölümünde inşa-zamanı kalemidir.
+
+## Dispatch sözleşmesi (araç kullanan her ajan)
+
+Claude Agent SDK şu seçeneklerle çağrılır; biri eksikse dispatch reddedilir:
+`settingSources: []`, `strictMcpConfig: true`, açık `tools` listesi, `persistSession: false`,
+`maxTurns`, effort `policy.json`'dan; ortamda `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1` ve her koşuda
+taze bir `CLAUDE_CONFIG_DIR`. Sistem promptu dispatcher'ın verdiği metindir; repo içeriği talimat
+değildir (Y1). **Kanarya kendi-testi:** oyuncak repoya gömülü bir hook, bir `.mcp.json` sunucusu ve
+bir yönerge dosyası kanaryası vardır; dispatch edilen ajanda hiçbiri yüklenmemelidir, yüklenirse
+dispatcher kırmızıdır. Ajan işi `permissions: {}` ile koşar, `id-token` izni ve docker soketi
+yoktur; modele yalnız ayrı bir iş ya da makinedeki sağlayıcı geçidinden, koşuya bağlı belirteçle
+ulaşır (`08` 3).
+
+**Araçsız çağrı.** Aşama 1 düzelticisi araç kullanmaz: hakemin `llm.call`'ı tipli girdiden prompt
+kurar, tek Messages çağrısı yapar ve yapılandırılmış çıktı ister; `tool_choice` zorlanmaz.
+Çıktıyı beynin deterministik uygulayıcısı yalnız hedef aralığa yazar. Bu yolda sandbox kaçışı
+yapısal olarak imkânsızdır.
+
+## Aşama 0 ve 1 araçları
+
+Hakem: `exit.sample`, `cases.build`, `snapshot.make`, `harness.score`, `harness.baseline`,
+`spec.lint`, `ledger.append`, `chain.verify`, `rekor.anchor`, `secrets.scan`, `drift.check`,
+`profile.derive`, `deps.fetch`, `run.contained`, `llm.call`, `agent.dispatch`, `gate.diffguard`,
+`gate.check`, `sentinel.run`, `gate.revert`, `gozcu.evaluate`, `status.block`, `lock.check`,
+`brain.accept`. Beyin: `profile.propose`, `lint.discover`, `fixer.range`, `fixer.llm`,
+`candidate.publish`, `docs.render`, `docs.index`. İmzalar ve ilk çağıranıyla açılan araçlar `26a`'da.
+
+## Paket yerleşimi
+
+Beyin reposu: `cli/`, `mcp/`, `adapters/`, `fixers/`, `docs/`, `candidates/`, `spec/`,
+`founder-ledger.jsonl`, `tests/fixtures/toy-repo/`; Aşama 0 boyunca ayrıca `referee/` (hakemin
+adayı; aktarımdan sonra yalnız aday alanıdır) ve tohumla gelen `seed/bootstrap/` (`29b`).
+Hakem reposu: `harness/`, `gate/`, `runner/`, `dispatcher/`, `ledger/`, `gozcu/`, `seats/`,
+`vectors/`, `schemas/`, `tests/`, `policy.json`, `control.json`, `setup/`.

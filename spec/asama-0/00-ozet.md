@@ -1,34 +1,43 @@
-# Aşama 0 — Ölçüm Zemini
+# Aşama 0 — Ölçüm Zemini ve Hakem
 
-Tarih: 2026-10-28 · Sürüm: 2.1 · Durum: taslak · Sahibi: operatör
+Tarih: 2026-10-28 · Sürüm: 2.2 · Durum: taslak · Sahibi: operatör
 Okunma: aşama başında
-Çapa: beklemede: aşama 0 çıkış raporu; CI kilit kapısı (aşama 0, spec hash)
+Çapa: beklemede: aşama 0 çıkış raporu; kilit (aşama 0, spec hash)
 
 ---
 
-**Ön koşul:** kurulumun birinci bölümü tamamlanmış ve özeti mühürlü depoda (`tohum/25`).
-İkinci bölüm bu aşamanın çıkışından sonra gelir (`tohum/25a`).
+**Ön koşul:** kurulumun birinci bölümü tamamlanmış (`tohum/25`): hakem reposunda önyükleme hakemi
+(`tohum/29b`), tohum vektörleri (`tohum/29a`), tohum koltuk promptları (`tohum/29`), anayasal
+`policy.json`, `control.json` ve kurulum özeti.
 
-**Çıkış kapısı:** §0.10'daki koşulların tamamı CI'da makine doğrulamalı; verdict `PASS`.
+**Ne kurulur:** Kurucu, beyin reposunda hakemin tamamını `referee/` altında ve oyuncu iskeletini
+yazar. Önyükleme hakemi her push'u denetler; Kurucu kendi yazdığını puanlayamaz (Y6). Hedefe bu
+aşamada hiçbir şey yazılmaz; hedefe ilk yazım etkinleştirme koşusudur.
 
-**Yerleşim:** harness hakem reposunda, oyuncu kodu beyin reposunda, veri hedef reponun
-`brain/state` dalında, held-out mühürlü depoda (`tohum/01a`, `tohum/24`). Tohum yasaları ve tüm tohum sayfaları geçerlidir.
+**Çıkış kapısı:** iki parça, ikisi birlikte `PASS` (§0.10): (A) pinli beyin SHA'sında önyükleme
+hakeminin makine doğrulamalı sonucu; (B) operatör aktarımı ve aktarılan hakemin canlı etkinleştirme
+koşusu. Kurulumun ikinci bölümü (`tohum/25a`) (B)'nin parçasıdır.
+
+**Yerleşim:** hakemin adayı beyin reposunun `referee/` dizininde, aktarımdan sonra yalnız hakem
+reposunda. Oyuncu kodu beyin reposunda. Veri etkinleştirmeden sonra hedefin `brain/state` dalında.
+Mühürlü depo bu aşamada yoktur; ilk held-out havuzuyla açılır (`asama-4/03`). Tohum yasaları ve
+tüm tohum sayfaları geçerlidir.
 
 ## Sayfalar
 
 | Sayfa | Bölüm | Satır |
 |---|---|---|
-| `01-amac.md` | Amaç | 17 |
-| `02-dogruluk-ozellikleri.md` | Doğruluk özellikleri | 24 |
-| `03-roller.md` | Roller | 15 |
-| `04-hata-seti.md` | Hata seti | 38 |
-| `05-property-ve-sinif-etiketleri.md` | Property ve sınıf etiketleri | 34 |
-| `06-snapshot-uretimi.md` | Snapshot üretimi | 23 |
-| `07-bulgu-ve-kosu-semasi.md` | Bulgu ve koşu şeması | 25 |
-| `08-puanlama-ve-metrikler.md` | Puanlama ve metrikler | 28 |
-| `09-harness-in-kendi-testleri.md` | Harness'in kendi testleri | 29 |
-| `10-cikis-testi.md` | Çıkış testi (hepsi birlikte PASS) | 25 |
-| `11-yasaklar.md` | Yasaklar | 15 |
-| `12-butce.md` | Bütçe (başlangıç değerleri; yalnız operatör değiştirir) | 17 |
-| `13-teslim-listesi.md` | Teslim listesi | 23 |
-| `14-sirali-mikro-ozellikler.md` | Sıralı mikro özellikler | 24 |
+| `01-amac.md` | Amaç | 23 |
+| `02-dogruluk-ozellikleri.md` | Doğruluk özellikleri | 32 |
+| `03-roller.md` | Roller | 17 |
+| `04-hata-seti.md` | Hata seti ve K0 çıkış örneklemi | 41 |
+| `05-property-ve-sinif-etiketleri.md` | Property ve sınıf etiketleri | 39 |
+| `06-snapshot-uretimi.md` | Snapshot üretimi | 28 |
+| `07-bulgu-ve-kosu-semasi.md` | Bulgu ve koşu şeması | 33 |
+| `08-puanlama-ve-metrikler.md` | Puanlama ve metrikler | 34 |
+| `09-harness-in-kendi-testleri.md` | Harness'in ve hakemin kendi testleri | 42 |
+| `10-cikis-testi.md` | Çıkış testi: (A) önyükleme hakemi, (B) aktarım ve etkinleştirme | 44 |
+| `11-yasaklar.md` | Yasaklar | 22 |
+| `12-butce.md` | Bütçe (başlangıç değerleri; yalnız operatör değiştirir) | 20 |
+| `13-teslim-listesi.md` | Teslim listesi | 33 |
+| `14-sirali-mikro-ozellikler.md` | Sıralı mikro özellikler | 42 |

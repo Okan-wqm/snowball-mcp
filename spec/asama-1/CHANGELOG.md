@@ -2,6 +2,7 @@
 
 Tarih: 2026-10-28
 
+- 2.2 (2026-10-28): yalnız oyuncu organları, sekiz mikro özellik; aday yayımlanır, hakem yoklar ve uygular; düzeltici araçsız tek çağrı; harita, sözleşme, itibar, ders enjeksiyonu, organ yaşam döngüsü, bisect ve `main` senkronu ilk okuyucularına taşındı; çıkışta en az bir canlı merge ve geri alma sınırının dürüst ifadesi.
 - 2.1 (2026-10-28): keşif tüm ihlaller ve taban; mandal; harita (a) ve kapsama; sözleşme; nöbetçi, bisect, şablonlu ders; kapı yeniden koşturur; kurulum istisnası ile hakem bileşenleri; kanarya kuralı; teslim listesi tamamlandı.
 - 2.0 (2026-10-28): inceleme sonrası yeniden yazım: fark oracle'ı, `fix` aralığı, güvenlik yollarına
   dokunmama, SHADOW→ACTIVE dev sayılarıyla (N = 3), 72 saatlik pencere ve 3 haftalık takvim,
