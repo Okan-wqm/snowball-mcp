@@ -1,0 +1,18 @@
+# Aşama 4 §4.10 — Yasaklar
+
+Tarih: 2026-10-28 · Sürüm: 2.0 · Durum: hedef taslak · Sahibi: operatör
+Okunma: Aşama 4 çalışırken
+Çapa: beklemede: aşama 4 çıkış raporu
+
+---
+
+- Birden fazla avcı; alt ajan; kalıcı avcı hafızası; koşular arası avcı önbelleği (prompt
+  önbelleği hariç).
+- Oracle takımının ya da Savunma'nın avcıyla aynı modelde olması ya da avcının promptunu görmesi.
+- Avcının snapshot dışını okuması ya da ağa çıkması.
+- Kurucunun held-out vaka listesini, mührü ya da vaka bazlı sonucu okuması; harness'e ve
+  eşiklere dokunması.
+- Promptta ya da property spec'te kalıp.
+- Panelin oyla karar kapatması; referanssız söz; faz başına ikiden fazla tur; tartışma
+  dökümünün implementer'a verilmesi.
+- K6 sınırına dokunan düzeltmeyi K5 kapısından geçirmek.
