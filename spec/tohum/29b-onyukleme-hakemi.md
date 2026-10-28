@@ -42,7 +42,7 @@ commit'idir. Boşta geçen 7 günde bir imzalı durum aynen yeniden yüklenir.
 `spec/asama-0` donmadan kabul edilmez. Spec ile kodu karıştıran push reddedilir.
 
 **Test bildirimi.** Kurucu kökte `snowball-tests.json` tutar (`26b`). Hakem yalnız oradaki
-komutları koşturur; bitti denen (`done_mf`, sırayla 1'den) her mikro özelliğin `asama-0/14`'teki
+komutları, repo kökünden koşturur (vektörleri `referee/`'den); bitti denen (`done_mf`, sırayla 1'den) her mikro özelliğin `asama-0/14`'teki
 test numarası bir komuta bağlı değilse ya da hiç komut yoksa sonuç kırmızıdır. Vektörler `29a`'daki
 arayüzle, sahibi olan mikro özellik bitince uygulanır.
 

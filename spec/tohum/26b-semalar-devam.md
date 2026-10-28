@@ -72,7 +72,7 @@ havuz başınadır; tüm soylar paylaşır.
 `cutoff_ts`, `sealed_prompt_sha256`; vaka listesi mühürlü depodadır.
 
 **snowball-tests.json** (beyin reposu kökü): `{tests: [{id, cmd, stage}], done_mf: [], lockfiles: []}`;
-`id` §0.9 test numarasıdır (`T13`). **exit-request.json** (beyin reposu kökü): `{stage, sha,
+`id` §0.9 test numarasıdır (`T13`); `cmd` repo kökünden koşar. **exit-request.json** (kök): `{stage, sha,
 spec_sha256}`; `sha` son kabul edilmiş commit, `spec_sha256` donmuş aşama dizininin hash'idir; yalnız
 bu dosyayı değiştiren push çıkış isteğidir (`29b`, `asama-0/10`).
 
