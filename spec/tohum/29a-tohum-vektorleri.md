@@ -69,7 +69,7 @@ stdout'ta tek satır JSON'dur:
 - `python -m ledger.chain verify <dosya> [--previous <dosya>]` → `{"valid": bool, "broken_row": ...}`
 - `python -m harness.stats cp_lower <x> <n> <alpha>` → `{"lb": "0.962400"}` (altı ondalık dizgi)
 - `python -m harness.stats mcnemar <b> <c>` → `{"p": "0.062500"}`
-- `python -m harness.score <bulgu> <vaka>` → `{"hits": int}`; eşleme fikstürleri önyükleme
+- `python -m harness.score <bulgular> <vakalar>` (iki JSON dizisi) → `{"hits": int}`; eşleme fikstürleri önyükleme
   hakemiyle birlikte `seed/bootstrap/vectors/` altında gelir.
 
 Karşılaştırma tablodaki basamak sayısıyla yapılır.

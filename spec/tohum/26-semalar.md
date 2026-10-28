@@ -56,7 +56,7 @@ kırmızının nedeni beyan edilen etki kümesinin dışındadır.
 
 **case**: `case_id`, `class_level`, `property`, `provenance` (`human_fix`|`mutation`|
 `system_tp`|`system_regression`), `base_sha`, `fix_sha?`, `mutation_id?`, `touched_paths`
-`[{path, hunks:[{start,end}], symbol?}]`, `rule_id?`, `validity_evidence` `{kind, ref,
+`[{path, hunks:[{start,end}], symbol?}]`, `tool?`, `rule_id?` (K0–K2'de ikisi zorunlu), `validity_evidence` `{kind, ref,
 output_sha256}`, `split` (`dev`|`exit`|`heldout`), `group`.
 
 **run_meta**: `run_id`, `subject_run_id?`, `organ_id`, `role`, `model_requested`,

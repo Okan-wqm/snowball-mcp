@@ -21,6 +21,11 @@ Okunma: bir sayfanın geçmişi aranırken
   Kurucu defteri ilk oturumdan yazılır; spec isteği ile kod isteği ayrıldı; önyükleme hakeminin
   test bildirimi, ret artefaktı ve vektör arayüzü tanımlandı; aktarım operatör dosyalarını hariç
   tutar; hash'lenen artefaktta kayan nokta yoktur; aşama tasarım sabitleri politika anahtarı oldu.
+  Önyükleme hakemi yazıldı (`seed/bootstrap/`): altı işli iş akışı, standart kütüphaneyle paket,
+  hash'e sabitlenmiş model çağrısı ve Sigstore gereksinimleri, makine okunur vektörler, 39 test ve
+  20 kasıtlı bozmanın hepsini yakalayan bir mutasyon kontrolü. Spec koda göre güncellendi: üç tür
+  push (spec, kod, çıkış isteği), imzalı durum artefaktı, rakip çağrısının yapısal yalıtımı,
+  vakada `tool` alanı, kurulumdaki dosya adları.
 - 2.1 (2026-10-28): ikinci beş incelemeden (istekler ve kararlar, bağlantı ve veri akışı, mantık,
   uçtan uca simülasyon, kırmızı takım) doğrulanan bulgular. Hakem reposu: oyuncu kendi hakemini
   yazamaz; kapı, kullanıcı hesabında da çalışan, yalnız hakem App'inin raporlayabildiği zorunlu

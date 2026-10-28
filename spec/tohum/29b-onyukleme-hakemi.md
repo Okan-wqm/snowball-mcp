@@ -2,62 +2,68 @@
 
 Tarih: 2026-10-28 · Sürüm: 2.2 · Durum: taslak · Sahibi: operatör
 Okunma: kurulumda ve Aşama 0 boyunca
-Çapa: beklemede: kurulum — beyin reposundaki `seed/bootstrap/` ve hakem reposundaki kopyası
+Çapa: `seed/bootstrap/` (kod, iş akışı ve testleri); hakem reposundaki kopyası
 
 ---
 
 Aşama 0'da Kurucu hakemi yazar; o hakem henüz yoktur, Kurucu da kendi yargıcı olamaz (Y6).
 Aradaki boşluğu önyükleme hakemi kapatır: tohumla gelen, küçük, deterministik bir hakem.
 
-**Kim yazar.** Kodu beyin reposunun `seed/bootstrap/` dizinindedir ve Kurucu'dan önce, Kurucu
-olmayan bir yazarca yazılır; kendi testlerinden ve tohum vektörlerinden geçer. Kurulum bu kod
-olmadan başlamaz (`25`). Operatör onu kurulumda hakem reposuna kurar; Kurucu ona yazamaz.
-Aşama 0 çıkışında aktarılan hakem onun yerini alır.
+**Kim yazar, nerede.** Kurucu'dan önce, Kurucu olmayan bir yazarca yazılmıştır ve beyin
+reposunun `seed/bootstrap/` dizinindedir: `snowball_bootstrap` paketi (yalnız standart kütüphane),
+iş akışı `workflow/bootstrap.yml`, hash'e sabitlenmiş `requirements/` (model çağrısı ve Sigstore),
+makine okunur vektörler `vectors/` ve kendi testleri `tests/`. Operatör kurulumda hakem reposuna
+kurar (`25` 3); Kurucu ona yazamaz (`seed/**` değiştiren push reddedilir). Aşama 0 çıkışında
+aktarılan hakem onun yerini alır; aktarım betiği aynı paketin `import` komutudur (`25a` 1).
 
-**Boru hattı.** Hakem reposunun zamanlayıcısı beyin reposunun izlenen dalını yoklar; son
-kabul edilmiş SHA'dan farklı bir SHA görünce beş iş koşar:
+**Boru hattı.** Zamanlayıcı her 15 dakikada beyin reposunun izlenen dalını yoklar; son kabul
+edilmiş ya da son değerlendirilmiş SHA'dan farklı bir SHA görünce işler koşar. Kod koşturan işin
+izni ve sırrı, sır taşıyan işin kod koşturması yoktur; işler arası her artefakt hash'le doğrulanır.
 
-| İş | Sır | Ne yapar | Çıktı |
-|---|---|---|---|
-| `çek` | Okuyucu App'i | Yeni SHA'nın ağacını ve son kabul edilmiş SHA'dan bu yana tam diff'i çeker | İçerik kimlikli artefakt |
-| `getir` | Yok, ağ var | Kurucu'nun kilit dosyasındaki bağımlılıkları kurulum betikleri kapalı getirir | İçerik adresli bağımlılık artefaktı |
-| `koş` | Yok, `permissions: {}`, ağ yok | Kurucu'nun kendi testlerini ve tohum vektörlerini (`29a`) iç içe konteynerde koşar: `--network none --cap-drop ALL --read-only --user <uid>`, `ACTIONS_*` yok, docker soketi yok; aynı koşuda bilinen kötü bir girdiyle kırmızı kontrol | Test ve vektör sonuçları, konteyner dışında hash'lenmiş |
-| `çağır` | Sağlayıcı kimliği | Tohum rakibini (`29`) tam diff ve ilgili tohum sayfalarıyla, Read/Grep/Glob araçlarıyla, `24`'teki dispatch sözleşmesiyle çağırır; rakibin yeniden üreticilerini bir sonraki `koş`a verir | Rakip kararı ve yeniden üretme sonucu |
-| `yaz` | OIDC | Sonuçları hash'leriyle hakem reposunun koşu artefaktlarına ve Rekor'a yazar | Rekor kayıt kimliği |
+| İş | Sır ya da izin | Ne yapar |
+|---|---|---|
+| `çek` | Okuyucu App'i; içerik ve Actions okuma | Önceki imzalı durumu Sigstore ile doğrular; SHA'yı çeker, sınıflandırır, ağacı blob blob kurar (`export-ignore` etkisizdir) |
+| `getir` | Yok, ağ var | Kilit dosyalarındaki tekerlekleri `--only-binary`, `--require-hashes` ile indirir; kurulum betiği koşmaz |
+| `koş` | Yok | Kırmızı kontroller, bildirimdeki Aşama 0 testleri ve vektörler; her biri `--network none --cap-drop ALL --read-only --user 65534` konteynerde |
+| `çağır` | Sağlayıcı kimliği | Tohum rakibi (aşağıda) |
+| `yeniden` | Yok | Rakibin yeniden üreticileri, `koş` ile aynı kumda |
+| `yaz` | OIDC, içerik okuma | Kararı verir, sonucu Sigstore ile imzalayıp Rekor'a bağlar, imzalı durum artefaktını yükler |
 
-**Girdi ve taban.** Yalnız beyin reposunun SHA'sı. İlk kabul edilmiş SHA, kurulumda özete yazılan
-tohum commit'idir; diff her zaman son kabul edilmiş SHA'dan bu yana tamdır, Kurucu rakibin neyi
-göreceğini seçemez.
+**Durum.** Hakem reposuna hiçbir iş yazamadığı için bellek, bir önceki koşunun imzalı
+`bootstrap-state` artefaktıdır (`result.json` ve Sigstore paketi); her koşu onu kimlik
+doğrulamasıyla açar, doğrulanamazsa durur. İlk kabul edilmiş SHA kurulum özetindeki tohum
+commit'idir. Boşta geçen 7 günde bir imzalı durum aynen yeniden yüklenir.
 
-**Test bildirimi.** Kurucu beyin reposunun kökünde `snowball-tests.json` tutar (`26b`): her §0.9
-test numarası için koşturulacak komut, bittiğini söylediği mikro özellikler (`done_mf`) ve
-bağımlılık kilit dosyaları. Önyükleme hakemi yalnız bu komutları koşturur; bitti denen her mikro
-özelliğin `asama-0/14`'teki test numarası bildirimde bir komuta bağlı değilse ya da hiç komut yoksa
-sonuç kırmızıdır (sıfır test kırmızıdır, `04`). Vektörleri hakem kendi koşturucusuyla, `29a`'daki
-arayüz üzerinden Kurucu'nun koduna uygular.
+**Üç tür push.** Yalnız `spec/asama-*/` değiştiren push **spec isteğidir**: test aranmaz, rakip
+çürütmeyi dener; kabul edilirse aşama dizininin hash'i donmuş olarak duruma girer. Yalnız
+`exit-request.json` değiştiren push **çıkış isteğidir** (aşağıda). Diğer her push **kod isteğidir**;
+`spec/asama-0` donmadan kabul edilmez. Spec ile kodu karıştıran push reddedilir.
 
-**İki tür push.** Yalnız `spec/asama-*/` değiştiren push **spec isteğidir**: test aranmaz; rakip
-spec'i tam diff ve ilgili tohum sayfalarıyla çürütmeyi dener; açık `not_refuted` gelirse spec'in
-hash'i "donmuş" olarak Rekor'a yazılır. Diğer her push **kod isteğidir** ve aşağıdaki kabulden geçer.
-İkisini karıştıran push reddedilir.
+**Test bildirimi.** Kurucu kökte `snowball-tests.json` tutar (`26b`). Hakem yalnız oradaki
+komutları koşturur; bitti denen (`done_mf`, sırayla 1'den) her mikro özelliğin `asama-0/14`'teki
+test numarası bir komuta bağlı değilse ya da hiç komut yoksa sonuç kırmızıdır. Vektörler `29a`'daki
+arayüzle, sahibi olan mikro özellik bitince uygulanır.
 
-**Kabul.** Bir kod SHA'sı ancak şu dördü birlikte doğruysa kabul edilmiş SHA olur: bildirimdeki
-Aşama 0 testleri yeşil; vektörlerin hepsi geçer ve bayt değiştirilmiş girdileri reddeder; kırmızı
-kontrol kırmızı; rakip açık `not_refuted` verdi ya da hiçbir çürütmesi yeniden üretilemedi.
-**Ret artefaktı** tiplidir: `{sha, kind: spec|code, reasons: [{kind, test_id?, ref, detail_sha256}]}`;
-Kurucu nedeni oradan okur.
+**Rakip çağrısı.** Agent SDK değil, resmî Anthropic SDK'sıyla elle kurulmuş bir araç döngüsüdür:
+`read_file`, `grep`, `glob` yalnız çıkarılmış ağacı okur; karar `submit_verdict` aracıyla gelir;
+ayar, hook, MCP ya da yönerge dosyası yüklenmez, oturum saklanmaz. Sunulan model istenenden
+farklıysa, ret, zaman aşımı, bütçe sonu, tur sonu ya da biçimsiz karar `unresolved`'dır, yani kabul
+değildir; yedek model yönlendirmesi bu yüzden kullanılmaz. Giden metinde sır deseni varsa çağrı
+yapılmaz: Kurucu'nun test fikstürlerindeki sahte sırlar dosyada düz metin durmaz, çalışma anında
+birleştirilir.
 
-**Aşama 0 çıkışının (A) parçası.** Kurucu `exit-request.json`'a SHA'yı yazar; önyükleme hakemi o
-SHA'da Aşama 0'ın tüm kendi-testlerini, vektörleri, kırmızı kontrolü, `spec.lint`'i ve etkinleştirme
-provasını koşar. Rakip aşama boyunca en az `stage_params.rival_min_attempts` ayrı artefakta birer
-deneme yapmış ve çıkış SHA'sına da bir deneme yapmış olmalıdır. Hepsi tutarsa `referee/` kod
-ağacının hash'iyle birlikte Rekor'a "aktarılabilir" kaydı yazar (`25a` 1).
+**Kabul.** Kod SHA'sı: Aşama 0 testleri yeşil; vektörler geçer ve değiştirilmiş girdiyi reddeder;
+kırmızı kontroller doğru; rakip geçerli bir karar verdi ve hiçbir çürütmesi yeniden üretilmedi.
+Testler kırmızıysa rakip bütçe harcanmasın diye çağrılmaz. **Ret artefaktı** tiplidir: `{sha, kind,
+reasons: [{kind, test_id?, ref, detail_sha256, detail?}]}`; Kurucu nedeni oradan okur.
 
-**Asla yapmadıkları.** Hedef repoya, beyin reposuna ve hakem reposunun koduna yazmaz; merge
-etmez; Kurucu'nun kodunu sırlı bir işte koşturmaz; Actions önbelleği kullanmaz; kill switch
-(`control.json`) kapalı değilse ya da bütçe tavanı aşılmışsa hiçbir iş başlatmaz. Kendi kodunu
-değiştirmez: önyükleme hakemi yalnız operatörce kurulur ve aktarımla emekli olur.
+**Çıkış isteği, Aşama 0 çıkışının (A) parçası.** `exit-request.json` son kabul edilmiş SHA'yı ve
+donmuş `spec/asama-0` hash'ini adlandırır. Hakem tüm testleri ve vektörleri yeniden koşar; 30 mikro
+özelliğin hepsi bitmiş, çıkış SHA'sının kendi rakip denemesi var ve ondan ayrı en az
+`stage_params.rival_min_attempts` artefakt rakipten geçmiş olmalıdır. Hepsi tutarsa sonuç
+"aktarılabilir" olur ve `referee/` kod ağacının hash'ini taşır (`25a` 1).
 
-**Bütçe ve kayıt.** Rakip çağrıları Aşama 0'ın inşa-zamanı rakip kalemindedir; her çağrının
-maliyeti ve sunulan modeli `çağır` işinin yanıttan yazdığı artefakttadır. Bu kayıtlar ve Rekor
-kimlikleri etkinleştirmede `brain/state` genesis satırına bağlanır.
+**Asla yapmadıkları.** Hedefe, beyin reposuna ve hakem reposuna yazmaz; merge etmez; Kurucu'nun
+kodunu sırlı işte koşturmaz; Actions önbelleği kullanmaz; kill switch açıksa ya da bütçe bittiyse
+iş başlatmaz. Okuduğu politika anahtarları: `monthly_cap_usd`, `stage_budgets.asama_0.rival_usd`,
+`stage_params.rival_min_attempts`.

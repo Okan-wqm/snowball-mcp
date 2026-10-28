@@ -73,7 +73,8 @@ havuz başınadır; tüm soylar paylaşır.
 
 **snowball-tests.json** (beyin reposu kökü): `{tests: [{id, cmd, stage}], done_mf: [], lockfiles: []}`;
 `id` §0.9 test numarasıdır (`T13`). **exit-request.json** (beyin reposu kökü): `{stage, sha,
-spec_sha256}`; Kurucu'nun çıkış isteğidir (`asama-0/10`).
+spec_sha256}`; `sha` son kabul edilmiş commit, `spec_sha256` donmuş aşama dizininin hash'idir; yalnız
+bu dosyayı değiştiren push çıkış isteğidir (`29b`, `asama-0/10`).
 
 **contract**: `contract_id`, `producer`, `consumer`, `schema_ref`, `state` (`proposed`|`frozen`),
 `tests[]`. Bulgu biçimi sözleşme değil bu şemadır; ilk sözleşme ikinci ortak arayüzle doğar.

@@ -17,9 +17,18 @@ from. No brain code exists yet. Three places keep the player from grading itself
 - **Target repository**: the repository being maintained. Only the referee's writer App writes there,
   on the `brain/*` branches.
 
-Before setup, one piece still has to be written by an author other than the founder: the bootstrap
-referee under `seed/bootstrap/` (see `spec/tohum/29b-onyukleme-hakemi.md`). The founder cannot build
-the judge of its own first stage.
+The founder cannot build the judge of its own first stage, so the **bootstrap referee** ships with
+the seed under `seed/bootstrap/` (see `spec/tohum/29b-onyukleme-hakemi.md`): a GitHub Actions
+workflow and a standard-library Python package that pulls each founder commit, runs its tests and
+the seed vectors in network-less containers, asks a rival model to refute it, and signs the verdict
+into Sigstore's Rekor log. It has not yet run on GitHub Actions; setup (`spec/tohum/25-kurulum-gunu.md`)
+installs it.
+
+Run its tests with:
+
+```
+cd seed/bootstrap && PYTHONPATH=.:tests python3 -m unittest discover -s tests
+```
 
 ## Where to start
 
@@ -40,6 +49,8 @@ spec/
   asama-0/      Stage 0: measurement harness and the whole referee
   asama-1/      Stage 1: first adapter (lint), simplest closed loop, player organs only
   asama-4/      Stage 4: pattern-free LLM hunter for logic bugs (target draft)
+seed/
+  bootstrap/    the bootstrap referee: package, workflow, pinned requirements, vectors, tests
 ```
 
 **Why there is no Stage 2 or Stage 3 directory.** The stage protocol makes the founder draft each

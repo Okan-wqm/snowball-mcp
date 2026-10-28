@@ -36,7 +36,7 @@ tüm tohum sayfaları geçerlidir.
 | `07-bulgu-ve-kosu-semasi.md` | Bulgu ve koşu şeması | 33 |
 | `08-puanlama-ve-metrikler.md` | Puanlama ve metrikler | 34 |
 | `09-harness-in-kendi-testleri.md` | Harness'in ve hakemin kendi testleri | 58 |
-| `10-cikis-testi.md` | Çıkış testi (hepsi birlikte PASS) | 47 |
+| `10-cikis-testi.md` | Çıkış testi (hepsi birlikte PASS) | 48 |
 | `11-yasaklar.md` | Yasaklar | 22 |
 | `12-butce.md` | Bütçe (başlangıç değerleri; yalnız operatör değiştirir) | 22 |
 | `13-teslim-listesi.md` | Teslim listesi | 33 |

@@ -10,7 +10,8 @@ Okunma: Aşama 0 çalışırken
 
 ## (A) Pinli SHA'da önyükleme hakemi
 
-Kurucu çıkış isteğini beyin reposunda tipli bir dosyayla yapar; önyükleme hakemi o SHA'yı pinler ve
+Kurucu çıkış isteğini, yalnız `exit-request.json`'u değiştiren ayrı bir push'la, son kabul edilmiş
+SHA'yı adlandırarak yapar (`tohum/29b`); önyükleme hakemi o SHA'yı pinler ve
 şunları makine doğrulamalı olarak koşu artefaktlarına ve Rekor'a yazar:
 
 - §0.9'da "Aşama 0" işaretli testler yeşil; tohum vektörleri geçer; kırmızı kontrol kırmızı.
