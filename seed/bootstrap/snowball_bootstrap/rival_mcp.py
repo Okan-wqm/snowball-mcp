@@ -119,7 +119,7 @@ class RivalServer:
         except Exception as exc:  # whatever a tool raises is an error result, never the end of the session
             self._write_stats()
             return f"error: {exc}", True
-        if secretscan.scan(text) or secretscan.scan(text.replace(chr(0), '')):  # UTF-16 hides a token from a plain scan
+        if secretscan.scan(text):  # file contents were checked whole in ToolBox; this guards what it cannot see, e.g. a file name
             self.withheld += 1
             self._write_stats()
             return "withheld: the result matched a secret pattern", True

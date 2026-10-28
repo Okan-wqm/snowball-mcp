@@ -585,6 +585,13 @@ class McpServerTest(unittest.TestCase):
             if stream and not stream.closed:
                 stream.close()
 
+    def test_a_secret_in_a_file_name_is_withheld_from_a_listing(self):
+        token = "gh" + "p_" + "A" * 36
+        (self.tree / "referee" / (token + ".txt")).write_text("x" + chr(10))
+        server = RivalServer(ToolBox(self.tree), self.verdict, self.stats)
+        self.assertEqual(server.call("glob", {"pattern": "**/*"}), ("withheld: the result matched a secret pattern", True))
+        self.assertEqual(json.loads(self.stats.read_text())["withheld"], 1)
+
     def test_a_utf16_file_cannot_smuggle_a_secret_past_the_scan(self):
         """Windows PowerShell writes UTF-16: the token has a NUL between every two letters."""
         token = "gh" + "p_" + "A" * 36
