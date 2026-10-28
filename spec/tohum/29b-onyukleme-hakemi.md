@@ -62,7 +62,7 @@ reasons: [{kind, test_id?, ref, detail_sha256, detail?}]}`; Kurucu nedeni oradan
 kendi tekerlekleri (Sigstore) de kurulmadan önce lisans kapısından geçer; kaydı
 `requirements/licenses.json`'dadır ve testi onu `sign.txt` ve `18a`'daki listeyle karşılaştırır.
 
-**Ret hafızası.** Her değerlendirilmiş ret, nedenlerinin imzasıyla (`tür:test` ya da `tür:ref`)
+**Ret hafızası.** Her değerlendirilmiş ret, nedenlerinin imzasıyla (`tür:test`, `tür:ref`; çürütmede iddianın özeti)
 sayılır; kabul sayaçları sıfırlar, altyapı arızası dokunmaz. Sonuç `learning {repeated,
 not_learning, repeat_events}` taşır. Aynı imza ardışık `stage_params.repeat_reject_limit` retten
 geçerse `not_learning`'dir ve Kurucu oturumu durur (`22a`); çıkış bloğu `repeat_events`'i taşır.

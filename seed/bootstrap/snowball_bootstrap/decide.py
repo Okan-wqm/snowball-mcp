@@ -52,6 +52,8 @@ def signature(reason: dict[str, Any]) -> str:
 
 
 OUTAGE_RETRY_LIMIT = 3  # consecutive infrastructure failures of one commit before `poll` parks it
+NOT_THE_FOUNDERS = ("budget",)  # stops the run for the operator; never counts as the Founder not learning
+DOCKER_ERROR = 125  # `docker run` exit code for a failure of docker itself
 
 
 def _learning(state: dict[str, Any], reasons: list[dict[str, Any]], limit: int) -> dict[str, Any]:
@@ -61,7 +63,7 @@ def _learning(state: dict[str, Any], reasons: list[dict[str, Any]], limit: int) 
     commit that is not; an accepted commit has no reasons, so it ends them all.
     """
     old = state["reject_streaks"]
-    now = sorted({signature(r) for r in reasons})
+    now = sorted({signature(r) for r in reasons if r["kind"] not in NOT_THE_FOUNDERS})
     state["reject_streaks"] = {sig: old.get(sig, 0) + 1 for sig in now}
     state["repeat_events"] += sum(1 for sig in now if sig in old)
     streaks = state["reject_streaks"]
@@ -95,22 +97,27 @@ def decide(meta: dict[str, Any], run: dict[str, Any] | None, rival: dict[str, An
     vectors = (run or {}).get("vectors", [])
     controls = (run or {}).get("controls", [])
     if meta.get("run_tests") and run is not None:
-        for c in controls:
-            if not c["ok"]:
-                reasons.append(_reason("control_failed", ref=c["id"]))
-        for t in tests:
-            if not t["ok"]:
-                reasons.append(_reason("test_failed", ref=t["cmd_sha256"], detail=t.get("output_tail", ""),
-                                       test_id=t["id"]))
-        for v in vectors:
-            if not v["ok"]:
-                reasons.append(_reason("vector_failed", ref=v["id"], detail=v.get("detail", "")))
-        for lic in (run or {}).get("licenses", []):
-            if not lic["allowed"]:
-                reasons.append(_reason("license_not_allowed",
-                                       ref=f"{lic['name']}=={lic['version']}:{lic['expression']}"))
-        if not tests:
-            reasons.append(_reason("zero_tests"))
+        broken = [c["id"] for c in controls if not c["ok"]]
+        if not broken and any(t.get("exit") == DOCKER_ERROR for t in tests):
+            broken = ["docker"]
+        if broken:  # the sandbox itself failed: nothing it printed is evidence about the push
+            reasons.append(_reason("infra", ref="kos:" + ",".join(broken)))
+            evaluate = False
+            outage = True
+        else:
+            for t in tests:
+                if not t["ok"]:
+                    reasons.append(_reason("test_failed", ref=t["cmd_sha256"], detail=t.get("output_tail", ""),
+                                           test_id=t["id"]))
+            for v in vectors:
+                if not v["ok"]:
+                    reasons.append(_reason("vector_failed", ref=v["id"], detail=v.get("detail", "")))
+            for lic in (run or {}).get("licenses", []):
+                if not lic["allowed"]:
+                    reasons.append(_reason("license_not_allowed",
+                                           ref=f"{lic['name']}=={lic['version']}:{lic['expression']}"))
+            if not tests:
+                reasons.append(_reason("zero_tests"))
 
     rival_valid = False
     if rival_expected:
@@ -122,8 +129,12 @@ def decide(meta: dict[str, Any], run: dict[str, Any] | None, rival: dict[str, An
             state["stage_spend_usd_micros"] += int(rival.get("cost_usd_micros", 0))
             if rival.get("verdict") in VALID_RIVAL:
                 rival_valid = True
-                if job_results.get("yeniden") not in (None, "success", "skipped") and rival.get("reproducer_count"):
+                if rival.get("reproducer_count") and job_results.get("yeniden") != "success":
                     reasons.append(_reason("infra", ref=f"yeniden:{job_results.get('yeniden')}"))
+                    evaluate = False
+                    outage = True
+                elif any(r.get("runner_fault") for r in repro or []):  # docker failed: "not reproduced" proves nothing
+                    reasons.append(_reason("infra", ref="yeniden:docker"))
                     evaluate = False
                     outage = True
                 for r in repro or []:

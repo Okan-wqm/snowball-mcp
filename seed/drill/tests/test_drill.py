@@ -3,6 +3,7 @@
 import copy
 import io
 import json
+import shutil
 import tempfile
 import unittest
 from contextlib import redirect_stdout
@@ -13,6 +14,7 @@ from snowball_drill import sim
 from snowball_drill.__main__ import main
 from snowball_drill.judge import QUESTIONS, judge, mcnemar_p, newcombe_lower
 from snowball_drill.power import power_table
+from snowball_drill.vectors import write_vectors
 
 SEEDS = range(1, 101)
 
@@ -128,6 +130,22 @@ class Vectors(unittest.TestCase):
             result = judge(doc)
             self.assertEqual((result["drill"], result["verdicts"]), (case["drill"], case["verdicts"]), case["name"])
         self.assertEqual([c["drill"] for c in group["cases"]].count("PASS"), 1)
+
+
+    def test_regenerating_the_vectors_gives_the_committed_bytes_on_every_platform(self):
+        """V4: a Windows run without an explicit LF newline wrote CRLF into 17 files. A checkout may translate the
+        committed ones, so they are compared line-ending-insensitively; what is written must never contain a CR."""
+        root = Path(__file__).resolve().parents[2] / "bootstrap" / "vectors"
+        with tempfile.TemporaryDirectory() as tmp:
+            shutil.copy(root / "vectors.json", tmp)
+            write_vectors(Path(tmp))
+            written = sorted(Path(tmp).rglob("*.json"))
+            self.assertGreater(len(written), 5)
+            for path in written:
+                data = path.read_bytes()
+                committed = (root / path.relative_to(tmp)).read_bytes().replace(b"\r\n", b"\n")
+                self.assertEqual(data.count(b"\r"), 0, f"{path.name}: CR written")  # assertEqual on the bytes would
+                self.assertTrue(data == committed, f"{path.name}: differs from the committed file")  # print whole files
 
 
 class Cli(unittest.TestCase):

@@ -6,7 +6,6 @@ import hashlib
 import io
 import json
 import os
-import tempfile
 import unittest
 import zipfile
 from pathlib import Path
@@ -78,6 +77,7 @@ class RivalOutcomeJudgement(unittest.TestCase):
         self.assertEqual([(r["kind"], r["ref"]) for r in res["reasons"]], [("infra", "yeniden:failure")])
         self.assertIsNone(res["state"]["last_evaluated_sha"])
         self.assertEqual(res["state"]["reject_streaks"], {})
+        self.assertEqual((res["state"]["outage_sha"], res["state"]["outage_count"]), (B, 1))  # it is counted as an outage
 
     def test_an_unresolved_rival_is_rejected_even_without_a_reason(self):  # D04
         for rival in (unresolved(), {"verdict": "approved", "attempts": [], "reasons": [], "cost_usd_micros": 0,
@@ -115,7 +115,7 @@ class RivalOutcomeJudgement(unittest.TestCase):
     def test_failed_vectors_controls_and_an_empty_run_each_reject(self):  # D15 D16 D17
         for mutate, kind in ((lambda r: r.update(vectors=[{"id": "chain.V1.hash", "ok": False, "detail": "x"}]),
                               "vector_failed"),
-                             (lambda r: r.update(controls=[{"id": "network_blocked", "ok": False}]), "control_failed"),
+                             (lambda r: r.update(controls=[{"id": "network_blocked", "ok": False}]), "infra"),
                              (lambda r: r.update(tests=[]), "zero_tests")):
             run = green_run()
             mutate(run)
@@ -128,6 +128,14 @@ class RivalOutcomeJudgement(unittest.TestCase):
         res = run_decide(meta_("code", state0()), None, None, None, {"getir": "success", "kos": "failure",
                                                                      "cagir": "skipped"})
         self.assertEqual([r["kind"] for r in res["reasons"]], ["infra"])
+
+    def test_a_secret_in_a_failing_vectors_detail_is_not_republished(self):  # V4
+        token = "gh" + "p_" + "A" * 36
+        run = green_run()
+        run.update(vectors=[{"id": "chain.V1.hash", "ok": False, "detail": "got " + token}], green=False)
+        res = run_decide(meta_("code", state0()), run, None, None, dict(CODE_JOBS, cagir="skipped"))
+        self.assertEqual([r["kind"] for r in res["reasons"]], ["vector_failed"])
+        self.assertNotIn(token, json.dumps(res))
 
     def test_an_unresolved_rival_is_not_an_independent_review(self):  # D28
         res = run_decide(meta_("code", state0()), green_run(), unresolved("max_turns", cost=5), [], CODE_JOBS)
@@ -188,6 +196,87 @@ class RivalOutcomeJudgement(unittest.TestCase):
             st_ = res["state"]
         self.assertEqual(res["learning"]["not_learning"], [])
         self.assertEqual(res["state"]["repeat_events"], 0)
+
+
+class ReproducersReportRunnerFaults(unittest.TestCase):
+    def test_exit_125_is_docker_failing_not_the_defect_being_absent(self):
+        from snowball_bootstrap.reproduce import run_reproducers
+
+        class DockerDown(FakeRunner):
+            def run(self, cmd, **kw):
+                return RunResult(125, b"", b"docker: error", 1)
+
+        class Ordinary(FakeRunner):
+            def run(self, cmd, **kw):
+                return RunResult(1, b"boom", b"", 1)
+
+        attempts = [{"claim": "c", "evidence_refs": [], "reproducer": {"cmd": "x", "expect_exit": 1}}]
+        down = run_reproducers(DockerDown(Path(".")), attempts, 5)[0]
+        self.assertEqual((down["reproduced"], down["runner_fault"]), (False, True))
+        ordinary = run_reproducers(Ordinary(Path(".")), attempts, 5)[0]
+        self.assertEqual((ordinary["reproduced"], ordinary["runner_fault"]), (True, False))
+
+
+class RunnerFaults(unittest.TestCase):
+    """A sandbox that failed says nothing about the push: outage, never a verdict (found by an Opus verifier)."""
+
+    def test_a_failed_control_voids_the_whole_run(self):
+        run = green_run()
+        run.update(controls=[{"id": "exit_zero", "ok": False}], tests=[], green=False)
+        for n in range(1, 4):  # three pushes in a row must not stop the Founder as not learning
+            res = run_decide(meta_("code", state0(), head=f"{n:040d}"), run, None, None, dict(CODE_JOBS, cagir="skipped"))
+            self.assertEqual([(r["kind"], r["ref"]) for r in res["reasons"]], [("infra", "kos:exit_zero")])
+            self.assertEqual((res["state"]["reject_streaks"], res["learning"]["not_learning"]), ({}, []))
+            self.assertIsNone(res["state"]["last_evaluated_sha"])
+            self.assertEqual(res["state"]["outage_count"], 1)
+
+    def test_docker_failing_in_the_middle_of_the_tests_is_an_outage(self):
+        run = green_run()
+        run["tests"][0].update(ok=False, exit=125)
+        run["green"] = False
+        res = run_decide(meta_("code", state0()), run, None, None, dict(CODE_JOBS, cagir="skipped"))
+        self.assertEqual([(r["kind"], r["ref"]) for r in res["reasons"]], [("infra", "kos:docker")])
+        self.assertIsNone(res["state"]["last_evaluated_sha"])
+        self.assertEqual((res["state"]["outage_sha"], res["state"]["outage_count"]), (B, 1))
+
+    def test_a_docker_fault_in_the_reproduction_container_is_an_outage_not_an_acceptance(self):
+        res = run_decide(meta_("code", state0()), green_run(), refuted("c"),
+                         [{"attempt_index": 0, "reproduced": False, "runner_fault": True, "exit": 125}],
+                         dict(CODE_JOBS, yeniden="success"))
+        self.assertEqual(res["verdict"], "rejected")  # never "accepted": a refutation nobody could test is no clearance
+        self.assertEqual([(r["kind"], r["ref"]) for r in res["reasons"]], [("infra", "yeniden:docker")])
+        self.assertIsNone(res["state"]["last_evaluated_sha"])
+        self.assertEqual((res["state"]["outage_sha"], res["state"]["outage_count"]), (B, 1))
+
+    def test_reproducers_that_were_not_run_cannot_clear_a_refutation(self):
+        for yeniden in ("skipped", None):
+            jobs = dict(CODE_JOBS)
+            jobs.pop("yeniden") if yeniden is None else jobs.update(yeniden=yeniden)
+            res = run_decide(meta_("code", state0()), green_run(), refuted("c"), None, jobs)
+            self.assertEqual([r["kind"] for r in res["reasons"]], ["infra"], yeniden)
+            self.assertEqual(res["state"]["outage_count"], 1, yeniden)
+
+    def test_an_exhausted_budget_halts_the_run_but_is_never_the_founders_fault(self):
+        st_ = state0()
+        for n in range(1, 5):
+            meta = meta_("spec", st_, head=f"{n:040d}", pre_reasons=["budget"], run_rival=False)
+            res = run_decide(meta, None, None, None, {})
+            self.assertEqual(res["verdict"], "rejected")
+            self.assertEqual((res["state"]["reject_streaks"], res["learning"]["not_learning"]), ({}, []))
+            st_ = res["state"]
+
+    def test_the_run_of_a_real_but_unresolved_outage_week_never_reaches_not_learning(self):
+        """A timeout books the per-run cap; ten of them empty a 30 USD stage budget. The budget then stops the
+        run, and what follows must still not count against the Founder."""
+        st_ = state0(stage_spend_usd_micros=29_000_000)
+        for n in range(1, 4):
+            res = run_decide(meta_("spec", st_, head=f"{n:040d}"), None, unresolved("api_error:TimeoutExpired", cost=3_000_000),
+                             None, {"cagir": "success"})
+            st_ = res["state"]
+        for n in range(4, 8):
+            res = run_decide(meta_("spec", st_, head=f"{n:040d}", pre_reasons=["budget"], run_rival=False), None, None, None, {})
+            st_ = res["state"]
+        self.assertEqual(res["learning"]["not_learning"], [])
 
 
 class KindsAndExit(unittest.TestCase):
@@ -441,7 +530,6 @@ class CommandWiring(unittest.TestCase):
         self.previous_state_zip(state0(stage_spend_usd_micros=-1))
         self.assertEqual(self.fetch_ok(), 2)
 
-    @posix_only
     def test_poll_skips_a_head_that_was_already_judged_and_never_trusts_an_unreadable_state(self):  # L06 L07
         brain = self.root / "brain"
         head = test_flow.make_repo(brain, {"a.txt": "1\n"})

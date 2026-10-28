@@ -14,7 +14,7 @@ push stays stubbed) through the
 
 Exit 0 means: the red controls behaved, the founder-style tests ran offline in the pinned image,
 every seed vector passed (including the drill group), the licence gate passed and the push was
-accepted.
+accepted. Exit 3 means the rival could not run (an outage of the CLI or its login, not a verdict).
 """
 
 from __future__ import annotations

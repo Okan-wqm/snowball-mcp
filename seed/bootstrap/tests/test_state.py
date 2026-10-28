@@ -199,6 +199,16 @@ if __name__ == "__main__":
 
 
 class OutageMemoryTest(unittest.TestCase):
+    def test_an_artifact_of_another_bootstrap_version_is_refused_with_the_remedy(self):
+        from snowball_bootstrap.config import ConfigError
+        s = st.initial(Summary("a" * 40, "b" * 64), "2026-10")
+        old = {k: v for k, v in s.items() if k not in ("outage_sha", "outage_count")}
+        with self.assertRaises(ConfigError) as ctx:
+            st.validate(old)
+        message = str(ctx.exception)
+        self.assertIn("missing: outage_count, outage_sha", message)
+        self.assertIn("delete the bootstrap-state artifact", message)
+
     def test_the_outage_fields_are_validated_and_required(self):
         from snowball_bootstrap.config import ConfigError
         s = st.initial(Summary("a" * 40, "b" * 64), "2026-10")

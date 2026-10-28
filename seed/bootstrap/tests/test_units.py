@@ -404,7 +404,7 @@ class SecretScanCoverageTest(unittest.TestCase):
             "generic_assignment_bare": ["AWS_SECRET_ACCESS_KEY=" + "wJalrXUtnFEMI/K7MDENG" + "bPxRfiCY",
                                         "api_key: " + self.TOK, "TOKEN=" + "0123456789abcdef" * 2],
             "openai_key": ["OPENAI = " + "sk-" + "proj-" + "A" * 40],
-            "stripe_key": ["sk_" + "live_" + "A" * 24],
+            "stripe_key": ["sk_" + "live_" + "A" * 24, "rk_" + "live_" + "A" * 24, "sk_" + "test_" + "A" * 24],
             "google_api_key": ["AI" + "za" + "A" * 35],
             "npm_token": ["npm" + "_" + "A" * 36],
             "jwt": ["ey" + "J" + "A" * 12 + ".ey" + "J" + "A" * 12 + "." + "A" * 12],
@@ -441,3 +441,8 @@ class SecretScanBoundaryTest(unittest.TestCase):
         for text in ("x" + "gh" + "p_" + "A" * 36, "_" + "gh" + "p_" + "A" * 36, "a-" + "AKIA" + "ABCDEFGHIJKLMNOP",
                      "-----BEGIN PGP PRIV" + "ATE KEY BLOCK-----"):
             self.assertNotEqual(secretscan.scan(text), [], text)
+
+    def test_a_jwt_shape_inside_a_longer_word_is_not_one(self):
+        jwt = "ey" + "J" + "A" * 12 + ".ey" + "J" + "A" * 12 + "." + "A" * 12
+        self.assertIn("jwt", secretscan.scan(" " + jwt))
+        self.assertNotIn("jwt", secretscan.scan("x" + jwt))

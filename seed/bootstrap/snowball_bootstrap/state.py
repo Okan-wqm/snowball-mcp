@@ -48,8 +48,13 @@ def initial(summary: Summary, month: str) -> dict[str, Any]:
 
 
 def validate(state: Any) -> dict[str, Any]:
-    if not isinstance(state, dict) or set(state) != KEYS or state.get("schema") != SCHEMA:
+    if not isinstance(state, dict) or state.get("schema") != SCHEMA:
         raise ConfigError("previous state has an unexpected shape")
+    if set(state) != KEYS:
+        missing, extra = sorted(KEYS - set(state)), sorted(set(state) - KEYS)
+        raise ConfigError("previous state has an unexpected shape (missing: " + (", ".join(missing) or "none")
+                          + "; unexpected: " + (", ".join(extra) or "none") + "): another version of the bootstrap "
+                          "wrote it; delete the bootstrap-state artifact to start again from setup/summary.json")
     if not SHA_RE.match(str(state["last_accepted_sha"])):
         raise ConfigError("previous state: bad last_accepted_sha")
     if state["last_evaluated_sha"] is not None and not SHA_RE.match(str(state["last_evaluated_sha"])):

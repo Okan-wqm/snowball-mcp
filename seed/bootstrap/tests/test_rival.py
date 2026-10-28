@@ -10,7 +10,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from snowball_bootstrap import rival
+from snowball_bootstrap import rival, rival_mcp
 from snowball_bootstrap.config import RivalConfig
 from snowball_bootstrap.rival_mcp import RivalServer, serve
 from snowball_bootstrap import secretscan
@@ -76,7 +76,8 @@ class RivalTest(unittest.TestCase):
                  "ANTHROPIC_FOUNDRY_API_KEY", "ANTHROPIC_PROFILE", "CLAUDE_CODE_USE_BEDROCK",
                  "CLAUDE_CODE_USE_ANTHROPIC_AWS", "CLAUDE_CODE_GATEWAY_TOKEN", "AWS_BEARER_TOKEN_BEDROCK",
                  "CLAUDE_CODE_SIMPLE", "CLAUDE_CODE_SAFE_MODE", "CLAUDE_CODE_EFFORT_LEVEL", "CLAUDE_CODE_SUBAGENT_MODEL",
-                 "CLAUDE_CODE_API_BASE_URL", "CLAUDE_CODE_CUSTOM_OAUTH_URL", "CLAUDE_LOCAL_OAUTH_API_BASE"]
+                 "CLAUDE_CODE_API_BASE_URL", "CLAUDE_CODE_CUSTOM_OAUTH_URL", "CLAUDE_LOCAL_OAUTH_API_BASE",
+                 "CLAUDE_API_KEY", "CLAUDE_CODE_API_KEY_FILE_DESCRIPTOR"]
         keep = {"CLAUDE_CODE_OAUTH_TOKEN": "operator-token", "HTTPS_PROXY": "http://proxy.invalid:3128"}
         with mock.patch.dict(os.environ, {**{name: "leak" for name in leaks}, **keep,
                                           "DISABLE_AUTOUPDATER": "0"}):
@@ -101,6 +102,8 @@ class RivalTest(unittest.TestCase):
             self.assertIn(name, seen["env"], name)
         self.assertEqual(bytes.fromhex(seen["stdin_hex"]), request.encode("utf-8"))  # byte for byte, on every platform
         self.assertNotIn("--append-system-prompt-file", argv)  # the prompt replaces the CLI's own, it is not added to it
+        self.assertEqual(argv[argv.index("--system-prompt-file") + 1], "../system.txt")  # relative to the empty cwd: cmd.exe
+        self.assertEqual(argv[argv.index("--mcp-config") + 1], "../mcp.json")  # breaks on `&` and `^` in an absolute path
         self.assertEqual(seen["env_values"], {"DISABLE_AUTOUPDATER": "1", "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
                                               "CLAUDE_CODE_DISABLE_AUTO_MEMORY": "1", "CLAUDE_CODE_NO_MODEL_FALLBACK": "1"})
         system = bytes.fromhex(seen["system_hex"]).decode("utf-8")  # what the model is told, as the CLI read it
@@ -413,12 +416,6 @@ class RivalTest(unittest.TestCase):
         self.assertNotIn("MIIEvQ", found)
         self.assertIn("(withheld 1 file(s) that match a secret pattern)", found)
 
-    def test_an_underscore_or_a_letter_before_a_token_does_not_hide_it(self):
-        glue = "gh" + "p_" + "A" * 36
-        for text in ("x" + glue, "_" + glue, "_" + "AKIA" + "ABCDEFGHIJKLMNOP",
-                     "-----BEGIN PGP PRIV" + "ATE KEY BLOCK-----"):
-            self.assertNotEqual(secretscan.scan(text), [], text)
-
     @posix_only
     def test_links_inside_the_tree_are_not_followed(self):
         outside = Path(self.tmp.name) / "outside_dir"
@@ -534,10 +531,27 @@ class McpServerResilienceTest(unittest.TestCase):
             self.assertIn("invalid verdict", text, what)
             self.assertEqual(server.invalid, 1, what)
 
-    def test_odd_glob_patterns_are_error_results(self):
+    def test_odd_glob_patterns_are_error_results_or_no_matches_and_never_end_the_session(self):
         for pattern in (".", "./", "a/./b", "**", "***", "[", "a" * 5000):
             text, is_error = self.server.call("glob", {"pattern": pattern})
-            self.assertIsInstance(text, str, pattern)
+            self.assertTrue(text.startswith("error:") if is_error else text == "(no matches)", (pattern[:20], text))
+        self.assertTrue(self.server.call("glob", {"pattern": "***"})[1])  # pathlib refuses it, and says so
+        self.assertEqual(self.server.call("glob", {"pattern": "**/*.txt"}), ("referee/x.txt", False))
+
+    @unittest.skipUnless(hasattr(signal, "setitimer"), "the per-call deadline uses the POSIX interval timer")
+    def test_checking_a_submitted_verdict_is_under_the_same_deadline_as_every_tool(self):
+        """V4: a verdict that takes the checker minutes must be answered with an error, not hang the session."""
+        def slow(raw, box):
+            time.sleep(5)
+
+        started = time.monotonic()
+        with mock.patch.object(rival_mcp, "validate_verdict", slow):
+            text, is_error = self.server.call("submit_verdict", {"verdict": "not_refuted", "attempts": []})
+        self.assertTrue(is_error)
+        self.assertIn("took longer", text)
+        self.assertLess(time.monotonic() - started, 4)
+        self.assertFalse(self.server.submitted)
+        self.assertFalse((Path(self.tmp.name) / "v.json").exists())
 
     def test_a_deeply_nested_json_line_does_not_end_the_session(self):
         lines = ["[" * 100_000, json.dumps({"jsonrpc": "2.0", "id": 7, "method": "ping"})]

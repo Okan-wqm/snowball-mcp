@@ -48,4 +48,4 @@ oracle maliyetini de kapsar; "koşu başına" tavanlar bunların toplamını aş
 kalemlerdir; Aşama 0'ın çalışma-zamanı LLM maliyeti sıfırdır. Kurucu bütçesi oturum sayısıyla ve
 oturum başına tavanla yazılır; sonraki oturum öncekinin sonucu yeşilken başlar. Bütçe tavanı
 istemcinin tahmini değil, sağlayıcı geçidinin ya da `çağır` işinin yanıttan ölçtüğü maliyettir
-(`08`); tek istisna tohum rakibidir: maliyeti `claude` CLI'sinin liste fiyatı tahminidir, faturalanan tutar değildir. Kurucu oturumları Actions dakikası harcamaz (`24`).
+(`08`); tek istisna tohum rakibidir: maliyeti `claude` CLI'sinin liste fiyatı tahminidir, faturalanan tutar değildir; zaman aşımında harcama bilinmez, çağrı başı tavan yazılır. Kurucu oturumları Actions dakikası harcamaz (`24`).

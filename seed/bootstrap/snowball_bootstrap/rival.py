@@ -338,6 +338,7 @@ MCP_SERVER = "snowball"
 TOOL_NAMES = [f"mcp__{MCP_SERVER}__{t['name']}" for t in TOOLS]
 MCP_SCRIPT = Path(__file__).resolve().with_name("rival_mcp.py")
 CLI_TIMEOUT_S = 900
+CLI_KILL_WAIT_S = 10  # how long to wait for the pipe after the kill: a descendant in another session may hold it
 # The CLI prefers a key, a gateway or a third-party provider over the login, and lets some variables
 # override the flags passed below. While this system is for internal use the rival runs on the
 # operator's login or CLAUDE_CODE_OAUTH_TOKEN: everything that could redirect the credential, the
@@ -346,7 +347,8 @@ CLI_TIMEOUT_S = 900
 DROPPED_ENV_PREFIXES = ("ANTHROPIC_", "CLAUDE_CODE_USE_", "CLAUDE_CODE_GATEWAY_")
 DROPPED_ENV_NAMES = ("AWS_BEARER_TOKEN_BEDROCK", "CLAUDE_CODE_SIMPLE", "CLAUDE_CODE_SAFE_MODE",
                      "CLAUDE_CODE_EFFORT_LEVEL", "CLAUDE_CODE_SUBAGENT_MODEL", "CLAUDE_CODE_API_BASE_URL",
-                     "CLAUDE_CODE_CUSTOM_OAUTH_URL", "CLAUDE_LOCAL_OAUTH_API_BASE")
+                     "CLAUDE_CODE_CUSTOM_OAUTH_URL", "CLAUDE_LOCAL_OAUTH_API_BASE", "CLAUDE_API_KEY",
+                     "CLAUDE_CODE_API_KEY_FILE_DESCRIPTOR")
 PINNED_ENV = {"DISABLE_AUTOUPDATER": "1", "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
               "CLAUDE_CODE_DISABLE_AUTO_MEMORY": "1",
               "CLAUDE_CODE_NO_MODEL_FALLBACK": "1"}  # by default a refused request is re-sent on another model
@@ -382,25 +384,33 @@ def _terminate(signum: int, frame: Any) -> None:
 
 def _run_cli(argv: list[str], stdin: str, cwd: Path, env: dict[str, str]) -> tuple[int, str]:
     group = {"start_new_session": True} if os.name != "nt" else {}
-    with subprocess.Popen(argv, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
-                          cwd=cwd, env=env, **group) as proc:  # bytes: no newline translation on Windows
-        try:  # a plain SIGTERM would end this process and leave the CLI (and its spend) running
-            previous = signal.signal(signal.SIGTERM, _terminate)
-        except ValueError:  # not the main thread
-            previous = None
-        try:
-            stdout, _ = proc.communicate(stdin.encode("utf-8"), timeout=CLI_TIMEOUT_S)
-        except BaseException:  # a timeout, Ctrl-C, SIGTERM or any error: nothing of the CLI may outlive this call
-            _kill_tree(proc)
-            try:
-                proc.communicate(timeout=10)
-            except subprocess.TimeoutExpired:  # a descendant that left the process group still holds the pipe
-                pass
-            raise
-        finally:
-            if previous is not None:
-                signal.signal(signal.SIGTERM, previous)
-        return proc.returncode, stdout.decode("utf-8", "replace")
+    try:  # a plain SIGTERM would end this process and leave the CLI (and its spend) running
+        previous = signal.signal(signal.SIGTERM, _terminate)
+    except ValueError:  # not the main thread
+        previous = None
+    try:
+        # The request goes in through a file, not a pipe: on Windows `communicate` writes a pipe's input
+        # before the timeout starts to count, so a CLI that stalls before reading its prompt would hang the run.
+        with tempfile.TemporaryFile() as request:  # bytes: no newline translation on Windows
+            request.write(stdin.encode("utf-8"))
+            request.seek(0)
+            with subprocess.Popen(argv, stdin=request, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                                  cwd=cwd, env=env, **group) as proc:
+                try:
+                    stdout, _ = proc.communicate(timeout=CLI_TIMEOUT_S)
+                except BaseException:  # a timeout, Ctrl-C, SIGTERM or any error: nothing of the CLI may outlive this call
+                    if previous is not None:
+                        signal.signal(signal.SIGTERM, signal.SIG_IGN)  # a second SIGTERM must not interrupt the kill
+                    _kill_tree(proc)
+                    try:
+                        proc.communicate(timeout=CLI_KILL_WAIT_S)
+                    except subprocess.TimeoutExpired:  # a descendant that left the process group still holds the pipe
+                        pass
+                    raise
+                return proc.returncode, stdout.decode("utf-8", "replace")
+    finally:
+        if previous is not None:
+            signal.signal(signal.SIGTERM, previous)
 
 
 def _cli_argv(claude_bin: str, cfg: RivalConfig, run_dir: Path, tree_root: Path, budget_usd_micros: int) -> list[str]:

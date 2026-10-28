@@ -21,7 +21,7 @@ from snowball_bootstrap.rival import ToolBox, run_rival, validate_verdict
 from snowball_bootstrap.rival_mcp import RivalServer, serve
 from snowball_bootstrap.treehash import TreeError, extract, iter_files, tree_hash
 
-from helpers import install_fake_claude, ok_result, posix_only, process_alive, submit
+from helpers import install_fake_claude, ok_result, posix_only, submit
 
 CFG = RivalConfig(model="claude-sonnet-5-5", effort="medium", max_turns=5, per_run_cap_usd_micros=5_000_000)
 REFS = [{"path": "referee/a.py", "line_start": 1, "line_end": 1}]
@@ -82,6 +82,57 @@ class RivalRunGaps(FakeCliMixin, unittest.TestCase):
         with mock.patch.object(rival, "CLI_TIMEOUT_S", 1):
             out = self.run_with({"sleep": 5, "calls": [submit()], "result": ok_result()}, budget=123_456)
         self.assertEqual((out.reasons, out.cost_usd_micros), (["api_error:TimeoutExpired"], 123_456))
+
+    def test_a_cli_that_never_reads_its_prompt_is_still_stopped_by_the_timeout(self):
+        """V2: on Windows `communicate` wrote the whole request into a pipe before the timeout began to count."""
+        stalled = [sys.executable, "-c", "import time; time.sleep(30)"]
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(rival, "CLI_TIMEOUT_S", 2):
+            started = time.monotonic()
+            with self.assertRaises(subprocess.TimeoutExpired):
+                rival._run_cli(stalled, "x" * 3_000_000, Path(tmp), dict(os.environ))
+            self.assertLess(time.monotonic() - started, 15)
+
+    def test_sigterm_is_handled_before_the_cli_starts_and_ignored_while_it_is_killed(self):
+        """V2: a SIGTERM between Popen and the handler, or during the kill, used to leave the CLI running."""
+        before = signal.getsignal(signal.SIGTERM)
+        at_start, at_kill = [], []
+        real_popen, real_kill = subprocess.Popen, rival._kill_tree
+
+        def spy_popen(*args, **kw):
+            at_start.append(signal.getsignal(signal.SIGTERM))
+            return real_popen(*args, **kw)
+
+        def spy_kill(proc):
+            at_kill.append(signal.getsignal(signal.SIGTERM))
+            real_kill(proc)
+
+        stalled = [sys.executable, "-c", "import time; time.sleep(30)"]
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(rival, "CLI_TIMEOUT_S", 1), \
+                mock.patch.object(rival.subprocess, "Popen", spy_popen), mock.patch.object(rival, "_kill_tree", spy_kill):
+            with self.assertRaises(subprocess.TimeoutExpired):
+                rival._run_cli(stalled, "", Path(tmp), dict(os.environ))
+        self.assertIs(at_start[0], rival._terminate)
+        self.assertEqual(at_kill, [signal.SIG_IGN])
+        self.assertEqual(signal.getsignal(signal.SIGTERM), before)  # and put back afterwards
+
+    @posix_only
+    def test_a_descendant_that_left_the_process_group_cannot_hold_the_run_open(self):
+        """V4: it keeps the stdout pipe open, so a second `communicate` without a limit waits for it."""
+        code = ("import subprocess, sys, time; subprocess.Popen([sys.executable, '-c', "
+                "'import os, time; os.setsid(); time.sleep(8)']); time.sleep(8)")
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(rival, "CLI_TIMEOUT_S", 1), \
+                mock.patch.object(rival, "CLI_KILL_WAIT_S", 1):
+            started = time.monotonic()
+            with self.assertRaises(subprocess.TimeoutExpired):
+                rival._run_cli([sys.executable, "-c", code], "", Path(tmp), dict(os.environ))
+            self.assertLess(time.monotonic() - started, 6)
+
+    def test_an_init_that_does_not_name_its_api_key_source_is_not_trusted(self):
+        """V4: the check compares with "none"; a missing key must not pass for it."""
+        init = {"type": "system", "subtype": "init", "tools": rival.TOOL_NAMES, "skills": [], "slash_commands": [],
+                "mcp_servers": [{"name": "snowball", "status": "connected"}]}
+        self.assertEqual(rival._isolation_fault(init, {}), "api_key")
+        self.assertIsNone(rival._isolation_fault(dict(init, apiKeySource="none"), {}))
 
     @posix_only
     def test_a_binary_that_cannot_be_executed_fails_closed_as_an_outage(self):
@@ -176,6 +227,23 @@ class ValidatorBoundaryGaps(unittest.TestCase):
                              self.box)
         kept = validate_verdict(self.attempt(claim="z" * (rival.MAX_CLAIM_CHARS + 50)), self.box)["attempts"][0]["claim"]
         self.assertEqual(len(kept), rival.MAX_CLAIM_CHARS)
+
+    def test_control_characters_and_bool_line_numbers_are_refused(self):
+        """V4: only NUL and a bool line_start were tried"""
+        for char in (chr(27), chr(13), chr(0), chr(8)):
+            with self.assertRaises(ValueError, msg=repr(char)):
+                validate_verdict(self.attempt(reproducer={"cmd": "echo" + char + "x", "expect_exit": 0}), self.box)
+        validate_verdict(self.attempt(reproducer={"cmd": "a" + chr(10) + chr(9) + "b", "expect_exit": 0}), self.box)
+        for field in ("line_start", "line_end"):
+            with self.assertRaises(ValueError, msg=field):
+                validate_verdict(self.attempt(evidence_refs=[dict(REFS[0], **{field: True})]), self.box)
+
+    def test_a_reference_into_a_file_past_the_size_limit_is_marked_invalid(self):
+        """V4: line_count gives up on it, so the reference cannot be checked"""
+        (Path(self.tmp.name) / "referee" / "big.txt").write_bytes(b"a" + chr(10).encode() * rival.MAX_FILE_BYTES)
+        item = validate_verdict(self.attempt(evidence_refs=[{"path": "referee/big.txt", "line_start": 1, "line_end": 1}]),
+                                self.box)["attempts"][0]
+        self.assertFalse(item["refs_valid"])
 
     def test_malformed_attempts_are_refused(self):
         """R48 R50 R51"""
@@ -526,7 +594,7 @@ class EarlyReturnGaps(unittest.TestCase):
         self.assertFalse((self.bin_dir / "seen.json").exists(), "the CLI must not be started")
 
     def test_a_failed_run_carries_exactly_one_reason(self):
-        """D06: test_fail_closed_outcomes matches with any(startswith), so a second, stray reason passes."""
+        """D06: a failed run says why once; an earlier check matched with any(startswith), so a stray second reason passed."""
         out = self.run_with({"garbage": True, "exit": 1})
         self.assertEqual(out.reasons, ["api_error:cli_exit_1"])
 
