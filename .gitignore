@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.python-version
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Node (workflow tooling, fixtures)
+node_modules/
+.nx/
+coverage/
+
+# Secrets and credentials: never committed
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+secrets/
+credentials*.json
+
+# Local trial runs and scratch; repository-specific state lives in the target repo, not here
+.trial/
+.scratch/
+.brain/
+worktrees/
+*.log
+
+# Editors and OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
