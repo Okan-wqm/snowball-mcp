@@ -105,7 +105,16 @@ def _match(run: VectorRun, spec: dict[str, Any]) -> None:
                    f"got {got}")
 
 
-GROUPS = (("chain", _chain), ("cp_lower", _cp), ("mcnemar", _mcnemar), ("match", _match))
+def _drill(run: VectorRun, spec: dict[str, Any]) -> None:
+    """Lesson drill judge (`tohum/29c`): every simulated brain gets the reference verdicts. The
+    ``tampered_key`` case is the changed input of ``learner``: same run, answer key edited after it."""
+    for item in spec["cases"]:
+        out = run.call(f"python -m harness.drill judge {shlex.quote('/vec/' + item['file'])}")
+        got = (out.get("drill"), out.get("verdicts")) if out else (None, None)
+        run.record(f"drill.{item['name']}", got == (item["drill"], item["verdicts"]), json.dumps(got)[:200])
+
+
+GROUPS = (("chain", _chain), ("cp_lower", _cp), ("mcnemar", _mcnemar), ("match", _match), ("drill", _drill))
 
 
 def run_vectors(runner: Runner, vectors_dir: Path, done_mf: tuple[int, ...], timeout_s: int = 120) -> list[dict]:

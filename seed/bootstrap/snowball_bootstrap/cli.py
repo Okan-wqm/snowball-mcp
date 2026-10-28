@@ -34,7 +34,7 @@ SEATS_FILE = "29-tohum-koltuklari.md"
 PIP_PLATFORMS = ("manylinux_2_39_x86_64", "manylinux_2_34_x86_64", "manylinux_2_28_x86_64",
                  "manylinux_2_17_x86_64", "manylinux2014_x86_64", "any")
 SPEC_PAGES = ("00-", "00a-", "02-", "03-")
-CODE_PAGES = ("00-", "00a-", "04-", "04a-", "08-", "29a-", "29b-")
+CODE_PAGES = ("00-", "00a-", "04-", "04a-", "08-", "29a-", "29b-", "29c-")
 CODE_STAGE_PAGES = ("asama-0/09-", "asama-0/14-")
 
 

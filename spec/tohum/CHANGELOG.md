@@ -37,7 +37,12 @@ Okunma: bir sayfanın geçmişi aranırken
   mekanik denetleyemezdi; şimdi özet yetenekleri listeler, satırlar `#kimlik` taşır ve Aşama 1
   ile 4'ün eksik satırları eklendi. 15 dakikalık yoklama ayda ~2.900 Actions dakikası harcardı;
   yoklama saatliktir, boşta hiçbir şey kurmaz ve dakika hesabı `25`'tedir. Politika başlangıç
-  değerleri `18a` (anayasal) ve `18b` (performans) olarak bölündü.
+  değerleri `18a` (anayasal) ve `18b` (performans) olarak bölündü. Ardından provanın kendisi
+  sınandı (`29c`, `seed/drill/`): referans yargıç, bir öğrenen ve 14 kusurlu simüle beyin; 500'er
+  provada öğrenen hiç FAIL almadı (498 PASS), kusurluların hiçbiri PASS almadı; yargıçtaki 19 kasıtlı
+  bozmanın hepsi yakalandı. Bu ölçüm üç hatayı düzeltti: plasebo %90'da on provada bir öğreneni
+  haksız düşürüyordu (artık %99); k = 12 öğreneni %4 düşürüyordu (artık 20); ilgisiz bir kırılma
+  çelişki sayılıyordu (artık örneğin kendi tuzak testi). Kredi yöntemi Newcombe'a sabitlendi.
 - 2.1 (2026-10-28): ikinci beş incelemeden (istekler ve kararlar, bağlantı ve veri akışı, mantık,
   uçtan uca simülasyon, kırmızı takım) doğrulanan bulgular. Hakem reposu: oyuncu kendi hakemini
   yazamaz; kapı, kullanıcı hesabında da çalışan, yalnız hakem App'inin raporlayabildiği zorunlu

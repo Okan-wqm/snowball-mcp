@@ -21,7 +21,7 @@ Okunma: yeni terim ya da dosya eklerken
 | Aday paketi | Bulgu, diff ve organ tanım hash'leri (`26a`) |
 | `impact_miss` | Merge sonrası kırmızının nedeni beyan edilen etki kümesinin dışında |
 | Tohum dışı organ | Tohumda adı geçmeyen ve ablasyonda katkısı kanıtlanmış organ; sistemin kendi keşfinin ölçüsü. Provaya konan (`planted`) organ sayılmaz |
-| Prova | Cevabı önceden hash'le bağlanmış, oyuncak hedefte koşan çıkış testi: ders provası, geri alma ve bağlam provası (`22a`), genesis provası (`12a`) |
+| Prova | Cevabı önceden hash'le bağlanmış, oyuncak hedefte koşan çıkış testi: ders provası, geri alma ve bağlam provası (`22a`), genesis provası (`12a`); referans yargıç `29c` |
 | Ret hafızası, `not_learning` | Önyükleme hakeminin ret imzası sayacı; aynı imza ardışık sınırı aşınca Kurucu oturumu durur (`29b`) |
 | Lisans kapısı | Bağımlılığın lisansını tekerleğin kendisinden okuyup `license_allowlist`'e karşı denetleyen kapı (`24`) |
 | Harness puanı | Hakem harness'inin bir koşuya verdiği rapor |

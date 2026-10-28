@@ -6,12 +6,16 @@ import json
 import math
 import shlex
 import subprocess
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable
 
 from snowball_bootstrap.canon import row_hash
 from snowball_bootstrap.container import RunResult
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "drill"))
+from snowball_drill import judge as drill_judge  # noqa: E402  (reference judge, `tohum/29c`)
 
 # ---------------------------------------------------------------- reference founder implementation
 
@@ -132,6 +136,14 @@ class FakeRunner:
             if "score_counts_twice" in self.wrong:
                 hits = len(cases)
             return ok({"hits": hits})
+        if argv[:4] == ["python", "-m", "harness.drill", "judge"]:
+            doc = json.loads((self.vec_dir / argv[4].removeprefix("/vec/")).read_text())
+            if "drill_ignores_commitment" in self.wrong:
+                doc["commitment_sha256"] = drill_judge.commitment(doc["answer_key"])
+            result = drill_judge.judge(doc)
+            if "drill_lenient" in self.wrong:
+                result = {"drill": "PASS", "verdicts": {q: "PASS" for q in drill_judge.QUESTIONS}}
+            return ok(result)
         if cmd == "exit 0":
             return RunResult(0, b"", b"", 1)
         return RunResult(1, b"", b"unknown command", 1)

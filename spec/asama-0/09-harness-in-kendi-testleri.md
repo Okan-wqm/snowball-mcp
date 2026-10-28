@@ -35,7 +35,7 @@ Testleri Kurucu yazar; önyükleme hakemi onları her push'ta `koş`ta koşturur
 | 22 | Dispatch kanaryası: oyuncak repodaki hook, `.mcp.json` sunucusu ve yönerge dosyası `agent.dispatch` oturumunda yüklenmez | Aşama 0 |
 | 23 | Yalnız düz dosya: sembolik bağ, alt modül, `../` yolu ya da ret listesindeki yol içeren aday reddedilir | Aşama 0 |
 | 24 | Kayma: kurulum özetinden farklı kural, beyan dışı App ya da `brain/**`'da sırla tetiklenen hedef iş akışı taklidi sert duruş üretir | Aşama 0 |
-| 25 | Geri alma: nöbetçi kırmızısında hakem son merge'ü geri alır, `cause` yazılır. `exit.drill`: cevap anahtarının hash'i koşudan önce zincirde; açılım eşleşmezse prova `FAIL`; tohumlanmış kötü merge'ün `cause`'u anahtarla aynı | Aşama 0 |
+| 25 | Geri alma: nöbetçi kırmızısında hakem son merge'ü geri alır, `cause` yazılır. `exit.drill`: cevap anahtarının hash'i koşudan önce zincirde; açılım eşleşmezse prova `FAIL`; tohumlanmış kötü merge'ün `cause`'u anahtarla aynı; `harness.drill` prova vektörlerinde referans yargıçla aynı kararı verir (`tohum/29c`) | Aşama 0 |
 | 26 | Kapalıya düşme: kill switch, bütçe tavanı, Rekor hatası, kayma, rakip zaman aşımı işi durdurur ya da reddeder | Aşama 0 |
 | 27 | Çıkış örneklemi: aynı tohum aynı örneklem, farklı tohum farklı; mutasyonla üretilebilen her kural en az bir vaka | Aşama 0 |
 | 28 | İstatistik: vektörlerdeki CP, `x_eff` ve tam McNemar değerleri | Aşama 0 |

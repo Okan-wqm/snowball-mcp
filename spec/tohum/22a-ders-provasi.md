@@ -22,16 +22,20 @@ listesi aşama spec'indedir ve donar. Sonuç, açılan gizli testin adayın work
 
 | Soru | Nasıl sorulur | Geçme koşulu |
 |---|---|---|
-| Doğuş | Ailenin ilk örneği dersiz koşar; gizli test açılınca kırmızı | Hakem kırmızıyı geri alma olarak işler; `cause` cevap anahtarındaki kategoriyle aynı; ders `origin_event` ile o satıra bağlı ve `scope` ailenin koşulunu taşıyor |
+| Doğuş | Ailenin ilk örneği tohumlanmış kötü bir merge'tür; nöbetçi kırmızıyı görür | `gate.revert` geri alır; `cause` cevap anahtarındaki kategoriyle aynı; ders `origin_event` ile o satıra bağlı ve `scope` aileyi taşıyor |
 | Kullanım | Ailenin sonraki örnekleri ve başka bir ailenin örnekleri | Dispatcher dersi uygun her koşuya verir, öteki aileye vermez; `run_meta.lessons_injected` ve `prompt_sha256` bunu gösterir; planlayıcı ve düzeltici alır, test-yazıcı ve oracle almaz |
 | Etki | `k` örnek, her biri dersli ve derssiz iki kolda | Eşli, tam tek yönlü McNemar; en az 8 uyuşmaz çift; p < 0,10; yön dersten yana (`gate_rules.lesson_drill`) |
-| Yanlış ders | İkinci ailede `llm_prior` kökenli, o ailede yanlış bir ders hipotez olarak verilir | Çelişen test kazanır; ders `superseded_at` alır ya da `scope.conditions` daralır; o koşuldaki sonraki örneklere verilmez |
-| Plasebo | Doğru ama ilgisiz bir ders aynı rastgele saklamayla verilir | Fark alt sınırı sıfırı geçmez; sıralamada etkili dersin önüne geçmez |
+| Yanlış ders | İkinci ailede `llm_prior` kökenli, bir koşulda zararlı bir ders hipotez olarak verilir | O koşulda örneğin kendi tuzak testi kırılınca ders `superseded_at` alır ya da koşul dışlanır, ders kaydına yazılır; o koşuldaki sonraki örneklere verilmez |
+| Plasebo | Ham isabeti dersinkinden yüksek, kolay bir ailede doğru ama ilgisiz bir ders aynı rastgele saklamayla verilir | Beynin bildirdiği kredi hakemin Newcombe alt sınırına eşit; plasebonun kredisi sıfırı geçmez; sıralama krediyi izler, ham orana göre sıralayan yakalanır |
 | Kalıcılık | Görünüm silinir; yeni oturum açılır | Görünüm defterden bayt bayt aynı kurulur; sonraki örnekte aynı ders aynı hash'le verilir |
 
 Provada kollar rastgele saklama yerine eşlidir: her örnek iki kez koşar. Canlıdaki rastgele saklama
 kuralı (`22`) değişmez. Aileyi bilen Kurucu bir kestirme yazsa da prova geçmez: dersten bağımsız bir
-kestirme iki kolu birlikte geçirir ve uyuşmaz çift üretmez. Derssiz kolun da kırılmadığı aile ölçülemez; prova `UNMEASURABLE` olur ve
+kestirme iki kolu birlikte geçirir ve uyuşmaz çift üretmez.
+
+**Provanın kendisi de sınanır.** Kararı veren yargıcın tam kuralları, tohumla gelen referans
+yargıç ve 14 ayrı kusurlu simüle beyinle ölçülmüş ayırma gücü `29c`'dedir. Kurucu'nun yazdığı
+yargıç vektörlerde referansla aynı kararı vermezse Aşama 0 kabul edilmez. Derssiz kolun da kırılmadığı aile ölçülemez; prova `UNMEASURABLE` olur ve
 aile değiştirilir.
 
 ## Geri alma provası (`#geri-alma`)

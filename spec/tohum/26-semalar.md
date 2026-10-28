@@ -74,7 +74,7 @@ attempts:[{claim, evidence_refs, reproducer?}], reproduced}`. `reproduced` hakem
 
 **drill payload** (`part: drill`): `{drill: lesson|revert|context|genesis, question, family,
 instance_id, arm?: with|without, commitment_sha256, revealed_sha256?, outcome, verdict}`.
-Taahhüt hash'i koşudan önce, açılım koşudan sonra yazılır; ikisi eşleşmezse prova `FAIL`'dır.
+Taahhüt koşudan önce, açılım koşudan sonra yazılır; eşleşmezse prova `FAIL`'dır. Prova dosyası `29c`'de.
 
 Diğer şemalar (ders, bilgi, öneri, harita, organ, itibar, rapor, profil, politika, test-yazıcı,
 bakış, mühür, sözleşme) `26b`'dedir.

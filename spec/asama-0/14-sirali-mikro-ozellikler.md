@@ -28,7 +28,7 @@ repodadır; hedefe bu aşamada yazılmaz. Test numaraları §0.9'dandır.
 15. `gate.diffguard`; test 23.
 16. `gate.check`; test 35.
 17. `sentinel.run`; test 36.
-18. `gate.revert` ve geri alma provası (`exit.drill`, `tohum/22a`); test 25.
+18. `gate.revert`, geri alma provası ve prova yargıcı (`exit.drill`, `harness.drill`; `tohum/22a`, `tohum/29c`); test 25.
 19. `drift.check`; test 24.
 20. `llm.call`; test 37.
 21. `secrets.scan`; test 38.

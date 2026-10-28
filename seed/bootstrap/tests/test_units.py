@@ -115,6 +115,17 @@ class VectorsTest(unittest.TestCase):
                       if not r["ok"]}
             self.assertIn(prefix, failed, wrong)
 
+    def test_drill_vectors_need_a_judge_that_fails_non_learners(self):
+        honest = run_vectors(FakeRunner(VECTORS), VECTORS, (18,))
+        self.assertEqual(len(honest), 16)
+        self.assertEqual([r for r in honest if not r["ok"]], [])
+        lenient = {r["id"] for r in run_vectors(FakeRunner(VECTORS, wrong={"drill_lenient"}), VECTORS, (18,))
+                   if not r["ok"]}
+        self.assertEqual(lenient, {r["id"] for r in honest} - {"drill.learner"})
+        blind = {r["id"] for r in run_vectors(FakeRunner(VECTORS, wrong={"drill_ignores_commitment"}), VECTORS,
+                                             (18,)) if not r["ok"]}
+        self.assertEqual(blind, {"drill.tampered_key"})
+
 
 class ControlsTest(unittest.TestCase):
     def test_honest_runner_passes(self):

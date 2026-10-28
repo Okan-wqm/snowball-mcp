@@ -50,8 +50,8 @@ gün için doğru olanı yapar ve bunu şöyle sağlar:
 Hangi derslerin hangi koşuya verildiğini ajan değil **dispatcher** yazar (`lessons_injected`).
 Sonuç (hayatta kaldı ya da geri alındı) sayaçlara hakem tarafından mekanik olarak işlenir.
 Nedensellik için dispatcher **her dersi bağımsız olarak** uygun koşularda rastgele saklar; ders
-yalnız verilen ve saklanan kollar arasındaki farkla kredi alır. Fark, Newcombe alt sınırıyla ya da
-iki Beta posterioru üzerinde Monte Carlo ile hesaplanır (iki oranın farkı Beta dağılmaz). Kol
+yalnız verilen ve saklanan kollar arasındaki farkla kredi alır. Kredi, farkın Newcombe alt
+sınırıdır (karma skor yöntemi, tek yönlü %90); deterministiktir, hakem yeniden hesaplar (`29c`). Kol
 başına `rules.lesson_n_min` koşudan azsa dersin etkisi `UNMEASURABLE`'dır. Okuyucu dersleri ham
 isabet oranına göre değil, fark alt sınırına göre sıralanmış ilk N olarak görür; ham isabet taban
 oranını ödüllendirirdi. İki pencere boyunca verilmeyen ders arşive iner; farkın üst sınırı sıfırın

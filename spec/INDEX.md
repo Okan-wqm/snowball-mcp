@@ -57,6 +57,7 @@ Okunma: sayfa ararken; görev seçmek için `tohum/00b-gorev-haritasi.md`
 | `tohum/29-tohum-koltuklari.md` | Tohum Koltukları: Rakip, Test-Yazıcı, Şerit Yazarı | kurulumda ve Aşama 0 başında |
 | `tohum/29a-tohum-vektorleri.md` | Tohum Vektörleri: Değişmeyen Beklenen Çıktılar | zincir, istatistik ve puanlama kodu yazarken |
 | `tohum/29b-onyukleme-hakemi.md` | Önyükleme Hakemi: Aşama 0'ın Yargıcı | kurulumda ve Aşama 0 boyunca |
+| `tohum/29c-prova-vektorleri.md` | Prova Vektörleri: Ders Provasının Referans Yargıcı | `exit.drill`'in yargıcını yazarken (Aşama 0, mikro özellik 18) ve ders provası tasarlanırken |
 | `tohum/CHANGELOG.md` | Değişiklik Günlüğü — Tohum | bir sayfanın geçmişi aranırken |
 
 ## Aşama 0 — Ölçüm Zemini ve Hakem

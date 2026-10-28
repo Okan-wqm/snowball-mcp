@@ -40,13 +40,19 @@ Two rules run through everything:
   restart (`spec/tohum/22a-ders-provasi.md`); and that the system grows an organ from a measured
   gap, retires a useless one, replaces a weak one and does not grow without need
   (`spec/tohum/12a-genesis-provasi.md`). A stage that brings one of these capabilities cannot pass
-  its exit without the drill. The bootstrap also remembers its own rejections and stops the founder
+  its exit without the drill. The lesson drill's judge is itself tested: `seed/drill/` holds a
+  reference judge and simulated brains, one that learns and uses what it learned and fourteen that
+  each lack one part of it. Over 500 drills each, the learner passed 498 times and was never
+  failed. None of the fourteen ever passed. The founder's own judge must give the same verdicts on
+  the resulting vectors (`spec/tohum/29c-prova-vektorleri.md`). These are simulated brains; whether
+  the real brain learns is shown when the drill runs on it. The bootstrap also remembers its own rejections and stops the founder
   when the same rejection comes back three times in a row.
 
 Run its tests with:
 
 ```
 cd seed/bootstrap && PYTHONPATH=.:tests python3 -m unittest discover -s tests
+cd seed/drill && python3 -m unittest discover -s tests
 ```
 
 ## Where to start
@@ -70,6 +76,7 @@ spec/
   asama-4/      Stage 4: pattern-free LLM hunter for logic bugs (target draft)
 seed/
   bootstrap/    the bootstrap referee: package, workflow, pinned requirements, vectors, tests
+  drill/        reference judge of the lesson drill and the simulated brains that test it
 ```
 
 **Why there is no Stage 2 or Stage 3 directory.** The stage protocol makes the founder draft each

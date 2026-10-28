@@ -71,6 +71,7 @@ stdout'ta tek satır JSON'dur:
 - `python -m harness.stats mcnemar <b> <c>` → `{"p": "0.062500"}`
 - `python -m harness.score <bulgular> <vakalar>` (iki JSON dizisi) → `{"hits": int}`; eşleme fikstürleri önyükleme
   hakemiyle birlikte `seed/bootstrap/vectors/` altında gelir.
+- `python -m harness.drill judge <prova dosyası>` → `{"drill": ..., "verdicts": {...}}`; kurallar ve vektörler `29c`'de.
 
 Karşılaştırma tablodaki basamak sayısıyla yapılır.
 
