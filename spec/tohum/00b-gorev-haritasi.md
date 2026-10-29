@@ -14,6 +14,7 @@ Okunma: her oturumda, görev seçilirken
 | Aşama açma ve kapama | `02`, `03`, `19`, ilgili `asama-N/00-ozet.md` |
 | Hakem bileşeni yazma (Aşama 0 ve partiler) | `01a`, `01b`, `08`, `26a`, `29`, `29a`, `29b`, `asama-0/14`, `asama-1/13` |
 | Koda ya da dokümana dokunma | `04`, `04a`, `05`, `07`, `08`, `23` |
+| Mimari seçim: doğruluk kaynağı, tekrar, sınırlar, değişim, evrim, belge (danışma) | `31`, `31a`, `31b`, `31c`, `31d`, `31e`, `31f`, `31g`, `31h` |
 | Güvenlik: açık arama, bildirim, test, defter | `30`, `30a`, `30b`, `30c`, `30d`, `30e`, `30f`, `03`, `05` |
 | Artefakt üretme ve değerlendirme | `10`, `10a`, `09a`, `11`, `29` |
 | Organ yazma ve kaldırma | `09`, `12`, `12a`, `17` |
