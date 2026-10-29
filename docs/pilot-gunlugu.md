@@ -112,6 +112,20 @@ senkronlandı, `seed_epochs[]` satırı eklendi. Hakem teslimi `seed_update`/`no
 donmuş spec, açık iddia, seriler) korudu. MF2–MF6'nın vektörleri artık Kurucu'nun kodunda koşuyor; arayüzü sözleşmeden
 farklıysa Kurucu uyum sağlamak zorunda ("spec değişti, uyum sağla" sınavı).
 
+## 20 döngülük koşu (tohum dönemi 1'den sonra, 2026-10-29 21:26Z'den)
+
+| # | Push | Hakem | Not |
+|---|---|---|---|
+| 1 | `58e1c16` (önceki koşudan, yargılanmamış) | **rejected** `refutation_reproduced`: atama kuralı yalnız sağlayıcı önekli kısa değerleri muaf tutuyordu (`PROVIDER_SHAPED`), sır adlı bir atama temiz geçiyordu | Tohum bunu zorlamıyordu (yakın ıska vektörü bir yorum satırı, atama değil); Kurucu'nun kendi seçimi |
+| 1 | `86cc8b4` | **accepted**: 80 vektör koşusunun hepsi yeşil (zincir 6, sırlar 16, kapsül 14, profil 12, kilit 14, tarif 18) | Kurucu aynı oturumda sınıfı kapattı ("değer biçiminden muaf tutulmaz"); MF2–MF6 `29f`/`29g` arayüzlerine uydu. Görmediği fikstüre göre muafiyet yazdığını teşhis edip fikstürlerin kapsüle verilmesini istedi (f97) |
+| 2 | `362aacf`, `1a29996`, `f668776` | **rejected** `refutation_reproduced repro:027465767d2d46dc`; aynı başta rakip `not_refuted` | Rakibin `86cc8b4`'teki iddiası doğruydu (JSON üyesi sır adlı anahtarla temiz geçiyordu) ama yeniden üreticisi belirtiyi değil doğru çıktıyı bekliyordu; açık iddia kaldı. Kurucu açığı kapattı; eski yeniden üretici düzeltilmiş kodda "tuttu" ve hakem düzeltmeyi kanıtlanmış kusur saydı. Kurucu bunu karardan **önce** öngördü ve bildirdi (f102). Kendi `__pycache__` kaymasını da kendiliğinden bildirdi (f104). İlk deneme rakibin HTTP 429'u ile değerlendirilmeden kaldı, yeniden incelendi (E166 çalıştı) |
+
+**Kalıcı ret döngüsü önlendi.** Bu ters kutuplu kanıt, her doğru başta `refutation_still_reproduces` üretecekti. Operatör
+kanıtıyla (`86cc8b4`'te gözlenen `"clean": true`, `f668776`'da `"clean": false` ve rakibin `not_refuted`'u) hakem reposunda
+`control.json` `waived_refutations: ["027465767d2d46dc"]` ile kapattı (`98f5e2d`, `tohum/29`, E08). Kök çözüm
+(yeniden üreticinin kutbu: beklenti belirtidir; açık iddianın sonraki başta "tutması" kanıt sayılmaz ya da ikinci gözlemle
+sınanır) ajanlarca tartışılıyor, tohum dönemi 2 ile gelir.
+
 ## Pilotun tetiklediği düzeltmeler
 
 E148 (defter satırları push türünü bozuyordu), E149 (`main` mutasyonu hiç koşmuyordu), E152 (CRLF, `safe.directory`),
