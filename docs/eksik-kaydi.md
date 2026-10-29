@@ -150,6 +150,14 @@ hepsi yazılıdır. Bulguları birleştiren ve doğrulayan: Claude Code (Opus 5.
 | E137 | Üçüncü taraf ve upstream açıkları için sorumlu ifşa yolu yok; ifşa edilmemiş açıktan dedektör yayılabilir | B | evet (ifşa politikası) | e2e-4 S10 | açık |
 | E138 | Özel kod ve açık ayrıntıları tüketici aboneliğinin veri koşullarıyla gidebilir | B | evet | e2e-4 S11 | açık |
 | E139 | Rekor repo, sahip, commit, koşu adresi ve görünürlüğü kalıcı yayımlar (E59'daki 'yalnız hash' yanlış); kimlik denetimi ada dayalı | S | evet | e2e-4 S12 | açık |
+| E140 | Sonu `/refs/heads/main` olan bir dal adı `poll`'u her saat durduruyor (`ls-remote` kuyruk eşlemesi) | K | — | e2e-5 K1 | açık |
+| E141 | Tohum vektörleri sırasında Docker arızası (125) Kurucu'nun `vector_failed` reddine dönüşüyor (E01 sınıfı) | K | — | e2e-5 K2 · parti 2'ye eklendi | açık |
+| E142 | Boşluk ya da glob karakterli kilit dosyası yolu bütün kapsayıcı komutlarını kırıyor | K | — | e2e-5 K3 | açık |
+| E143 | `run.json` yoksa rakip harcaması yazılmıyor (E13'ün planında olmayan yol) | B | — | e2e-5 K7 · parti 2'ye eklendi | açık |
+| E144 | Rakibin satır sonları git'inkiyle aynı değil: CR diff'i bölüyor, form feed satır numaralarını kaydırıyor | B | — | e2e-5 K9 | açık |
+| E145 | Ay sınırını geçen bir koşunun harcaması iki ayın hiçbirine yazılmıyor | S | — | e2e-5 K10 | açık |
+| E146 | Ayrıştırılamayan `license_exceptions` ifadesi traceback ile çöküyor (operatör yazım hatası durma olmalı) | S | — | e2e-5 K11 | açık |
+| E147 | `pull` boyut sınırından önce bütün ağacı belleğe alıyor ve reddettiği büyük ağacı yine gönderiyor | S | — | e2e-5 K12 | açık |
 | E62 | Filo genelinde güvenlik: bir repoda doğrulanan açık dedektöre dönüşür, gizlilik duvarından geçer, bağlı bütün repolarda taranır; her repoya yalnız kendi açığı bildirilir | B | operatör yönü | operatör, 2026-10-29 | açık (çok repo ile, `21`) |
 | E60 | Satış zamanı: sistemin ürettiği dosyaların yeri; varsayılan müşteride, açık izinle müşteri başına ayrı, özel, şifreli barındırma; güvenlik bulguları hep müşteride | satış | operatör sorusu | operatör, 2026-10-29 | satışta açılır |
 | E61 | Satış zamanı: repolar arası öğrenmede gizlilik duvarı; kalıp taşınır, müşteri bilgisi taşınmaz; terfi öncesi otomatik sızıntı kontrolü ve sözleşmede izin | satış | operatör sorusu | operatör, 2026-10-29 | satışta açılır |
@@ -855,6 +863,28 @@ Denetçi okuyucu grafiğini betikle kurdu ve kilitlenmeyi gerçek `classify` ile
 - **E139 (S12).** E59 ve `13` düzeltilir; özel repo sonuçları özel bir Sigstore örneğiyle ya da mühürlü depodaki
   anahtarla imzalanır; doğrulamadan sonra sertifika uzantıları `.1.15` (repo kimliği) ve `.1.17` (sahip kimliği)
   `setup/summary.json`'daki kimliklerle karşılaştırılır.
+
+### Uçtan uca denetim · hakem kodu (e2e-5)
+Her kusur bir karalama kopyasında ya da betikte yeniden üretildi (`scratchpad/e2e_audit_5/`).
+- **Birleştirilenler.** K4 ve K8 → E130: büyük-küçük harf takma adı (`referee/Policy.json` operatörün `policy.json`'unu
+  `import OK` ile değiştirdi; `referee/SETUP/summary.json` da) ve `.git.`/`GIT~1` iki denetçi tarafından bağımsız
+  doğrulandı. K5 → E130: ad kuralı ayrıca `<>"|?*`, sondaki nokta ya da boşluk, ayrılmış aygıt adları (CON, PRN, AUX,
+  NUL, COM1-9, LPT1-9, uzantılı) ve büyük-küçük harf çakışmalarını reddeder; içe aktarma kardeş bir geçici dizine açar,
+  sonucu imzalı hash'le yeniden hash'ler, sonra değiştirir; hata olursa checkout bayt bayt aynı kalır (E04 planının
+  uygulanmamış kısmı). K6 → E11: `secret_in_verdict` rakip tarafında, `secret_in_prompt` Kurucu tarafında; parti 2'ye
+  iletildi.
+- **E140 (K1).** `remote_head` yalnız ref'i `refs/heads/{branch}`'e eşit olan satırı tutar; hiç yoksa durur. Test: gerçek
+  çıplak uzakta `main`, `refs/heads/main` ve `x/refs/heads/main` → `main`'in SHA'sı; mutant: `len(lines) != 1`.
+- **E141 (K2).** Vektör sonucuna çıkış kodu (son deneme 125 ise `runner_fault`); `decide` bunu 125'li test gibi `infra
+  kos:docker` sayar. Parti 2'ye iletildi.
+- **E142 (K3).** Kilit yolları `[A-Za-z0-9._/-]` ile sınırlı, aksi `manifest_invalid` (ya da satır satır `IFS= read -r` ve
+  `set -f`); POSIX prelüd testi.
+- **E143 (K7).** `rival.json` varsa `cost_usd_micros` her durumda yazılır. Parti 2'ye iletildi.
+- **E144 (K9).** Yalnız `\n` satır sonu (`split("\n")`), diff `newline=""` ile okunur, rakibin isteğinde `\r` görünür;
+  test: CR'li diff tek `+` satırı, form feed'li dosyada grep 6. satırı verir.
+- **E145 (K10).** `decide`'a güncel ay verilir, yazmadan önce ay devri orada yapılır.
+- **E146 (K11).** `load_policy` ifadeleri ayrıştırır, pini adlandıran `ConfigError` verir.
+- **E147 (K12).** Arşivlemeden önce `ls-tree -l` ile blob boyutları toplanır; ağaç çok büyükse `brain.tar` yazılmaz.
 
 ## Doğrulanmış sağlam taraflar
 Kapsayıcı bayrakları ve kırmızı kontroller; host'ta kabuk enjeksiyonu yok; `$GITHUB_OUTPUT`'a serbest
