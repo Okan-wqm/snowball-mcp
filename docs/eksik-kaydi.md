@@ -98,7 +98,7 @@ hepsi yazılıdır. Bulguları birleştiren ve doğrulayan: Claude Code (Opus 5.
 | E85 | Model değişiminde yeniden yeterlilik protokolü yok; bütün seatler tek aileden | B | evet | e2e-8 G10 | onaylandı · açık |
 | E86 | Rekor erişilebilirliği sert durma; tek operatör için aşırı | B | evet | e2e-8 G11 | onaylandı · açık |
 | E87 | Bağımlılık açıklarını kapatmak kalıcı yasak (Y3); en sık açık sınıfı bulunur ama kapatılamaz | S | evet (Y3) | e2e-8 G12 | onaylandı · açık |
-| E88 | Tohumu güncelleme yolu yok: operatörün tohum commit'i hakemi kilitler ve Kurucu'ya sayılır; beyin reposunun hangisi olduğu çelişkili | K | evet (beyin reposu) | e2e-1 A1 | onaylandı (yeni ayrı beyin reposu) · açık |
+| E88 | Tohumu güncelleme yolu yok: operatörün tohum commit'i hakemi kilitler ve Kurucu'ya sayılır; beyin reposunun hangisi olduğu çelişkili | K | evet (beyin reposu) | e2e-1 A1 | kapandı · yeni ayrı beyin reposu; tohum dönemi: `setup/summary.json` `seed_epochs[]` (`26c`), son satırın commit'i başken `seed_update` (noop), sonraki push'ların diff'indeki teslim Kurucu'nun değil ve rakibe gitmez, başın `spec/tohum`/`seed` ağaçları satıra eşit olmalı, satır kendi commit'ine uymazsa koşu durur; operatör yolu `seed/founder/README.md` "Tohum teslimi" ve `seed-epoch`; `test_seed_epoch`, 13 mutant; ayrıntı Kapanışlar "E88 E162" |
 | E89 | Kurucu defteri spec'in istediği gibi push edilemiyor; yalnız defter içeren push rakip bütçesi harcıyor | K | — | e2e-1 A2 | açık |
 | E90 | Kurucu kendi ajan yapılandırmasını (`.claude/settings.json`, `CLAUDE.md`, `.mcp.json`) değiştirip yetkisini genişletebilir | K | — | e2e-1 A3 | açık |
 | E91 | Kurucu başlatıcı sözleşmesi yok: başlatma, sürdürme, bütçe, kill switch, sonuç okuma (anonim okuma 401) | K | evet (nerede koşar) | e2e-1 A4 | onaylandı · açık |
@@ -172,11 +172,15 @@ hepsi yazılıdır. Bulguları birleştiren ve doğrulayan: Claude Code (Opus 5.
 | E159 | `29a` zincir CLI'sinin kırık zincirde çıkış kodunu ve `row_id`'siz satırın `broken_row` değerini söylemiyor; hakem çıkış koduna değil stdout JSON'una baktığı için zararsız ama yazılı değil | S | — | **Kurucu raporu** seed-007 (döngü 2) | açık · 29/29b düzenlemesiyle |
 | E160 | `test_an_interrupted_run_takes_the_cli_and_its_children_with_it` init'siz konteynerde kararsız: öldürülen ama biçilmemiş (zombi) süreci `kill(pid, 0)` canlı sayıyor; mutasyon temel koşusunu rastgele durduruyordu | S | — | pilot hazırlığı (6 temel koşudan 6'sı düştü, tam takım geçti) | kapandı · test projenin `helpers.process_alive`'ını kullanıyor (zombi = ölü) |
 | E161 | Aşama 0'ın `chain` dışındaki 16 vektör grubu (`secrets` … `genesis`, `29d`) ve genel veri koşucusu (`{cmd, stdin?, fixture, expect, changed}`) tohumda yok; MF2'den itibaren bitmiş MF'nin tabanı eksik | K | — | E151 kod partisi | açık · beklenen değerler tohum yazarınca iki bağımsız hesapla (`29a`); o güne kadar kod push'unda `vector_group_missing:<grup>` uyarısı, çıkışta ret (E151) |
-| E162 | Çıkış isteği kodda olmayan (A) koşullarında kapalıya düşmüyor: #kurucu-defteri, #is-akisi (MF17'nin `wiring` denetimi dahil; her push'ta da yok), #agac (yalnız büyük-küçük harf duyarlı operatör adı var), #genellik, #spec, #durustluk denetlenmeden `transferable` olabilir | K | — | E151 kod partisi | açık · öneri: her biri gelene kadar `decide` `exit_condition: not_checked:<koşul>` yazar; kendi satırları E107, E132, E130/E131, E102, E79 |
+| E162 | Çıkış isteği kodda olmayan (A) koşullarında kapalıya düşmüyor: #kurucu-defteri, #is-akisi (MF17'nin `wiring` denetimi dahil; her push'ta da yok), #agac (yalnız büyük-küçük harf duyarlı operatör adı var), #genellik, #spec, #durustluk denetlenmeden `transferable` olabilir | K | — | E151 kod partisi | kapandı · `decide.EXIT_NOT_CHECKED`: altı koşulun her biri `exit_condition` `not_checked:<koşul>` ile çıkışı kapalı tutar, Kurucu'ya sayılmaz (`29b` Ret hafızası); `asama-0/10` tablosunun her satırı ya kodda denetlenir ya listededir (test); 3 mutant; denetimlerin kendisi E107, E132, E130/E131, E102, E79'da açık |
 | E163 | `asama-0/14` modülsüz kırmızıda iki okumaya açık: "testlerini … yeşil kalırsa" hepsi mi, biri mi (`calls`'taki "17 ve 18 hepsini çağırır" E157'dir) | S | — | E151 kod partisi | açık · kod test başına okur (`tohum/04` 1: biri yeşil kalırsa ret); metin 29/29b partisinde netleşir |
 | E164 | Rakibe gidecek istekte sır biçimli bir dize bulununca hakem yalnız desenin adını söylüyor (`secret_in_prompt:generic_assignment`), hangi dosyada olduğunu söylemiyor; MF2'nin kendi testleri sahte sır taşıdığı için rakip hiç koşmadı ve Kurucu nereye bakacağını bilmeden reddedildi | B | — | pilot döngü 3 (MF2 `9f229b0`) | kapandı · `rival.secret_paths`: diff'in sırrı taşıyan dosyaları (değer asla), istek metnindeyse `(request text)`, sır biçimli yol adlandırılmaz; `result.rival.secret_paths`; test ve 3 mutant |
 | E165 | Sır tarayıcısını (MF2) inceleyen rakip kararında kimlik bilgisi biçimli bir değer yazdı; hakem kararı haklı olarak kullanmadı (`secret_in_verdict:generic_assignment_bare`), inceleme kayboldu; protokol rakibe böyle dizeleri çalışma anında kurmasını söylemiyordu | B | — | pilot döngü 5 (`99278a5`) | kapandı · `rival.PROTOCOL`: sır biçimli dizeyi asla yazma, yeniden üreticide parçalardan kur (`'gh'+'p_'+'A'*36`), iddiada alıntılama; protokolün kendisinin tarayıcıdan temiz geçtiği test edildi; 1 mutant |
 | E166 | Rakip tarafı bir hata (`secret_in_verdict`, `rival_missing` …) Kurucu'nun hanesine yazılmıyor ama aynı commit yeniden incelenmiyor (`last_evaluated_sha` ilerliyor); Kurucu düzeltemeyeceği bir şey için yeniden push etmek zorunda | B | — | pilot döngü 5 | açık · rakip tarafı hatada aynı commit'i sınırlı sayıda yeniden incelemek (E11'in `rival_side_streak` uyarısıyla) |
+| E180 | Tohum dönemi yalnız `spec/tohum` ve `seed/` taşır (`25` 10b); donmuş `spec/asama-0`'ın düzeltmesi (E157'nin `14` metni gibi) teslimle gelirse sonraki her kod push'u `spec_changed_after_freeze` olur, `spec/INDEX.md` değişikliği teslimi spec isteğine çevirir; donmuş dizini açmak operatör kararıdır (`29b`) ama yolu yok | B | evet (donmuş spec'in tohumla düzeltilmesi) | E88 kod partisi | açık |
+| E181 | Çıkışın tohumdan doğan nedeni `exit_condition vector_group_missing:<grup>` (E151) Kurucu'ya sayılıyor (`decide.counts_against_founder`); `29b` "Ret hafızası" yalnız Kurucu'nun düzeltebildiğini sayar; grup tohumla gelmeden üç çıkış isteği `not_learning` olur | B | — | E162 kod partisi | açık · `not_checked` sayılmaz (E162); bu denetlenen bir koşulun nedeni, dokunulmadı |
+| E182 | Özetin kurulum alanları `seed_commit`, `seed_tree_sha256` `26c`'de yok; `25` 10b ve `26c` ilk dönemi `seed_epochs[]` satırı sayar. Kod kurulum alanlarını kurulum dönemi olarak tutar (başlatıcı E154 için `seed_commit`'i okur), `seed_epochs[]` sonraki teslimleri; dizi yoksa davranış eskisidir | S | — | E88 kod partisi | açık · metin 29/29b partisinde hizalanır |
+| E183 | Taslak `29b`/`29e` (`docs/asama-0-daraltma-29-29b.md`) `seed_update`'i içerikle tanımlar ("yalnız tohum yolları değişmiş ve ağaçlar döneme eşit"); kod teslimin kendisini özetin adlandırdığı commit'le tanır (altındaki Kurucu commit'i onun adıyla yeniden yargılanmasın) ve sonraki push'larda teslim yollarını muaf tutar | S | — | E88 kod partisi | açık · taslak metin bu okumaya göre düzeltilir |
 | E62 | Filo genelinde güvenlik: bir repoda doğrulanan açık dedektöre dönüşür, gizlilik duvarından geçer, bağlı bütün repolarda taranır; her repoya yalnız kendi açığı bildirilir | B | operatör yönü | operatör, 2026-10-29 | açık (çok repo ile, `21`) |
 | E60 | Satış zamanı: sistemin ürettiği dosyaların yeri; varsayılan müşteride, açık izinle müşteri başına ayrı, özel, şifreli barındırma; güvenlik bulguları hep müşteride | satış | operatör sorusu | operatör, 2026-10-29 | satışta açılır |
 | E61 | Satış zamanı: repolar arası öğrenmede gizlilik duvarı; kalıp taşınır, müşteri bilgisi taşınmaz; terfi öncesi otomatik sızıntı kontrolü ve sözleşmede izin | satış | operatör sorusu | operatör, 2026-10-29 | satışta açılır |
@@ -1115,6 +1119,63 @@ Testler `tests/test_rival_memory.py`'de, sınıf adları kalem numarasıyla. Dur
 - **Açık kalan.** E161 (16 grup ve genel veri koşucusu), E162 (çıkışın kodda olmayan koşulları, MF17'nin `wiring`
   denetimi dahil), E163 (modülsüz kırmızının iki okuması); E157'nin `14` metni; `spec/tohum/29`, `29b` ve yeni `29e`
   metinleri ayrı adımdır (`docs/asama-0-daraltma-29-29b.md`).
+
+### E88 E162 (2026-10-29) · tohum dönemi · çıkış kapalıya düşer · E180–E183 açıldı
+- **Özet satırı.** `setup/summary.json` `seed_epochs[]` taşıyabilir: `{commit, spec_tohum_sha256, seed_sha256,
+  bootstrap_sha256}` (`26c`), tam bu anahtarlar, `seed_sha256` beyinde `seed/` yoksa `null` (spec "beyinde varsa"
+  dışında sessiz; en dar okuma). `config.load_summary` satırları sıkı okur, boş ya da biçimsiz dizi durmadır; son
+  satır geçerli dönemdir. Dizi yoksa davranış öncekidir: `seed_commit`, `seed_tree_sha256` kurulum tohumudur
+  (`26c`'de bu adlar yok, E182; başlatıcı E154 için `seed_commit`'i okur, dokunulmadı).
+- **Satır kendi commit'ine uymalı.** Dizi varsa `pull` (içerik korumasının dışında) son satırın commit'ini beyinde
+  arar ve o commit'in `spec/tohum/` ve `seed/` ağaç hash'lerini satırla karşılaştırır (`cli._check_epoch`); uymazsa
+  `stop: setup/summary.json: the last seed epoch ...`, koşu durur, hiçbir push yanlış bir tohuma karşı yargılanmaz
+  (`25`: hash özetle uyuşmazsa durur; operatör dosyaları kapalıya düşer, `26c`). Satırı `seed-epoch` komutu
+  yazar (git blob'larından, satır sonundan bağımsız); `bootstrap_sha256` `--source`'un `seed/bootstrap/`'udur.
+- **(d) Teslimin kendisi.** Baş son satırın commit'iyse push `seed_update`'tir: değerlendirilmez, rakip, test ve
+  seri yok, `noop` imzalanır, `last_evaluated_sha` ilerler, `last_accepted_sha` ilerlemez (`cli._seed_update`,
+  `decide.NOTHING_TO_JUDGE`). Teslim Kurucu'nun reddedilmiş bir başının üstüne gelse de o kod onun adıyla yeniden
+  yargılanmaz (taslak metin içerikle tanımlıyordu, E183).
+- **(a) Sonraki push'lar.** Son kabul edilmiş SHA teslimden eskiyse teslim her diff'te kalır. Başın tohum ağaçları
+  son satıra eşitken diff'teki `spec/tohum/**` ve `seed/**` Kurucu'nun değişikliği sayılmaz (`meta.changed`
+  Kurucu'nunkiler), push kendi türüyle (kod, spec, çıkış, defter) yargılanır; rakibin diff'i tohum yollarını hiç
+  taşımaz (`exclude_dirs=HIDDEN_DIRS + SEED_DIRS`): orada kalan tohum yolu ancak teslimdir, başka tohum değişikliği
+  rakipten önce reddedilir. Çıkış isteğinde de böyledir: pinli SHA ile istek arasındaki teslim yolları #yalniz'i
+  bozmaz, Kurucu'nun değişikliği değildir.
+- **(b) Kurucu'nun tohum değişikliği.** Dizi varsa her başın iki ağacı son satıra eşit olmalı: değişen, eklenen ya da
+  silinen her tohum dosyası `seed_modified` ve `seed_tree_mismatch`'tir; `null` satırdan sonra eklenen `seed/` de.
+- **(c) İmzalı durum.** Dönem durumu sıfırlamaz: `seed_update` her `noop` gibi `last_evaluated_sha`, `runs` ve
+  `origin`'i ilerletir, başka bir başın bekleyen rakip sonucunu (`pending_rival`) bırakır; donmuş spec'ler, seriler,
+  `repeat_events`, açık iddialar, kanıtlanmış kusurlar, rakip artefaktları ve harcamalar aynen kalır, sonraki push
+  onlara karşı yargılanır (seri sürer, yeniden üreticiler istenir). Durum kaybolursa
+  `state.initial` son dönemin commit'inden başlar (`25` "Durum kaybolursa").
+- **Operatör yolu.** `seed/founder/README.md` "Tohum teslimi": `STOP` ve kill switch, hakem kopyası, beyne tek
+  commit (`git archive | tar`), `seed-epoch` satırı, kill switch kapalı, elle tetikleme ve `seed_update` doğrulaması,
+  dokunuş satırı. `25` 10b'nin sırası (satır, sonra beyne push) da çalışır: kill switch açıkken hakem koşmaz, push
+  edilmemiş commit'i adlandıran satır yalnız koşuyu durdurur.
+- **E162.** `decide.EXIT_NOT_CHECKED` = `kurucu-defteri`, `is-akisi`, `agac` (yalnız büyük-küçük harf duyarlı operatör
+  adı var; duyarsız ad, ajan yapılandırması, `toy_tree_sha256` yok), `genellik`, `spec` (`#lint #spec #okuyucu`
+  satırı), `durustluk`: her çıkışa `exit_condition` `not_checked:<koşul>` ekler, `transferable` olamaz. Denetlenen
+  koşullar nedenlerini korur (#testler #kirmizi #lisans, #modulsuz, #rakip, #lock #kilit, #tekrar, #yalniz).
+  `not_checked` Kurucu'ya sayılmaz (`29b` "Ret hafızası": yalnız düzeltebildiği); aynı mantıktaki
+  `vector_group_missing` çıkış nedeni sayılmaya devam eder (E181). Test, `asama-0/10` tablosunun her satırının ya
+  kodda denetlendiğini (yeriyle) ya listede olduğunu ister; sayfaya eklenen satır sessiz geçemez.
+- **Testler ve mutantlar.** `tests/test_seed_epoch.py` (9 test: (a) iki, kod, spec, çıkış ve defter push'larıyla;
+  (b) iki; (c); (d); satır durması; özet okuma; kayıp durum); `test_decision.KindsAndExit`'e üç E162 testi; çıkış testleri (`test_decision`,
+  `test_rival_memory`, `test_flow`) altı `not_checked`'i bekler, `test_flow` aktarımı `EXIT_NOT_CHECKED` boşken
+  ölçer. 16 yeni mutant (E88 13, E162 3); `ledger_in_the_rivals_diff` ve `reports_in_the_rivals_diff` çapaları
+  yenilendi.
+- **Kanıt.** Taban (8900760): Windows 342 test OK (18 atlandı), Linux 360 OK (3 atlandı). Dal: Windows 354 OK (18
+  atlandı), Linux 372 OK (3 atlandı). Mutasyon: 16 yeni, çapası yenilenen 2 ve değişen satırlara bağlı 3 mutant
+  (`non_utf8_name_reaches_json`, `unsafe_name_reaches_the_tree_hash`, `ledger_breaks_an_exit_request`) `--only`
+  kümesiyle 21/21 öldü; sonra bütün liste dört parçada 188/188 (47 × 4, Linux kapsayıcı). README'nin 4., 5. ve 7.
+  adımı Git Bash'te sahte bir beyinde koşuldu: `git archive HEAD spec/tohum | tar -x -f -` 60 dosya, `seed-epoch`
+  satırı (`seed_sha256: null`), `control` ok, `pull` `kind=seed_update`, `pre_reasons []`; satırın
+  `spec_tohum_sha256`'sı (`8797ba63…`) `snowball-mcp` HEAD'inin `seed-hash`'iyle aynı (Windows'ta satır sonu gidip
+  gelince hash değişmedi). E181 bir koşuyla görüldü: `vector_group_missing:secrets` ile üç çıkış isteği
+  `not_learning`, aynı koşudaki altı `not_checked` sayılmadı.
+- **Yapılmayan.** `bootstrap_sha256` biçimce okunur, hakemin kendi `bootstrap/` kopyasıyla karşılaştırılmaz (E24);
+  teslim `spec/asama-*` ve `spec/INDEX.md` taşıyamaz (E180); altı koşulun denetimleri (E107, E100/E132, E130/E131,
+  E102, E79) ve MF17'nin her push'taki `wiring` denetimi; `spec/` bu dalda değişmedi, taslak metin E182/E183'te.
 
 ## Doğrulanmış sağlam taraflar
 Kapsayıcı bayrakları ve kırmızı kontroller; host'ta kabuk enjeksiyonu yok; `$GITHUB_OUTPUT`'a serbest

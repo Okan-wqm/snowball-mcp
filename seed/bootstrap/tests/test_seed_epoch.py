@@ -110,7 +110,7 @@ class SeedEpochFlow(unittest.TestCase):
         self.assertEqual(result["verdict"], "accepted", result["reasons"])
         self.assertEqual(result["state"]["reject_streaks"], {})
 
-    def test_an_exit_request_or_ledger_rows_over_the_delivery_keep_their_kind(self):
+    def test_an_exit_request_a_spec_request_or_ledger_rows_over_the_delivery_keep_their_kind(self):
         """(a) The referee never saw the delivery as a head: the Founder pushed on top of it first."""
         accepted = self.accept_mf1()
         delivery = self.deliver()
@@ -120,6 +120,11 @@ class SeedEpochFlow(unittest.TestCase):
         meta = self.pull()
         self.assertEqual((meta["kind"], meta["pre_reasons"], meta["changed"]),
                          ("exit", [], ["exit-request.json", "founder-ledger.jsonl"]))
+        sh(self.brain, "git", "reset", "-q", "--hard", delivery)
+        commit(self.brain, {"spec/asama-1/00-ozet.md": "# stage 1\n"}, "the next stage's spec")
+        meta = self.pull()
+        self.assertEqual((meta["kind"], meta["pre_reasons"], meta["run_rival"]), ("spec", [], True))
+        self.assertEqual((meta["changed"], list(meta["spec_dir_hashes"])), (["spec/asama-1/00-ozet.md"], ["spec/asama-1"]))
         sh(self.brain, "git", "reset", "-q", "--hard", delivery)
         commit(self.brain, {"founder-ledger.jsonl": '{"kind":"session"}\n'}, "ledger rows alone")
         meta = self.pull()
