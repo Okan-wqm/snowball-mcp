@@ -626,3 +626,7 @@ taahhüdü; birinci tohum dönemi; `operating{}` bantları; başlatıcı kapsül
   sistemidir ve `aquaculture_platform`'un içinde yaşar. Bu tasarımda kapsam dışıdır: profilden hariç, iş
   akışları kopyada kapalı, Snowball onu ne düzenler ne yükler. Dahil etmek ya da karşılıklı öğrenme (ör. aynı
   hata sınıflarının iki sistemde ölçülmesi) ilk aşamalar bittikten sonra ayrıca konuşulur.
+
+---
+
+**Karar (2026-10-29).** Operatör K1–K5'i önerildiği gibi onayladı; Aria kapsam dışıdır (açık soru kapandı); sistem %100 LLM'lerce yapılır ve uygulanır.
