@@ -59,13 +59,17 @@ cd seed/drill && python3 -m unittest discover -s tests
 ```
 
 Linux is the reference platform: several tests need a POSIX shell and skip elsewhere, so on Windows run
-them in a `python:3.12-slim` container with git installed. Three more checks go beyond the unit tests:
+them in a `python:3.12-slim` container with git installed. Four more checks go beyond the unit tests:
 
-- `python3 local/e2e.py [--rival]`, run from `seed/bootstrap` (needs git, Python 3.12, Docker and network access
-  for the PyPI download), runs the whole referee against real containers. With `--rival` the real rival runs through your own `claude` login, so it also needs
-  Claude Code signed in; there is no API key anywhere while this system is for internal use.
+- `python3 local/e2e.py [--rival]`, run from `seed/bootstrap` (needs git, Python 3.12 and Docker), runs the whole
+  referee against real containers. The brain it pushes is `local/reference_brain/`: a real, tested implementation of
+  micro-feature 1 (the hash-chained ledger) that claims nothing else. With `--rival` the real rival runs through your
+  own `claude` login, so it also needs Claude Code signed in; there is no API key anywhere while this system is for
+  internal use.
 - `python3 local/mutate.py`, run from `seed/bootstrap` on Linux, breaks the referee's code on purpose and demands that a test
   notices. A mutant that survives names behaviour no test measures.
+- `python3 local/mutate_brain.py` does the same to the reference brain, so its tests cannot be the vacuous kind a
+  rival refutes.
 - `tests/test_live_cli.py` runs when `claude` is on `PATH`. It spends nothing (a made-up token) and fails
   when the CLI renames a flag or changes its output format.
 
