@@ -161,16 +161,19 @@ hepsi yazılıdır. Bulguları birleştiren ve doğrulayan: Claude Code (Opus 5.
 | E148 | Kurucu'nun defter satırları push türünü değiştiriyor: defterini de yazan spec isteği `mixed_spec_and_code`, çıkış isteği `exit_request_not_alone` ile reddediliyor | K | — | pilot hazırlığı | kapandı · `classify.is_founder_record`: kök `founder-ledger.jsonl` ve `reports/` ne spec ne kod; yalnız onları değiştiren push `none` (yargılanmaz); `test_the_founders_ledger_*`, 4 mutant |
 | E149 | `main`'de hakem mutasyonu 09:38'den beri kırmızı, hiçbir mutant koşmadı: mutant kopyasında `.github/workflows` yok, güvenlik defteri testi temel koşuda düşüyor; birleştirmelerden sonra `main` CI'sine bakılmadı | K | — | pilot hazırlığı | kapandı · `mutate.py` kopyaya iş akışlarını alıyor; süreç: her birleştirmeden sonra `main` CI'si yeşil görülmeden iş bitmiş sayılmaz |
 | E150 | Tohumda `founder-ledger append` aracı yok; `00a` ve `24a` Kurucu'nun defterini onunla yazdığını varsayıyor | B | — | pilot hazırlığı | açık · pilotta Kurucu'nun bunu bildirip bildirmediği ölçülür |
-| E151 | Hakemin Aşama 0 tablosu hâlâ 30 MF'lik eski tablo (`manifest.STAGE0_MF_TESTS`); spec 18 MF ve `stages/stage0.json` diyor; MF1 (T13) aynı, MF2'den sonrası uyuşmuyor | K | — | pilot hazırlığı | açık · sıradaki kod partisi (29/29b düzenlemeleriyle birlikte) |
+| E151 | Hakemin Aşama 0 tablosu hâlâ 30 MF'lik eski tablo (`manifest.STAGE0_MF_TESTS`); spec 18 MF ve `stages/stage0.json` diyor; MF1 (T13) aynı, MF2'den sonrası uyuşmuyor | K | — | pilot hazırlığı | kapandı · `stages/stage0.json` (18 MF, `calls`) yüklenirken denetlenir; bildirim, çıkış ve vektör grupları tablodan; modülsüz kırmızı `run-tests`'te; tohum testi tablo ↔ `asama-0/14` ↔ §0.9; ayrıntı Kapanışlar "E151" |
 | E152 | İlk pilot oturumu başlamadan düştü (çıkış 255, `exec /opt/founder/entrypoint.sh: no such file or directory`): Windows checkout'u (`core.autocrlf=true`) betiği CRLF'ye çevirdi, shebang'den sonraki CR exec'i kırdı; başlatıcı Docker'ın hatasını rapora yazmadı | K | — | pilot döngü 1 | kapandı · `.gitattributes` (`*.sh`, Dockerfile LF); `launch.write_build_context` LF'ye çevirir; kapsül açılmazsa hata `pilot-log.md`'ye yazılır; ayrıca tmpfs'teki beyin klonu git'te `safe.directory` (yoksa commit ve push olmazdı); `BuildContextTest` |
 | E153 | Rakip Kurucu'nun `reports/`'unu görüyor (`asama-0/03`: defter ve `reports/` hariç); yalnız defter gizliydi | B | — | pilot döngü 1 (rakip raporu okuyup alıntıladı) | kapandı · `rival.HIDDEN_DIRS`: kök `reports/` araçlardan, diff'ten ve istekten çıkar; iç içe `reports/` görünür kalır; `E153ReportsHidden`, 4 mutant |
 | E154 | Kurucu beyin geçmişindeki eski prova çözümünü okudu (`git show def0121:referee/ledger/chain.py`, 60 satır) ve defterine yazmadı; geçmiş force-push yasağı yüzünden silinemedi, talimatta yasak da yoktu; MF1'in "kendi yazdı" ölçümü kirli | K | evet | pilot döngü 2 | kapandı · kapsül klonu tohum commit'inde keser (`.git/shallow` + gc; eski nesneler kapsülde yok, push çalışıyor, sahte `claude` ile kanıtlandı); talimata kural: eski koda, hakeme, `snowball-mcp`'ye bakma, kısayola baktıysan aynı oturumda bildir |
 | E155 | Kurucu `/work/logs`'ta önceki oturumların dökümlerini görebiliyor; hafıza yalnız defter olmalı | S | — | pilot döngü 2 | kapandı · her oturum yalnız `logs/<damga>/`'yı görür |
 | E156 | `tohum/27` ve `27a`'da `tests/fixtures/toy-repo/` için okuyucu satırı yok; `#okuyucu` çıkış denetimi düşebilir | B | — | **Kurucu raporu** seed-003 (döngü 1) | açık |
-| E157 | `asama-0/14`'te "17 ve 18 hepsini çağırır" sıra kuralıyla çelişiyor ("kendilerinden öncekilerin hepsini" olmalı) | B | — | **Kurucu raporu** spec-004 (döngü 1) | açık · `stage0.json` partisi |
+| E157 | `asama-0/14`'te "17 ve 18 hepsini çağırır" sıra kuralıyla çelişiyor ("kendilerinden öncekilerin hepsini" olmalı) | B | — | **Kurucu raporu** spec-004 (döngü 1) | kod tarafı kapandı · `stage0.json` ve tohum testi "kendinden öncekilerin hepsi" okur (18 1–17'yi çağırır; E151); `14`'ün metni 29/29b partisinde |
 | E158 | Defter ve rapor tür kümeleri kapalı (`26`, `26c`) ama operatör talimatı `missing_capability` istiyor; Kurucu bunları `seed_issue` olarak yazıyor | B | — | **Kurucu raporu** seed-006 (döngü 1) | açık · bildirim kanalı (E93/E53) ile |
 | E159 | `29a` zincir CLI'sinin kırık zincirde çıkış kodunu ve `row_id`'siz satırın `broken_row` değerini söylemiyor; hakem çıkış koduna değil stdout JSON'una baktığı için zararsız ama yazılı değil | S | — | **Kurucu raporu** seed-007 (döngü 2) | açık · 29/29b düzenlemesiyle |
 | E160 | `test_an_interrupted_run_takes_the_cli_and_its_children_with_it` init'siz konteynerde kararsız: öldürülen ama biçilmemiş (zombi) süreci `kill(pid, 0)` canlı sayıyor; mutasyon temel koşusunu rastgele durduruyordu | S | — | pilot hazırlığı (6 temel koşudan 6'sı düştü, tam takım geçti) | kapandı · test projenin `helpers.process_alive`'ını kullanıyor (zombi = ölü) |
+| E161 | Aşama 0'ın `chain` dışındaki 16 vektör grubu (`secrets` … `genesis`, `29d`) ve genel veri koşucusu (`{cmd, stdin?, fixture, expect, changed}`) tohumda yok; MF2'den itibaren bitmiş MF'nin tabanı eksik | K | — | E151 kod partisi | açık · beklenen değerler tohum yazarınca iki bağımsız hesapla (`29a`); o güne kadar kod push'unda `vector_group_missing:<grup>` uyarısı, çıkışta ret (E151) |
+| E162 | Çıkış isteği kodda olmayan (A) koşullarında kapalıya düşmüyor: #kurucu-defteri, #is-akisi (MF17'nin `wiring` denetimi dahil; her push'ta da yok), #agac (yalnız büyük-küçük harf duyarlı operatör adı var), #genellik, #spec, #durustluk denetlenmeden `transferable` olabilir | K | — | E151 kod partisi | açık · öneri: her biri gelene kadar `decide` `exit_condition: not_checked:<koşul>` yazar; kendi satırları E107, E132, E130/E131, E102, E79 |
+| E163 | `asama-0/14` modülsüz kırmızıda iki okumaya açık: "testlerini … yeşil kalırsa" hepsi mi, biri mi (`calls`'taki "17 ve 18 hepsini çağırır" E157'dir) | S | — | E151 kod partisi | açık · kod test başına okur (`tohum/04` 1: biri yeşil kalırsa ret); metin 29/29b partisinde netleşir |
 | E62 | Filo genelinde güvenlik: bir repoda doğrulanan açık dedektöre dönüşür, gizlilik duvarından geçer, bağlı bütün repolarda taranır; her repoya yalnız kendi açığı bildirilir | B | operatör yönü | operatör, 2026-10-29 | açık (çok repo ile, `21`) |
 | E60 | Satış zamanı: sistemin ürettiği dosyaların yeri; varsayılan müşteride, açık izinle müşteri başına ayrı, özel, şifreli barındırma; güvenlik bulguları hep müşteride | satış | operatör sorusu | operatör, 2026-10-29 | satışta açılır |
 | E61 | Satış zamanı: repolar arası öğrenmede gizlilik duvarı; kalıp taşınır, müşteri bilgisi taşınmaz; terfi öncesi otomatik sızıntı kontrolü ve sözleşmede izin | satış | operatör sorusu | operatör, 2026-10-29 | satışta açılır |
@@ -1057,6 +1060,58 @@ Testler `tests/test_rival_memory.py`'de, sınıf adları kalem numarasıyla. Dur
   `reused_rival_booked_twice` (bekleyen sonuç maliyetsiz saklanıyordu; artık maliyetiyle saklanır, bir kez
   yazıldığı test edilir); son koşuda (Linux, dört parça) 128/128 öldü. Ayrıca kontrol ağacı `mkdtemp` ile 0700 açılıyordu;
   65534 kullanıcısı onu kopyalayamaz (kapsayıcıda denendi), 0755 yapıldı ve testle bağlandı.
+
+### E151 (2026-10-29) · Aşama 0 tablosu 18 MF · E157 (kod) · E161 E162 E163 açıldı
+- **Tablo.** `seed/bootstrap/stages/stage0.json` `asama-0/14`'ün makine kopyasıdır, `26c` biçiminde (`{stage, mfs:
+  [{mf, tests, groups, module, calls}]}`; `calls` çağrılanlardır). `stages.py` her okuyuşta denetler: alanlar tam;
+  MF'ler 1..N sırayla; test numarası 1–999 ve tek MF'nin; grup adı; modül `referee/` altında güvenli, normal biçimde ve
+  tek MF'nin; `calls` artan ve çağırandan küçük (`14` "Sıra"). Bozuk tablo `ConfigError`'dur: `pull` tabloyu içerik
+  korumasının dışında yükler, koşu `stop:` ile durur, Kurucu'ya `pull_error` yazılmaz. `manifest.STAGE0_MF_TESTS` ve
+  `STAGE0_MF_COUNT` kalktı; `check_stage0`, çıkış (`done_mf` = 1..18) ve vektör koşucusu tablodan okur.
+- **Tohum testi.** `test_wiring.StageTableMatchesTheSpecTest` `14`'ün tablosunu (sütunlar, test, vektör grubu, modül)
+  ve `calls` satırını (zincir dahil; "17 ve 18 hepsini çağırır" her birinin kendinden öncekilerin hepsini çağırması
+  olarak okunur, E157; okunamayan cümle kırmızı) ayrıştırıp JSON'la birebir
+  karşılaştırır. JSON'daki her test §0.9'da "MF k" satırıdır, tersi de; §0.9'un "18 MF'ye 21 test"i, `14`'ün ve
+  `asama-0/10`'un 18'i tabloyla aynı; `29d`'nin grup → MF tablosu aynı; `vectors.json`'da sahibi `asama-0` olan
+  grupları tablo adlandırır, yalnız onları.
+- **Vektör grupları.** Sahiplik tablodadır: grup, onu adlandıran MF bitince koşar (`chain`: MF1 ve MF10, bir kez).
+  `vectors.json`'da `mf` yerine `owner`: `chain` `asama-0`, `cp_lower`, `mcnemar`, `match` `P1`, `drill` `asama-2`
+  (prova yargıcının yazıcısı da öyle yazar); sonuncular Aşama 0'da koşmaz (`29d`). Koşucunun onları ölçen testleri
+  hepsini sahiplenen bir test tablosuyla (`helpers.EVERY_GROUP`) sürer. Tohumda olmayan 16 grup için beklenen değer
+  uydurulmadı (E161). **Karar: kod push'unda uyarı, çıkışta ret.** `run-tests` bitmiş bir MF'nin sahiplendiği ama
+  tohumda olmayan grupları `vector_groups_missing` olarak yazar; `decide` kod push'unda `warnings:
+  vector_group_missing:<grup>` (adım özetinde `::warning::`), çıkışta `exit_condition vector_group_missing:<grup>`
+  verir. Gerekçe: değerler tohumla gelir, Kurucu değiştiremez (`29a`); tohumdan doğan neden Kurucu'nun değildir
+  (`29e` taslağı, E11); ret olsaydı Kurucu MF2'de durur, tohumun açığı yüzünden `not_learning` olurdu. Çıkış "vektör
+  grupları geçer" ister (`asama-0/10` #testler): olmayan grup geçemez. Grup tohum dönemiyle gelince bitmiş her MF
+  için sonraki her push'ta koşar (`14`).
+- **Modülsüz kırmızı.** `pull` `meta.module_less`'i yazar: kod push'unda son kabul edilmiş commit'in `done_mf`'inde
+  olmayan bitmiş MF'ler (`gitio.file_at`; okunamayan taban bildirimi "hiçbiri bitmemiş" sayılır), çıkışta hepsi
+  (#modulsuz). `run-tests` ana koşu yeşilse her MF için ağacı yeniden açar, tablodaki `referee/<modül>` yolunu siler
+  ve MF'nin her testini aynı kumda (`DockerRunner`, aynı bayraklar) koşar (`moduleless.py`). Yeşil kalan bir test
+  push'u `module_less_green:MFk` ile reddeder (imza da bu; Kurucu'ya sayılır); yol ağaçta yoksa ayrıntı söyler.
+  Okuma test başınadır (`tohum/04` 1: "geri alındığında yeşil kalan test, test değildir"; E163). Bu kumdaki Docker
+  hatası `infra kos:docker` kesintisidir; yeşil bir koşuda `pull`'un istediği bir MF'nin sonucu yoksa `infra
+  kos:module_less_incomplete` (E05'in kuralı). Modülsüz yeşil koşu `green` değildir, rakip çağrılmaz.
+- **Testler ve mutantlar.** Yeni: `tests/test_stages.py` (yükleyicinin her kuralı, modülsüz ağaç);
+  `test_decision.ModuleLessRed` ve taklit koşucuyla `run-tests` uçtan uca; `pull`'un `module_less`'i ve bozuk tablo
+  durması (`test_flow`); tablo güdümlü vektörler ve eksik gruplar (`test_units`); referans beynin modülsüz kırmızısı
+  (`test_reference_brain`). 30 MF varsayan testler tablodan kurulur. `mutate.py` kopyaya `spec/asama-0`'ı alır; 32
+  yeni mutant (yükleyici 6, bildirim 2, çıkış 1, bozuk tablo 1, sahiplik 2, eksik grup 5, modülsüz kırmızı 9, tohum
+  verisi ve sayfalar 6).
+- **Kanıt.** Birleştirmeden önce: Windows 336 test OK (18 atlandı), Linux 354 OK (3 atlandı); mutasyon 164/164
+  öldü (Linux, dört parça; 32 yeni mutantın her biri kendi testiyle). `local/e2e.py` gerçek Docker'da, pinli
+  imajla: `module-less red [('T13', 1)]`, `accepted`. Aynı push, T13'ü modüle dokunmayan bir komutla gerçek
+  kapsayıcıda: `rejected [module_less_green:MF1]`. `main` (dd14bfc) birleştirildikten sonra: Windows 340 OK (18
+  atlandı), Linux 358 OK (3 atlandı), prova yargıcı 31 OK; birleşen dosyalara bağlı beş mutant `--only` ile öldü
+  (`broken_table_rejects_the_push`, `module_less_never_run`, `module_less_runs_on_the_pushed_tree`,
+  `module_less_not_at_the_exit`, `page_calls_line_drifts`); 168 mutantın tamamı birleştirmeden sonra `main` CI'sinde.
+- **Pilot.** MF1 (T13, `chain`, `ledger/chain.py`) ve spec isteğiyle dondurma değişmedi. Canlı beynin `done_mf`'i [1]
+  ise etkisi yok; eski numaralarla MF2+ bitmişse bu tohum hakeme girince `missing_test:MF2:T38` gibi retler gelir. Kod
+  hakeme yalnız tohum dönemiyle girer.
+- **Açık kalan.** E161 (16 grup ve genel veri koşucusu), E162 (çıkışın kodda olmayan koşulları, MF17'nin `wiring`
+  denetimi dahil), E163 (modülsüz kırmızının iki okuması); E157'nin `14` metni; `spec/tohum/29`, `29b` ve yeni `29e`
+  metinleri ayrı adımdır (`docs/asama-0-daraltma-29-29b.md`).
 
 ## Doğrulanmış sağlam taraflar
 Kapsayıcı bayrakları ve kırmızı kontroller; host'ta kabuk enjeksiyonu yok; `$GITHUB_OUTPUT`'a serbest
