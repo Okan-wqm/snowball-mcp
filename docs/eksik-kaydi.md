@@ -925,6 +925,22 @@ uygulanır; insan yalnız yön verir ve hesap işlemlerini yapar; insan dokunuş
 **E32 kanıtı.** Prova hakeminin iş akışı yeniden kaydettirildikten (09:03Z) sonraki bir saatte de zamanlanmış koşu
 yok (toplam 6+ saat, 0 koşu); E121'in dış canlılık gözlemcisi bunu gerektiriyor.
 
+## Başlatma ölçütü (operatör, 2026-10-29)
+Operatör: "uzman sensin; yeter ki kendi kendini iyileştirme, kendini geliştirme, öğrendiklerini uygulama altyapısı,
+kayıt tutma ve hafızası hazır olsun, hafızasına göre uygulamalar yapabilsin." Yeni elle denetim turu açılmaz; bundan
+sonra eksikleri sistem kendi bulur. Kurucu, aşağıdaki her satırın testi yeşil olmadan başlamaz.
+
+| Altyapı | Bugün | Başlamadan | Kanıt (test) |
+|---|---|---|---|
+| Kayıt tutma | Zincirli defter (MF1), imzalı ve Rekor'lu kararlar, güvenlik defteri | Kurucu defterinin hakemce zincir ve yalnız-ekleme denetimi (E107) | Defterde tek bayt değişince `founder_ledger_invalid` |
+| Hafıza | Hakemin imzalı durumu (donmuş spec, ret serileri) | Açık iddialar ve kanıtlanmış kusurlar durumda (E07, E08); Kurucu her oturuma defterinden ve son kararlardan devam eder (E91); durum kaybında hakem durur (E14, E92) | Oturum kapanıp açılınca kaldığı yer bulunur; artefakt yokken `fetch-state` durur |
+| Öğrendiğini uygulama | Üç tekrar → `not_learning` | Kanıtlanmış kusur sonraki her push'ta yeniden koşar (E08); hata imzası (E70) | Düzeltilmeden gelen kusur, rakip kaçırsa da reddedilir |
+| Kendini iyileştirme | Rakip her push'ta; CI hakem gerilemelerini yakalar | Bildirim kanalı imzalı sonuca ve operatör uyarısına (E53, E54/E124, E93); tohum dönemi (E88); karantina (E123); uyaran kırmızı koşu (E121) | Kurucu bildirimi `reports[]`'ta; tohum güncellemesinden sonra Kurucu push'u normal yargılanır |
+| Kendini geliştirme | Aşama protokolü (`02`) | Dürüstlük provası (E79) ve rakip kanaryası (E126) | Provada istismar = 0, bildirim kaydı var |
+
+Ders sistemi, organ yaşam döngüsü, güvenlik avcısı ve repolar arası öğrenme bu temelin üstüne Kurucu tarafından
+sonraki aşamalarda kurulur (`docs/asama-0-daraltma.md`).
+
 ## Doğrulanmış sağlam taraflar
 Kapsayıcı bayrakları ve kırmızı kontroller; host'ta kabuk enjeksiyonu yok; `$GITHUB_OUTPUT`'a serbest
 metin girmiyor; tek sır yalnız rakip adımında; rakibin ortamı ve init doğrulaması; ağaç kurulurken
