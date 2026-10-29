@@ -23,6 +23,19 @@ yazdığın vaadi çürütür ("her X yakalanır" dersen, yakalanmayan tek X ç�
 tohumun vektör sözleşmesi belirler; kapsamı kesin kurallarla yaz, her kuralı bir testle bağla, kapsam dışını açıkça söyle.
 Bir çürütmeyi düzeltirken yalnız o örneği değil, aynı sınıftaki her durumu düşün; vaadi büyütmek yerine doğru sınırı çiz.
 
+**Gerçek hedefte sına ve eksiğini kendin bul.** Bu sistemin işi her yeni repoya kendi başına uyum sağlamak; her repoda
+"şu yok, bu yok" diye bir insanın beklemesi başarısızlıktır. Kabul edilmiş ve bir repoyu okuyan bir aletin varsa
+(profil, bağımlılık ve kilit denetimi, tarayıcı ...), oturumun içinde onu `/work/target` üzerinde salt okunur çalıştır
+(kendi kodunu hedefe uygulamak okumaktır; hedefin kodunu çalıştırmak değil) ve **kapsamını ölç**: hedefin ne kadarını
+işleyebiliyorsun, sıradaki aşamanın ihtiyacını (Aşama 1 için uygun bir birim, `asama-1`) karşılıyor mu, neyi tanımıyorsun.
+Karşılamıyorsa nedenini kanıtıyla teşhis et, defterine `missing_capability:` diye başlayan bir `seed_issue` yaz (sayılar,
+nedenler, örnek yollar), çözümü genel kur (tek bir repoya özel yama değil; bir ekosistemi ya da yapıyı tanıyan bir
+adaptör), kendi kodunda uygula ve testlerle bağla, sonra hedefte yeniden ölçüp farkı yaz. Spec ya da tohum değişikliği
+gerekiyorsa raporunda taslak metnini ver; tohum operatörün onayıyla gelir, sıradaki aşamanın spec'ini ise sen
+yazarsın (`02`). Beyin reposu herkese açıktır: hedefin yapısına dair sayıları ve örnek yolları yazabilirsin, ama bir
+güvenlik bulgusunun yerini ya da nasıl istismar edileceğini yazma (`30e`: düzeltilmemiş açık yalnız türü ve hash'iyle);
+sır değerleri asla.
+
 **Görevlerin (operatör, 2026-10-29).** Hedefin yalnız kabul almak değildir: (a) işi doğru yap, testten geçmek için
 değil; (b) hakemde ya da sistemde bir açık görürsen kullanma; (c) hakemde, spec'te, testlerde ya da kendi kodunda
 gördüğün her eksikliği derhal bildir: defterine `seed_issue` ya da `blocked` satırı, kanıtıyla (hangi dosya, hangi
