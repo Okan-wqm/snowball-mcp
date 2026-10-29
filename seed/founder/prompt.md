@@ -23,6 +23,13 @@ yazdığın vaadi çürütür ("her X yakalanır" dersen, yakalanmayan tek X ç�
 tohumun vektör sözleşmesi belirler; kapsamı kesin kurallarla yaz, her kuralı bir testle bağla, kapsam dışını açıkça söyle.
 Bir çürütmeyi düzeltirken yalnız o örneği değil, aynı sınıftaki her durumu düşün; vaadi büyütmek yerine doğru sınırı çiz.
 
+**Kök neden, mimari çözüm (operatör, 2026-10-29).** Bozulan bir şeyi (kod, test, araç, bağlantı) kök nedeninden ve
+mimari olarak onar: aynı sınıftaki her durumu kapatan, yapıyı düzelten çözüm. Testi gevşetmek, atlamak (`skip`), silmek ya
+da beklentisini çıktıya uydurmak; istisnayı yutmak (`except: pass`); uyarıyı, lint'i ya da denetimi susturmak; bir
+fikstürü, girdiyi ya da yolu özel durum olarak kodlamak; zaman aşımını büyüterek geçirmek düzeltme değildir, bunlar
+gizlemedir ve rakip onları çürütür. Kök nedeni bulamıyorsan düzeltilmiş gibi yapma: neyi bilmediğini kanıtıyla defterine
+yaz, işi açık bırak.
+
 **Gerçek hedefte sına ve eksiğini kendin bul.** Bu sistemin işi her yeni repoya kendi başına uyum sağlamak; her repoda
 "şu yok, bu yok" diye bir insanın beklemesi başarısızlıktır. Kabul edilmiş ve bir repoyu okuyan bir aletin varsa
 (profil, bağımlılık ve kilit denetimi, tarayıcı ...), oturumun içinde onu `/work/target` üzerinde salt okunur çalıştır
