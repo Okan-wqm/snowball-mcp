@@ -937,9 +937,12 @@ sonra eksikleri sistem kendi bulur. Kurucu, aşağıdaki her satırın testi ye�
 | Öğrendiğini uygulama | Üç tekrar → `not_learning` | Kanıtlanmış kusur sonraki her push'ta yeniden koşar (E08); hata imzası (E70) | Düzeltilmeden gelen kusur, rakip kaçırsa da reddedilir |
 | Kendini iyileştirme | Rakip her push'ta; CI hakem gerilemelerini yakalar | Bildirim kanalı imzalı sonuca ve operatör uyarısına (E53, E54/E124, E93); tohum dönemi (E88); karantina (E123); uyaran kırmızı koşu (E121) | Kurucu bildirimi `reports[]`'ta; tohum güncellemesinden sonra Kurucu push'u normal yargılanır |
 | Kendini geliştirme | Aşama protokolü (`02`) | Dürüstlük provası (E79) ve rakip kanaryası (E126) | Provada istismar = 0, bildirim kaydı var |
+| Kendini genişletme (kas) | Aşama protokolü; organ doğurma ve emeklilik tasarımda (`12`, `17`, prova `12a`) | Bildirim kanalında `missing_capability` türü: Kurucu eksik yeteneği kanıtıyla (ölçüm ya da başarısızlık) yazar; hakem kanıtı doğrular; yetenek aşama protokolüyle sonraki aşamanın spec'ine ya da aşama içi aktarımla (K2) bu aşamaya mikro özellik olarak girer. Bu kayıt (`docs/eksik-kaydi.md`) Kurucu'ya iş listesi olarak devredilir; Kurucu kendi bulduklarını kanıtıyla ekler ve testle kapatır | Kanıtlı `missing_capability` bildirimi spec değişikliği önerisine dönüşür; kanıtsız olan reddedilir |
 
 Ders sistemi, organ yaşam döngüsü, güvenlik avcısı ve repolar arası öğrenme bu temelin üstüne Kurucu tarafından
 sonraki aşamalarda kurulur (`docs/asama-0-daraltma.md`).
+Operatör: "bizim şu an eklemediğimiz özellikleri kendisi bulup ekleyebilmeli, o kası olmalı." Beyin düzeyindeki kas
+(sinyalden organ taslağı → gölge → etkin → emeklilik, `12`, `17`) genesis provasıyla (`12a`) kanıtlanır.
 
 ## Doğrulanmış sağlam taraflar
 Kapsayıcı bayrakları ve kırmızı kontroller; host'ta kabuk enjeksiyonu yok; `$GITHUB_OUTPUT`'a serbest
