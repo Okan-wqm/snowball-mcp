@@ -58,6 +58,13 @@ Okunma: sayfa ararken; görev seçmek için `tohum/00b-gorev-haritasi.md`
 | `tohum/29a-tohum-vektorleri.md` | Tohum Vektörleri: Değişmeyen Beklenen Çıktılar | zincir, istatistik ve puanlama kodu yazarken |
 | `tohum/29b-onyukleme-hakemi.md` | Önyükleme Hakemi: Aşama 0'ın Yargıcı | kurulumda ve Aşama 0 boyunca |
 | `tohum/29c-prova-vektorleri.md` | Prova Vektörleri: Ders Provasının Referans Yargıcı | `exit.drill`'in yargıcını yazarken (Aşama 0, mikro özellik 18) ve ders provası tasarlanırken |
+| `tohum/30-guvenlik-katalogu.md` | Güvenlik Kataloğu: İlkeler, Zamanlama, Ortak Kader | her güvenlik işinde, her bildirimde ve yeni bir hedefe bağlanırken |
+| `tohum/30a-katalog-erisim-ve-enjeksiyon.md` | Güvenlik Kataloğu I: Erişim, Kimlik, Enjeksiyon, Web | kapsam bu sınıflara dokunduğunda; güvenlik avcısı, Kurucu ve Aşama 5'ten K6 işinde |
+| `tohum/30b-katalog-kiracilik-ve-graphql.md` | Güvenlik Kataloğu II: Çok Kiracılık, GraphQL, Kaynak Tüketimi | profil `tenancy.model` `none` değilse ya da hedef GraphQL sunuyorsa; güvenlik avcısı ve K6 işinde |
+| `tohum/30c-katalog-bellek-sir-tedarik.md` | Güvenlik Kataloğu III: Bellek, Kripto, Sır, Tedarik Zinciri, Hata İşleme, Ajanlar | kapsam bu sınıflara dokunduğunda; hakemin ve beynin kendi denetiminde her zaman |
+| `tohum/30d-hedef-guvenlik-profili.md` | Hedef Güvenlik Profili: Tehdit Modeli ve Kural–Test Bağı | yeni bir hedefe bağlanırken, her güvenlik testi bağlanırken ve her K6 işinde |
+| `tohum/30e-guvenlik-defteri.md` | Güvenlik Defteri: Zincirli Kayıt, Yaşam Döngüsü, Öğrenme | her güvenlik bulgusunda, düzeltmesinde, testinde ve feragatinde; yeni bir hedefe bağlanırken |
+| `tohum/30f-guvenlik-avcisi.md` | Güvenlik Avcısı: Bağımsız, Salt Okunur, Ölçülen | etkinleştirmede (koltuk), her güvenlik koşusunda ve avcının kanaryası tasarlanırken |
 | `tohum/CHANGELOG.md` | Değişiklik Günlüğü — Tohum | bir sayfanın geçmişi aranırken |
 
 ## Aşama 0 — Ölçüm Zemini ve Hakem

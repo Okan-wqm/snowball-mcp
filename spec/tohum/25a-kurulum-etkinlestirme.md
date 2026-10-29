@@ -18,7 +18,7 @@ olmalıdır (`asama-0/10`).
 | 4 | **Yazma modu şartı:** hedef `main` ruleset'inde yazar App'i bypass değildir ve `main` güncellemesi ya onaylı inceleme ister ya da güncelleme kısıtıyla yalnız operatör rolüne açıktır. Hedef bunu taşıyamıyorsa (özel repo, Free) bağlanma `mode: training`'dir | Yazar App'i `main`'e ulaşamasın (`21`) |
 | 5 | Hedefe kurulu App'lerin listesini özete beyan et | Etkinlik API'sinde beyan dışı aktör sert duruştur (`01b`) |
 | 6 | Hedefin mevcut iş akışlarından sır kullanan ve `brain/**` dallarında ya da PR'larında tetiklenen biri olmadığını doğrula; varsa dışla ya da bağlama | Ajan yazımlı kod sırla koşmasın; çatal çaresi yoktur |
-| 7 | **Etkinleştirme koşusu:** aktarılan hakemi tetikle. Oyuncak hedefte ve gerçek hedefte `brain/state`'i genesis satırıyla açar, `brain/integration`'ı `main`'den keser, profili türetir, oyuncak hedefte canlı döngüyü koşar (`asama-0/10` (B)) | İlk durum ve canlı kanıt |
+| 7 | **Etkinleştirme koşusu:** önce güvenlik avcısının koltuk metnini (`30f`) `seats/`'e kopyala, hash'ini özete yaz, `policy.json`'a `security_hunter_usd` satırını ekle (ilk çağıranı budur, `09a`). Sonra aktarılan hakemi tetikle. Oyuncak hedefte ve gerçek hedefte `brain/state`'i genesis satırıyla açar, `brain/integration`'ı `main`'den keser, profili ve güvenlik profilini türetir (`30d`), oyuncak hedefte canlı döngüyü koşar (`asama-0/10` (B)) | İlk durum ve canlı kanıt |
 
 **Başarısızlık.** Satır 1 ya da 7 kırmızıysa sistem sert durur; düzeltilmiş SHA'nın aktarımı yine
 operatörün işidir ve insan dokunuşu sayacında görünür.
