@@ -24,7 +24,7 @@ doğrulanır.
 
 | İş | Sır ya da izin | Ne yapar |
 |---|---|---|
-| `çek` | Okuyucu App'i; içerik ve Actions okuma | Önceki imzalı durumu Sigstore ile doğrular; SHA'yı çeker, sınıflandırır, ağacı blob blob kurar (`export-ignore` etkisizdir) |
+| `çek` | Kimliksiz beyin okuma; Actions okuma | Önceki imzalı durumu Sigstore ile doğrular; SHA'yı çeker, sınıflandırır, ağacı blob blob kurar (`export-ignore` etkisizdir) |
 | `getir` | Yok, ağ var | Kilit dosyalarındaki tekerlekleri `--only-binary`, `--require-hashes` ile indirir; kurulum betiği koşmaz |
 | `koş` | Yok | Tekerleklerin lisans kapısı (`24`); kırmızı kontroller, bildirimdeki Aşama 0 testleri ve vektörler, her biri `--network none --cap-drop ALL --read-only --user 65534` konteynerde |
 | `çağır` | `CLAUDE_CODE_OAUTH_TOKEN` | Tohum rakibi (aşağıda) |

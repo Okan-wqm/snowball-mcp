@@ -11,8 +11,8 @@ This repository currently holds the **specification** (version 2.2) a single fou
 from. No brain code exists yet. Three places keep the player from grading itself:
 
 - **Brain repository** (this one): player code, plus the referee's candidate code while Stage 0 builds it.
-- **Referee repository** (private): the accepted referee. Only the operator writes it, because a
-  free-plan private repository cannot carry rulesets; referee changes are imported by the operator
+- **Referee repository** (public while the system is for internal use, private once it is sold): the
+  accepted referee. Only the operator writes it; referee changes are imported by the operator
   at stage exits and counted as human touches.
 - **Target repository**: the repository being maintained. Only the referee's writer App writes there,
   on the `brain/*` branches.
@@ -21,8 +21,8 @@ The founder cannot build the judge of its own first stage, so the **bootstrap re
 the seed under `seed/bootstrap/` (see `spec/tohum/29b-onyukleme-hakemi.md`): a GitHub Actions
 workflow and a standard-library Python package that pulls each founder commit, runs its tests and
 the seed vectors in network-less containers, asks a rival model to refute it, and signs the verdict
-into Sigstore's Rekor log. It polls hourly, so an idle month costs about 720 of the free plan's
-Actions minutes (the arithmetic is in `spec/tohum/25-kurulum-gunu.md`). It has not yet run on
+into Sigstore's Rekor log. It polls hourly; standard runners are free in a public repository, while a private one would spend about
+720 of the free plan's Actions minutes a month (the arithmetic is in `spec/tohum/25-kurulum-gunu.md`). It has not yet run on
 GitHub Actions; setup installs it.
 
 Two rules run through everything:

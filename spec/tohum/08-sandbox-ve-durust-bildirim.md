@@ -11,7 +11,7 @@ Okunma: her hakem işi tasarlanırken ve her ajan dispatch'inde
 
    | İş | Sır | Ne yapar |
    |---|---|---|
-   | `çek` | Okuyucu App'i | Beynin ve hedefin istenen SHA'larını çeker, ağaçları içerik kimliğiyle artefakt yapar; kod koşturmaz |
+   | `çek` | Kimliksiz; özel hedefte okuyucu App'i | Beynin ve hedefin istenen SHA'larını çeker, ağaçları içerik kimliğiyle artefakt yapar; kod koşturmaz |
    | `getir` | Yok, ağ var | Bağımlılıkları kurulum betikleri kapalı getirir; çıktı içerik adresli artefakt. Betik gerektiren adım profilde işaretlidir ve `koş`ta ağsız koşar |
    | `koş` | Yok (`permissions: {}`), ağ yok | Oyuncu ve hedef kodunu iç içe konteynerde koşar; sonuçlar konteyner dışında hash'lenir |
    | `çağır` | Sağlayıcı kimliği | Kod koşturmaz; tipli girdiden prompt kurar, `secrets.scan` uygular, tek model çağrısı yapar, sunulan modeli ve maliyeti yanıttan yazar |

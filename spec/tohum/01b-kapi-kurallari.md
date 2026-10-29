@@ -44,7 +44,7 @@ artefakt kimliği ve hash'le okur, baseline'ı yeniden ölçer ve mandalı uygul
 kırmızıdır. Aynı koşudaki kırmızı kontrol kırmızı çıkmadıysa koşu geçersizdir (`08`).
 
 **Tetik.** Hedefte beynin iş akışı ve kimliği yoktur. Hakem reposunun zamanlayıcısı beyin
-reposunu ve hedefi okuyucu App'iyle yoklar; yeni beyin SHA'sı, yeni aday ya da yeni hedef başı bir
+reposunu kimliksiz, özel hedefi okuyucu App'iyle yoklar; yeni beyin SHA'sı, yeni aday ya da yeni hedef başı bir
 döngü başlatır. Hakemin kendi yazımları döngü başlatmaz. Yoklamanın en az beş dakikalık gecikmesi
 kabul edilir.
 

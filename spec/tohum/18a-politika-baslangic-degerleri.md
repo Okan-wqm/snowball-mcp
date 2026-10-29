@@ -15,7 +15,7 @@ Performans değerleri `18b`'dedir ve `18`'deki prosedürle değişir. Adlar `26b
 | Anahtar | Başlangıç | Okuyan |
 |---|---|---|
 | `monthly_cap_usd` | Operatör yazar; öneri 300 USD | `06`, Gözcü (`28`) |
-| `monthly_cap_ci_minutes` | 1.800 dk (Free özel repo kotası 2.000) | `01b`, `06`, `28` |
+| `monthly_cap_ci_minutes` | 1.800 dk (Free özel repo kotası 2.000; açık repoda kota yok, tavan fren olarak kalır) | `01b`, `06`, `28` |
 | `session_cap_usd` | Kurucu oturumu başına 20 USD | `24` |
 | `shares` | Keşif ≤ %30, üretim ≤ %40, ölçüm ≤ %20, genel ≤ %10 | `06` |
 | `class_floors.K0` | `{kind: census, misses: 0}`; clean'de FP 0 | `19`, aşama çıkışları |

@@ -37,7 +37,7 @@ operatör yazar (`01a`).
   işaretleri, kanarya sonuçları); serbest metin ona talimat olarak ulaşmaz. Önerisi yeni bir
   kendi-testi ekler, arşivde yeniden oynatılır, farklı modelden rakip çürütmeye çalışır ve kanarya
   geçer. Yeni donmuş koltuklar (Savunma, Uygulayıcı temsilcisi) de onun taslağıyla doğar.
-- **Aktarım yolu.** Hakem reposu Free özel planda ruleset ve ortam taşıyamadığı için hiçbir App ona
+- **Aktarım yolu.** Hakem reposu ruleset'e ve ortama dayandırılmadığı için (özel Free planda yoktur) hiçbir App ona
   yazmaz; şerit yazarının kabul edilmiş önerisi hakem reposuna operatör aktarımıyla, aşama
   çıkışında girer ve "insan dokunuşu" sayacına yazılır. Hakem reposu ruleset ve ortam taşıyabildiği
   gün (açık ya da Pro) bu yol değişir: ayrı bir denetçi App'i kontrolü raporlar, ayrı bir yazar
