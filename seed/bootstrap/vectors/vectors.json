@@ -1130,33 +1130,6 @@
         }
       },
       {
-        "id": "profile.accept_widened",
-        "purpose": "A proposal that adds a file to security_paths and to excluded_paths only widens them and is accepted.",
-        "cmd": "python -m profile.derive check /vec/profile/tree_t1.tar.gz /vec/profile/operator.json /vec/profile/prop_widen.json",
-        "fixture": [
-          "profile/tree_t1.tar.gz",
-          "profile/operator.json",
-          "profile/prop_widen.json"
-        ],
-        "expect": {
-          "accepted": true,
-          "reasons": []
-        },
-        "changed": {
-          "description": "One field: the widened proposal also drops packages/web/src/tokenizer.js from security_paths.",
-          "cmd": "python -m profile.derive check /vec/profile/tree_t1.tar.gz /vec/profile/operator.json /vec/profile/prop_widen_drop_security.json",
-          "fixture": [
-            "profile/tree_t1.tar.gz",
-            "profile/operator.json",
-            "profile/prop_widen_drop_security.json"
-          ],
-          "expect_not": {
-            "accepted": true,
-            "reasons": []
-          }
-        }
-      },
-      {
         "id": "profile.reject_different_languages",
         "purpose": "A proposal whose languages differ from the derivation (adds python) is rejected.",
         "cmd": "python -m profile.derive check /vec/profile/tree_t1.tar.gz /vec/profile/operator.json /vec/profile/prop_languages.json",

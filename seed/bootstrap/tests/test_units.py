@@ -9,7 +9,9 @@ import unittest
 import zipfile
 from pathlib import Path
 
-from snowball_bootstrap import canon, licenses, secretscan, stages
+from unittest import mock
+
+from snowball_bootstrap import canon, licenses, secretscan, stages, vectors
 from snowball_bootstrap.classify import classify, spec_stage_dirs
 from snowball_bootstrap.config import ConfigError, load_bootstrap
 from snowball_bootstrap.container import RunResult
@@ -250,6 +252,94 @@ class DataRunnerTest(unittest.TestCase):
         results, _ = self.run_case((1, b""), self.OTHER)
         self.assertEqual((results["probe.one"]["ok"], results["probe.one"]["runner_fault"]), (False, False))
 
+    def test_values_inside_lists_and_objects_are_compared_as_json_too(self):
+        """Most compared fields are lists or objects (`lines`, `mounts`, `reasons`): `[true]` is not `[1]` there either,
+        nor `[7.0]` `[7]`, nor `{"k": 1}` `{"k": true}`."""
+        case = dict(self.CASE, expect={"lines": [1, 7], "m": {"k": 1}},
+                    changed=dict(self.CASE["changed"], expect_not={"lines": [1, 7], "m": {"k": 1}}))
+        group = {"owner": "asama-0", "runner": "data", "cases": [case]}
+        other = (1, b'{"lines": [], "m": {}}')
+        results, _ = self.run_case((0, b'{"lines": [1, 7], "m": {"k": 1}}'), other, group)
+        self.assertTrue(results["probe.one"]["ok"])
+        for wrong in (b'{"lines": [true, 7], "m": {"k": 1}}', b'{"lines": [1, 7.0], "m": {"k": 1}}',
+                      b'{"lines": [1, 7], "m": {"k": true}}', b'{"lines": [1, 7], "m": {"k": 1.0}}',
+                      b'{"lines": [[1], 7], "m": {"k": 1}}'):
+            results, _ = self.run_case((0, wrong), other, group)
+            self.assertFalse(results["probe.one"]["ok"], wrong)
+
+    def test_an_answer_nested_deeper_than_the_parser_goes_is_red_not_a_crash(self):
+        """A last line 100 000 levels deep made `json.loads` raise RecursionError through `run-tests`: the job failed and
+        the push became an outage instead of the Founder's vector_failed."""
+        deep = b'{"ok": ' + b"[" * 100_000 + b"]" * 100_000 + b"}"
+        results, _ = self.run_case((0, deep), self.OTHER)
+        self.assertEqual((results["probe.one"]["ok"], results["probe.one"]["detail"]), (False, "no JSON object"))
+        results, _ = self.run_case(self.GOOD, (0, deep))
+        self.assertFalse(results["probe.one.changed_input"]["ok"])
+
+    def test_a_data_group_runs_only_on_a_tree_whose_seed_has_its_interface_page(self):
+        """The page (`29f`, `29g`) is all the Founder reads of a group. Vectors the referee got before the Founder's seed
+        has the page are the seed's gap (`vector_group_missing`), not a red push for an interface it was never shown."""
+        group = {"owner": "asama-0", "runner": "data", "interface": "spec/tohum/29x-probe.md", "cases": [self.CASE]}
+        with tempfile.TemporaryDirectory() as tmp:
+            seed, tree = Path(tmp, "seed"), Path(tmp, "tree")
+            seed.mkdir()
+            (seed / "vectors.json").write_text(json.dumps({"probe": group}), encoding="utf-8")
+            (tree / "spec" / "tohum").mkdir(parents=True)
+            self.assertEqual(missing_groups(seed, (1,), self.TABLE, tree=tree), ["probe"])
+            self.assertEqual(run_vectors(Scripted({}), seed, (1,), table=self.TABLE, tree=tree), [])
+            (tree / "spec" / "tohum" / "29x-probe.md").write_text("# probe" + chr(10), encoding="utf-8")
+            self.assertEqual(missing_groups(seed, (1,), self.TABLE, tree=tree), [])
+            self.assertEqual(len(run_vectors(Scripted({}), seed, (1,), table=self.TABLE, tree=tree)), 2)
+            self.assertEqual(missing_groups(seed, (1,), self.TABLE), [])  # the seed checked on its own
+            no_page = dict(group)
+            del no_page["interface"]
+            (seed / "vectors.json").write_text(json.dumps({"probe": no_page}), encoding="utf-8")
+            self.assertEqual(missing_groups(seed, (1,), self.TABLE, tree=tree), ["probe"])
+
+    def test_the_vectors_of_one_push_run_within_one_time_budget(self):
+        """A command that hangs on every input cost 2 tries x 120 s per call: 94 calls outlived the 60-minute `kos` job,
+        which books the push as an outage the Founder never hears of. Within the budget the first hang is on the
+        record; what the budget leaves is red as `not_run:time_budget`, the Founder's, never a runner fault."""
+        cases = [dict(self.CASE, id=f"probe.c{i}") for i in range(30)]
+        clock = [0.0]
+
+        class Hangs:
+            calls = []
+
+            def run(self, cmd, *, cwd=".", stdin=b"", timeout_s):
+                self.calls.append(timeout_s)
+                clock[0] += timeout_s
+                return RunResult(124, b"", b"", timeout_s * 1000, timed_out=True)
+        runner = Hangs()
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(vectors, "_now", lambda: clock[0]):
+            Path(tmp, "vectors.json").write_text(json.dumps(
+                {"probe": {"owner": "asama-0", "runner": "data", "cases": cases}}), encoding="utf-8")
+            results = run_vectors(runner, Path(tmp), (1,), table=self.TABLE)
+        self.assertEqual(len(results), 60)  # every vector is on the record
+        self.assertLessEqual(sum(runner.calls), vectors.BUDGET_S)
+        self.assertEqual(len(runner.calls), vectors.BUDGET_S // 120)
+        self.assertEqual([r for r in results if r["ok"] or r["runner_fault"]], [])
+        self.assertIn("timed out", results[0]["detail"])
+        self.assertIn("not_run:time_budget", results[-1]["detail"])
+        self.assertIsNone(results[-1]["exit"])
+
+    def test_the_fixtures_are_mounted_without_the_expected_values(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            vec = vectors.fixtures(VECTORS, Path(tmp) / "vec")
+            self.assertFalse((vec / "vectors.json").exists())
+            seed = json.loads((VECTORS / "vectors.json").read_text(encoding="utf-8"))
+            for name in DATA_GROUPS:
+                for case in seed[name]["cases"]:
+                    for rel in case["fixture"] + case["changed"]["fixture"]:  # a file, or a tree (a registry mirror)
+                        files = [p for p in [VECTORS / rel, *(VECTORS / rel).rglob("*")] if p.is_file()]
+                        self.assertTrue(files, rel)
+                        for path in files:
+                            copy = vec / path.relative_to(VECTORS)
+                            self.assertEqual(copy.read_bytes(), path.read_bytes(), copy)
+            self.assertTrue((vec / "chain" / "good.jsonl").is_file())
+            (vec / "stale").write_text("from an earlier run")
+            self.assertFalse((vectors.fixtures(VECTORS, vec) / "stale").exists())  # a used work dir gets a fresh copy
+
     def test_only_a_group_marked_as_data_has_a_judge(self):
         for group, missing in (({"owner": "asama-0", "runner": "data", "cases": [self.CASE]}, []),
                                ({"owner": "asama-0", "runner": "other", "cases": [self.CASE]}, ["probe"]),
@@ -291,7 +381,7 @@ class SeedDataVectorsTest(unittest.TestCase):
                                                               if p.startswith("/vec/")])
                     ids.append(case["id"])
         self.assertEqual(len(ids), len(set(ids)))
-        self.assertEqual(len(ids), 47)
+        self.assertEqual(len(ids), 46)
 
     def test_expected_values_carry_no_floats(self):
         """`tohum/26`: hashed artefacts carry no floats; nor do the vectors' answers (the runner tells 1 from 1.0)."""

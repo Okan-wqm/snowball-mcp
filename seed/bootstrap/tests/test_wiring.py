@@ -140,6 +140,13 @@ class WorkflowWiringTest(unittest.TestCase):
         minutes = int(re.search(r"timeout-minutes: ([0-9]+)", job).group(1))
         self.assertGreater(minutes * 60, rival.CLI_TIMEOUT_S + 300, "install and bookkeeping need room too")
 
+    def test_the_vectors_leave_the_kos_job_half_its_time(self):
+        """A vector run that outlives `kos` is booked as an outage the Founder never hears of: the vectors' budget is
+        at most half the job, the rest is the controls', the Founder's tests' and module-less red's (E18 for those)."""
+        job = WORKFLOW[WORKFLOW.index("  kos:"):WORKFLOW.index("  cagir:")]
+        minutes = int(re.search(r"timeout-minutes: ([0-9]+)", job).group(1))
+        self.assertLessEqual(vectors.BUDGET_S * 2, minutes * 60)
+
 
 MF_COLUMNS = ["MF", "Mekanizma", "Test", "Vektör grubu", "Modül (`referee/` altında)", "Adım", "Kum"]
 

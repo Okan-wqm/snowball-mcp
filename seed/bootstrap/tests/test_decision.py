@@ -770,10 +770,10 @@ class PullGates(unittest.TestCase):
         self.assertEqual((run["tests"], run["vectors"], run["green"]), ([], [], False))
         self.assertNotIn("python -m unittest t13", calls)
 
-    def run_tests_with(self, meta, lazy=False, docker_fails=False):
+    def run_tests_with(self, meta, lazy=False, docker_fails=False, extra=()):
         """run-tests with containers that run the Founder's T13 for real enough: it imports its module, so it is
         green with `referee/ledger/chain.py` in the mounted tree and red without (``lazy``: green either way)."""
-        files = ("referee/ledger/chain.py", "referee/ledger/__init__.py", "referee/other.py")
+        files = ("referee/ledger/chain.py", "referee/ledger/__init__.py", "referee/other.py", *extra)
         pulled, vectors = self.stage_pulled(meta, files=files)
         deps = Path(self.tmp.name) / "deps"
         deps.mkdir(exist_ok=True)
@@ -832,9 +832,49 @@ class PullGates(unittest.TestCase):
                               {"id": "T38", "cmd": "python -m unittest t38", "stage": 0},
                               {"id": "T35", "cmd": "python -m unittest t35", "stage": 0}], "done_mf": [1, 2, 8],
                     "lockfiles": []}
+        # The referee has `secrets`, the Founder's seed does not have its page yet: the seed's gap, not a red push.
         run, _ = self.run_tests_with({"manifest": manifest, "module_less": []})
+        self.assertEqual(run["vector_groups_missing"], ["secrets", "k0map"])
+        self.assertEqual({v["id"].split(".")[0] for v in run["vectors"]}, {"chain"})
+        run, _ = self.run_tests_with({"manifest": manifest, "module_less": []},
+                                     extra=("spec/tohum/29f-vektor-arayuzleri.md",))
         self.assertEqual(run["vector_groups_missing"], ["k0map"])  # MF2's `secrets` came with the seed (E161)
         self.assertEqual({v["id"].split(".")[0] for v in run["vectors"]}, {"chain", "secrets"})
+
+    def test_the_founders_containers_get_the_fixtures_and_never_the_expected_values(self):
+        """`vectors.json` holds every case's `expect`. Mounted at `/vec`, Founder code could open it, find the case its
+        argv and stdin name and print the answer: every data vector green with nothing implemented."""
+        manifest = {"tests": [{"id": "T13", "cmd": "python -m unittest t13", "stage": 0}], "done_mf": [1],
+                    "lockfiles": []}
+        pulled, _ = self.stage_pulled({"manifest": manifest, "module_less": [1]}, files=("referee/ledger/chain.py",))
+        deps = Path(self.tmp.name) / "deps"
+        deps.mkdir(exist_ok=True)
+        rival_dir = Path(self.tmp.name) / "rival_vec"
+        rival_dir.mkdir()
+        (rival_dir / "rival.json").write_text(json.dumps({"attempts": []}))
+        mounts = []
+
+        def make(boot, src, deps_dir, vec, locks):
+            mounts.append(Path(vec))
+            return FakeRunner(Path(vec), commands={"python -m unittest t13": (0, b"")})  # reads /vec from the mount
+        real = cli._runner
+        cli._runner = make
+        self.addCleanup(setattr, cli, "_runner", real)
+        out = Path(self.tmp.name) / "run_vec"
+        self.assertEqual(cli.main(["run-tests", "--root", str(self.referee), "--pulled", str(pulled), "--deps", str(deps),
+                                   "--work", str(Path(self.tmp.name) / "work_vec"), "--out", str(out)]), 0)
+        run = json.loads((out / "run.json").read_text())
+        self.assertEqual((len(run["vectors"]), [v["id"] for v in run["vectors"] if not v["ok"]]), (6, []))
+        self.assertEqual(len(mounts), 2)  # the pushed tree, then MF1's module-less copy
+        self.assertEqual(cli.main(["reproduce", "--root", str(self.referee), "--pulled", str(pulled), "--deps", str(deps),
+                                   "--rival", str(rival_dir), "--work", str(Path(self.tmp.name) / "work_repro"),
+                                   "--out", str(Path(self.tmp.name) / "repro_vec")]), 0)
+        self.assertEqual(len(mounts), 4)  # the head and the empty control tree
+        for vec in mounts:
+            self.assertFalse((vec / "vectors.json").exists(), vec)
+            self.assertTrue((vec / "chain" / "good.jsonl").is_file(), vec)
+            self.assertTrue((vec / "secrets" / "s1_added.patch").is_file(), vec)
+        self.assertTrue((self.referee / "vectors" / "vectors.json").is_file())  # the referee still reads it
 
     def test_reproducers_run_with_the_reproducer_timeout(self):  # L32
         pulled, vectors = self.stage_pulled({"manifest": None})

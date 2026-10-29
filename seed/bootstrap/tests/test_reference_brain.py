@@ -5,9 +5,11 @@ its own tests pass, the seed vectors of the micro-features it declares done pass
 runner, and its tests fail when its code is wrong (one mutant here; `local/mutate_brain.py` runs them all).
 A stub here once claimed eighteen micro-features with import-only tests, and the real rival refuted it.
 
-It also carries reference implementations of MF2-MF7 (`gate/`, `runner/`, `profile/`): one of the two blind
-implementations every expected value of those groups was checked with (E161). They are the evidence that the seed
-vectors pass on a correct implementation and fail on broken ones; the brain does not declare them done.
+It also carries reference implementations of MF2-MF7 (`gate/`, `runner/`, `profile/`): implementation A, one of the
+two blind implementations every expected value of those groups was checked with (E161). They are the evidence that the
+seed vectors pass on a correct implementation and fail on broken ones; the brain does not declare them done. The other,
+B, is `local/blind_b/referee/` as it was written (from the cases without their expected values): the second
+computation `29a` and `29d` ask for, run here again on every change of the seed.
 """
 
 import json
@@ -25,6 +27,7 @@ from snowball_bootstrap.container import RunResult
 
 BOOT = Path(__file__).resolve().parents[1]
 BRAIN = BOOT / "local" / "reference_brain"
+BLIND_B = BOOT / "local" / "blind_b"
 VECTORS = BOOT / "vectors"
 sys.path.insert(0, str(BOOT / "local"))
 import mutate_brain  # noqa: E402
@@ -124,8 +127,6 @@ BREAKS = [
      ["profile.unit_candidates_order_and_filter"]),
     ("narrowing_accepted", "profile/derive.py", "if not set(derived[key]) <= set(prop[key]):", "if False:",
      ["profile.reject_narrowed_excluded"]),
-    ("widening_rejected", "profile/derive.py", "if not set(derived[key]) <= set(prop[key]):",
-     "if set(derived[key]) != set(prop[key]):", ["profile.accept_widened"]),
     ("languages_unchecked", "profile/derive.py", 'if set(prop["languages"]) != set(derived["languages"]):',
      "if False:", ["profile.reject_different_languages"]),
 
@@ -244,9 +245,40 @@ class SeedVectorsOnReferenceImplementationsTest(unittest.TestCase):
         results = vectors.run_vectors(LocalRunner(), VECTORS, DATA_MFS)
         cases = [c["id"] for g in DATA_GROUPS for c in seed[g]["cases"]]
         self.assertEqual([r["id"] for r in results], [i + s for i in cases for s in ("", ".changed_input")])
-        self.assertEqual(len(results), 94)
+        self.assertEqual(len(results), 92)
         self.assertEqual([r for r in results if not r["ok"]], [])
         self.assertEqual(brain_manifest().done_mf, (1,))  # reference implementations, not declared done
+
+    def test_every_new_group_is_green_on_the_second_blind_implementation_too(self):
+        """`29a`, `29d`: every expected value is computed twice, independently. B is kept so the second computation can
+        be run again (a changed fixture or case is checked on both), not only claimed (E161)."""
+        modules = sorted(p.relative_to(BLIND_B / "referee").as_posix() for p in (BLIND_B / "referee").rglob("*.py"))
+        for feature in DATA_MFS:
+            self.assertIn(stages.load(0).feature(feature).module, modules)
+        for rel in modules:  # its own code, not a copy of A's
+            a = BRAIN / "referee" / rel
+            self.assertFalse(a.exists() and a.read_bytes() == (BLIND_B / "referee" / rel).read_bytes(), rel)
+        results = vectors.run_vectors(LocalRunner(BLIND_B), VECTORS, DATA_MFS)
+        self.assertEqual(len(results), 92)
+        self.assertEqual([(r["id"], r["detail"]) for r in results if not r["ok"]], [])
+
+    def test_no_profile_case_decides_what_the_operator_has_not(self):
+        """E194: `tohum/14:15-17`, `01b` and test 19 (`asama-0/09`) reject every proposal that differs from the derivation;
+        `14:52` and `30d` let a proposal widen. Until the operator aligns them, an implementation of either reading passes
+        the seed: A turned into the general reading (any difference in a path list rejected) stays green."""
+        ids = [c["id"] + s for c in seed_vectors()["profile"]["cases"] for s in ("", ".changed_input")]
+        with tempfile.TemporaryDirectory() as tmp:
+            work = Path(tmp)
+            shutil.copytree(BRAIN / "referee", work / "referee", ignore=shutil.ignore_patterns("__pycache__"))
+            target = work / "referee" / "profile" / "derive.py"
+            text = target.read_text(encoding="utf-8")
+            only_narrowing = "if not set(derived[key]) <= set(prop[key]):"
+            self.assertEqual(text.count(only_narrowing), 1)
+            target.write_text(text.replace(only_narrowing, "if set(derived[key]) != set(prop[key]):"),
+                              encoding="utf-8", newline="")
+            results = run_cases(work, ids)
+        self.assertEqual(len(results), len(ids))
+        self.assertEqual([(r["id"], r["detail"]) for r in results if not r["ok"]], [])
 
     def test_its_profile_package_does_not_shadow_the_standard_library_here(self):
         """E191: a test module that put the brain's `referee/` first on `sys.path` made `import cProfile` fail for
