@@ -28,6 +28,8 @@ coverage/
 *.pfx
 secrets/
 credentials*.json
+# ...except the seed vectors of MF2's secret scanner: made-up values, each marked FAKE (a seed test checks it)
+!seed/bootstrap/vectors/secrets/
 
 # Local trial runs and scratch; repository-specific state lives in the target repo, not here
 .trial/

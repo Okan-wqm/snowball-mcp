@@ -257,6 +257,8 @@ class E09Tautology(unittest.TestCase):
         (base / "rv").mkdir()
         (base / "rv" / "rival.json").write_text(json.dumps(refuted_by(attempt("c", {"cmd": "true", "expect_exit": 0}))))
         (base / "deps").mkdir()
+        (flow.referee / "vectors").mkdir()  # the seed's vectors: reproduce mounts their fixtures at /vec
+        (flow.referee / "vectors" / "vectors.json").write_text("{}")
         made = []
 
         def runner(boot, tree, deps, vectors, locks):
@@ -1024,6 +1026,8 @@ class E08ProvenDefects(unittest.TestCase):
         (pulled / "meta.json").write_text(json.dumps(meta))
         (base / "rv").mkdir()  # no rival.json: the rival was not called on this head
         (base / "deps").mkdir()
+        (flow.referee / "vectors").mkdir()  # the seed's vectors: reproduce mounts their fixtures at /vec
+        (flow.referee / "vectors" / "vectors.json").write_text("{}")
         runner = FakeRunner(Path("."), commands={REP["cmd"]: (1, b'{"valid": true}\n'),
                                                  "python -m other": (1, b"")})
         with mock.patch.object(cli, "_runner", lambda boot, tree, deps, vectors, locks: runner if locks or

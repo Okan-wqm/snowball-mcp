@@ -28,7 +28,7 @@ from .reproduce import run_reproducers, run_state_reproducers
 from .rival import (HIDDEN_DIRS, HIDDEN_NAMES, RivalOutcome, build_context, extract_seat_prompt, hidden, resolve_claude,
                     run_rival)
 from .treehash import path_problem, TreeError, extract, is_utf8_name, iter_files, shown, tree_hash
-from .vectors import missing_groups, run_vectors
+from .vectors import fixtures, missing_groups, run_vectors
 
 EXIT_FILE = "exit-request.json"
 MANIFEST_FILE = "snowball-tests.json"
@@ -553,7 +553,8 @@ def cmd_run_tests(args: argparse.Namespace) -> int:
     manifest = meta["manifest"]
     done = tuple(manifest["done_mf"])
     lic = licenses.check_dir(Path(args.deps), policy.license_allowlist, policy.license_exceptions)
-    runner = _runner(boot, src, Path(args.deps), root / "vectors", manifest["lockfiles"])
+    vec = fixtures(root / "vectors", Path(args.work) / "vec")  # `/vec` without the expected values
+    runner = _runner(boot, src, Path(args.deps), vec, manifest["lockfiles"])
     controls = run_controls(runner)
     tests: list[dict[str, Any]] = []
     vectors: list[dict[str, Any]] = []
@@ -567,16 +568,16 @@ def cmd_run_tests(args: argparse.Namespace) -> int:
                           "stdout_sha256": hashlib.sha256(res.stdout).hexdigest(),
                           "stderr_sha256": hashlib.sha256(res.stderr).hexdigest(),
                           "ok": res.ok, "output_tail": tail})
-        vectors = run_vectors(runner, root / "vectors", done, table=table)
+        vectors = run_vectors(runner, root / "vectors", done, table=table, tree=src)
         if is_green(controls, tests, vectors, lic):  # a red push is rejected anyway: spare the containers
             module_less = run_module_less(
-                lambda tree: _runner(boot, tree, Path(args.deps), root / "vectors", manifest["lockfiles"]),
+                lambda tree: _runner(boot, tree, Path(args.deps), vec, manifest["lockfiles"]),
                 tar_bytes, Path(args.work) / "module-less", table, meta.get("module_less") or [],
                 manifest["tests"], boot.limits.test_timeout_s, boot.limits.max_tree_bytes)
     green = is_green(controls, tests, vectors, lic, module_less)
     write_json(out / "run.json", {"controls": controls, "tests": tests, "vectors": vectors, "licenses": lic,
                                   "module_less": module_less,
-                                  "vector_groups_missing": missing_groups(root / "vectors", done, table),
+                                  "vector_groups_missing": missing_groups(root / "vectors", done, table, tree=src),
                                   "green": green})
     output(green=green)
     return 0
@@ -645,8 +646,9 @@ def cmd_reproduce(args: argparse.Namespace) -> int:
     empty = Path(tempfile.mkdtemp(prefix="control-", dir=work))  # the control tree: nothing in it at all
     empty.chmod(0o755)  # mkdtemp makes it 0700; the container's user (65534) must be able to copy it like /src
     locks = (meta.get("manifest") or {}).get("lockfiles", [])
-    runner = _runner(boot, src, Path(args.deps), root / "vectors", locks)
-    control = _runner(boot, empty, Path(args.deps), root / "vectors", [])
+    vec = fixtures(root / "vectors", work / "vec")  # `/vec` without the expected values, as in run-tests
+    runner = _runner(boot, src, Path(args.deps), vec, locks)
+    control = _runner(boot, empty, Path(args.deps), vec, [])
     timeout = boot.limits.reproducer_timeout_s
     repro = run_reproducers(runner, attempts, timeout, control=control)
     wanted = set(meta.get("state_repro") or [])
