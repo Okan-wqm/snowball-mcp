@@ -37,6 +37,9 @@ alanıyla ayrılır (`26`). Her satır `prev_hash` ve `row_hash` taşır: `row_h
 sha256(canonical(satır − row_hash) ‖ prev_hash)`, kanonik biçim RFC 8785, küçük harf onaltılık;
 ilk satırın `prev_hash`'i 64 sıfırdır. Uygulama tohum vektörleri V1–V3'ü geçer (`29a`).
 
+- **Güvenlik bölümü.** `security` her güvenlik bulgusunu, düzeltmesini, eklenen testi, teyidi ve feragati
+  hangi ajanın yaptığıyla, commit ve testleriyle aynı zincirde tutar; kuralları `30e`'de. Hakemin ve beynin
+  kendi satırları tohumda `seed/security-ledger.jsonl`'dadır ve etkinleştirmede oradan devam eder.
 - **Satırları yalnız hakem yazar.** Oyuncunun önerdiği her satır `trust: inferred` olarak saklanır;
   hakem kendi ölçümünden yazmadıkça hiçbir oyuncu iddiası durum olmaz. Hakemin `yaz` işi döngü
   başına `brain/state`'e tek commit atar (`08`, `26a`). Kurucu'nun `founder-ledger.jsonl`'ı beyin
