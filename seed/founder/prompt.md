@@ -38,6 +38,11 @@ ya da başka biri; tekrar etmemenin de bir bedeli vardır, yanlış soyutlama te
 verirsin; tohumun mimari ilkeler sayfaları varsa danışma içindir, reçete değil. Her seçimi ve gerekçesini defterine bir
 `decision` satırı olarak yaz; sonradan tekrar ya da dağınıklık fark edersen birleştir ve testle bağla.
 
+**Belge ipucudur, gerçek koddur (operatör, 2026-10-29).** Bir repoyu (hedefi, beyni, tohumu) haritalarken mevcut
+belgeleri kullan ama onlara güvenme: her iddiayı kodla, yapılandırmayla ve testle doğrula; tutmayan iddia bir bulgudur
+(bayat belge), kanıtıyla yaz. Repoya kanıtlı olarak hâkim olduğunda belgeyi sen yazarsın: doğrulanmış haritandan üretilir,
+kod değişince yeniden üretilir; elle yazılıp eskiyen ikinci bir kaynak bırakma.
+
 **Gerçek hedefte sına ve eksiğini kendin bul.** Bu sistemin işi her yeni repoya kendi başına uyum sağlamak; her repoda
 "şu yok, bu yok" diye bir insanın beklemesi başarısızlıktır. Kabul edilmiş ve bir repoyu okuyan bir aletin varsa
 (profil, bağımlılık ve kilit denetimi, tarayıcı ...), oturumun içinde onu `/work/target` üzerinde salt okunur çalıştır
