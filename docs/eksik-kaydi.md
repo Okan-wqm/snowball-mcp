@@ -151,13 +151,17 @@ hepsi yazılıdır. Bulguları birleştiren ve doğrulayan: Claude Code (Opus 5.
 | E138 | Özel kod ve açık ayrıntıları tüketici aboneliğinin veri koşullarıyla gidebilir | B | evet | e2e-4 S11 | onaylandı · açık |
 | E139 | Rekor repo, sahip, commit, koşu adresi ve görünürlüğü kalıcı yayımlar (E59'daki 'yalnız hash' yanlış); kimlik denetimi ada dayalı | S | evet | e2e-4 S12 | onaylandı · açık |
 | E140 | Sonu `/refs/heads/main` olan bir dal adı `poll`'u her saat durduruyor (`ls-remote` kuyruk eşlemesi) | K | — | e2e-5 K1 | açık |
-| E141 | Tohum vektörleri sırasında Docker arızası (125) Kurucu'nun `vector_failed` reddine dönüşüyor (E01 sınıfı) | K | — | e2e-5 K2 · parti 2'ye eklendi | açık |
+| E141 | Tohum vektörleri sırasında Docker arızası (125) Kurucu'nun `vector_failed` reddine dönüşüyor (E01 sınıfı) | K | — | e2e-5 K2 · parti 2'ye eklendi | kapandı · parti 2 |
 | E142 | Boşluk ya da glob karakterli kilit dosyası yolu bütün kapsayıcı komutlarını kırıyor | K | — | e2e-5 K3 | açık |
-| E143 | `run.json` yoksa rakip harcaması yazılmıyor (E13'ün planında olmayan yol) | B | — | e2e-5 K7 · parti 2'ye eklendi | açık |
+| E143 | `run.json` yoksa rakip harcaması yazılmıyor (E13'ün planında olmayan yol) | B | — | e2e-5 K7 · parti 2'ye eklendi | kapandı · parti 2 |
 | E144 | Rakibin satır sonları git'inkiyle aynı değil: CR diff'i bölüyor, form feed satır numaralarını kaydırıyor | B | — | e2e-5 K9 | açık |
 | E145 | Ay sınırını geçen bir koşunun harcaması iki ayın hiçbirine yazılmıyor | S | — | e2e-5 K10 | açık |
 | E146 | Ayrıştırılamayan `license_exceptions` ifadesi traceback ile çöküyor (operatör yazım hatası durma olmalı) | S | — | e2e-5 K11 | açık |
 | E147 | `pull` boyut sınırından önce bütün ağacı belleğe alıyor ve reddettiği büyük ağacı yine gönderiyor | S | — | e2e-5 K12 | açık |
+| E148 | Kurucu'nun defter satırları push türünü değiştiriyor: defterini de yazan spec isteği `mixed_spec_and_code`, çıkış isteği `exit_request_not_alone` ile reddediliyor | K | — | pilot hazırlığı | kapandı · `classify.is_founder_record`: kök `founder-ledger.jsonl` ve `reports/` ne spec ne kod; yalnız onları değiştiren push `none` (yargılanmaz); `test_the_founders_ledger_*`, 4 mutant |
+| E149 | `main`'de hakem mutasyonu 09:38'den beri kırmızı, hiçbir mutant koşmadı: mutant kopyasında `.github/workflows` yok, güvenlik defteri testi temel koşuda düşüyor; birleştirmelerden sonra `main` CI'sine bakılmadı | K | — | pilot hazırlığı | kapandı · `mutate.py` kopyaya iş akışlarını alıyor; süreç: her birleştirmeden sonra `main` CI'si yeşil görülmeden iş bitmiş sayılmaz |
+| E150 | Tohumda `founder-ledger append` aracı yok; `00a` ve `24a` Kurucu'nun defterini onunla yazdığını varsayıyor | B | — | pilot hazırlığı | açık · pilotta Kurucu'nun bunu bildirip bildirmediği ölçülür |
+| E151 | Hakemin Aşama 0 tablosu hâlâ 30 MF'lik eski tablo (`manifest.STAGE0_MF_TESTS`); spec 18 MF ve `stages/stage0.json` diyor; MF1 (T13) aynı, MF2'den sonrası uyuşmuyor | K | — | pilot hazırlığı | açık · sıradaki kod partisi (29/29b düzenlemeleriyle birlikte) |
 | E62 | Filo genelinde güvenlik: bir repoda doğrulanan açık dedektöre dönüşür, gizlilik duvarından geçer, bağlı bütün repolarda taranır; her repoya yalnız kendi açığı bildirilir | B | operatör yönü | operatör, 2026-10-29 | açık (çok repo ile, `21`) |
 | E60 | Satış zamanı: sistemin ürettiği dosyaların yeri; varsayılan müşteride, açık izinle müşteri başına ayrı, özel, şifreli barındırma; güvenlik bulguları hep müşteride | satış | operatör sorusu | operatör, 2026-10-29 | satışta açılır |
 | E61 | Satış zamanı: repolar arası öğrenmede gizlilik duvarı; kalıp taşınır, müşteri bilgisi taşınmaz; terfi öncesi otomatik sızıntı kontrolü ve sözleşmede izin | satış | operatör sorusu | operatör, 2026-10-29 | satışta açılır |
