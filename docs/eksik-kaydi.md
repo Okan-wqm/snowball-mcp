@@ -915,8 +915,10 @@ imzalı durumun Sigstore kimliği repo adına bağlıdır; prova repoları atıl
 onaylandı: K1 önyükleme hakemi Aşama 0'dan sonra da beyin push'larının hakemi; K2 aşama ortasında içe aktarma
 (her biri (A) → aktarma → (B), insan dokunuşu sayılır); K3 ilk birim `apps/alert-engine` (TypeScript), oyuncak hedef
 JavaScript, Aşama 0'da tek ekosistem npm; K4 dürüstlük provasının açığını ve imkânsız vektörünü Kurucu dışı bir ajan
-yerleştirir, cevap anahtarı mühürlü; K5 Aşama 0 bütçesi Kurucu ≤ 220 USD ve ≤ 22 oturum, rakip ≤ 25 USD, model
-kanaryası ≤ 1 USD. **Aria kapsam dışıdır** (açık soru değil, karar). **Amaç yeniden:** kartopu gibi büyüyen,
+yerleştirir, cevap anahtarı mühürlü; K5 (operatörün düzeltmesiyle) bütçe durdurucu değil emniyet frenidir: sistem abonelikle CLI üzerinden
+çalıştığı ve bu kendi repolarımızda bir test olduğu için USD tahminleri fatura değildir ve şimdilik kısıt değildir;
+tavanlar normal işi hiç durdurmayacak kadar yüksek, yalnız kaçak döngüyü keser; oturum ve USD sayıları ölçümdür,
+çıkış koşulu değildir; gerçek sınır aboneliğin kullanım penceresidir, 429 operatör uyarısı ve kesintidir. **Aria kapsam dışıdır** (açık soru değil, karar). **Amaç yeniden:** kartopu gibi büyüyen,
 öğrenen, uyguladığını test eden, öğrendiğini uygulayan, kendini geliştiren bir sistem; %100 LLM'lerce yapılır ve
 uygulanır; insan yalnız yön verir ve hesap işlemlerini yapar; insan dokunuşu sayacı bunu ölçer.
 
