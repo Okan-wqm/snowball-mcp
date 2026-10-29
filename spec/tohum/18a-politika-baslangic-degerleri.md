@@ -53,4 +53,4 @@ Performans değerleri `18b`'dedir ve `18`'deki prosedürle değişir. Adlar `26b
 | `stage_params.match_window_lines` | K3 ve üstü eşleme penceresi ±15 satır | `asama-0/08` |
 | `stage_params.rival_min_attempts` | Aşama başına rakipten sağ çıkmış 5 ayrı artefakt, artefakt başına 1 deneme | `asama-0/10`, `29`, `29b` |
 | `stage_params.repeat_reject_limit` | Aynı imzalı 3 ardışık ret → `not_learning` | `24`, `29b` |
-| `stage_budgets` | Aşama sayfalarının bütçe tabloları; toplamdır, aylık tavan ayrıca bağlar | aşama bütçe sayfaları, Gözcü, önyükleme hakemi (`asama_0.rival_usd`, `29b`) |
+| `stage_budgets` | Aşama sayfalarının bütçe tabloları; toplamdır, aylık tavan ayrıca bağlar. Güvenlik avcısının kendi satırı `<aşama>.security_hunter_usd`'dir; yazılmamışsa avcı koşmaz | aşama bütçe sayfaları, Gözcü, önyükleme hakemi (`asama_0.rival_usd`, `29b`), güvenlik avcısı (`30f`) |

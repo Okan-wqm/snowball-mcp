@@ -39,6 +39,9 @@ yazar App'ini tutar. Oyuncu kodu yalnız `koş`ta koşar; sırlı işler oyuncu 
 | `status.block` | Hakem | `yaz` | dondurma, bütçe, insan dokunuşu | `status.md` üst bloğu | `brain/state` | hakem döngü sonu |
 | `lock.check` | Hakem | `yaz` | aşama, spec hash, çıkış satırı | kilit açık / kapalı | `events` satırı | aşama geçişi |
 | `brain.accept` | Hakem | `yaz` | beyin SHA'sı, `koş` sonuçları, rakip satırı | kabul / ret | `accept` satırı | hakem yoklaması |
+| `security.derive` | Hakem | `çek`, `koş` | hedef ağacı, `profile.json`, göç uygulanmış test veritabanı | güvenlik profili (`30d`); öneri yalnız ekler | `security/profile.json` | etkinleştirme, her döngü |
+| `security.scan` | Hakem | `getir`, `koş` | kilit dosyaları, profil, danışma veritabanları | tarayıcı eşleşmeleri ve dedektör isabetleri (`trust: observed`) | yok | her push, süpürme (`30f`) |
+| `security.run` | Hakem | `koş` | profilin testleri, avcının kanıtları, ağaçlar | kural durumları, doğrulanmış ve reddedilmiş bildirimler | `security` satırları `yaz`'da | her döngü (`30d`, `30f`) |
 | `profile.propose` | Beyin | `koş` | hedef ağacı | profil önerisi | yok | Kurucu, etkinleştirme |
 | `lint.discover` | Beyin | `koş` | `snapshot_id`, profil | bulgu dosyası | yok | hakem döngüsü |
 | `fixer.range` | Beyin | `koş` | bulgu | worktree diff'i | worktree | hakem döngüsü |
@@ -56,7 +59,8 @@ hazır iyi ve kötü adaylarını tutar. Hakem hiçbir adaya yeniden koşturmada
 `impact_miss` sinyali ya da K2 silmeleri), `oracle.run` (Aşama 4, K5 test oracle'ı),
 `reputation.score` (bir sınıfta ≥ 2 aday organ), `lessons.view` (Aşama 2 planlayıcısı),
 `genesis.queue` (bir sınıfta ≥ 2 aday), `main.sync` (Aşama 2), `seal.rotate` (ilk held-out havuzu),
-`exit.drill` (ilk prova: merge getiren aşamanın geri alma provası).
+`exit.drill` (ilk prova: merge getiren aşamanın geri alma provası), `security.*` ve güvenlik avcısının
+`agent.dispatch`'i (etkinleştirme; Aşama 1'den bildirir, düzeltmez, `30f`).
 
 Beyin araçlarının yazdığı her şey bir öneri ya da worktree'dir; `brain/state`'e ve hedefe yalnız
 `yaz` işi yazar.

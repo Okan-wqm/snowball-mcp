@@ -57,6 +57,7 @@ listedeki her yeteneğin her kimliğini arar; `lock.check` listede olmayan yeten
 | LLM avcı | #kanarya clean ve planted snapshot kanaryası; #sizinti kalıp sızıntısı denetimi; #human-fix `human_fix` katman tabanı |
 | Panel | #kalibrasyon yargıç kalibrasyonu; #bagimsizlik bağımsızlık ölçümü |
 | Güvenlik yoluna dokunma | #k6 K6 kapısı; #ayna özel, çatallanmamış ayna (`15`) |
+| Güvenlik avcısı ve bekçi testleri | #guvenlik-kanarya ekilmiş açık provası, aile başına recall alt sınırı `class_floors.K6`'da ve temiz kanaryada yanlış bildirim 0 (`30f`); #guvenlik-dogrulama her bildirim hakemde yürütülmüş, avcının sözüyle değişen karar yok; #guvenlik-bag her kural bir teste bağlı, `blocked` ve `unbound` boşluk olarak sayılı (`30d`); #guvenlik-defter `security` bölümü zincirde, düzeltilmemiş açığın ayrıntısı açık yüzeyde yok (`30e`) |
 | Daha ucuz basamak | #non-inferiority tam non-inferiority testi, δ ve n ≥ 45 (`19`) |
 | Ders görünümü ve enjeksiyonu | #ders-dogus doğuş; #ders-kullanim kullanım; #ders-etki etki; #ders-yanlis yanlış ders; #ders-plasebo plasebo; #ders-kalicilik kalıcılık (`22a`) |
 | Genesis yaşam döngüsü | #genesis-buyume büyüme; #genesis-budama budama; #genesis-yeniden yeniden yazım; #genesis-sessizlik gereksiz büyümeme (`12a`) |

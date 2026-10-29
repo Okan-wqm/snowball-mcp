@@ -61,6 +61,9 @@ dosyaları içindir; kod dizinlerinin çağıranları `24` ve `26a`'dadır.
 | `ledger.jsonl` `freeze` | Gözcü | kapı | Merge kapanır | Etkinleştirme |
 | `ledger.jsonl` `rival`, `accept` | hakem, `brain.accept` | `brain.accept`, `gate.check` | Kabul, izin listesi | Etkinleştirme |
 | `ledger.jsonl` `drill` | `exit.drill` | hakem exit, `lock.check` | Yeteneğin canlıya girmesi | İlk prova |
+| `ledger.jsonl` `security`; hakem ve beyin kapsamı tohumda `seed/security-ledger.jsonl` | `yaz` (`security.run`, doğrulanmış bildirim); tohum satırlarını operatör oturumu `ledger.chain` ile | `gate.check`, güvenlik avcısı, Kurucu oturum başı, `status.block`, ders görünümü | Bekçi testi kırmızıysa ret; yeniden açma; avcının kapsamı; operatör uyarısı | Etkinleştirme; tohum dosyası 2026-10-29 (`30e`) |
+| `security/profile.json` | `security.derive`, doğrulanmış bildirim | `security.run`, `security.scan`, güvenlik avcısı, `gate.check` | Hangi sınıf ve test koşar; hangi aday K6 | Etkinleştirme (`30d`) |
+| `security/tests/` | `yaz`, doğrulanmış bildirimden | `security.run` (`koş`) | Merge reddi; açığın kapanışı | Etkinleştirme (`30d`) |
 | `chain/root.jsonl` | `yaz` | `chain.verify`, `rekor.anchor` | Sert duruş | Etkinleştirme |
 | `cases/` (dev) | `cases.build` | `harness.score`, Kurucu | Adapter değişikliği | Etkinleştirme |
 | `status.md` | `status.block`, `docs.render` | operatör | Kill switch | Etkinleştirme |

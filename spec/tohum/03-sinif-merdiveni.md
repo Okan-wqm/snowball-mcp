@@ -25,6 +25,11 @@ Bir sınıf grubu ancak bir önceki aşama PASS alınca açılır. K3'ün aracı
 bozmadır. Her açılış aynı döngüyü yeniden koşturur: adapter → oracle → düzeltme → merge → defter
 → maliyet inişi.
 
+**K6 Aşama 1'den gözlenir, Aşama 5'te düzeltilir.** Açık bulmak, kanıtlamak, bildirmek ve bir kuralı bekçi
+testine bağlamak davranışı değiştirmez; bunu Aşama 1'den hakemin bağımsız güvenlik avcısı yapar (`30f`).
+Hedefin koduna güvenlik düzeltmesi yalnız K6 canlı olunca yazılır. Bilinen açık sınıfları, bulma yolları
+ve kapanış testleri `30`–`30c`'de, hedefin tehdit modeli `30d`'de, güvenlik defteri `30e`'dedir.
+
 **K8, dokümanı kodla birlikte geliştirir.** Kod ile doküman çelişirse referans koddur (Y1); doküman
 ilk bağlanmada okunur ama hiçbir karar ona dayanmaz. Doküman düzeltmesi ve yeni doküman kod
 düzeltmesiyle aynı kapıdan geçer; doküman yolları yalnız K8 adaylarında diff-guard'dan geçer
