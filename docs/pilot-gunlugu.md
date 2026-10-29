@@ -26,6 +26,9 @@ dökümleri `logs/`'tadır (GitHub'a gitmez, sır içerebilir diye). Hedef: ger�
 | 4 | reddi okudu, hakem yeri söylemediği için eşleşmeleri kendi kuralıyla buldu, sahte sırları çalışma anında birleştirdi, buna karşı öz-denetim testleri ekledi; aynı eksiği seed-009 olarak bildirdi (hakem yeri söylemiyor — E164 ile aynı anda) | `1c83fb7` kod | **rejected** `refutation_reproduced`: rakip Kurucu'nun tarayıcısında gerçek bir açık buldu — token kuralları `\b` ile başlıyor, alt çizgi kelime karakteri olduğu için `x_ghp_…` gibi yapışık bir token yakalanmıyor, gerçek bir sır giden prompta sızabilir; hakem yeniden üreticiyi kumda koştu, kontrol ağacında görünmedi (totolojik değil) | ~5 dk; rakip 0,23 USD |
 | 5 | rakibin kanıtladığı `\b` açığını kapattı, rakibin yeniden üreticisini teste çevirip bütün kurallara genelledi, eski hatayı 5 yere geri koyup 5'inde de testin kırmızıya döndüğünü gösterdi | `99278a5` kod | **rejected** `rival_unresolved: secret_in_verdict`: açık kapalı (hakem eski çürütmeyi yeniden koştu, üretilemedi), ama rakip sır tarayıcısını sınarken kendi kararına kimlik bilgisi biçimli bir değer yazdı ve hakem kararı kullanmadı — Kurucu'nun hatası değil (E165, E166) | ~9 dk |
 | 6 | ret gerekçesindeki desen adından ders çıkarıp tarayıcısını tırnaksız ve zayıf atamalara genişletti, seed-010'u bildirdi | `6e29850` kod | **rejected** `refutation_reproduced`: yeni protokolle rakip sırrı çalışma anında kurdu (inceleme kaybolmadı) ve ikinci gerçek zayıflığı buldu — `$`, `<`, `{`, `%` ile başlayan değerler yer tutucu sayılıyor, `$` ile başlayan gerçek bir parola temiz geçiyor; hakem kanıtladı; eski açık hâlâ kapalı | ~14 dk; rakip 0,23 USD |
+| 7 | yer tutucu yalnız tam şablonsa; parola cümleleri, çözülmüş ve bölünmüş tokenlar | `8265299` kod | **rejected** üçüncü çürütme: noktalı virgüllü tırnaksız değer (`ab;cd;…`) kaçıyor — Kurucu'nun "8+ karakterlik her atanmış değer yakalanır" vaadine aykırı; iki eski çürütme kapalı | ~28 dk |
+| 8 | değerleri noktalamada kesmek yerine ayrıştırıcıyla okudu (yapısal düzeltme) | `11ebc1e` kod | (başlatıcı yeniden başlatılırken bekledi; E168 ile döngü 9'un başında yargılandı) **rejected** dördüncü çürütme: anahtar adları sabit listeyle | — |
+| 9 | anahtar adlarını kelime kuralıyla, sınıfı kapattı; yanlışlıkla `__pycache__` commit etti, geçmişi yeniden yazmadan kaldırdı ve **kendiliğinden bildirdi** (`seed_issue [own_code]`, nedeni ve dersiyle) | `509eabc`, `a0bc19b`, `d02c924` | **rejected** beşinci çürütme: yalnız harfli noktalı ad "kod" sayılıyor, parola cümlesi kaçıyor — kod referansından ayırt edilemeyen bir **sınır vakası**; dört eski çürütmenin dördü de kapalı | ~11 dk, ~1,8 USD; rakip 0,29 USD |
 
 ## Değerlendirme
 
@@ -59,16 +62,42 @@ reddi okudu, nedenini kendisi buldu, düzeltti ve önlem testleri ekledi (öğre
 yerini söylemiyor" bildirimi operatörün E164 düzeltmesiyle aynı anda geldi: rakibe gidemeyen istekte artık sırrı
 taşıyan dosyalar (değer asla) `result.rival.secret_paths`'te yazılıyor.
 
+**Döngü 4–9: MF2 yakınsıyor ama sınırsızdı (E167).** Rakip arka arkaya beş gerçek zayıflık buldu, ciddiyeti azalarak
+(yapışık token → `$` parola → noktalı virgüllü değer → ad listesi → yalnız harfli ad); Kurucu her birini kapattı ve
+hakem her yeni push'ta eski çürütmelerin hepsini yeniden koştu: hiçbiri geri gelmedi. Teşhis: Kurucu her düzeltmede
+vaadini büyütüyor, rakip vaadi çürütüyor; sonuncusu ise kod referansından ayırt edilemeyen bir sınır vakası. İki taraflı
+düzeltme: Kurucu'ya "vaat kadar kanıt" ilkesi; rakibe "hem yakalaması hem temiz girdiyi geçirmesi istenen mekanizmada
+sınır vakası çürütme değil, açık iddiadır" ilkesi. Kalan bağ: `secrets` sözleşmesi (iş akışı) kapsamı yazacak.
+
+**Davranış.** Döngü 9'da Kurucu kendi hatasını (yanlışlıkla commit edilmiş bytecode) kendiliğinden, nedeni ve dersiyle
+bildirdi; döngü 2'deki "eski koda baktı, bildirmedi" davranışının tersi. Kısayol yasağı ve kapsül kesimi sonrası ikinci
+bir kısayol görülmedi.
+
+## Ölçüm
+
+Başlatıcı döngü 9'dan beri her döngüyü `pilot-metrics.jsonl`'a yazıyor: push, karar, nedenler ve **sahipleri** (hakemin
+kendi `counts_against_founder` kuralıyla: Kurucu / rakip / hakem), rakibin kanıtlanmış bulguları, hâlâ yeniden üretilen
+eski çürütmeler, yeni bildirimler, süre, maliyet, hakemin yeniden inceleme sayısı.
+
+| Ölçü (döngü 0–9) | Değer |
+|---|---|
+| Kabul / dondurma | 2 (spec, MF1) |
+| Rakibin kanıtlanmış gerçek bulguları | 6 (MF2'de 5 + döngü 1'deki tutarsızlık açık iddia olarak) |
+| Geri gelen eski çürütme | 0 |
+| Kurucu'nun bildirimleri | 11 seed_issue (2'si yeni ve operatörün bilmediği, 1'i kendi hatası) |
+| Pilotun açtığı sistem kusuru | 21 (E148–E168), 19'u kapalı |
+| Kurucu'nun düzeltemeyeceği bir nedenle kaybedilen döngü | 1 (döngü 5, rakip tarafı; E166 sonrası olmaz) |
+
 ## Pilotun tetiklediği düzeltmeler
 
 E148 (defter satırları push türünü bozuyordu), E149 (`main` mutasyonu hiç koşmuyordu), E152 (CRLF, `safe.directory`),
 E153 (rakip raporları görüyordu), E154 (eski çözüm geçmişte), E155 (önceki oturum dökümleri görünüyordu), E160 (kararsız
-zombi testi). Ayrıntılar `docs/eksik-kaydi.md`'de.
+zombi testi), E164 (sırrın yeri), E165 (rakip sırrı çalışma anında kurar), E166 (rakip tarafı hata yeniden incelenir),
+E167 (iki taraflı mekanizmada sınır), E168 (yargılanmamış push önce yargılanır). Ayrıntılar `docs/eksik-kaydi.md`'de.
 
 ## Sıradaki
 
-Döngü 5'ten itibaren altı döngülük koşu: Kurucu önce rakibin kanıtladığı `\b` açığını kapatmalı, sonra MF3'e
-geçmeli. Hakem 18 MF'lik tabloyla sayıyor (E151 kapandı, `294ab95`), modülsüz kırmızı etkin. Paralelde 10 ajanlık iş
-akışı MF2–MF7'nin vektör sözleşmelerini (iki kör bağımsız hesapla), genel veri koşucusunu, tohum dönemini (E88) ve
-kapalı varsayılan çıkışı (E162) hazırlıyor; arayüz sayfası tohum dönemiyle beyne ulaşınca Kurucu kendi MF2–MF7
-arayüzlerini ona uydurmak zorunda kalacak ("spec değişti, uyum sağla" sınavı).
+Döngü 10'dan itibaren sekiz döngülük koşu (yeni başlatıcı: yeniden inceleme, ölçüm, kesinti sonrası yakalama).
+Kurucu beşinci çürütmeyi kapatıyor; sınır ilkesiyle MF2'nin kabule yakınsaması bekleniyor, sonra MF3. Paralelde 10
+ajanlık iş akışı MF2–MF7 sözleşmelerini, genel koşucuyu, tohum dönemini (E88) ve kapalı varsayılan çıkışı (E162)
+hazırlıyor; arayüz sayfası tohum dönemiyle beyne ulaşınca Kurucu arayüzlerini ona uydurmak zorunda kalacak.
