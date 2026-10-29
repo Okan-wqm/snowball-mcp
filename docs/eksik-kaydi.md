@@ -98,6 +98,18 @@ hepsi yazılıdır. Bulguları birleştiren ve doğrulayan: Claude Code (Opus 5.
 | E85 | Model değişiminde yeniden yeterlilik protokolü yok; bütün seatler tek aileden | B | evet | e2e-8 G10 | açık |
 | E86 | Rekor erişilebilirliği sert durma; tek operatör için aşırı | B | evet | e2e-8 G11 | açık |
 | E87 | Bağımlılık açıklarını kapatmak kalıcı yasak (Y3); en sık açık sınıfı bulunur ama kapatılamaz | S | evet (Y3) | e2e-8 G12 | açık |
+| E88 | Tohumu güncelleme yolu yok: operatörün tohum commit'i hakemi kilitler ve Kurucu'ya sayılır; beyin reposunun hangisi olduğu çelişkili | K | evet (beyin reposu) | e2e-1 A1 | açık |
+| E89 | Kurucu defteri spec'in istediği gibi push edilemiyor; yalnız defter içeren push rakip bütçesi harcıyor | K | — | e2e-1 A2 | açık |
+| E90 | Kurucu kendi ajan yapılandırmasını (`.claude/settings.json`, `CLAUDE.md`, `.mcp.json`) değiştirip yetkisini genişletebilir | K | — | e2e-1 A3 | açık |
+| E91 | Kurucu başlatıcı sözleşmesi yok: başlatma, sürdürme, bütçe, kill switch, sonuç okuma (anonim okuma 401) | K | evet (nerede koşar) | e2e-1 A4 | açık |
+| E92 | E14'ün planı uygulanamaz: boşta ilk koşu durum yazmıyor, ilk koşu işaretinin kaldırılma anı tanımsız | K | — | e2e-1 A5 | açık |
+| E93 | Kurucu'nun Aşama 0 bildirim kanalının okuyucusu yok; E53 planı düzeltilmeli (spec çelişkisi testle kanıtlanamaz) | K | — | e2e-1 A6 | açık |
+| E94 | Kurucu ile rakip muhtemelen aynı abonelik kotasını paylaşıyor | K | evet | e2e-1 A7 | açık |
+| E95 | Beyin reposunda ruleset yok: force-push ya da dal silme hakemi kilitler | K | — | e2e-1 A8 | açık |
+| E96 | Aşama çıkışı → etkinleştirme geçişi güvensiz ve durumu taşımıyor (bütçe, donmuş spec, açık iddialar) | B | evet | e2e-1 A9 | açık |
+| E97 | Reddedilmiş çıkış isteği sonraki her push'u kilitliyor | B | — | e2e-1 A10 | açık |
+| E98 | Aşama 0'daki insan dokunuşlarının kaydı yok | B | — | e2e-1 A11 | açık |
+| E99 | Aşama 0'ın gerçek hedefi hiç seçilmemiş | B | evet | e2e-1 A12 | açık |
 | E62 | Filo genelinde güvenlik: bir repoda doğrulanan açık dedektöre dönüşür, gizlilik duvarından geçer, bağlı bütün repolarda taranır; her repoya yalnız kendi açığı bildirilir | B | operatör yönü | operatör, 2026-10-29 | açık (çok repo ile, `21`) |
 | E60 | Satış zamanı: sistemin ürettiği dosyaların yeri; varsayılan müşteride, açık izinle müşteri başına ayrı, özel, şifreli barındırma; güvenlik bulguları hep müşteride | satış | operatör sorusu | operatör, 2026-10-29 | satışta açılır |
 | E61 | Satış zamanı: repolar arası öğrenmede gizlilik duvarı; kalıp taşınır, müşteri bilgisi taşınmaz; terfi öncesi otomatik sızıntı kontrolü ve sözleşmede izin | satış | operatör sorusu | operatör, 2026-10-29 | satışta açılır |
@@ -617,6 +629,43 @@ test satırlarıyla eklenir.
 - **E87 (G12).** Aşama 5+: dar bir K6-deps sınıfı (OSV'nin düzeltilmiş dediği sürüme yalnız kilit dosyası
   güncellemesi, semver uyumlu aralıkta, lisans kapılı, tüm etkilenen testler ve nöbetçi) ya da Dependabot ile
   bir arada yaşama kuralı (Dependabot PR açar, sistem kendi testlerini koşar ve `verification` satırı yazar).
+
+### Uçtan uca denetim · kurulumdan Kurucu döngüsüne (e2e-1)
+Denetçi akışı gerçek `pull` ve `decide` ile yerel git üzerinde simüle etti (`scratchpad/e2e_audit_1/sim_flow.py`).
+- **E88 (A1).** Senaryo 2: MF1 kabulünden sonra operatörün `spec/tohum` ve `seed/` commit'i → her sonraki
+  Kurucu push'u `seed_modified` + `seed_tree_mismatch`, ikinci push'ta `not_learning`. Plan: beyin ayrı yeni
+  bir repo (asla `snowball-mcp` değil); `25`'e "tohum commit'i = etiketteki `spec/` + `seed/`"; tipli tohum
+  güncellemesi: operatör `setup/summary.json`'a `{commit, seed_tree_sha256}` yazar, `pull` listelenen
+  commit'in tohum yollarını muaf tutar (ya da `base`'i geçirir), `seed_update` yazar, seriye saymaz; E24'e
+  beyin tohumu = hakem kopyası denetimi.
+- **E89 (A2).** Yalnız `founder-ledger.jsonl` değişen push `ledger` türü: değerlendirilmez, rakip yok, seri
+  yok, rakip artefaktı değil (ya da defter spec push'una dahil olabilir); filtreden sonra boş kalan diff
+  `rival_artifacts`'a girmez (E20 planı düzeltilir).
+- **E90 (A3).** Kurucu başlatma bayrakları: proje ve yerel ayar kaynağı yok (`--setting-sources`),
+  `--strict-mcp-config`, repo dışında operatöre ait ayar dosyası, taze `CLAUDE_CONFIG_DIR`, otomatik hafıza
+  kapalı; beyin push'unda `.claude/**`, `CLAUDE.md`, `AGENTS.md`, `.mcp.json` → `agent_config_modified`.
+  Kanarya: `.claude/settings.json`'daki bir kanca koşmaz.
+- **E91 (A4).** `24`'te başlatıcı bölümü ve betiği: `control.json`'u canlı okur, son sonucun `head`'ini beyin
+  başıyla karşılaştırır (beklemede, kabul, ret, `not_learning`), `claude -p --max-budget-usd
+  <session_cap_usd>` ile "00, 00a'yı oku" açılışıyla koşar, maliyeti kaydeder; sonuçları okumak `actions:read`
+  belirteci ister. Kurucu harcaması aylık toplama girer.
+- **E92 (A5).** İşaret varken hakem yargılanacak bir şey olmasa da genesis durumunu imzalar; `25`'e satır:
+  bir kez tetikle, imzalı durumu doğrula, işareti kaldır, sonra Kurucu'yu başlat. E14'ün planı buna göre.
+- **E93 (A6).** Önyükleme hakemi tipli `seed_issue` ve `blocked` satırlarını (hash ve özet) imzalı sonuca ve
+  adım özetine kopyalar, operatörü uyarır (E29); spec sorunu için operatörün kapattığı yaşam döngüsü (E53
+  planı düzeltilir).
+- **E94 (A7).** Kurucu'nun hesabı adlandırılır; rakip için ayrı plan ya da zamanlama ayrımı; kota kaynağı
+  sonuca yazılır (E33).
+- **E95 (A8).** `25` madde 1: beyin `main`'inde `non_fast_forward` ve `deletion` kuralları (açık repoda
+  ücretsiz); özet ve drift denetimine girer; kurtarma: `base`'i geri merge etmek.
+- **E96 (A9).** Önyükleme hakemi (B) geçene kadar yalnız elle tetiklenir hâlde kalır; içe aktarma sırasında
+  kill switch açık; içe aktarıcı imzalı durumdan `setup/handover.json` yazar, genesis onu hash'ler.
+- **E97 (A10).** Kaçış `29b` ve `asama-0/10`'a yazılır ya da son reddedilen istekle aynı `exit-request.json`
+  yok sayılır. Senaryo 3: `rival_attempts:1<5` reddinden sonra her kod push'u `exit_request_not_alone`.
+- **E98 (A11).** Operatörün yazdığı `setup/touches.jsonl` (tipli nedenler), her sonuca hash'i girer; çıkış
+  bloğunda sayı.
+- **E99 (A12).** `25`'e Aşama 0'ın gerçek hedefini (açık ya da eğitim modu) ve klon yolunu adlandıran satır;
+  özete girer; drift denetimi.
 
 ## Doğrulanmış sağlam taraflar
 Kapsayıcı bayrakları ve kırmızı kontroller; host'ta kabuk enjeksiyonu yok; `$GITHUB_OUTPUT`'a serbest
