@@ -238,6 +238,13 @@ class ImageAndEntrypointTest(unittest.TestCase):
         for key, value in rival.PINNED_ENV.items():
             self.assertRegex(env_block, rf"\b{key}={value}\b", f"{key} differs from the referee's rival pin")
 
+    def test_the_learning_goal_is_given_and_the_method_is_not(self):  # E207, owner 2026-10-29
+        prompt = " ".join((FOUNDER / "prompt.md").read_text(encoding="utf-8").split())
+        self.assertIn("Öğrendiğin her şeyin değerini bildiğin her yerde en büyük hale getir", prompt)
+        self.assertIn("yöntemi bulmak da işinin parçasıdır", prompt)
+        for method in ("kütüphane", "profil eşleş", "geriye dönük tarama"):  # the how is the Founder's to invent
+            self.assertNotIn(method, prompt)
+
     def test_documents_are_hints_and_the_founders_own_docs_are_generated(self):  # E206, owner 2026-10-29
         prompt = " ".join((FOUNDER / "prompt.md").read_text(encoding="utf-8").split())
         for phrase in ("Belge ipucudur, gerçek koddur", "her iddiayı kodla, yapılandırmayla ve testle doğrula",
