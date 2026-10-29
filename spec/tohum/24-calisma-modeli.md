@@ -8,13 +8,13 @@ Okunma: Aşama 0 inşasından önce ve her dispatch değişikliğinde
 
 | Karar | Değer |
 |---|---|
-| Beyin reposu | Ayrı, özel repo; MCP sunucusu adı `snowball`; hedef repoda aynı adlı sunucu varsa profil çakışmayı raporlar |
-| Hakem reposu | Ayrı, özel repo (`01a`); yalnız operatör yazar; kabul edilmiş hakem kodu, anayasal `policy.json`, `control.json`, kurulum özeti, tohum vektörleri ve koltuk promptları |
+| Beyin reposu | Ayrı repo (iç kullanımda açık); MCP sunucusu adı `snowball`; hedef repoda aynı adlı sunucu varsa profil çakışmayı raporlar |
+| Hakem reposu | Ayrı repo (iç kullanımda açık, `01a`); yalnız operatör yazar; kabul edilmiş hakem kodu, anayasal `policy.json`, `control.json`, kurulum özeti, tohum vektörleri ve koltuk promptları |
 | Dil ve paket | İkisi de Python paketi; `pyproject` ile kurulur; bağımlılıklar hash'le pinlidir |
 | İki yüzey | **CLI** deterministik, CI'nın çağırdığı yüzey. **MCP** ajanlara açılan yüzey; CI bir MCP sunucusunu doğrudan çağıramaz |
-| Tetik | Hakem reposunun zamanlayıcısı beyin reposunu ve hedefi okuyucu App'iyle yoklar; hedefte beynin iş akışı ve kimliği yoktur (`01b`) |
+| Tetik | Hakem reposunun zamanlayıcısı beyin reposunu kimliksiz, özel hedefi okuyucu App'iyle yoklar; hedefte beynin iş akışı ve kimliği yoktur (`01b`) |
 | İşler | `çek`, `getir`, `koş`, `çağır`, `yaz` (`08` 1); oyuncu kodu yalnız `koş`ta, iç içe ağsız konteynerde |
-| Kimlikler | Kurucu kimliği, okuyucu App'i, yazar App'i, Aşama 4'ten mühür App'i (`25`). Beyin App'i yoktur |
+| Kimlikler | Kurucu kimliği, yazar App'i, özel hedef gelince okuyucu App'i, Aşama 4'ten mühür App'i (`25`). Beyin App'i yoktur |
 | Model kimlikleri | Yüksek: `claude-opus-5-5`. Düşük: `claude-sonnet-5-5`. En ucuz: `policy.json`'da adlandırılır. Effort rol başına `policy.json`'da |
 | Model kaydı | Sunulan model ve maliyeti ajan değil `çağır` işi ya da sağlayıcı geçidi yanıttan yazar; istenenden farklıysa koşu geçersizdir |
 | Sağlayıcı kimliği | Hakem reposunun sırlarında; yalnız `çağır` işinde ve sağlayıcı geçidinde. Oyuncu kodu koşan hiçbir işte yoktur |

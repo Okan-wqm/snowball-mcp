@@ -9,7 +9,7 @@ Okunma: Aşama 1 çalışırken
 0. **Başlangıç.** Hakemin zamanlayıcısı yoklar. Döngü `control.json`'u okur ve `drift.check` ile
    başlar; fark varsa sert duruş (`tohum/28`). Döngü deftere başlangıç satırı yazar.
 1. **Çek.** `çek`, `brain.accept`'in kabul ettiği beyin SHA'sını ve `brain/integration` başını
-   okuyucu App'iyle çeker; `getir` bağımlılıkları içerik adresli getirir.
+   kimliksiz (özel hedefte okuyucu App'iyle) çeker; `getir` bağımlılıkları içerik adresli getirir.
 2. **Discover.** `koş`, adapter'ı snapshot üzerinde koşar: aracın tüm ihlalleri, taban borcu dahil.
    Parmak izi `tohum/07`'deki gibidir; aynı parmak izi yeniden gözlemdir. Bu tabanda `unresolved`
    olmuş parmak izleri atlanır.

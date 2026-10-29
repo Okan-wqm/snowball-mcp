@@ -7,7 +7,7 @@ Okunma: araç yazarken ve çağırırken
 ---
 
 Her araç `{input, output, side_effects, allowed_callers}` ile tanımlıdır; `allowed_callers` boş
-araç yoktur. "İş" sütunu aracın hangi hakem işinde koştuğudur (`08` 1): `çek` okuyucu App'iyle
+araç yoktur. "İş" sütunu aracın hangi hakem işinde koştuğudur (`08` 1): `çek` kimliksiz (özel hedefte okuyucu App'iyle)
 çeker, `getir` bağımlılık getirir, `koş` sırsız ve ağsızdır, `çağır` model çağrısı yapar, `yaz`
 yazar App'ini tutar. Oyuncu kodu yalnız `koş`ta koşar; sırlı işler oyuncu kodu koşturmaz.
 
