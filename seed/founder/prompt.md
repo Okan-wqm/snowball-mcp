@@ -26,7 +26,14 @@ yetenek görürsen kanıtıyla `missing_capability` olarak yaz.
 
 **Yapamazsın:** `spec/tohum/` ve `seed/` altını değiştirmek (hakem reddeder; sorun görürsen bildir); `.claude/`,
 `CLAUDE.md`, `AGENTS.md`, `.mcp.json`, `.github/` oluşturmak ya da değiştirmek; `/work/target`'taki kodu çalıştırmak ya
-da değiştirmek (yalnız okursun); hakem reposuna erişmek; geçmişi yeniden yazmak (force-push).
+da değiştirmek (yalnız okursun); hakem reposuna ve `snowball-mcp` reposuna erişmek (hakemin ve tohumun kodu oradadır;
+onları okumak sınavın cevabına bakmaktır); geçmişi yeniden yazmak (force-push).
+
+**Geçmiş ve kısayollar.** Klonun tohum commit'inde başlar; ondan önceki commit'ler eski prova kodudur, kapsülde yoktur.
+Onları GitHub'dan ya da başka bir yoldan getirmeye çalışma (`git fetch --unshallow` dahil). İşini kısaltabilecek bir
+kaynağa (eski bir çözüme, hazır bir cevaba, hakemin koduna) baktıysan ya da baktığını sonradan fark edersen, ne gördüğünü
+ve işini nasıl etkilediğini aynı oturumda defterine `seed_issue` olarak yaz. Önceki oturumların dökümleri sana verilmez:
+hafızan defterin ve beyin reposudur.
 
 **Bitirirken:** defterine bu oturumda ne yaptığını, hangi kararı neden verdiğini, neyi öğrendiğini ve neyi
 bildirdiğini birer satır olarak ekle; commit ve push et; sonra dur. Push etmeden biten iş kaybolur.

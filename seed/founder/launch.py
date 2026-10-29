@@ -22,6 +22,7 @@ from __future__ import annotations
 import argparse
 import io
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -73,6 +74,7 @@ class Pilot:
         self.result_dir = work / "referee"
         self.logs = work / "logs"
         self.report = work / "pilot-log.md"
+        self.seed = ""  # the brain commit the referee's setup summary pins; the capsule cuts history there
 
     # ---- checks -------------------------------------------------------------------------------------------
     def stopped(self) -> bool:
@@ -88,10 +90,22 @@ class Pilot:
             problems.append("docker is not running")
         if run("gh", "auth", "status", check=False).returncode != 0:
             problems.append("gh is not logged in")
+        else:
+            self.seed = self.seed_commit()
+            if not re.fullmatch(r"[0-9a-f]{40}", self.seed):
+                problems.append(f"{self.referee} setup/summary.json has no seed_commit")
         if problems:
             sys.exit("preflight failed:\n  " + "\n  ".join(problems))
         self.result_dir.mkdir(exist_ok=True)
         self.logs.mkdir(exist_ok=True)
+
+    def seed_commit(self) -> str:
+        raw = run("gh", "api", "-H", "Accept: application/vnd.github.raw",
+                  f"repos/{self.referee}/contents/setup/summary.json", check=False).stdout
+        try:
+            return str(json.loads(raw).get("seed_commit", ""))
+        except ValueError:
+            return ""
 
     def build(self) -> None:
         """Build from a copy of exactly the files the image needs: a synced folder (iCloud) can hand docker
@@ -164,6 +178,9 @@ class Pilot:
         return {"id": run_id, "conclusion": "still_running", "url": ""}
 
     # ---- the session --------------------------------------------------------------------------------------
+    def session_logs(self, stamp: str) -> Path:
+        return self.logs / stamp
+
     def capsule_argv(self, stamp: str, model: str, max_turns: int, budget_usd: int) -> list[str]:
         def bind(src: Path, dst: str, ro: bool) -> list[str]:
             return ["--mount", f"type=bind,src={src},dst={dst}" + (",readonly" if ro else "")]
@@ -177,13 +194,14 @@ class Pilot:
                *bind(self.env_file, "/run/secrets/founder.env", True),
                *bind(self.result_dir, "/work/referee", True),
                *bind(self.target, "/work/target", True),
-               *bind(self.logs, "/work/logs", False),
-               "-e", f"BRAIN_REPO={self.brain}", "-e", f"SESSION_STAMP={stamp}",
+               *bind(self.session_logs(stamp), "/work/logs", False),  # its own folder: memory is the ledger (E155)
+               "-e", f"BRAIN_REPO={self.brain}", "-e", f"BRAIN_SEED={self.seed}", "-e", f"SESSION_STAMP={stamp}",
                "-e", f"FOUNDER_MODEL={model}", "-e", f"FOUNDER_MAX_TURNS={max_turns}",
                "-e", f"FOUNDER_MAX_BUDGET_USD={budget_usd}",
                IMAGE]
 
     def session(self, stamp: str, model: str, max_turns: int, budget_usd: int, timeout_s: int) -> dict:
+        self.session_logs(stamp).mkdir(parents=True, exist_ok=True)
         cmd = self.capsule_argv(stamp, model, max_turns, budget_usd)
         started = time.monotonic()
         err = ""
@@ -196,7 +214,7 @@ class Pilot:
             exit_code, tail = -1, ["session timed out"]
         out = {"exit": exit_code, "minutes": round((time.monotonic() - started) / 60, 1), "line": tail[0] if tail else "",
                "stderr": err}
-        out.update(self.transcript_summary(self.logs / f"session-{stamp}.jsonl"))
+        out.update(self.transcript_summary(self.session_logs(stamp) / f"session-{stamp}.jsonl"))
         return out
 
     @staticmethod

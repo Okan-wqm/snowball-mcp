@@ -4,8 +4,9 @@
 #   /work/brain               empty tmpfs: the brain is cloned fresh every session (GitHub is its only home)
 #   /work/referee             read-only: the last signed result the referee wrote about the brain
 #   /work/target              read-only: the target clone (reading only; never run its code here)
-#   /work/logs                session transcripts
-# Environment: BRAIN_REPO (owner/name), FOUNDER_MODEL, FOUNDER_MAX_TURNS, FOUNDER_MAX_BUDGET_USD.
+#   /work/logs                this session's own transcript folder (earlier sessions are not shown: memory is the ledger)
+# Environment: BRAIN_REPO (owner/name), BRAIN_SEED (the pilot's seed commit), FOUNDER_MODEL, FOUNDER_MAX_TURNS,
+# FOUNDER_MAX_BUDGET_USD.
 set -eu
 
 secret() { sed -n "s/^$1=//p" /run/secrets/founder.env | head -n 1 | tr -d '\r '; }
@@ -30,6 +31,14 @@ git config --global http.https://github.com/.extraheader "AUTHORIZATION: basic $
 unset GITHUB_TOKEN basic
 
 git clone --quiet "https://github.com/${BRAIN_REPO}.git" /work/brain
+# History before the pilot's seed commit is earlier rehearsal code, not the Founder's to read (E154). Cut the
+# clone there: those commits are not in the capsule at all, and pushing from a shallow clone still works.
+if [ -n "${BRAIN_SEED:-}" ]; then
+  git -C /work/brain merge-base --is-ancestor "$BRAIN_SEED" HEAD  # set -e: a seed the brain does not hold stops here
+  printf '%s\n' "$BRAIN_SEED" > /work/brain/.git/shallow
+  git -C /work/brain reflog expire --expire=now --all
+  git -C /work/brain gc --quiet --prune=now
+fi
 before=$(git -C /work/brain rev-parse HEAD 2>/dev/null || echo none)
 
 stamp=${SESSION_STAMP:-$(date -u +%Y%m%dT%H%M%SZ)}
