@@ -74,7 +74,8 @@ def write_vectors(vectors_dir: Path) -> dict[str, Any]:
                       "verdicts": result["verdicts"]})
     index = vectors_dir / "vectors.json"
     spec = json.loads(index.read_text(encoding="utf-8"))
-    spec["drill"] = {"mf": 18, "source": f"seed/drill: python -m snowball_drill vectors (seed {SEED})",
+    # The group's owner is the Stage 2 batch (`29a`, `29c`); when it runs comes from that batch's stage table.
+    spec["drill"] = {"owner": "asama-2", "source": f"seed/drill: python -m snowball_drill vectors (seed {SEED})",
                      "cases": cases}
     index.write_text(json.dumps(spec, indent=2) + "\n", encoding="utf-8", newline="\n")
     return spec["drill"]
