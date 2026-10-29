@@ -76,80 +76,80 @@ hepsi yazılıdır. Bulguları birleştiren ve doğrulayan: Claude Code (Opus 5.
 | E63 | Ajan bilgisinin bütün müşterilerden öğrenilmesi: beceri ve organlar, promptlar, puanlar; terfi, gölge denemesi, bağlamla taşıma, gizlilik ve toplu anonim puan | B | operatör yönü | operatör, 2026-10-29 | açık (çok repo ile, `21`, `21a`) |
 | E64 | Prova yargıcı dersin içinde gizli aile etiketini arıyor; kör bir beyin geçemez, getirme hiç sınanmıyor | K | — | e2e-7 L1 | açık |
 | E65 | Ders verme/saklama deneyini beynin kendisi yapıyor; kollar eşit mi denetlenmiyor (işe yaramaz ders %100 kredi alıyor) | K | — | e2e-7 L2 | açık |
-| E66 | Ders başına canlı kredi neredeyse hiç ölçülemiyor; boş derslerin ~%10'u geçiyor | B | evet (18b) | e2e-7 L3 | açık |
-| E67 | Bildirim ödülü 'kusur ekle, sonra bildir' tuzağı kuruyor; kendi soyundan gelen kusura kredi yok, kök neden başına tek kredi | K | evet (E53'ü biçimler) | e2e-7 L4 | açık |
-| E68 | Kendini ayarlayan sınır kuralı sansürlü gözlemle merdiven gibi yükseliyor; sınıra takılan gözlem ölçüye girmemeli | K | evet (E55'i düzeltir) | e2e-7 L5 | açık |
+| E66 | Ders başına canlı kredi neredeyse hiç ölçülemiyor; boş derslerin ~%10'u geçiyor | B | evet (18b) | e2e-7 L3 | onaylandı · açık |
+| E67 | Bildirim ödülü 'kusur ekle, sonra bildir' tuzağı kuruyor; kendi soyundan gelen kusura kredi yok, kök neden başına tek kredi | K | evet (E53'ü biçimler) | e2e-7 L4 | onaylandı · açık |
+| E68 | Kendini ayarlayan sınır kuralı sansürlü gözlemle merdiven gibi yükseliyor; sınıra takılan gözlem ölçüye girmemeli | K | evet (E55'i düzeltir) | e2e-7 L5 | onaylandı · açık |
 | E69 | Kredi ve itibar yalnız birleşen işi sayıyor; kaçınmayı ve riskli alandan uzak durmayı ödüllendiriyor | B | — | e2e-7 L6 | açık |
 | E70 | Sistemin öğrenip öğrenmediğini çürütebilecek zamanlanmış ölçüm yok; 'aynı hata'nın kimliği yok | B | — | e2e-7 L7 | açık |
 | E71 | `cause` etiketi tek bir ekilmiş merge ile doğrulanıyor; yanlış etiket kalıcı, düzeltme satırı yok | B | — | e2e-7 L8 | açık |
-| E72 | Çoklu karşılaştırma ve tekrarlı bakış yalnız held-out havuzda sayılıyor; boş organ ~%34 kabul alabilir | B | evet (19 anayasal) | e2e-7 L9 | açık |
+| E72 | Çoklu karşılaştırma ve tekrarlı bakış yalnız held-out havuzda sayılıyor; boş organ ~%34 kabul alabilir | B | evet (19 anayasal) | e2e-7 L9 | onaylandı · açık |
 | E73 | 'Hiç unutmaz' defterde doğru, davranışta değil: arşivlenen ders geri dönmüyor, arşiv blob'larının kalıcı yeri yok | B | — | e2e-7 L10 | açık |
-| E74 | Serbest metin dersler kalıcı prompt enjeksiyonu yolu (hafıza zehirlenmesi), geri çekmesi pratikte yok | B | evet (katalog) | e2e-7 L11 | açık |
+| E74 | Serbest metin dersler kalıcı prompt enjeksiyonu yolu (hafıza zehirlenmesi), geri çekmesi pratikte yok | B | evet (katalog) | e2e-7 L11 | onaylandı · açık |
 | E75 | İtibar karşılaştırmaları karışık (zor işler önce sıradakine) ve zaman/model değişimini hesaba katmıyor | B | — | e2e-7 L12 | açık |
-| E76 | Aşama 0 ilk gerçek döngüden önce bütün hakemi kuruyor; gerçek değer Aşama 4-6'da; ilk kabule ulaşamama riski | K | evet (yol haritası) | e2e-8 G1 | açık |
-| E77 | Çok dilli, veritabanlı monorepo için birim ve çalışma ortamı modeli yok (profilde units, services, env imajı yok) | K | evet (Y3 ifadesi) | e2e-8 G2 | açık |
-| E78 | Hedefin dondurulmuş kopyası: insan düzeltmesi gelmez, ölçüm havuzu dolmaz, kabul edilen düzeltmenin orijinale yolu yok | B | evet | e2e-8 G3 | açık |
-| E79 | Kurucu'nun dört görevi ölçülmüyor: dürüstlük provası (çelişen vektör, ekilmiş açık, teyit) gerekli | K | evet (bütçe) | e2e-8 G4 | açık |
-| E80 | Hazır bir ajana karşı taban yok; 'en iyi sistem' iddiası ölçülemez | B | evet (bütçe) | e2e-8 G5 | açık |
+| E76 | Aşama 0 ilk gerçek döngüden önce bütün hakemi kuruyor; gerçek değer Aşama 4-6'da; ilk kabule ulaşamama riski | K | evet (yol haritası) | e2e-8 G1 | onaylandı (daralt: önce oyuncak hedef, sonra tek gerçek birim) · açık |
+| E77 | Çok dilli, veritabanlı monorepo için birim ve çalışma ortamı modeli yok (profilde units, services, env imajı yok) | K | evet (Y3 ifadesi) | e2e-8 G2 | onaylandı · açık |
+| E78 | Hedefin dondurulmuş kopyası: insan düzeltmesi gelmez, ölçüm havuzu dolmaz, kabul edilen düzeltmenin orijinale yolu yok | B | evet | e2e-8 G3 | onaylandı · açık |
+| E79 | Kurucu'nun dört görevi ölçülmüyor: dürüstlük provası (çelişen vektör, ekilmiş açık, teyit) gerekli | K | evet (bütçe) | e2e-8 G4 | onaylandı · açık |
+| E80 | Hazır bir ajana karşı taban yok; 'en iyi sistem' iddiası ölçülemez | B | evet (bütçe) | e2e-8 G5 | onaylandı · açık |
 | E81 | Asıl hedeflerin metriği yok: birim notu (en zayıf boyut) ve gizlilik kanaryası | B | — | e2e-8 G6 | açık |
 | E82 | Aşama 1-3 zayıf hedef testlerine oracle olarak güveniyor; hunk kapsaması ve mutant öldürme Aşama 4'te açılıyor | B | — | e2e-8 G7 | açık |
-| E83 | Tenant ve BOLA açıkları için veri akışı aracı yok; lisans mantığı tutarsız (özel CLI içeride, LGPL araçlar dışarıda) | B | evet (lisans) | e2e-8 G8 | açık |
-| E84 | Kendini geliştirme tek soylu açgözlü arama; arşiv ve popülasyon araması yok | B | evet (bütçe payı) | e2e-8 G9 | açık |
-| E85 | Model değişiminde yeniden yeterlilik protokolü yok; bütün seatler tek aileden | B | evet | e2e-8 G10 | açık |
-| E86 | Rekor erişilebilirliği sert durma; tek operatör için aşırı | B | evet | e2e-8 G11 | açık |
-| E87 | Bağımlılık açıklarını kapatmak kalıcı yasak (Y3); en sık açık sınıfı bulunur ama kapatılamaz | S | evet (Y3) | e2e-8 G12 | açık |
-| E88 | Tohumu güncelleme yolu yok: operatörün tohum commit'i hakemi kilitler ve Kurucu'ya sayılır; beyin reposunun hangisi olduğu çelişkili | K | evet (beyin reposu) | e2e-1 A1 | açık |
+| E83 | Tenant ve BOLA açıkları için veri akışı aracı yok; lisans mantığı tutarsız (özel CLI içeride, LGPL araçlar dışarıda) | B | evet (lisans) | e2e-8 G8 | onaylandı · açık |
+| E84 | Kendini geliştirme tek soylu açgözlü arama; arşiv ve popülasyon araması yok | B | evet (bütçe payı) | e2e-8 G9 | onaylandı · açık |
+| E85 | Model değişiminde yeniden yeterlilik protokolü yok; bütün seatler tek aileden | B | evet | e2e-8 G10 | onaylandı · açık |
+| E86 | Rekor erişilebilirliği sert durma; tek operatör için aşırı | B | evet | e2e-8 G11 | onaylandı · açık |
+| E87 | Bağımlılık açıklarını kapatmak kalıcı yasak (Y3); en sık açık sınıfı bulunur ama kapatılamaz | S | evet (Y3) | e2e-8 G12 | onaylandı · açık |
+| E88 | Tohumu güncelleme yolu yok: operatörün tohum commit'i hakemi kilitler ve Kurucu'ya sayılır; beyin reposunun hangisi olduğu çelişkili | K | evet (beyin reposu) | e2e-1 A1 | onaylandı (yeni ayrı beyin reposu) · açık |
 | E89 | Kurucu defteri spec'in istediği gibi push edilemiyor; yalnız defter içeren push rakip bütçesi harcıyor | K | — | e2e-1 A2 | açık |
 | E90 | Kurucu kendi ajan yapılandırmasını (`.claude/settings.json`, `CLAUDE.md`, `.mcp.json`) değiştirip yetkisini genişletebilir | K | — | e2e-1 A3 | açık |
-| E91 | Kurucu başlatıcı sözleşmesi yok: başlatma, sürdürme, bütçe, kill switch, sonuç okuma (anonim okuma 401) | K | evet (nerede koşar) | e2e-1 A4 | açık |
+| E91 | Kurucu başlatıcı sözleşmesi yok: başlatma, sürdürme, bütçe, kill switch, sonuç okuma (anonim okuma 401) | K | evet (nerede koşar) | e2e-1 A4 | onaylandı · açık |
 | E92 | E14'ün planı uygulanamaz: boşta ilk koşu durum yazmıyor, ilk koşu işaretinin kaldırılma anı tanımsız | K | — | e2e-1 A5 | açık |
 | E93 | Kurucu'nun Aşama 0 bildirim kanalının okuyucusu yok; E53 planı düzeltilmeli (spec çelişkisi testle kanıtlanamaz) | K | — | e2e-1 A6 | açık |
-| E94 | Kurucu ile rakip muhtemelen aynı abonelik kotasını paylaşıyor | K | evet | e2e-1 A7 | açık |
+| E94 | Kurucu ile rakip muhtemelen aynı abonelik kotasını paylaşıyor | K | evet | e2e-1 A7 | onaylandı · operatör adımı bekliyor (ayrı Claude hesabı) |
 | E95 | Beyin reposunda ruleset yok: force-push ya da dal silme hakemi kilitler | K | — | e2e-1 A8 | açık |
-| E96 | Aşama çıkışı → etkinleştirme geçişi güvensiz ve durumu taşımıyor (bütçe, donmuş spec, açık iddialar) | B | evet | e2e-1 A9 | açık |
+| E96 | Aşama çıkışı → etkinleştirme geçişi güvensiz ve durumu taşımıyor (bütçe, donmuş spec, açık iddialar) | B | evet | e2e-1 A9 | onaylandı · açık |
 | E97 | Reddedilmiş çıkış isteği sonraki her push'u kilitliyor | B | — | e2e-1 A10 | açık |
 | E98 | Aşama 0'daki insan dokunuşlarının kaydı yok | B | — | e2e-1 A11 | açık |
-| E99 | Aşama 0'ın gerçek hedefi hiç seçilmemiş | B | evet | e2e-1 A12 | açık |
-| E100 | Hakemin iş akışlarını hiçbir mikro özellik kurmuyor ve sınamıyor; içe aktarma hakem reposundaki tek iş akışını siliyor | K | evet | e2e-2 B1 | açık |
-| E101 | MF13, MF22 ve MF30 testleri hakemin kum havuzunda koşamaz (imajda git, docker, node yok) | K | evet | e2e-2 B2 | açık |
-| E102 | Çıkıştaki #lint ve #lock yanlış yollara bakıyor; kilit (A)'da tanımı gereği açık olamaz; vektör yok; donmuş spec kendi lint'inden geçemez | K | evet (kilit anlamı) | e2e-2 B3 | açık |
-| E103 | Tohum vektörleri yalnız MF1, MF9, MF18'i bağlıyor; bütün testleri `true` olan manifest kabul ediliyor | K | evet (gruplar) | e2e-2 B4 | açık |
-| E104 | Aşama 0 mikro özelliklerinin okuduğu operatör dosyalarının (`control.json`, `setup/summary.json`, `imports.jsonl`) şeması yok | K | evet (özet alanları) | e2e-2 B5 | açık |
+| E99 | Aşama 0'ın gerçek hedefi hiç seçilmemiş | B | evet | e2e-1 A12 | onaylandı · açık |
+| E100 | Hakemin iş akışlarını hiçbir mikro özellik kurmuyor ve sınamıyor; içe aktarma hakem reposundaki tek iş akışını siliyor | K | evet | e2e-2 B1 | onaylandı · açık |
+| E101 | MF13, MF22 ve MF30 testleri hakemin kum havuzunda koşamaz (imajda git, docker, node yok) | K | evet | e2e-2 B2 | onaylandı · açık |
+| E102 | Çıkıştaki #lint ve #lock yanlış yollara bakıyor; kilit (A)'da tanımı gereği açık olamaz; vektör yok; donmuş spec kendi lint'inden geçemez | K | evet (kilit anlamı) | e2e-2 B3 | onaylandı · açık |
+| E103 | Tohum vektörleri yalnız MF1, MF9, MF18'i bağlıyor; bütün testleri `true` olan manifest kabul ediliyor | K | evet (gruplar) | e2e-2 B4 | onaylandı · açık |
+| E104 | Aşama 0 mikro özelliklerinin okuduğu operatör dosyalarının (`control.json`, `setup/summary.json`, `imports.jsonl`) şeması yok | K | evet (özet alanları) | e2e-2 B5 | onaylandı · açık |
 | E105 | Mikro özellik sırası: bazı testler ve çağrılar sonraki mikro özelliklere muhtaç | K | — | e2e-2 B6 | açık |
 | E106 | `harness.score`'un iki uyumsuz arayüzü; `26a` ile `29a` başka yerlerde de çelişiyor | K | — | e2e-2 B7 | açık |
 | E107 | MF2'nin çıktısı `founder-ledger.jsonl`'ı kimse denetlemiyor | B | — | e2e-2 B8 | açık |
 | E108 | K0 eşleme kuralının 'eşlenmiş satır'ı tanımsız; vektörler bunu bağlamıyor | K | — | e2e-2 B9 | açık |
-| E109 | `exit.sample` ve `exit.drill`'in gizli tohumunu hangi işin tuttuğu sayfalar arasında çelişkili | B | evet | e2e-2 B10 | açık |
+| E109 | `exit.sample` ve `exit.drill`'in gizli tohumunu hangi işin tuttuğu sayfalar arasında çelişkili | B | evet | e2e-2 B10 | onaylandı · açık |
 | E110 | Etkinleştirme defterinin `security` satırlarının tohum güvenlik defterinden nasıl devam edeceği belirsiz | B | — | e2e-2 B11 | açık |
-| E111 | Taban avcının sabit grep kümesi tanımsız; Kurucu kendi avcılarının geçeceği çıtayı kendisi koyuyor | B | evet | e2e-2 B12 | açık |
-| E112 | Kurucu kimliği yok: operatörün yönetici GitHub hesabı ve kişisel Claude ortamıyla (hafıza, bağlayıcılar) koşar; Y6 iyi niyete kalır | K | evet (kimlik, yalıtım) | e2e-6 O2 | açık |
-| E113 | 'not_learning'den sonra Kurucu'yu yeniden başlatmak tanımsız ve döngüye giriyor | K | evet | e2e-6 O3 | açık |
+| E111 | Taban avcının sabit grep kümesi tanımsız; Kurucu kendi avcılarının geçeceği çıtayı kendisi koyuyor | B | evet | e2e-2 B12 | onaylandı · açık |
+| E112 | Kurucu kimliği yok: operatörün yönetici GitHub hesabı ve kişisel Claude ortamıyla (hafıza, bağlayıcılar) koşar; Y6 iyi niyete kalır | K | evet (kimlik, yalıtım) | e2e-6 O2 | onaylandı · operatör adımı bekliyor (ayrı hesap, ince taneli belirteç, kapsül) |
+| E113 | 'not_learning'den sonra Kurucu'yu yeniden başlatmak tanımsız ve döngüye giriyor | K | evet | e2e-6 O3 | onaylandı · açık |
 | E114 | Kurulum 3-4 ve `seed-hash` yazıldığı gibi çalıştırılamıyor: şablon, PowerShell komutu, anayasal politika saplaması | K | — | e2e-6 O4 | açık |
 | E115 | Kesinti giderilince 'şimdi yeniden dene' kolu yok; elle koşu yeşil görünür ama yargılamaz | B | — | e2e-6 O6 | açık |
 | E116 | Aşama 0 aktarımı operatörün Windows makinesinde koşamaz (Sigstore tekerlekleri yalnız manylinux) | B | — | e2e-6 O8 | açık |
-| E117 | Duraklatma yazılı değil; kill switch her saat kırmızı koşu ve e-posta üretiyor | B | evet (E16'yı değiştirir) | e2e-6 O9 | açık |
-| E118 | Olay kitabı yok; iletiler İngilizce; hangisinin operatörün işi olduğu yazmıyor | B | evet (kanarya harcaması) | e2e-6 O10 | açık |
-| E119 | Bus faktörü: her şey tek kişide; hesap taşınırsa imzalı geçmiş kırılır | B | evet (organizasyon) | e2e-6 O12 | açık |
+| E117 | Duraklatma yazılı değil; kill switch her saat kırmızı koşu ve e-posta üretiyor | B | evet (E16'yı değiştirir) | e2e-6 O9 | onaylandı · açık |
+| E118 | Olay kitabı yok; iletiler İngilizce; hangisinin operatörün işi olduğu yazmıyor | B | evet (kanarya harcaması) | e2e-6 O10 | onaylandı · açık |
+| E119 | Bus faktörü: her şey tek kişide; hesap taşınırsa imzalı geçmiş kırılır | B | evet (organizasyon) | e2e-6 O12 | onaylandı · operatör adımı bekliyor (organizasyon) |
 | E120 | Aşama 0'da tek bir durum yeri yok (harcama, park, seriler, belirteç süresi zip içinde) | B | — | e2e-6 O11 | açık |
 | E121 | Organizma kimseye haber vermeden durabilir: `not_learning`, park ve sonuçsuz bekleme yeşil koşuyla biter | K | — | e2e-3 C2 | açık |
-| E122 | Hakemin kendini onarma yolu ölü: şerit yazarının ne başlatıcısı ne yazma kimliği var; Gözcü işaretleri hiçbir yerde saklanmıyor | K | evet (artefakt mı repo mu) | e2e-3 C3 | açık |
-| E123 | Doğrulanmış hakem açığı aşama sonuna kadar açık kalıyor ve hiçbir kararı değiştirmiyor; karantina ve aşama içi güvenlik aktarımı gerekli | K | evet | e2e-3 C5 | açık |
-| E124 | E54'ün tek ortak kanalı tek-yazar zinciri ve bağımsızlık kurallarını bozuyor; tek yazar (`yaz`), role özel görünümler gerekli | K | evet (E54'ü düzeltir) | e2e-3 C6 | açık |
-| E125 | E55'in yasada ve şemada yeri yok: Y11 'kapılayan yalnız sıkılaşır' diyor; bant, ölçüm ve kalıcı yer yok; ~30 anahtarsız sabit | K | evet (yasa değişikliği) | e2e-3 C7 | açık |
-| E126 | Rakip kanaryası hiç açılmıyor; Aşama 0-3'ün baş yargıcı ölçülmüyor | B | evet (bütçe) | e2e-3 C8 | açık |
-| E127 | Hakem ve beyin kapsamlı güvenlik satırlarının etkinleştirmeden sonra yuvası yok; zincir çatallanır | B | evet | e2e-3 C10 | açık |
+| E122 | Hakemin kendini onarma yolu ölü: şerit yazarının ne başlatıcısı ne yazma kimliği var; Gözcü işaretleri hiçbir yerde saklanmıyor | K | evet (artefakt mı repo mu) | e2e-3 C3 | onaylandı · açık |
+| E123 | Doğrulanmış hakem açığı aşama sonuna kadar açık kalıyor ve hiçbir kararı değiştirmiyor; karantina ve aşama içi güvenlik aktarımı gerekli | K | evet | e2e-3 C5 | onaylandı · açık |
+| E124 | E54'ün tek ortak kanalı tek-yazar zinciri ve bağımsızlık kurallarını bozuyor; tek yazar (`yaz`), role özel görünümler gerekli | K | evet (E54'ü düzeltir) | e2e-3 C6 | onaylandı · açık |
+| E125 | E55'in yasada ve şemada yeri yok: Y11 'kapılayan yalnız sıkılaşır' diyor; bant, ölçüm ve kalıcı yer yok; ~30 anahtarsız sabit | K | evet (yasa değişikliği) | e2e-3 C7 | onaylandı · açık |
+| E126 | Rakip kanaryası hiç açılmıyor; Aşama 0-3'ün baş yargıcı ölçülmüyor | B | evet (bütçe) | e2e-3 C8 | onaylandı · açık |
+| E127 | Hakem ve beyin kapsamlı güvenlik satırlarının etkinleştirmeden sonra yuvası yok; zincir çatallanır | B | evet | e2e-3 C10 | onaylandı · açık |
 | E128 | Güvenlik dedektörleri ve bekçi testleri organ yaşam döngüsünü atlıyor, hiç emekli olmuyor | B | — | e2e-3 C11 | açık |
 | E129 | `27` ve `17` atıf yaptıkları sayfalarla çelişiyor (insan dokunuşu sayacı, okuyucu satırları, sinyal alanları) | S | — | e2e-3 C12 | açık |
 | E130 | E04 eksik: Windows'ta büyük-küçük harf ve sondaki nokta takma adları (`Policy.json`, `CONTROL.JSON`, `.git.`, `GIT~1`) içe aktarmada operatör dosyalarının üzerine yazar ve kanca yerleştirir | K | — | e2e-4 S2 | açık |
 | E131 | İçe aktarma ve oyuncak kopyası operatörün makinesine ajan ve IDE otomatik çalıştırma dosyaları yazar; oyuncak alt ağacı imzayla bağlı değil | K | — | e2e-4 S3 | açık |
-| E132 | Aktarılan hakemin iş akışları sırları mekanik bir güvenlik kapısı olmadan alır; avcı ancak etkinleştirmeden sonra başlar | B | evet (sıra) | e2e-4 S4 | açık |
-| E133 | OAuth belirtecinin iptal, sızıntı müdahalesi ve envanter yolu yok; prova reposu hâlâ belirteci tutuyor | B | evet | e2e-4 S5 | açık |
+| E132 | Aktarılan hakemin iş akışları sırları mekanik bir güvenlik kapısı olmadan alır; avcı ancak etkinleştirmeden sonra başlar | B | evet (sıra) | e2e-4 S4 | onaylandı · açık |
+| E133 | OAuth belirtecinin iptal, sızıntı müdahalesi ve envanter yolu yok; prova reposu hâlâ belirteci tutuyor | B | evet | e2e-4 S5 | onaylandı · açık |
 | E134 | Durum artefaktı yalnız `head_branch == main` ile seçiliyor: çatalın `main` dalından PR sahte durum yükleyebilir; poll doğrulanmamış durumla atlıyor | K | — | e2e-4 S7 | açık |
 | E135 | Avcının `getir`'de pip-audit'i kod çalıştırabilir ve tavsiye veritabanını kurcalayabilir | B | — | e2e-4 S8 | açık |
-| E136 | Güvenlik defteri ve hakem dosyaları yeniden yazılmaya karşı korunmuyor: üç açık repoda ruleset yok, defter ucu çapalanmıyor | K | evet (ruleset) | e2e-4 S9 | açık |
-| E137 | Üçüncü taraf ve upstream açıkları için sorumlu ifşa yolu yok; ifşa edilmemiş açıktan dedektör yayılabilir | B | evet (ifşa politikası) | e2e-4 S10 | açık |
-| E138 | Özel kod ve açık ayrıntıları tüketici aboneliğinin veri koşullarıyla gidebilir | B | evet | e2e-4 S11 | açık |
-| E139 | Rekor repo, sahip, commit, koşu adresi ve görünürlüğü kalıcı yayımlar (E59'daki 'yalnız hash' yanlış); kimlik denetimi ada dayalı | S | evet | e2e-4 S12 | açık |
+| E136 | Güvenlik defteri ve hakem dosyaları yeniden yazılmaya karşı korunmuyor: üç açık repoda ruleset yok, defter ucu çapalanmıyor | K | evet (ruleset) | e2e-4 S9 | onaylandı · kısmen: `snowball-mcp` ve prova hakemi `main`'i korumada (2026-10-29); yeni beyin reposu bekliyor |
+| E137 | Üçüncü taraf ve upstream açıkları için sorumlu ifşa yolu yok; ifşa edilmemiş açıktan dedektör yayılabilir | B | evet (ifşa politikası) | e2e-4 S10 | onaylandı · açık |
+| E138 | Özel kod ve açık ayrıntıları tüketici aboneliğinin veri koşullarıyla gidebilir | B | evet | e2e-4 S11 | onaylandı · açık |
+| E139 | Rekor repo, sahip, commit, koşu adresi ve görünürlüğü kalıcı yayımlar (E59'daki 'yalnız hash' yanlış); kimlik denetimi ada dayalı | S | evet | e2e-4 S12 | onaylandı · açık |
 | E140 | Sonu `/refs/heads/main` olan bir dal adı `poll`'u her saat durduruyor (`ls-remote` kuyruk eşlemesi) | K | — | e2e-5 K1 | açık |
 | E141 | Tohum vektörleri sırasında Docker arızası (125) Kurucu'nun `vector_failed` reddine dönüşüyor (E01 sınıfı) | K | — | e2e-5 K2 · parti 2'ye eklendi | açık |
 | E142 | Boşluk ya da glob karakterli kilit dosyası yolu bütün kapsayıcı komutlarını kırıyor | K | — | e2e-5 K3 | açık |
@@ -885,6 +885,28 @@ Her kusur bir karalama kopyasında ya da betikte yeniden üretildi (`scratchpad/
 - **E145 (K10).** `decide`'a güncel ay verilir, yazmadan önce ay devri orada yapılır.
 - **E146 (K11).** `load_policy` ifadeleri ayrıştırır, pini adlandıran `ConfigError` verir.
 - **E147 (K12).** Arşivlemeden önce `ls-tree -l` ile blob boyutları toplanır; ağaç çok büyükse `brain.tar` yazılmaz.
+
+### Kararlar (2026-10-29, uçtan uca denetimden sonra)
+Operatör dört kararın dördünü de önerilen yönde verdi:
+1. **Yol haritası (E76).** Aşama 0 daraltılır: yalnız ilk canlı döngünün okuduğu parçalar (zincir, kum havuzu,
+   bağımlılık getirme, kapı, nöbetçi, geri alma, sır taraması, model çağrısı, en küçük durum bloğu). Döngü önce
+   oyuncak hedefte, hemen ardından `aquaculture_platform` kopyasının tek bir biriminde çalışır; gerisi ilk
+   okuyucusundan hemen önceki çıkışta aktarılır. Inşa edilebilirlik bulgularının (E100–E111) çoğu bu
+   daraltmayla yeniden değerlendirilir.
+2. **Kurucu kimliği (E90, E91, E94, E112, E133, E138).** Sistem için ayrı bir Claude hesabı ve aboneliği (rakip ve
+   Kurucu operatörün kotasını paylaşmaz); yalnız beyin reposuna yazan ince taneli GitHub belirteci; Kurucu bir
+   kapsülde ya da ayrı bir Windows kullanıcısında, temiz Claude yapılandırmasıyla.
+3. **Repolar (E88, E119, E136).** Beyin `snowball-mcp` değil, ayrı yeni bir repodur; repolar iki sahipli bir
+   Suderra GitHub organizasyonuna Kurucu başlamadan taşınır; üç repoda `main`'e force-push ve silme yasağı.
+   GitHub'da `suderra` adı 2025-04-11'de açılmış bir kişisel hesap olarak alınmış; operatörün mü olduğu soruldu.
+   Koruma: `snowball-mcp` (ruleset 26114843) ve prova hakemi (26114844) `main`'inde `non_fast_forward` ve
+   `deletion` yürürlükte (GitHub `rules/branches/main` ile doğrulandı).
+4. **Diğer karar kalemleri.** Kayıttaki öneriler onaylandı (ör. Y11: kaynak sınırları bant içinde iki yöne,
+   kalite eşikleri yalnız sıkılaşır; kendi kusurunu bildirmeye kredi yok; dürüstlük provası; bağımlılık
+   güncellemesi sonraya).
+
+**E32 kanıtı.** Prova hakeminin iş akışı yeniden kaydettirildikten (09:03Z) sonraki bir saatte de zamanlanmış koşu
+yok (toplam 6+ saat, 0 koşu); E121'in dış canlılık gözlemcisi bunu gerektiriyor.
 
 ## Doğrulanmış sağlam taraflar
 Kapsayıcı bayrakları ve kırmızı kontroller; host'ta kabuk enjeksiyonu yok; `$GITHUB_OUTPUT`'a serbest
