@@ -2,7 +2,7 @@
 
 Tarih: 2026-10-29 · Sürüm: 2.2 · Durum: taslak · Sahibi: operatör
 Okunma: Gözcü kararlarında ve her dondurmada
-Çapa: beklemede: aşama 0 — ledger.jsonl part=freeze satırları
+Çapa: beklemede: P1 aktarımı (Gözcü) — ledger.jsonl part=freeze satırları
 
 ---
 
@@ -14,9 +14,12 @@ yerde, burada yazılır; başka sayfa buraya atıf yapar.
 
 - **Tetik:** regresyon kuralı (`20`); aynı pencerede iki kapsayıcılık ihlali (`08`), tek tetik
   dosyası kök neden başına bir kez sayılır; salınım birikimi; bütçe ya da Actions dakikası
-  tavanına ulaşmak (bütçe dondurması; ay dönünce kendiliğinden kalkar). Aşama 0'da Gözcü yoktur:
-  rakip bütçesi bitince önyükleme hakemi iş başlatmaz (yoklama uyarıyla geçer) ve aynı baş ay dönünce
-  ya da politika değişince kendiliğinden yargılanır; dakikayı ölçmez, freni GitHub harcama sınırıdır
+  tavanına ulaşmak (bütçe dondurması; ay dönünce ya da operatör freni yükseltince kendiliğinden
+  kalkar). Bütçe iç kullanımda kaçak frenidir (`06`): dondurma olağan işi değil döngüyü keser ve
+  Kurucu'nun reddi değildir. Abonelik kullanım penceresine takılmak (HTTP 429) dondurma değil
+  kesintidir: operatör uyarılır, iş pencere açılınca sürer. P1 aktarımına kadar Gözcü yoktur: rakip
+  frene takılınca önyükleme hakemi iş başlatmaz (yoklama uyarıyla geçer) ve aynı baş ay dönünce ya da
+  politika değişince kendiliğinden yargılanır; dakikayı ölçmez, freni GitHub harcama sınırıdır
   (`25` 8, `29b`).
 - **Kapsam:** merge kapısı ilgili sınıf için kapanır; genesis yeni ACTIVE geçişi yapmaz. Keşif,
   ölçüm, SHADOW koşuları ve oracle sürer.

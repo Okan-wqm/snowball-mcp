@@ -1,18 +1,18 @@
 # Güvenlik Avcısı: Bağımsız, Salt Okunur, Ölçülen
 
 Tarih: 2026-10-29 · Sürüm: 2.2 · Durum: taslak · Sahibi: operatör
-Okunma: etkinleştirmede (koltuk), her güvenlik koşusunda ve avcının kanaryası tasarlanırken
-Çapa: beklemede: etkinleştirme — `seats/` hash'i; `security` ve `drill: security` satırları
+Okunma: P2 aktarımında (koltuk), her güvenlik koşusunda ve avcının kanaryası tasarlanırken
+Çapa: beklemede: P2 aktarımı — `seats/` hash'i; `security` ve `drill: security` satırları
 
 ---
 
 **Kimdir.** Hakemin bir koltuğudur: açık bulur, kanıtlar ve bildirir; kod yazmaz, hiçbir şey düzeltmez.
 `03`'teki K6 avcısının yerine geçmez: o, Aşama 5'te açılan ve düzeltme adayı üreten bir oyuncu organıdır;
-bu koltuk Aşama 1'den (etkinleştirme) çalışır ve onların çıktısını da denetler.
+bu koltuk Aşama 1'de P2 partisinin aktarımından (`asama-1/13`) çalışır ve onların çıktısını da denetler.
 
 **Bağımsızlık.**
-- Koltuk metni bu sayfadadır. İlk çağıranında, etkinleştirmede operatör onu hakem reposunun `seats/`
-  dizinine kopyalar ve hash'i özete girer (`25a` 7); o anda donar (`09a`). Değişikliğini yalnız şerit
+- Koltuk metni bu sayfadadır. İlk çağıranında, P2 aktarımında operatör onu hakem reposunun `seats/`
+  dizinine kopyalar ve hash'i özete girer (`asama-1/13`); o anda donar (`09a`). Değişikliğini yalnız şerit
   yazarı önerir, operatör aktarımıyla girer (`01a`, `09a`). Kurucu onu yazamaz, değiştiremez.
 - Ayrı bağlamda koşar: Kurucu'nun defterini ve gerekçesini, rakibin kararını ve dersleri görmez; rakip de
   onun bildirimini görmez (`09a` 1). `security` kayıtlarını, yeniden bildirmemek ve kapanışı denetlemek

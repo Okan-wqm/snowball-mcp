@@ -28,11 +28,13 @@ operatör yazar (`01a`).
   girer. Kurucu onları yazmaz. Rakip kurulumdan itibaren önyükleme hakeminde çalışır (`29b`);
   test-yazıcı ve şerit yazarı ilk çağıranlarında kurulur ve o anda donar. Hiç koşmamış bir koltuk
   dondurulmaz.
-- **Kurulum istisnası yalnız Aşama 0'dadır.** Hakemin ilk sürümünü Kurucu beyin reposunun
-  `referee/` dizininde yazar, çünkü başka yazar yoktur. Onu tohumla gelen önyükleme hakemi, tohum
-  vektörleri (`29a`) ve farklı modelden rakip denetler; operatör Aşama 0 çıkışında hakem reposuna
-  aktarır ve donar. Sonra Kurucu hakeme yazamaz. Bu sistemin güven köküdür; zayıflığı (Kurucu'nun
-  yazdığı testler ve vektörlerin yalnız taban olması) açıktır ve çıkış raporunda yazılır.
+- **Kurulum istisnası hakemin inşasıdır.** Aşama 0'ın döngü hakemini ve sonraki partilerin yeni
+  parçalarını (`asama-1/13`) Kurucu beyin reposunun `referee/` dizininde yazar, çünkü başka yazar
+  yoktur. Onu tohumla gelen önyükleme hakemi, tohum vektörleri (`29a`) ve farklı modelden rakip
+  yargılar; önyükleme hakemi Aşama 0'dan sonra da beyin reposunun itme yargıcıdır. Operatör aşama ya da
+  parti çıkışında hakem reposuna aktarır ve aktarılan kod donar; Kurucu ona yazamaz. Bu sistemin güven
+  köküdür; zayıflığı (Kurucu'nun yazdığı testler ve vektörlerin yalnız taban olması) açıktır, modülsüz
+  kırmızı ve dürüstlük provası onu daraltır ve çıkış raporunda yazılır.
 - **Şerit yazarı.** Donmuş bir koltuğu ya da hakem kodunu değiştirmeyi yalnız şerit yazarı önerir:
   Kurucu değildir, Kurucu'nun defterini görmez, yalnız tipli alanları okur (hakem raporları, Gözcü
   işaretleri, kanarya sonuçları); serbest metin ona talimat olarak ulaşmaz. Önerisi yeni bir

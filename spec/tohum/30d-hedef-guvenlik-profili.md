@@ -2,9 +2,14 @@
 
 Tarih: 2026-10-29 · Sürüm: 2.2 · Durum: taslak · Sahibi: operatör
 Okunma: yeni bir hedefe bağlanırken, her güvenlik testi bağlanırken ve her K6 işinde
-Çapa: beklemede: etkinleştirme — `<state_root>/security/profile.json`; `security.derive` ve `security.run` çıktıları
+Çapa: beklemede: P2 aktarımı — `<state_root>/security/profile.json`; `security.derive` ve `security.run` çıktıları
 
 ---
+
+**Ne zaman.** Hedefin güvenlik gözlemi P2 partisiyle, Aşama 1 içinde açılır (`asama-1/13`):
+`security.derive`, `security.run` ve güvenlik avcısı (`30f`) o aktarımla gelir. Aşama 0'da hedef güvenlik
+profili yoktur; güvenlik mikro özelliği `secrets.scan`'dir ve güvenlik yolları ile hariç yollar yalnız
+yazım yasağı olarak uygulanır (`asama-0/08`). Hakemin ve beynin profili tohumla başından geçerlidir.
 
 **Ne ve nerede.** Her hedefin tehdit modeli `<state_root>/security/profile.json`'da, kurallarını bağlayan
 testler `<state_root>/security/tests/<rule_id>/` altındadır; ikisi de `brain/state`'tedir, `main`'e

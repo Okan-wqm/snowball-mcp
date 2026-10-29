@@ -1,7 +1,7 @@
 # Prova Vektörleri: Ders Provasının Referans Yargıcı
 
 Tarih: 2026-10-29 · Sürüm: 2.2 · Durum: taslak · Sahibi: operatör
-Okunma: `exit.drill`'in yargıcını yazarken (Aşama 0, mikro özellik 18) ve ders provası tasarlanırken
+Okunma: ders provasının yargıcını (`harness.drill`) yazarken (Aşama 2 partisi) ve ders provası tasarlanırken
 Çapa: `seed/drill/` (referans yargıç, simüle beyinler, testler); `seed/bootstrap/vectors/drill/`
 
 ---
@@ -9,8 +9,10 @@ Okunma: `exit.drill`'in yargıcını yazarken (Aşama 0, mikro özellik 18) ve d
 Ders provasının (`22a`) kararını Kurucu'nun yazdığı hakem verir, ama Kurucu kendi yargıcı olamaz
 (Y6). Bu yüzden prova yargıcının ne demesi gerektiği tohumla gelir: `seed/drill/` altında standart
 kütüphaneyle yazılmış bir referans yargıç, onu sınayan simüle beyinler ve onlardan üretilmiş
-vektörler. Kurucu'nun `harness.drill`'i vektörlerde referans yargıçla aynı kararı verir;
-önyükleme hakemi bunu mikro özellik 18 bitince her push'ta denetler (`29b`).
+vektörler. Kurucu'nun `harness.drill`'i vektörlerde referans yargıçla aynı kararı verir; önyükleme
+hakemi bunu, yargıcı getiren Aşama 2 partisinin MF'si bitince her push'ta denetler (`asama-1/13`, `29b`);
+Aşama 0'da `drill` grubu sahipsizdir ve koşmaz. Aşama 0'ın geri alma provası (MF14) bu yargıcı
+kullanmaz: tek prova türü `revert`'tür, vektörleri `revert_drill` grubundadır (`29d`).
 
 ## Yargıcın kuralları
 
