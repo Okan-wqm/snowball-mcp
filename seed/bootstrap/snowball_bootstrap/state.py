@@ -48,10 +48,12 @@ CLAIM_KEYS = {"id", "claim", "evidence_refs", "reproducer", "observed", "first_h
 
 
 def initial(summary: Summary, month: str) -> dict[str, Any]:
+    """A state that starts at the last seed epoch's commit, or the setup seed's when none was delivered (`25`,
+    "Durum kaybolursa": the referee starts from the last seed epoch's commit)."""
     return {
         "schema": SCHEMA,
         "origin": "initial",
-        "last_accepted_sha": summary.seed_commit,
+        "last_accepted_sha": summary.epoch.commit if summary.epoch else summary.seed_commit,
         "last_evaluated_sha": None,
         "frozen_specs": {},
         "rival_artifacts": [],

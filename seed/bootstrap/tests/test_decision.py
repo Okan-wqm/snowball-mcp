@@ -6,11 +6,12 @@ import hashlib
 import io
 import json
 import os
+import re
 import unittest
 import zipfile
 from pathlib import Path
 
-from snowball_bootstrap import cli, ghapi, state as st
+from snowball_bootstrap import cli, decide as decide_module, ghapi, state as st
 from snowball_bootstrap.classify import classify
 from snowball_bootstrap.config import ConfigError, Policy
 from snowball_bootstrap.container import RunResult
@@ -23,6 +24,8 @@ import test_state
 from helpers import DRILL, EVERY_GROUP, STATS, FakeRunner, commit, install_fake_claude, ok_result, posix_only, sh, submit
 
 A, B, C = "a" * 40, "b" * 40, "c" * 40
+# What every exit is still missing until the seed checks it (E162); the literal list is held in KindsAndExit.
+UNCHECKED = [decide_module.NOT_CHECKED + anchor for anchor in decide_module.EXIT_NOT_CHECKED]
 
 
 def state0(**kw):
@@ -312,14 +315,16 @@ class KindsAndExit(unittest.TestCase):
     def test_exit_conditions_are_each_enforced(self):  # D19 D22 D23
         ready = state0(rival_artifacts=survived(A, "1" * 40, "2" * 40))
         good = run_decide(self.exit_meta(ready), green_run(), None, None, {"getir": "success", "kos": "success"})
-        self.assertEqual((good["verdict"], good["exit"]["transferable"]), ("accepted", True))
+        # Every condition the code checks passes; only what it cannot check yet keeps the exit closed (E162).
+        self.assertEqual((good["verdict"], good["exit"]["transferable"], good["exit"]["missing"]),
+                         ("rejected", False, UNCHECKED))
         cases = ((dict(done=range(1, 18)), ready, "not_all_micro_features_done"),
                  (dict(), dict(ready, rival_artifacts=survived("1" * 40, "2" * 40)), "no_rival_attempt_on_exit_sha"),
                  (dict(tree=None), ready, "referee_tree_hash"))
         for kw, state, missing in cases:
             res = run_decide(self.exit_meta(state, **kw), green_run(), None, None, {"getir": "success", "kos": "success"})
             self.assertEqual(res["verdict"], "rejected", missing)
-            self.assertEqual(res["exit"]["missing"], [missing])
+            self.assertEqual(res["exit"]["missing"], [missing] + UNCHECKED)
             self.assertFalse(res["exit"]["transferable"], missing)  # D37
 
     def test_the_exit_needs_all_eighteen_micro_features_of_the_stage_table(self):
@@ -329,7 +334,7 @@ class KindsAndExit(unittest.TestCase):
         for done, missing in ((range(1, 19), []), (range(1, 18), ["not_all_micro_features_done"]),
                               (range(1, 31), ["not_all_micro_features_done"])):
             res = run_decide(self.exit_meta(ready, done=done), green_run(), None, None, jobs)
-            self.assertEqual(res["exit"]["missing"], missing, done)
+            self.assertEqual(res["exit"]["missing"], missing + UNCHECKED, done)
 
     def test_the_exit_waits_for_every_vector_group_the_seed_still_lacks(self):
         """`asama-0/10` #testler: every group passes. A group the seed has no vectors for cannot, so the exit is
@@ -338,8 +343,55 @@ class KindsAndExit(unittest.TestCase):
         run = dict(green_run(), vector_groups_missing=["secrets", "genesis"])
         res = run_decide(self.exit_meta(ready), run, None, None, {"getir": "success", "kos": "success"})
         self.assertEqual(res["verdict"], "rejected")
-        self.assertEqual(res["exit"]["missing"], ["vector_group_missing:secrets", "vector_group_missing:genesis"])
+        self.assertEqual(res["exit"]["missing"],
+                         ["vector_group_missing:secrets", "vector_group_missing:genesis"] + UNCHECKED)
         self.assertFalse(res["exit"]["transferable"])
+
+    def test_no_exit_condition_the_seed_cannot_check_passes_silently(self):
+        """E162: each (A) condition of `asama-0/10` without a check in this code keeps the exit closed by name."""
+        ready = state0(rival_artifacts=survived(A, "1" * 40, "2" * 40))
+        res = run_decide(self.exit_meta(ready), green_run(), None, None, {"getir": "success", "kos": "success"})
+        named = ["not_checked:kurucu-defteri", "not_checked:is-akisi", "not_checked:agac", "not_checked:genellik",
+                 "not_checked:spec", "not_checked:durustluk"]
+        self.assertEqual([(r["kind"], r["ref"]) for r in res["reasons"]], [("exit_condition", n) for n in named])
+        self.assertEqual((res["verdict"], res["exit"]["transferable"], res["rejection"]["kind"]), ("rejected", False, "exit"))
+        self.assertNotIn("brain_sha", res["exit"])
+        self.assertEqual(res["state"]["last_accepted_sha"], A)  # the exit SHA is not moved past
+
+    def test_every_row_of_the_exit_table_is_checked_or_named_unchecked(self):
+        """E162: a row of the `asama-0/10` table is either checked by this code (where, below) or listed in
+        EXIT_NOT_CHECKED; a row added to the page without either fails here instead of passing silently."""
+        checked = {
+            ("testler", "kirmizi", "lisans"): "decide: not_all_micro_features_done, test_failed, vector_failed, "
+                                              "vector_group_missing, kos controls, license_not_allowed; manifest",
+            ("modulsuz",): "pull: module_less for every done MF at the exit; decide: module_less_green",
+            ("rakip",): "decide: no_rival_attempt_on_exit_sha, rival_attempts, refutation_still_reproduces, open_claims",
+            ("lock", "kilit"): "pull: exit_request_wrong_stage, _sha_is_not_last_accepted, _spec_hash_mismatch",
+            ("tekrar",): "decide: exit.repeat_events",
+            ("yalniz",): "pull: kind exit only for exit-request.json (ledger rows aside, E148), else _not_alone",
+        }
+        page = (Path(__file__).resolve().parents[3] / "spec" / "asama-0" / "10-cikis-testi.md").read_text(encoding="utf-8")
+        cells = [line.split("|")[1] for line in page.splitlines() if line.startswith("| #")]
+        rows = [tuple(found) for found in (re.findall(r"#([a-z-]+)", cell) for cell in cells) if found]  # not "| # |"
+        self.assertEqual(len(rows), 12)
+        for row in rows:
+            unchecked = [a for a in row if a in decide_module.EXIT_NOT_CHECKED]
+            self.assertEqual((row in checked) + len(unchecked), 1, row)
+        anchors = {a for row in rows for a in row}
+        self.assertLessEqual(set(decide_module.EXIT_NOT_CHECKED), anchors)
+        self.assertLessEqual(set(checked), set(rows))
+
+    def test_what_the_seed_cannot_check_is_not_the_founders_rejection(self):
+        """E162, `29b` "Ret hafızası": only what the Founder can fix is counted. Asking for the exit again before the
+        checks exist never makes it `not_learning`; a condition it can fix still counts."""
+        state = state0(rival_artifacts=survived(A, "1" * 40, "2" * 40))
+        for _ in range(3):
+            res = run_decide(self.exit_meta(state), green_run(), None, None, {"getir": "success", "kos": "success"})
+            state = res["state"]
+        self.assertEqual((res["state"]["reject_streaks"], res["learning"]["not_learning"]), ({}, []))
+        res = run_decide(self.exit_meta(state, done=range(1, 18)), green_run(), None, None,
+                         {"getir": "success", "kos": "success"})
+        self.assertEqual(res["state"]["reject_streaks"], {"exit_condition:not_all_micro_features_done": 1})
 
     def test_the_exit_block_carries_the_founders_repeat_count(self):  # D36
         res = run_decide(self.exit_meta(state0(rival_artifacts=survived(A, "1" * 40, "2" * 40), repeat_events=4)),

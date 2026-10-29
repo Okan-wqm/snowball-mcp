@@ -703,11 +703,12 @@ class E20OneAttemptPerArtifact(unittest.TestCase):
                 {"sha": "2" * 40, "outcome": "survived"}, {"sha": "3" * 40, "outcome": "unknown"}]
         res = run_decide(self.exit_meta(state2(rival_artifacts=arts)), green(), None, None,
                          {"getir": "success", "kos": "success"})
-        self.assertEqual(res["exit"]["missing"], ["rival_attempts:1<2"])
+        unchecked = [r for r in res["exit"]["missing"] if r.startswith("not_checked:")]  # E162: the seed's, not these
+        self.assertEqual(res["exit"]["missing"], ["rival_attempts:1<2"] + unchecked)
         arts.append({"sha": "4" * 40, "outcome": "survived"})
         res = run_decide(self.exit_meta(state2(rival_artifacts=arts)), green(), None, None,
                          {"getir": "success", "kos": "success"})
-        self.assertEqual((res["verdict"], res["exit"]["missing"]), ("accepted", []))
+        self.assertEqual(res["exit"]["missing"], unchecked)  # #rakip holds
         arts[0]["outcome"] = "refuted"
         res = run_decide(self.exit_meta(state2(rival_artifacts=arts)), green(), None, None,
                          {"getir": "success", "kos": "success"})
@@ -878,7 +879,9 @@ class E07OpenClaims(unittest.TestCase):
         meta["state_repro"] = [claim["id"]]
         res = run_decide(meta, green(), None, None, {"getir": "success", "kos": "success", "yeniden": "success"},
                          state_repro=[state_ran(claim["id"], "claim", False)])
-        self.assertEqual(res["verdict"], "accepted", res["reasons"])
+        # An open claim does not close the exit, it is listed; only what the seed cannot check yet does (E162).
+        self.assertTrue(res["reasons"] and all(r["ref"].startswith("not_checked:") for r in res["reasons"]),
+                        res["reasons"])
         self.assertEqual(res["exit"]["open_claims"], [{"id": claim["id"], "claim": claim["claim"], "first_head": C}])
 
 

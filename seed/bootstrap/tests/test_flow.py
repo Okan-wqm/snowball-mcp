@@ -496,12 +496,21 @@ class Flow(unittest.TestCase):
         commit(self.brain, {"exit-request.json": json.dumps({"stage": 0, "sha": exit_sha, "spec_sha256": frozen})},
                "exit request again")
 
-        # One more independently reviewed artefact, then the exit request passes.
+        # One more independently reviewed artefact: every condition the code checks passes, and what it cannot check
+        # yet keeps the exit closed (E162) ...
         self.state["rival_artifacts"].append({"sha": "f" * 40, "outcome": "survived"})
         self.state["last_accepted_sha"] = exit_sha
         self.state["last_evaluated_sha"] = None
+        saved = json.loads(json.dumps(self.state))
         meta = self.pull()
         result = self.finish(meta, run=self.green_run(meta), jobs={"getir": "success", "kos": "success"})
+        self.assertEqual((result["verdict"], result["exit"]["transferable"]), ("rejected", False))
+        self.assertTrue(all(r["kind"] == "exit_condition" and r["ref"].startswith("not_checked:")
+                            for r in result["reasons"]), result["reasons"])
+        # ... so the import is measured as it will run once those checks exist and pass.
+        self.state = saved
+        with mock.patch("snowball_bootstrap.decide.EXIT_NOT_CHECKED", ()):
+            result = self.finish(meta, run=self.green_run(meta), jobs={"getir": "success", "kos": "success"})
         self.assertEqual(result["verdict"], "accepted", result["reasons"])
         self.assertTrue(result["exit"]["transferable"])
         self.assertEqual(result["exit"]["repeat_events"], 0)

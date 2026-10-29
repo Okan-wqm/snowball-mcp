@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Any
 
 from . import canon, config, ghapi, gitio, licenses, stages, state as st
-from .classify import classify, is_founder_record, spec_stage_dirs
+from .classify import SEED_DIRS, classify, is_founder_record, is_seed_path, spec_stage_dirs
 from .container import DockerRunner
 from .controls import run_controls
 from .decide import OUTAGE_GIVE_UP_DAYS, OUTAGE_RETRY_LIMIT, decide, utc_now
@@ -290,6 +290,8 @@ def cmd_pull(args: argparse.Namespace) -> int:
         write_json(out / "meta.json", meta)
         output(skip=True, kind="none", head=head, run_tests=False, run_rival=False, repro=False)
         return 0
+    if summary_cfg.epoch is not None:  # outside the content guard: a wrong row is the operator's to fix
+        _check_epoch(repo, summary_cfg.epoch)
     waived = config.load_waivers(root)
     try:
         return _pull_classify(boot, policy, summary_cfg, table, prev, repo, base, head, meta, out, waived)
@@ -313,6 +315,37 @@ def _pull_meta(head: str, base: str, prev: dict[str, Any]) -> dict[str, Any]:
             "waived": [], "module_less": []}
 
 
+def seed_trees(tar_bytes: bytes) -> tuple[str | None, str | None]:
+    """The hashes of a brain tree's ``spec/tohum/`` and ``seed/`` (`26c` ``seed_epochs[]``); None for one with no files."""
+    def one(prefix: str) -> str | None:
+        try:
+            return tree_hash(tar_bytes, prefix, forbid_operator_names=False)
+        except TreeError:
+            return None
+    return one(SEED_DIRS[0]), one(SEED_DIRS[1])
+
+
+def _check_epoch(repo: Path, epoch: config.SeedEpoch) -> None:
+    """The last seed epoch names a brain commit and that commit's seed trees (`25` 10b). A row that is not its
+    commit's is the operator's mistake: the run stops here, so no Founder push is judged against a seed that was
+    never delivered."""
+    if not gitio.has_commit(repo, epoch.commit):
+        raise config.ConfigError(f"setup/summary.json: the last seed epoch's commit {epoch.commit} is not on the brain "
+                                 "branch (push the delivery before writing its row)")
+    if seed_trees(gitio.archive(repo, epoch.commit, SEED_DIRS)) != (epoch.spec_tohum_sha256, epoch.seed_sha256):
+        raise config.ConfigError(f"setup/summary.json: the last seed epoch's hashes are not those of {epoch.commit} "
+                                 "(print the row with `seed-epoch`)")
+
+
+def _seed_update(repo: Path, base: str, head: str, meta: dict[str, Any], out: Path, waived: list[str]) -> int:
+    """The operator's seed delivery itself (`25` 10b): nothing in it is the Founder's, so nothing is judged (E88)."""
+    changed = gitio.changed_paths(repo, base, head) if gitio.has_commit(repo, base) else []
+    meta.update(kind="seed_update", changed=[shown(p) for p in changed], waived=waived)
+    write_json(out / "meta.json", meta)
+    output(skip=False, kind="seed_update", head=head, run_tests=False, run_rival=False, repro=False)
+    return 0
+
+
 def _well_formed_exit_request(req: Any) -> bool:
     return (isinstance(req, dict) and set(req) == {"stage", "sha", "spec_sha256"}
             and isinstance(req["stage"], int) and not isinstance(req["stage"], bool) and 0 <= req["stage"] <= 1000
@@ -333,6 +366,9 @@ def _base_done(repo: Path, base: str) -> set[int]:
 def _pull_classify(boot: config.Bootstrap, policy: config.Policy, summary_cfg: config.Summary,
                    table: stages.StageTable, prev: dict[str, Any], repo: Path, base: str, head: str,
                    meta: dict[str, Any], out: Path, waived: list[str]) -> int:
+    epoch = summary_cfg.epoch
+    if epoch is not None and head == epoch.commit:
+        return _seed_update(repo, base, head, meta, out, waived)
     pre: list[str] = []
     base_ok = gitio.has_commit(repo, base)
     if not base_ok:
@@ -346,26 +382,31 @@ def _pull_classify(boot: config.Bootstrap, policy: config.Policy, summary_cfg: c
     elif any(path_problem(p) for p in names):
         pre.append("unsafe_path")  # a control character, a .git component, ':' or '\\' (E03, E04)
     changed = [shown(p) for p in changed]
-    judged = [p for p in changed if not is_founder_record(p)]  # the Founder's ledger rows may ride along
+    tar_bytes = gitio.archive(repo, head)
+    readable = not {"non_utf8_path", "unsafe_path"} & set(pre)
+    trees = seed_trees(tar_bytes) if readable else (None, None)
+    # While the head's seed trees are the last epoch's, the seed paths in the diff from the last accepted commit are
+    # the operator's delivery, not the Founder's change (`25` 10b, E88); any other seed is checked below.
+    epoch_seed = epoch is not None and trees == (epoch.spec_tohum_sha256, epoch.seed_sha256)
+    own = [p for p in changed if not (epoch_seed and is_seed_path(p))]
+    judged = [p for p in own if not is_founder_record(p)]  # the Founder's ledger rows may ride along
     if judged == [EXIT_FILE]:
         kind = "exit"
     else:
-        kind, reasons = classify(changed)
+        kind, reasons = classify(own)
         pre += reasons
         if EXIT_FILE in judged:
             pre.append("exit_request_not_alone")
     if {"base_unreachable", "history_rewritten", "non_utf8_path", "unsafe_path"} & set(pre):  # nothing can be read safely
         kind = "rejected"
     pre += [f"not_regular_file:{x}" for x in gitio.special_entries(repo, head)][:20]
-    tar_bytes = gitio.archive(repo, head)
     if len(tar_bytes) > boot.limits.max_tree_bytes:
         pre.append("tree_too_large")
-    try:
-        if (not {"non_utf8_path", "unsafe_path"} & set(pre)
-                and tree_hash(tar_bytes, "spec/tohum", forbid_operator_names=False) != summary_cfg.seed_tree_sha256):
-            pre.append("seed_tree_mismatch")
-    except TreeError:
-        pre.append("seed_tree_missing")
+    if readable:
+        if trees[0] is None:
+            pre.append("seed_tree_missing")
+        elif not (epoch_seed if epoch is not None else trees[0] == summary_cfg.seed_tree_sha256):
+            pre.append("seed_tree_mismatch")  # the head's seed is not the one the summary names (`29b`)
 
     manifest = None
     if kind in ("code", "exit"):
@@ -422,7 +463,7 @@ def _pull_classify(boot: config.Bootstrap, policy: config.Policy, summary_cfg: c
             pre.append(f"referee_tree:{exc}")
 
     if kind == "spec":
-        for d in spec_stage_dirs(changed):
+        for d in spec_stage_dirs(own):
             try:
                 meta["spec_dir_hashes"][d] = tree_hash(tar_bytes, d, forbid_operator_names=False)
             except TreeError:
@@ -436,7 +477,7 @@ def _pull_classify(boot: config.Bootstrap, policy: config.Policy, summary_cfg: c
         # Recorded once for this commit; re-evaluating it every poll would only churn signatures.
         # The founder pushes again after the month or the stage budget changes.
         pre.append("budget")
-    meta.update(kind=kind, changed=changed, pre_reasons=sorted(set(pre)), waived=waived)
+    meta.update(kind=kind, changed=own, pre_reasons=sorted(set(pre)), waived=waived)
     meta["run_tests"] = kind in ("code", "exit") and not pre
     meta["run_rival"] = needs_rival and not pre and not reuse
     meta["reuse_rival"] = reuse and not pre
@@ -448,8 +489,10 @@ def _pull_classify(boot: config.Bootstrap, policy: config.Policy, summary_cfg: c
     repro = bool(meta["state_repro"]) or (meta["reuse_rival"] and any("reproducer" in a for a in pending["rival"]["attempts"]))
     write_json(out / "meta.json", meta)
     (out / "brain.tar").write_bytes(tar_bytes)
-    (out / "diff.patch").write_text(gitio.diff_text(repo, base, head, exclude=HIDDEN_NAMES, exclude_dirs=HIDDEN_DIRS) if base_ok else "",
-                                    encoding="utf-8")
+    # The rival's diff holds neither the Founder's ledger and reports (E10, E153) nor a delivered seed: a seed path
+    # still in it here is the epoch's (any other seed change is rejected before the rival), not the Founder's (E88).
+    (out / "diff.patch").write_text(gitio.diff_text(repo, base, head, exclude=HIDDEN_NAMES, exclude_dirs=HIDDEN_DIRS + SEED_DIRS)
+                                    if base_ok else "", encoding="utf-8")
     output(skip=False, kind=kind, head=head, run_tests=meta["run_tests"], run_rival=meta["run_rival"], repro=repro)
     return 0
 
@@ -673,6 +716,22 @@ def cmd_seed_hash(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_seed_epoch(args: argparse.Namespace) -> int:
+    """The ``seed_epochs[]`` row of a seed delivery (`25` 10b, `26c`): the delivered brain commit with its seed trees,
+    and the ``seed/bootstrap/`` the referee runs (read from ``--source``, by default the brain commit itself)."""
+    brain = Path(args.brain)
+    commit = gitio.git(brain, "rev-parse", "--verify", f"{args.commit}^{{commit}}").decode().strip()
+    spec_tohum, seed = seed_trees(gitio.archive(brain, commit, SEED_DIRS))
+    if spec_tohum is None:
+        raise TreeError(f"no files under spec/tohum/ at {commit}: that is not a seed delivery")
+    source = Path(args.source) if args.source else brain
+    bootstrap = tree_hash(gitio.archive(source, args.source_commit or commit, ("seed/bootstrap",)), "seed/bootstrap",
+                          forbid_operator_names=False)
+    print(canon.dump({"commit": commit, "spec_tohum_sha256": spec_tohum, "seed_sha256": seed,
+                      "bootstrap_sha256": bootstrap}), end="")
+    return 0
+
+
 def cmd_import(args: argparse.Namespace) -> int:
     log = run_import(Path(args.result), Path(args.bundle), args.identity, args.sigstore_python,
                      Path(args.brain), Path(args.referee), Path(args.toy) if args.toy else None)
@@ -710,6 +769,9 @@ def build_parser() -> argparse.ArgumentParser:
     add("pack", cmd_pack, ("--dir", req), ("--out", req))
     add("unpack", cmd_unpack, ("--tar", req), ("--sha256", req), ("--out", req))
     add("seed-hash", cmd_seed_hash, ("--brain", req), ("--commit", req))
+    add("seed-epoch", cmd_seed_epoch, ("--brain", req), ("--commit", req),
+        ("--source", {"help": "repository whose seed/bootstrap/ the referee runs (default: the brain)"}),
+        ("--source-commit", {"help": "commit of --source (default: --commit)"}))
     add("import", cmd_import, ("--result", req), ("--bundle", req), ("--identity", req),
         ("--sigstore-python", req), ("--brain", req), ("--referee", req), ("--toy", {}))
     return parser

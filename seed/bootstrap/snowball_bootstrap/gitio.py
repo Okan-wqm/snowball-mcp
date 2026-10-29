@@ -122,9 +122,10 @@ def tree_paths(repo: Path, head: str) -> list[str]:
     return [p for _m, _s, p in _entries(repo, head)]
 
 
-def archive(repo: Path, head: str) -> bytes:
-    """Deterministic tar of the regular files at ``head``, read blob by blob."""
-    entries = [(m, s, p) for m, s, p in _entries(repo, head) if m in ("100644", "100755")]
+def archive(repo: Path, head: str, dirs: tuple[str, ...] = ()) -> bytes:
+    """Deterministic tar of the regular files at ``head``, read blob by blob; only those under ``dirs`` if given."""
+    entries = [(m, s, p) for m, s, p in _entries(repo, head) if m in ("100644", "100755")
+               and (not dirs or any(p.startswith(d + "/") for d in dirs))]
     batch = "".join(f"{s}\n" for _m, s, _p in entries).encode()
     out = git(repo, "cat-file", "--batch", stdin=batch)
     buf = io.BytesIO()
