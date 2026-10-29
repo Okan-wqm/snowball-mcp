@@ -79,14 +79,38 @@ Başlatıcı döngü 9'dan beri her döngüyü `pilot-metrics.jsonl`'a yazıyor:
 kendi `counts_against_founder` kuralıyla: Kurucu / rakip / hakem), rakibin kanıtlanmış bulguları, hâlâ yeniden üretilen
 eski çürütmeler, yeni bildirimler, süre, maliyet, hakemin yeniden inceleme sayısı.
 
-| Ölçü (döngü 0–9) | Değer |
-|---|---|
-| Kabul / dondurma | 2 (spec, MF1) |
-| Rakibin kanıtlanmış gerçek bulguları | 6 (MF2'de 5 + döngü 1'deki tutarsızlık açık iddia olarak) |
-| Geri gelen eski çürütme | 0 |
-| Kurucu'nun bildirimleri | 11 seed_issue (2'si yeni ve operatörün bilmediği, 1'i kendi hatası) |
-| Pilotun açtığı sistem kusuru | 21 (E148–E168), 19'u kapalı |
-| Kurucu'nun düzeltemeyeceği bir nedenle kaybedilen döngü | 1 (döngü 5, rakip tarafı; E166 sonrası olmaz) |
+| Ölçü | Döngü 0–9 | Döngü 0–16 |
+|---|---|---|
+| Kabul / dondurma | 2 (spec, MF1) | **7** (spec, MF1–MF6) |
+| İlk denemede kabul (MF başına) | — | MF3, MF5, MF6 ilk denemede; MF4 ikincide; MF2 sekizincide |
+| Rakibin kanıtlanmış gerçek bulguları | 6 | 7 (MF4: geçersiz operatör deseni traceback veriyordu) |
+| Geri gelen eski çürütme | 0 | 0 (her yeni push'ta hepsi yeniden koşuldu) |
+| Modülsüz kırmızı (her bitmiş MF'nin testleri modülü olmadan kırmızı) | — | MF2–MF6'nın hepsinde kırmızı, imzalı sonuçta (E169) |
+| Kurucu'nun bildirimleri | 11 | 15 seed_issue/spec_issue (operatörün bilmediği yeni: toy-repo okuyucusu, 17/18 çağrı, `profile/` std. kütüphaneyi gölgeler, `install_scripts_required` biçimi, ölçüt 5–6 çelişkisi, `toolchain` biçimi; 1'i kendi hatası) |
+| Pilotun açtığı sistem kusuru | 21 | 37 (E148–E173, E180–E185, E190–E202) |
+| Kurucu'nun düzeltemeyeceği bir nedenle kaybedilen döngü | 1 | 1 (döngü 5; E166 sonrası yok) |
+
+## Gerçek değer: kabul edilmiş aletler hedefte (döngü 10–16)
+
+Kabul edilen MF2 (sır tarayıcı), MF4 (profil) ve MF5 (npm kilit) hedefin salt okunur kopyasında, ağsız kapsülde
+koşturuldu; ayrıntılar yalnız sahibine verildi (bu repo açık). Sayılar:
+
+- Sır taraması: sızmış özel anahtar ya da sağlayıcı token'ı yok; yüksek güvenli kurallar küçük bir gözden geçirme
+  listesi verdi, ayıklandığında hepsi ortam değişkeni, yorum örneği ya da sır adı listesi çıktı (operatörün ilk
+  ayıklaması `${VAR:?mesaj}` biçimini yanlış okumuştu — düzeltildi). Atama kuralı gürültülü (E170).
+- Profil: 32 birim adayından 2'si uygun; neden kök kilitte integrity'siz 4 girdi. Bunlar operatör tarafından hedefin
+  test dalında kapatıldı ve üç bağımsız yolla doğrulandı (tarball hash'leri, MF4: 32/32 uygun, gerçek `npm ci`
+  bütün paketlerin integrity'siyle geçti). `npm audit`'in iki yüksek bulgusundan biri (dolaylı, kırıcı olmayan yama)
+  kapatıldı; diğeri hedefte kullanılmayan bir skalerde (ulaşılamaz). Hedefin birim modeli ile tohumunki
+  uyuşmuyor (E173: Nx monorepo) — sahibinin kararıyla tohum genişletilecek.
+- MF5'in kilit denetimi npm workspaces anahtarlarını tanımıyor (E173'ün parçası).
+
+## Tohum dönemi 1 (döngü 16'dan sonra)
+
+İlk canlı tohum teslimi: `29f`/`29g` vektör arayüzleri ve `29d` düzeltmesi beyne (`fdcc99e`), hakem aynı kaynağa
+senkronlandı, `seed_epochs[]` satırı eklendi. Hakem teslimi `seed_update`/`noop` olarak imzaladı, durumu (son kabul,
+donmuş spec, açık iddia, seriler) korudu. MF2–MF6'nın vektörleri artık Kurucu'nun kodunda koşuyor; arayüzü sözleşmeden
+farklıysa Kurucu uyum sağlamak zorunda ("spec değişti, uyum sağla" sınavı).
 
 ## Pilotun tetiklediği düzeltmeler
 
@@ -97,7 +121,7 @@ E167 (iki taraflı mekanizmada sınır), E168 (yargılanmamış push önce yarg�
 
 ## Sıradaki
 
-Döngü 10'dan itibaren sekiz döngülük koşu (yeni başlatıcı: yeniden inceleme, ölçüm, kesinti sonrası yakalama).
-Kurucu beşinci çürütmeyi kapatıyor; sınır ilkesiyle MF2'nin kabule yakınsaması bekleniyor, sonra MF3. Paralelde 10
-ajanlık iş akışı MF2–MF7 sözleşmelerini, genel koşucuyu, tohum dönemini (E88) ve kapalı varsayılan çıkışı (E162)
-hazırlıyor; arayüz sayfası tohum dönemiyle beyne ulaşınca Kurucu arayüzlerini ona uydurmak zorunda kalacak.
+Kurucu MF2–MF6 arayüzlerini `29f`/`29g`'ye uyduracak, sonra MF7. Sahibin kararlarıyla kararlar partisi: Nx birim
+modeli ve MF5'in workspaces kilidi (E173), öneri yalnız genişler (E194), `diffguard` kapsamı (E195), Kurucu'nun
+`install_scripts_required`, `toolchain` ve lint ölçütü bulguları (E200–E202); ardından tohum dönemi 2. Aşama 0'ın
+geri kalanı: MF7–MF18, `k0map` … `genesis` vektörleri (E161), çıkışın altı denetimi (E162).
