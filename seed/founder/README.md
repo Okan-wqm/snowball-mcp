@@ -23,4 +23,5 @@ python seed/founder/launch.py --cycles 3
 
 Her döngü: hakemin son sonucunu indir → bir Kurucu oturumu → beyin değiştiyse hakemi tetikle ve bekle (zamanlayıcısı
 çalışmıyor, E32) → `pilot-log.md`'ye yaz. Push'suz iki oturumda, zaman aşımında ya da `STOP` dosyasında durur.
-`--budget-usd` bütçe değil, kaçak frenidir.
+`--budget-usd` bütçe değil, kaçak frenidir. Döngülerin değerlendirmesi (ne buldu, ne kaçırdı, öğrendi mi) repoda
+`docs/pilot-gunlugu.md`'dedir; her döngüden sonra güncellenir.
