@@ -1135,7 +1135,7 @@ Testler `tests/test_rival_memory.py`'de, sınıf adları kalem numarasıyla. Dur
   `"runner": "data"` işaretiyle koşar; `missing_groups` ikisinden birini bulamadığı grubu sayar, yani yeni grup kod
   değil veridir (`29d`). Tablo güdümlü zamanlama ve `vector_group_missing` uyarısı aynen; MF2–MF7 için artık uyarı yok.
 - **Veri.** `vectors.json`'a altı grup, 47 vaka, iş akışının uzlaştırdığı vakalar olduğu gibi: komut, stdin, beklenen
-  değerler değiştirilmedi; tek bayt farkı E193'ün kaçışıdır. `fixture` komutun `/vec/` yollarıdır; 72 fikstür dosyası
+  değerler değiştirilmedi; aktarılan metinden tek fark E193'ün kaçışıdır (iki dosya). `fixture` komutun `/vec/` yollarıdır; 72 fikstür dosyası
   `vectors/<grup>/` altında. Fikstürler bayt bayt okunur (tarball hash'i, diff başlığı, satır numarası): `.gitattributes`
   onlara satır sonu dönüşümü uygulamaz (`core.autocrlf=true` Windows checkout'u diff başlıklarına CR katardı). Her
   beklenen değer iki kör bağımsız uygulamanın (A, B) ikisinde de aynıydı; son veri gerçek koşucudan yeniden geçirildi:
@@ -1148,12 +1148,17 @@ Testler `tests/test_rival_memory.py`'de, sınıf adları kalem numarasıyla. Dur
 - **Kanıt.** A'nın altı modülü `local/reference_brain/referee/` altında (`gate/`, `runner/`, `profile/`); beyin onları
   bitmiş bildirmez (`done_mf` [1], testleri yok). `SeedVectorsOnReferenceImplementationsTest`: altı grup A'da 94/94
   yeşil; 50 kırık (her biri bir vakanın yakalamak için orada olduğu hata: biçim eksik, yalnız eklenen satır, ham satır,
-  sabit bellek, yankılanan argv, ad dosyası değil yol, kilit sırası, yalnız ilk neden …) hedeflediği her sonucu
+  sabit bellek, sabit kullanıcı, yalnız dosya adında anahtar kelime, kilit sırası, yalnız ilk neden …) hedeflediği her sonucu
   kırmızıya çevirir, çökerek değil yanlış cevap vererek; 47 vakanın her biri en az bir kırığın hedefi. `DataRunnerTest`
   koşucunun her kuralını uydurma bir grupla, `SeedDataVectorsTest` verinin biçimini, fikstürlerin varlığını ve ölü
   dosya olmadığını, sırların FAKE olduğunu denetler. `mutate.py`: 16 yeni mutant (koşucu 11, veri 2, sahiplik 1,
   sayfa 1, E191 1) ve anlamı aynı kalıp yeni koda taşınan 3 çapa (`unowned_group_runs`, `missing_group_not_named`,
   `seed_group_owner_drifts`); kopya artık `spec/INDEX.md`'yi de alır.
+- **Doğrulama (birleştirmeden önce, `a1e32dd`).** Windows 363 test OK (18 atlandı); Linux (`snowball_linux_test:git`)
+  381 OK (3 atlandı), prova yargıcı 31 OK; 16 yeni, 3 yeniden çapalanmış ve `vectors.py`'ye dokunan 3 eski mutant
+  (`vector_flake_blamed_on_founder`, `vector_exit_not_kept`, `groups_run_before_their_micro_feature`) Linux'ta
+  `mutate.run_mutant` ile, dört kapsayıcıda, her birinde önce yeşil baz koşu: 22/22 öldü. `local/e2e.py` ve 197
+  mutantın tamamı koşulmadı (CI'nin `main` işi).
 - **Açık kalan.** E161'in kalan 10 grubu (`k0map`, `refs`, `append`, `root`, `flaky`, `cause`, `revert_drill`, `prompt`,
   `status`, `genesis`); E194 ve E195 operatör kararı; E196 ve E197 sınır; E167 (düz parola ataması `secrets`'ın
   kapsamına girer mi) açık.
