@@ -1,6 +1,6 @@
 # Mimari ve Yetki: Dört Yer
 
-Tarih: 2026-10-28 · Sürüm: 2.2 · Durum: taslak · Sahibi: operatör
+Tarih: 2026-10-29 · Sürüm: 2.2 · Durum: taslak · Sahibi: operatör
 Okunma: ilk oturumda ve her yeni repoya bağlanırken
 Çapa: kurulum özeti (hakem reposu); her döngünün `drift.check` satırı
 
@@ -19,6 +19,10 @@ oyuncu kendi reposu dışına hiçbir şey yazmaz: aday yayımlar, hakem çeker 
 
 Eğitim modundaki hedeflerin durumu operatörün özel **eğitim deposunda**, hedef başına bir dalda
 durur; yazarı yazar App'idir, bütünlüğü Rekor köküdür; ilk eğitim hedefiyle açılır (`21`).
+
+**Açık hakem reposu.** Hakem reposu açıkken koşu günlükleri ve artefaktları da herkese açıktır. Bu
+yüzden o sürece yalnız açık hedefler ve eğitim hedefi bağlanır; ilk özel hedeften ya da mühürlü depo
+açılmadan önce hakem reposu özel yapılır (`25` 0).
 
 **Beyin bir MCP sunucusudur.** Repo-bağımsız koddur; hedefe bağlanınca `<state_root>` açar:
 `brain/state` yetim dalının kökündeki dizin (varsayılan `.brain/`). Her dosya ancak okuyucusu doğunca açılır, okuyucusu kalmayınca kapanır (Y4).
@@ -47,8 +51,8 @@ yazma modu bunu taşıyan bir `main` ruleset'i ister (`21`, `25a`).
 
 **Hakem değişikliği ve bilinen sınır.** Hakem reposu ruleset'e dayandırılmadığı için (özel Free planda yoktur) hiçbir App
 ona yazmaz. Hakem kodu yalnız operatör aktarımıyla değişir: aşama çıkışında, mekanik betikle; ağaç
-hash'i, operatör dosyaları (`policy.json`, `control.json`, `setup/`, `seats/`, `vectors/`) hariç,
-beyin reposundaki pinli SHA'nın `referee/` ağacıyla aynı olmalıdır ve aktarım insan
+hash'i, operatör dosyaları (`policy.json`, `control.json`, `bootstrap.json`, `setup/`, `seats/`,
+`vectors/`) hariç, beyin reposundaki pinli SHA'nın `referee/` ağacıyla aynı olmalıdır ve aktarım insan
 dokunuşu sayacına yazılır. Adayı şerit yazarı yazar (`29`): Kurucu değildir, yalnız tipli hakem
 raporlarını ve kanaryaları okur, çıktısı rakipten ve kanaryadan geçer. Tek yazma anahtarı yazar
 App'idir ve ortam sırları olmadığından hakem reposundaki her iş onu adlandırabilir; bunu Rekor kökü,

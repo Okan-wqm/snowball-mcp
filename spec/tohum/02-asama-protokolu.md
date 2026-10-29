@@ -1,6 +1,6 @@
 # Aşama Protokolü
 
-Tarih: 2026-10-28 · Sürüm: 2.2 · Durum: taslak · Sahibi: operatör
+Tarih: 2026-10-29 · Sürüm: 2.2 · Durum: taslak · Sahibi: operatör
 Okunma: her aşama başında ve sonunda
 Çapa: aşama çıkış satırları (`brain/state`); `lock.check` (aşama, spec hash, çıkış satırı) anahtarlı
 
@@ -9,7 +9,8 @@ Okunma: her aşama başında ve sonunda
 1. Kurucu spec'i taslaklar. En az şu sekiz bölümü vardır: amaç, doğruluk özellikleri, roller,
    sıralı mikro özellikler, çıkış testi, yasaklar, bütçe, teslim listesi; aşamaya özgü ek bölüm
    ayrı sayfa olabilir. Aşama özeti ön koşulu ve çıkış kapısını taşır. Tohumla gelen Aşama 0 ve 1
-   spec'i Kurucu'nun ilk taslağı sayılır: listeden geçmezse Kurucu düzeltip rakibe sunar; anayasal
+   spec'i Kurucu'nun ilk taslağı sayılır: listeden geçmezse Kurucu düzeltip rakibe sunar, geçerse
+   incelemesini aşamanın `CHANGELOG.md`'sine tarihli satır olarak ekleyip sunar (`29b`); anayasal
    bir değer gerektiren düzeltme `blocked` olur.
 2. Spec **yapısal kontrol listesinden** geçer ve tohum rakibi (`29`) onu çürütmeyi dener. Çürütme
    ancak hakemin yeniden koşturduğu bir yeniden üreticiyle sayılır; açık `not_refuted` dışındaki her
@@ -43,6 +44,8 @@ döngünün tamamını daha dar bir kapsamda canlı çalıştırır, sonra kapsa
 
 **Bir aşama ileri kuralı.** Yalnız bir sonraki aşamanın spec'i donar. Daha sonraki aşamaların
 sayfaları "hedef taslak" durumundadır: okunur, sırası gelince yeniden yazılır ve ancak o zaman donar.
+Donmuş bir aşama dizinine dokunan spec isteği reddedilir (`spec_already_frozen`); donmuş spec yalnız
+operatör kararıyla açılır.
 
 **Çapa kuralı.** `taslak` ya da `hedef taslak` durumundaki sayfada çapa "beklemede: aşama N"
 olarak yazılabilir. Aşama N PASS alınca çapa çözülmelidir; çözülmeyen çapa bayatlıktır.

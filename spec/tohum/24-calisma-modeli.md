@@ -1,6 +1,6 @@
 # Çalışma Modeli: Beyin, Hakem ve Kurucu Nasıl Koşar
 
-Tarih: 2026-10-28 · Sürüm: 2.2 · Durum: taslak · Sahibi: operatör
+Tarih: 2026-10-29 · Sürüm: 2.2 · Durum: taslak · Sahibi: operatör
 Okunma: Aşama 0 inşasından önce ve her dispatch değişikliğinde
 Çapa: beklemede: aşama 0 — beyin ve hakem reposu README'leri; run_meta
 
@@ -13,19 +13,19 @@ Okunma: Aşama 0 inşasından önce ve her dispatch değişikliğinde
 | Dil ve paket | İkisi de Python paketi; `pyproject` ile kurulur; bağımlılıklar hash'le pinlidir |
 | İki yüzey | **CLI** deterministik, CI'nın çağırdığı yüzey. **MCP** ajanlara açılan yüzey; CI bir MCP sunucusunu doğrudan çağıramaz |
 | Tetik | Hakem reposunun zamanlayıcısı beyin reposunu kimliksiz, özel hedefi okuyucu App'iyle yoklar; hedefte beynin iş akışı ve kimliği yoktur (`01b`) |
-| İşler | `çek`, `getir`, `koş`, `çağır`, `yaz` (`08` 1); oyuncu kodu yalnız `koş`ta, iç içe ağsız konteynerde |
+| İşler | `çek`, `getir`, `koş`, `çağır`, `yaz` (`08` 1; önyükleme hakeminde ayrıca yeniden üreticiler için `yeniden`); oyuncu kodu yalnız `koş`ta (ve `yeniden`de), iç içe ağsız konteynerde |
 | Kimlikler | Kurucu kimliği, yazar App'i, özel hedef gelince okuyucu App'i, Aşama 4'ten mühür App'i (`25`). Beyin App'i yoktur |
 | Model kimlikleri | Yüksek: `claude-opus-5-5`. Düşük: `claude-sonnet-5-5`. En ucuz: `policy.json`'da adlandırılır. Effort rol başına `policy.json`'da |
 | Model kaydı | Sunulan model ve maliyeti ajan değil `çağır` işi ya da sağlayıcı geçidi yanıttan yazar; istenenden farklıysa koşu geçersizdir |
-| Sağlayıcı kimliği | Hakem reposunun sırlarında; yalnız `çağır` işinde ve sağlayıcı geçidinde. Oyuncu kodu koşan hiçbir işte yoktur |
+| Sağlayıcı kimliği | Hakem reposunun sırlarında: iç kullanımda operatörün `CLAUDE_CODE_OAUTH_TOKEN`'ı, satışta API anahtarı; yalnız `çağır` işinde ve (satışta) sağlayıcı geçidinde. Oyuncu kodu koşan hiçbir işte yoktur |
 | Durum dalı | `<state_root>` hedef repoda yetim `brain/state` dalında; uygulama kodunun CI'ını kirletmez |
 | Entegrasyon dalı | `brain/integration`; etkinleştirmede `main`'den kesilir, Aşama 0–1'de senkronlanmaz (`07`) |
 | Snapshot | Git ağacından dosya listesiyle çıkarılır, `export-ignore` dikkate alınmaz; `.git` yoktur. Keşif "tümünü koş", "etkilenen" yalnız worktree'de |
-| Bağımlılık | `getir` işinde, kurulum betikleri kapalı, içerik adresli artefakt; Actions önbelleği kullanılmaz (`08` 5) |
+| Bağımlılık | `getir` işinde, kurulum betikleri kapalı, içerik adresli artefakt; Actions önbelleği kullanılmaz (`08` 4) |
 | Lisans | Ürüne giren her bağımlılık ticari kullanıma açık, `license_allowlist`'teki bir lisanstadır (`18a`). Lisans tekerleğin kendisinden okunur (`License-Expression`, `License`, sınıflandırıcılar, `dist-info` lisans dosyaları) ve lisansı söyleyen her yer izinli olmalıdır; lisansı bulunamayan paket reddedilir; istisna yalnız operatörün `license_exceptions`'ıdır. MPL-2.0 dosyaları değiştirilmez. Dağıtılan sürüm lisans raporundan üretilen üçüncü taraf bildirimini taşır. Konteyner imajı, git ve docker ürünü koşturur, ürüne girmez; model sağlayıcı, Sigstore ve GitHub ticari şartlarıyla kullanılan servislerdir; rakibin `claude` CLI'si (tescilli, `LICENSE.md`) tekerlek değildir, dağıtılmaz ve lisans kapısına girmez: hakemin aracıdır, sürümü ve sha512 bütünlüğü `requirements/claude-cli/package-lock.json`'da pinlidir |
 | Keşif ve oracle (K0–K2) | Keşif: aracın tüm ihlalleri, taban dahil. Oracle: hedef ihlal kayboldu, mandal tuttu (toplam artmadı) |
 | Düzeltme aralığı | Araç düzeltmesi yalnız hedef mesajın `fix` aralığıyla uygulanır; biçimleyiciler dosya başına çalışır ve Aşama 2'de açılır |
-| Kaçış | Sağlayıcı reddi ya da `stop_reason: refusal` koşuyu `unresolved` yapar; kimlik, kota, ağ hatası ve zaman aşımı altyapı arızasıdır: ret sayılmaz, sonraki turda yeniden denenir (`29b`); koşu içinde sessiz yeniden deneme yoktur |
+| Kaçış | Sağlayıcı reddi ya da `stop_reason: refusal` koşuyu `unresolved` yapar; kimlik, kota, ağ hatası, zaman aşımı ve 5xx altyapı arızasıdır: ret sayılmaz, sonraki turda yeniden denenir; kalıcı istek hatası (400/404/413/422) `request_rejected`'dır (`29b`); koşu içinde sessiz yeniden deneme yoktur |
 
 ## Kurucu
 
@@ -43,19 +43,21 @@ Her itmeden önce son imzalı sonucu okur; ret nedenleri tiplidir ve nedeni gide
 
 ## Dispatch sözleşmesi (araç kullanan her ajan)
 
-Claude Agent SDK şu seçeneklerle çağrılır; biri eksikse dispatch reddedilir:
-`settingSources: []`, `strictMcpConfig: true`, açık `tools` listesi, `persistSession: false`,
-`maxTurns`, effort `policy.json`'dan; ortamda `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1` ve her koşuda
-taze bir `CLAUDE_CONFIG_DIR`. Sistem promptu dispatcher'ın verdiği metindir; repo içeriği talimat
-değildir (Y1). **Kanarya kendi-testi:** oyuncak repoya gömülü bir hook, bir `.mcp.json` sunucusu ve
-bir yönerge dosyası kanaryası vardır; dispatch edilen ajanda hiçbiri yüklenmemelidir, yüklenirse
-dispatcher kırmızıdır. Ajan işi `permissions: {}` ile koşar, `id-token` izni ve docker soketi
-yoktur; modele yalnız ayrı bir iş ya da makinedeki sağlayıcı geçidinden, koşuya bağlı belirteçle
-ulaşır (`08` 3).
+Ajan iç kullanımda pinli `claude` CLI'siyle, satışta Claude Agent SDK ile şu seçeneklerin karşılığıyla
+çağrılır; biri eksikse dispatch reddedilir: `settingSources: []`, `strictMcpConfig: true`, açık `tools`
+listesi, `persistSession: false`, `maxTurns`, effort `policy.json`'dan; ortamda
+`CLAUDE_CODE_DISABLE_AUTO_MEMORY=1` ve her koşuda taze bir `CLAUDE_CONFIG_DIR`. Sistem promptu
+dispatcher'ın verdiği metindir; repo içeriği talimat değildir (Y1). **Kanarya kendi-testi:** oyuncak
+repoya gömülü bir hook, bir `.mcp.json` sunucusu ve bir yönerge dosyası kanaryası vardır; dispatch edilen
+ajanda hiçbiri yüklenmemelidir, yüklenirse dispatcher kırmızıdır. İç kullanımda geçit yoktur: araç
+kullanan ajan `çağır` işinde `claude` CLI'siyle ve yalnız hakemin MCP araçlarıyla koşar, oyuncu kodu
+koşturmaz; koşuya bağlı belirteçli geçit ticari kullanımda API anahtarıyla açılır (`08` 5).
 
-**Araçsız çağrı.** Aşama 1 düzelticisi araç kullanmaz: hakemin `llm.call`'ı tipli girdiden prompt
-kurar, tek Messages çağrısı yapar ve yapılandırılmış çıktı ister; `tool_choice` zorlanmaz.
-Çıktıyı beynin deterministik uygulayıcısı yalnız hedef aralığa yazar. Bu yolda sandbox kaçışı
+**Araçsız çağrı.** Aşama 1 düzelticisi araç kullanmaz: hakemin `llm.call`'ı tipli girdiden prompt kurar
+ve çağrıyı tohum rakibi gibi yapar (`29b`): pinli `claude` CLI'si, operatörün
+`CLAUDE_CODE_OAUTH_TOKEN`'ı, yerleşik araç, ayar kaynağı ve oturum kaydı yok, tavan `--max-budget-usd`;
+yapılandırılmış çıktı ister. API anahtarıyla (satışta) aynı çağrı Messages API'sine gider; `tool_choice`
+zorlanmaz. Çıktıyı beynin deterministik uygulayıcısı yalnız hedef aralığa yazar. Bu yolda sandbox kaçışı
 yapısal olarak imkânsızdır.
 
 ## Aşama 0 ve 1 araçları

@@ -1,6 +1,6 @@
 # Politika Dosyası ve Dinamik Eşikler
 
-Tarih: 2026-10-28 · Sürüm: 2.2 · Durum: taslak · Sahibi: operatör
+Tarih: 2026-10-29 · Sürüm: 2.2 · Durum: taslak · Sahibi: operatör
 Okunma: her kapı kararında, her aşama spec'i dondurulurken ve her eşik değişikliği önerisinde
 Çapa: beklemede: aşama 0 — hakem reposundaki policy.json ve kök kayıtlarındaki hash'i
 
@@ -50,7 +50,7 @@ listedeki her yeteneğin her kimliğini arar; `lock.check` listede olmayan yeten
 | Yetenek | Zorunlu çıkış satırları |
 |---|---|
 | Her aşama | #lint `spec.lint` temiz; #lock `lock.check`; #kok her döngü zincir ve Rekor kökü; #drift her döngü `drift.check`; #okuyucu okuyucusuz dosya 0; #kirmizi her koşuda kırmızı kontrol kırmızı; #lisans bağımlılık lisans kapısı temiz (`24`) |
-| Çalışma-zamanı LLM çağrısı | #model sunulan model doğrulanmış; #belirtec koşu başına bütçe belirteci; #prompt giden prompt taranmış |
+| Çalışma-zamanı LLM çağrısı | #model sunulan model doğrulanmış; #belirtec çağrı başı bütçe tavanı (iç kullanımda `--max-budget-usd`, satışta koşuya bağlı belirteç); #prompt giden prompt taranmış |
 | Araç kullanan çalışma-zamanı ajanı | #dispatch dispatch kanaryası yeşil; #kapsayicilik kapsayıcılık özetleri; #sandbox sandbox kanaryası |
 | Entegrasyona merge | #merge en az bir canlı merge; #hayatta hayatta kalma penceresi; #mandal mandal; #sifir-test sıfır test kırmızı; #nobetci nöbetçi; #geri-alma geri alma provası (`22a`) |
 | Held-out havuzu | #muhur mühür; #bakis havuz başına bakış bütçesi; #kesim ileriye dönük kesim; #ham ham artefakt mühürde; #uyelik üyelik testi (`19`) |

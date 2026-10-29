@@ -1,6 +1,6 @@
 # Aşama 0 §0.10 — Çıkış testi (hepsi birlikte PASS)
 
-Tarih: 2026-10-28 · Sürüm: 2.2 · Durum: taslak · Sahibi: operatör
+Tarih: 2026-10-29 · Sürüm: 2.2 · Durum: taslak · Sahibi: operatör
 Okunma: Aşama 0 çalışırken
 Çapa: beklemede: aşama 0 — önyükleme hakemi koşu kimliği; etkinleştirme genesis satırı
 
@@ -11,20 +11,27 @@ Okunma: Aşama 0 çalışırken
 ## (A) Pinli SHA'da önyükleme hakemi
 
 Kurucu çıkış isteğini, yalnız `exit-request.json`'u değiştiren ayrı bir push'la, son kabul edilmiş
-SHA'yı adlandırarak yapar (`tohum/29b`); önyükleme hakemi o SHA'yı pinler ve
-şunları makine doğrulamalı olarak koşu artefaktlarına ve Rekor'a yazar:
+SHA'yı adlandırarak yapar (`tohum/29b`); önyükleme hakemi o SHA'yı pinler ve şunları kendisi
+denetleyip koşu artefaktlarına ve Rekor'a yazar:
 
 - #kirmizi #lisans §0.9'da "Aşama 0" işaretli testler yeşil; tohum vektörleri geçer; kırmızı
   kontrol kırmızı; bağımlılıkların lisans kapısı temiz (`tohum/24`).
-- Tohum rakibi aşama boyunca en az `stage_params.rival_min_attempts` (5) ayrı artefakta ve çıkış
-  SHA'sına birer deneme yapmış; hiçbir çürütmesi hakemin `koş`ta yeniden koşturduğu bir yeniden
-  üreticiyle doğrulanmamış. Zaman aşımı, ret ve `unresolved` kabul değildir; deneme sayısına girmez.
-- #lint `spec.lint` bu aşamanın spec'ini temiz geçer, `required_exit_rows` dahil.
-- #lock `lock.check`: (0, donmuş spec hash'i, çıkış isteği) eşleşir.
-- #okuyucu Okuyucusuz dosya 0: bu aşamanın açtığı her dosyanın `tohum/27`'de satırı var.
+- Çıkış SHA'sı ve aşama boyunca ondan ayrı en az `stage_params.rival_min_attempts` (5) artefakt tohum
+  rakibinden sağ çıkmış: karar tamamlanmış, hiçbir çürütme hakemin `koş`ta (önyükleme hakeminde
+  `yeniden`) koşturduğu bir yeniden üreticiyle doğrulanmamış. Zaman aşımı, ret, `unresolved` ve
+  çürütmesi yeniden üretilmiş artefakt sayıya girmez; aynı başın yeniden denemesi yeni deneme
+  değildir. Durumda tutulan kanıtlanmış kusurların hiçbiri artık üretmiyor; açık iddialar raporda
+  listelenir (`tohum/29`).
+- #lint Hakem `referee/`'den `python -m spec.lint spec/asama-0` koşar: ihlal yok, `required_exit_rows`
+  dahil (`tohum/29a`).
+- #lock Hakem `python -m gate.lock check 0 <spec_sha256> exit-request.json` koşar: kilit açık.
 - Ret hafızası: aşama boyunca tekrarlanan ret sayısı (`repeat_events`) raporda (`tohum/22a`).
-- Etkinleştirme provası (yerel git uzağı, taklit GitHub API'si) yeşil.
-- Pinli SHA ile çıkış koşusu arasında beyin reposunda değişiklik yok.
+- Pinli SHA ile çıkış isteği arasında yalnız `exit-request.json` değişmiş.
+
+Hakemin ayrıca denetlemediği, Kurucu'nun testleri olarak yukarıdaki yeşil testlere giren koşullar:
+
+- #okuyucu Okuyucusuz dosya 0: bu aşamanın açtığı her dosyanın `tohum/27`'de satırı var (test 33).
+- Etkinleştirme provası (yerel git uzağı, taklit GitHub API'si) yeşil (test 45).
 
 ## (B) Aktarım ve etkinleştirme (`tohum/25a`)
 

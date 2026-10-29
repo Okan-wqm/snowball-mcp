@@ -8,14 +8,17 @@ by execution (a test, a tool rerun, a measured harness), not by a model's opinio
 ## Status
 
 This repository currently holds the **specification** (version 2.2) a single founder agent builds
-from. No brain code exists yet. Three places keep the player from grading itself:
+from. No brain code exists yet. Four places (the sealed store opens at Stage 4) keep the player from
+grading itself:
 
 - **Brain repository** (this one): player code, plus the referee's candidate code while Stage 0 builds it.
-- **Referee repository** (public while the system is for internal use, private once it is sold): the
+- **Referee repository** (public while the system is for internal use and only public targets connect,
+  since its run logs are public too; private before the first private target, the sealed store or a sale): the
   accepted referee. Only the operator writes it; referee changes are imported by the operator
   at stage exits and counted as human touches.
 - **Target repository**: the repository being maintained. Only the referee's writer App writes there,
   on the `brain/*` branches.
+- **Sealed store** (private, from Stage 4): the held-out pool and its seal. Only the seal App writes there.
 
 The founder cannot build the judge of its own first stage, so the **bootstrap referee** ships with
 the seed under `seed/bootstrap/` (see `spec/tohum/29b-onyukleme-hakemi.md`): a GitHub Actions

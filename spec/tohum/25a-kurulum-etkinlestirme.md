@@ -1,6 +1,6 @@
 # Kurulum, İkinci Bölüm: Aşama 0 Çıkışında Aktarım ve Etkinleştirme
 
-Tarih: 2026-10-28 · Sürüm: 2.2 · Durum: taslak · Sahibi: operatör
+Tarih: 2026-10-29 · Sürüm: 2.2 · Durum: taslak · Sahibi: operatör
 Okunma: Aşama 0 çıkışının (A) parçası yeşil olduğunda, bir kez; her yeni hedefte satır 3–7
 Çapa: hakem reposundaki `setup/summary.json`, ikinci bölüm; `brain/state` genesis satırı
 
@@ -12,8 +12,8 @@ olmalıdır (`asama-0/10`).
 
 | # | İş | Neden |
 |---|---|---|
-| 1 | **Operatör aktarımı:** aktarım betiğini koştur. Betik pinli SHA'daki `referee/` ağacını hakem reposuna kopyalar ve kod ağacının hash'inin, operatör dosyaları (`policy.json`, `control.json`, `setup/`, `seats/`, `vectors/`) hariç, Rekor'daki (A) kaydıyla aynı olduğunu doğrular; farklıysa durur. `referee/` bu adlarla dosya taşıyamaz. Aktarım sayacı bir artar | Hakem kodu yalnız aktarımla değişir (`01a`) |
-| 2 | Aynı betik `tests/fixtures/toy-repo/`'yu oyuncak hedefin `main`'ine iter | Etkinleştirme provası için içerik |
+| 1 | **Operatör aktarımı:** aktarım betiğini koştur (Aşama 0 çıkışında önyükleme paketinin `import` komutu, sonraki çıkışlarda Kurucu'nun betiği; `29b`). Betik imzalı sonucu doğrular, pinli SHA'daki `referee/` ağacını hakem reposunun yerel klonuna kopyalar ve kod ağacının hash'inin, operatör dosyaları (`policy.json`, `control.json`, `bootstrap.json`, `setup/`, `seats/`, `vectors/`) hariç, Rekor'daki (A) kaydıyla aynı olduğunu doğrular; farklıysa durur. `referee/` bu adlarla dosya taşıyamaz. Betik hiçbir şey itmez: operatör `git status`'u inceler ve iter. Aktarım `setup/imports.jsonl`'a bir satır yazar, sayaç bir artar | Hakem kodu yalnız aktarımla değişir (`01a`) |
+| 2 | Aynı betik `tests/fixtures/toy-repo/`'yu oyuncak hedefin yerel klonuna kopyalar; operatör inceleyip `main`'e iter | Etkinleştirme provası için içerik |
 | 3 | Hedefte ruleset'ler: `brain/state` için `deletion`, `non_fast_forward`; `brain/integration` için `deletion`, `non_fast_forward`, `pull_request` ve zorunlu kontrol (strict, `integration_id` = yazar App'i). Hiçbirinde bypass aktörü yok | Zincir ve entegrasyon dalı yazar App'ine bile yeniden yazılamasın |
 | 4 | **Yazma modu şartı:** hedef `main` ruleset'inde yazar App'i bypass değildir ve `main` güncellemesi ya onaylı inceleme ister ya da güncelleme kısıtıyla yalnız operatör rolüne açıktır. Hedef bunu taşıyamıyorsa (özel repo, Free) bağlanma `mode: training`'dir | Yazar App'i `main`'e ulaşamasın (`21`) |
 | 5 | Hedefe kurulu App'lerin listesini özete beyan et | Etkinlik API'sinde beyan dışı aktör sert duruştur (`01b`) |

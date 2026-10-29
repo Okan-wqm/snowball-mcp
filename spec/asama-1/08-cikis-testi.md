@@ -1,6 +1,6 @@
 # Aşama 1 §1.8 — Çıkış testi (hepsi birlikte PASS)
 
-Tarih: 2026-10-28 · Sürüm: 2.2 · Durum: taslak · Sahibi: operatör
+Tarih: 2026-10-29 · Sürüm: 2.2 · Durum: taslak · Sahibi: operatör
 Okunma: Aşama 1 çalışırken
 Çapa: beklemede: aşama 1 — `brain/state` PASS satırı ve Rekor kaydı
 
@@ -18,8 +18,8 @@ Okunma: Aşama 1 çalışırken
 | #kirmizi Kırmızı kontrol | Her `koş`ta kırmızı |
 | #lisans Lisans kapısı | Her `getir`te izinli olmayan ya da bulunamayan lisans 0 (`tohum/24`) |
 | Güvenlik yoluna yazım | 0 |
-| #model Sunulan model | Her `llm.call`'da yanıttan doğrulanmış; farklıysa koşu geçersiz |
-| #belirtec Bütçe belirteci | Her `llm.call` koşuya bağlı belirteçle; aşan çağrı kesilmiş (`asama-1/10`) |
+| #model Sunulan model | Her `llm.call`'da yanıttan (iç kullanımda `claude` CLI'sinin sonucundan) doğrulanmış; farklıysa koşu geçersiz |
+| #belirtec Çağrı başı bütçe | Her `llm.call` çağrı başı tavanla (iç kullanımda `--max-budget-usd`; satışta API anahtarı ve koşuya bağlı belirteç); aşan çağrı kesilmiş (`asama-1/10`) |
 | #prompt Giden prompt | Her prompt `secrets.scan`'den geçmiş; tipli girdi dışı alan yok |
 | İzin listesi | Merge edilen her adayın organ tanım hash'i bir `accept` satırında |
 | #okuyucu Okuyucusuz dosya | 0; her dosyanın okuyucusu bir kararı değiştiriyor (`tohum/27`) |
