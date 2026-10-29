@@ -73,6 +73,16 @@ hepsi yazılıdır. Bulguları birleştiren ve doğrulayan: Claude Code (Opus 5.
 | E50 | Ölü kod ve ölü çıktılar | S | — | T10 | açık |
 | E51 | Testler üretimden farklı bir biçimi modelliyor | S | — | T11 | açık |
 | E52 | Prova yargıcının ~20 kuralı yalnız referans yargıcın kendi testleriyle bağlı; Kurucu'nun yargıcını bağlayan vektör yok | B | — | E48 ajanı | açık |
+| E53 | Açık bildirimi: Kurucu hakemde bulduğu açığı kullanmaz, kanıtıyla bildirir; hakem doğrular, düzeltme bağımsız kontrol ve operatör onayıyla girer; doğrulanmış bildirim Kurucu'ya artı sayılır | K | operatör yönü | operatör, 2026-10-29 | açık |
+| E54 | Ortak kader ve sürekli iletişim: Kurucu, hakem (rakibiyle) ve beyin birbirinde gördüğü eksiği tek bir zincirli bildirim kanalına yazar, her koşuda okur; hakem kendi zayıflığını da bildirir; ölçülür | K | operatör yönü | operatör, 2026-10-29 | açık (E53 ile tek mekanizma, parti 2'den sonra) |
+| E55 | Sınırlar kendini ayarlar: işletim sınırları ölçüme dayalı ve operatörün bandı içinde; ekonomik sınırlar operatörde; güvenlik yasaları sabit | K | operatör yönü | operatör, 2026-10-29 | açık (parti 3, E18 ile) |
+| E56 | Güvenlik birinci sınıf: zafiyet kataloğu, hedef repoya özel güvenlik kuralları ve testleri, zincirli güvenlik defteri, güvenlikten öğrenme | K | operatör yönü | operatör, 2026-10-29 | spec yazıldı (`30`–`30e`), defter 8 satır ve testi · kod açık |
+| E57 | Bağımsız güvenlik avcısı: Kurucu'dan ve rakipten ayrı, salt okunur, kanıtla bildiren, hakemi, beyni ve hedefleri tarayan, kanaryalarla ölçülen organ | K | operatör yönü | operatör, 2026-10-29 | spec yazıldı (`30f`) · kod açık |
+| E58 | Hedeften iz bırakmadan çıkış: sistemin her şeyi tek klasörde (`.brain/`, yetim `brain/state` dalı); çıkış prosedürü yazılı değil ve denenmiyor | B | operatör yönü | operatör, 2026-10-29 | açık |
+| E59 | Satış zamanı: üyelik bitince sistemin müşteride oluşturduğu her şey silinir (kabul edilmiş kod hariç), silme makbuzu verilir | satış | operatör yönü | operatör, 2026-10-29 | satışta açılır |
+| E60 | Satış zamanı: sistemin ürettiği dosyaların yeri; varsayılan müşteride, açık izinle müşteri başına ayrı, özel, şifreli barındırma; güvenlik bulguları hep müşteride | satış | operatör sorusu | operatör, 2026-10-29 | satışta açılır |
+| E61 | Satış zamanı: repolar arası öğrenmede gizlilik duvarı; kalıp taşınır, müşteri bilgisi taşınmaz; terfi öncesi otomatik sızıntı kontrolü ve sözleşmede izin | satış | operatör sorusu | operatör, 2026-10-29 | satışta açılır |
+| E62 | Filo genelinde güvenlik: bir repoda doğrulanan açık dedektöre dönüşür, gizlilik duvarından geçer, bağlı bütün repolarda taranır; her repoya yalnız kendi açığı bildirilir | B | operatör yönü | operatör, 2026-10-29 | açık (çok repo ile, `21`) |
 | E63 | Ajan bilgisinin bütün müşterilerden öğrenilmesi: beceri ve organlar, promptlar, puanlar; terfi, gölge denemesi, bağlamla taşıma, gizlilik ve toplu anonim puan | B | operatör yönü | operatör, 2026-10-29 | açık (çok repo ile, `21`, `21a`) |
 | E64 | Prova yargıcı dersin içinde gizli aile etiketini arıyor; kör bir beyin geçemez, getirme hiç sınanmıyor | K | — | e2e-7 L1 | açık |
 | E65 | Ders verme/saklama deneyini beynin kendisi yapıyor; kollar eşit mi denetlenmiyor (işe yaramaz ders %100 kredi alıyor) | K | — | e2e-7 L2 | açık |
@@ -98,7 +108,7 @@ hepsi yazılıdır. Bulguları birleştiren ve doğrulayan: Claude Code (Opus 5.
 | E85 | Model değişiminde yeniden yeterlilik protokolü yok; bütün seatler tek aileden | B | evet | e2e-8 G10 | onaylandı · açık |
 | E86 | Rekor erişilebilirliği sert durma; tek operatör için aşırı | B | evet | e2e-8 G11 | onaylandı · açık |
 | E87 | Bağımlılık açıklarını kapatmak kalıcı yasak (Y3); en sık açık sınıfı bulunur ama kapatılamaz | S | evet (Y3) | e2e-8 G12 | onaylandı · açık |
-| E88 | Tohumu güncelleme yolu yok: operatörün tohum commit'i hakemi kilitler ve Kurucu'ya sayılır; beyin reposunun hangisi olduğu çelişkili | K | evet (beyin reposu) | e2e-1 A1 | onaylandı (yeni ayrı beyin reposu) · açık |
+| E88 | Tohumu güncelleme yolu yok: operatörün tohum commit'i hakemi kilitler ve Kurucu'ya sayılır; beyin reposunun hangisi olduğu çelişkili | K | evet (beyin reposu) | e2e-1 A1 | kapandı · yeni ayrı beyin reposu; tohum dönemi: `setup/summary.json` `seed_epochs[]` (`26c`), son satırın commit'i başken `seed_update` (noop), sonraki push'ların diff'indeki teslim Kurucu'nun değil ve rakibe gitmez, başın `spec/tohum`/`seed` ağaçları satıra eşit olmalı, satır kendi commit'ine uymazsa koşu durur; operatör yolu `seed/founder/README.md` "Tohum teslimi" ve `seed-epoch`; `test_seed_epoch`, 13 mutant; ayrıntı Kapanışlar "E88 E162" |
 | E89 | Kurucu defteri spec'in istediği gibi push edilemiyor; yalnız defter içeren push rakip bütçesi harcıyor | K | — | e2e-1 A2 | açık |
 | E90 | Kurucu kendi ajan yapılandırmasını (`.claude/settings.json`, `CLAUDE.md`, `.mcp.json`) değiştirip yetkisini genişletebilir | K | — | e2e-1 A3 | açık |
 | E91 | Kurucu başlatıcı sözleşmesi yok: başlatma, sürdürme, bütçe, kill switch, sonuç okuma (anonim okuma 401) | K | evet (nerede koşar) | e2e-1 A4 | onaylandı · açık |
@@ -107,7 +117,7 @@ hepsi yazılıdır. Bulguları birleştiren ve doğrulayan: Claude Code (Opus 5.
 | E94 | Kurucu ile rakip muhtemelen aynı abonelik kotasını paylaşıyor | K | evet | e2e-1 A7 | onaylandı · operatör adımı bekliyor (ayrı Claude hesabı) |
 | E95 | Beyin reposunda ruleset yok: force-push ya da dal silme hakemi kilitler | K | — | e2e-1 A8 | açık |
 | E96 | Aşama çıkışı → etkinleştirme geçişi güvensiz ve durumu taşımıyor (bütçe, donmuş spec, açık iddialar) | B | evet | e2e-1 A9 | onaylandı · açık |
-| E97 | Reddedilmiş çıkış isteği sonraki her push'u kilitliyor | B | — | e2e-1 A10 | açık |
+| E97 | Reddedilmiş çıkış isteği sonraki her push'u kilitliyor | B | — | e2e-1 A10; E88/E162 incelemesi (E162'den sonra kesin) | kapandı · `asama-0/10` ve `26c`'nin kuralı kodda: reddedilmiş isteğin baytlarının sha256'sı imzalı durumda (`rejected_exit_request`, durum şeması 3; şema 1 ve 2 taşınır), baytı baytına aynı `exit-request.json` sonraki kod push'larında yok sayılır (#yalniz'i bozmaz); yalnız o dosyayı değiştiren push yine çıkış isteğidir ve yeniden yargılanır (`29b`); başka bayt yine istektir; kesinti hiçbir isteği hatırlatmaz; ayrıntı Kapanışlar "E88/E162 incelemesi" |
 | E98 | Aşama 0'daki insan dokunuşlarının kaydı yok | B | — | e2e-1 A11 | açık |
 | E99 | Aşama 0'ın gerçek hedefi hiç seçilmemiş | B | evet | e2e-1 A12 | onaylandı · açık |
 | E100 | Hakemin iş akışlarını hiçbir mikro özellik kurmuyor ve sınamıyor; içe aktarma hakem reposundaki tek iş akışını siliyor | K | evet | e2e-2 B1 | onaylandı · açık |
@@ -171,8 +181,8 @@ hepsi yazılıdır. Bulguları birleştiren ve doğrulayan: Claude Code (Opus 5.
 | E158 | Defter ve rapor tür kümeleri kapalı (`26`, `26c`) ama operatör talimatı `missing_capability` istiyor; Kurucu bunları `seed_issue` olarak yazıyor | B | — | **Kurucu raporu** seed-006 (döngü 1) | açık · bildirim kanalı (E93/E53) ile |
 | E159 | `29a` zincir CLI'sinin kırık zincirde çıkış kodunu ve `row_id`'siz satırın `broken_row` değerini söylemiyor; hakem çıkış koduna değil stdout JSON'una baktığı için zararsız ama yazılı değil | S | — | **Kurucu raporu** seed-007 (döngü 2) | açık · 29/29b düzenlemesiyle |
 | E160 | `test_an_interrupted_run_takes_the_cli_and_its_children_with_it` init'siz konteynerde kararsız: öldürülen ama biçilmemiş (zombi) süreci `kill(pid, 0)` canlı sayıyor; mutasyon temel koşusunu rastgele durduruyordu | S | — | pilot hazırlığı (6 temel koşudan 6'sı düştü, tam takım geçti) | kapandı · test projenin `helpers.process_alive`'ını kullanıyor (zombi = ölü) |
-| E161 | Aşama 0'ın `chain` dışındaki 16 vektör grubu (`secrets` … `genesis`, `29d`) ve genel veri koşucusu (`{cmd, stdin?, fixture, expect, changed}`) tohumda yok; MF2'den itibaren bitmiş MF'nin tabanı eksik | K | — | E151 kod partisi | açık · beklenen değerler tohum yazarınca iki bağımsız hesapla (`29a`); o güne kadar kod push'unda `vector_group_missing:<grup>` uyarısı, çıkışta ret (E151) |
-| E162 | Çıkış isteği kodda olmayan (A) koşullarında kapalıya düşmüyor: #kurucu-defteri, #is-akisi (MF17'nin `wiring` denetimi dahil; her push'ta da yok), #agac (yalnız büyük-küçük harf duyarlı operatör adı var), #genellik, #spec, #durustluk denetlenmeden `transferable` olabilir | K | — | E151 kod partisi | açık · öneri: her biri gelene kadar `decide` `exit_condition: not_checked:<koşul>` yazar; kendi satırları E107, E132, E130/E131, E102, E79 |
+| E161 | Aşama 0'ın `chain` dışındaki 16 vektör grubu (`secrets` … `genesis`, `29d`) ve genel veri koşucusu (`{cmd, stdin?, fixture, expect, changed}`) tohumda yok; MF2'den itibaren bitmiş MF'nin tabanı eksik | K | — | E151 kod partisi | kısmen kapandı · genel veri koşucusu ve MF2–MF7'nin altı grubu (`secrets`, `contained`, `profile`, `npmlock`, `recipe`, `diffguard`; 46 vaka, her beklenen değer iki kör bağımsız uygulamada aynı: A `local/reference_brain`, B `local/blind_b`, ikisi de her test koşusunda yeniden hesaplanır) tohumda, arayüzleri `29f` ve `29g`'de; ayrıntı Kapanışlar "E161, kısmi" · kalan 10 grup (`k0map` … `genesis`) açık: onlar için kod push'unda `vector_group_missing:<grup>` uyarısı, çıkışta ret (E151) sürüyor |
+| E162 | Çıkış isteği kodda olmayan (A) koşullarında kapalıya düşmüyor: #kurucu-defteri, #is-akisi (MF17'nin `wiring` denetimi dahil; her push'ta da yok), #agac (yalnız büyük-küçük harf duyarlı operatör adı var), #genellik, #spec, #durustluk denetlenmeden `transferable` olabilir | K | — | E151 kod partisi | kapandı · `decide.EXIT_NOT_CHECKED`: altı koşulun her biri `exit_condition` `not_checked:<koşul>` ile çıkışı kapalı tutar, Kurucu'ya sayılmaz (`29b` Ret hafızası); `asama-0/10` tablosunun her satırı ya kodda denetlenir ya listededir (test); 3 mutant; denetimlerin kendisi E107, E132, E130/E131, E102, E79'da açık · inceleme: her çıkış artık reddedildiği için bırakılan istek her kod push'unu `exit_request_not_alone` yapıyordu (E97, kapandı); tablo testi denetlenen satırı koda bağlamıyordu (E185, kapandı) |
 | E163 | `asama-0/14` modülsüz kırmızıda iki okumaya açık: "testlerini … yeşil kalırsa" hepsi mi, biri mi (`calls`'taki "17 ve 18 hepsini çağırır" E157'dir) | S | — | E151 kod partisi | açık · kod test başına okur (`tohum/04` 1: biri yeşil kalırsa ret); metin 29/29b partisinde netleşir |
 | E164 | Rakibe gidecek istekte sır biçimli bir dize bulununca hakem yalnız desenin adını söylüyor (`secret_in_prompt:generic_assignment`), hangi dosyada olduğunu söylemiyor; MF2'nin kendi testleri sahte sır taşıdığı için rakip hiç koşmadı ve Kurucu nereye bakacağını bilmeden reddedildi | B | — | pilot döngü 3 (MF2 `9f229b0`) | kapandı · `rival.secret_paths`: diff'in sırrı taşıyan dosyaları (değer asla), istek metnindeyse `(request text)`, sır biçimli yol adlandırılmaz; `result.rival.secret_paths`; test ve 3 mutant |
 | E165 | Sır tarayıcısını (MF2) inceleyen rakip kararında kimlik bilgisi biçimli bir değer yazdı; hakem kararı haklı olarak kullanmadı (`secret_in_verdict:generic_assignment_bare`), inceleme kayboldu; protokol rakibe böyle dizeleri çalışma anında kurmasını söylemiyordu | B | — | pilot döngü 5 (`99278a5`) | kapandı · `rival.PROTOCOL`: sır biçimli dizeyi asla yazma, yeniden üreticide parçalardan kur (`'gh'+'p_'+'A'*36`), iddiada alıntılama; protokolün kendisinin tarayıcıdan temiz geçtiği test edildi; 1 mutant |
@@ -183,17 +193,24 @@ hepsi yazılıdır. Bulguları birleştiren ve doğrulayan: Claude Code (Opus 5.
 | E170 | Hassasiyeti (yanlış alarmı) ölçen hiçbir şey yok: rakip yalnız kaçırılanı arıyor, `secrets` vektörleri (temiz girdi geçer) tohumda yok; MF2'nin kabul edilmiş tarayıcısı gerçek bir repoda (hedef, 12 759 dosya) 11 038 eşleşme verdi, 10 976'sı "sır ataması" kuralından ve çok büyük kısmı tip, ifade ya da ortam referansı; yüksek güvenli kurallar (özel anahtar, URL parolası, token) ise kullanılabilir ve gerçek değer üretti | K | — | pilot: MF2'nin hedefte ilk koşusu | açık · `secrets` vektörlerinin temiz girdi vakaları (iş akışı) ve hedef üzerinde ölçülen hassasiyetin Aşama 1 ölçütüne bağlanması |
 | E171 | `asama-0/14` (ve `tohum/24a`) MF4'ü `referee/profile/derive.py`'ye koyuyor; `profile` adlı paket `referee/` `sys.path`'in başındayken Python'un standart `profile` modülünü gölgeler, `import cProfile` bozulur | B | — | **Kurucu raporu** spec-011 (döngü 12, MF4) | açık · paket adı (ör. `profiler/`) değişmeli; donmuş spec ve `stage0.json` olduğundan tohum dönemiyle (E88) ve Kurucu'nun uyumuyla birlikte |
 | E172 | `profile` (ve öncesinde `secrets`, `contained`) grubunun komut arayüzü `29a`/`29d`'de yok; Kurucu arayüzü tahmin ediyor, vektörler gelince uymayabilir | K | — | **Kurucu raporu** seed-008 (üç kez yeniden bildirildi) | açık · iş akışının `29f` arayüz sayfası tohum dönemiyle beyne ulaşınca kapanır |
-| E173 | Birim modeli (`asama-0/08` ölçüt 1 ve 3, MF4) her birimin kendi `package.json`'u ve kilit dosyası olduğunu varsayıyor; Nx tarzı bir monorepo'da (birimler `project.json`, tek kök kilit dosyası) kabul edilmiş MF4 gerçek hedefte 32 adaydan yalnız 2'sini uygun buldu ve Aşama 1 için seçilen birim aday bile değil; kök kilitte integrity'siz birkaç girdi 30 birimi birden uygunsuz yapıyor | K | evet | pilot: MF4'ün hedefte ilk koşusu | açık · Aşama 1'den önce operatör kararı: birim modeline `project.json` ve kök kilit (workspace) desteği, ya da hedefte uygun bir birim; kilit girdileri hedefin sahibine bildirildi |
-| E62 | Filo genelinde güvenlik: bir repoda doğrulanan açık dedektöre dönüşür, gizlilik duvarından geçer, bağlı bütün repolarda taranır; her repoya yalnız kendi açığı bildirilir | B | operatör yönü | operatör, 2026-10-29 | açık (çok repo ile, `21`) |
-| E60 | Satış zamanı: sistemin ürettiği dosyaların yeri; varsayılan müşteride, açık izinle müşteri başına ayrı, özel, şifreli barındırma; güvenlik bulguları hep müşteride | satış | operatör sorusu | operatör, 2026-10-29 | satışta açılır |
-| E61 | Satış zamanı: repolar arası öğrenmede gizlilik duvarı; kalıp taşınır, müşteri bilgisi taşınmaz; terfi öncesi otomatik sızıntı kontrolü ve sözleşmede izin | satış | operatör sorusu | operatör, 2026-10-29 | satışta açılır |
-| E59 | Satış zamanı: üyelik bitince sistemin müşteride oluşturduğu her şey silinir (kabul edilmiş kod hariç), silme makbuzu verilir | satış | operatör yönü | operatör, 2026-10-29 | satışta açılır |
-| E58 | Hedeften iz bırakmadan çıkış: sistemin her şeyi tek klasörde (`.brain/`, yetim `brain/state` dalı); çıkış prosedürü yazılı değil ve denenmiyor | B | operatör yönü | operatör, 2026-10-29 | açık |
-| E57 | Bağımsız güvenlik avcısı: Kurucu'dan ve rakipten ayrı, salt okunur, kanıtla bildiren, hakemi, beyni ve hedefleri tarayan, kanaryalarla ölçülen organ | K | operatör yönü | operatör, 2026-10-29 | spec yazıldı (`30f`) · kod açık |
-| E56 | Güvenlik birinci sınıf: zafiyet kataloğu, hedef repoya özel güvenlik kuralları ve testleri, zincirli güvenlik defteri, güvenlikten öğrenme | K | operatör yönü | operatör, 2026-10-29 | spec yazıldı (`30`–`30e`), defter 8 satır ve testi · kod açık |
-| E55 | Sınırlar kendini ayarlar: işletim sınırları ölçüme dayalı ve operatörün bandı içinde; ekonomik sınırlar operatörde; güvenlik yasaları sabit | K | operatör yönü | operatör, 2026-10-29 | açık (parti 3, E18 ile) |
-| E54 | Ortak kader ve sürekli iletişim: Kurucu, hakem (rakibiyle) ve beyin birbirinde gördüğü eksiği tek bir zincirli bildirim kanalına yazar, her koşuda okur; hakem kendi zayıflığını da bildirir; ölçülür | K | operatör yönü | operatör, 2026-10-29 | açık (E53 ile tek mekanizma, parti 2'den sonra) |
-| E53 | Açık bildirimi: Kurucu hakemde bulduğu açığı kullanmaz, kanıtıyla bildirir; hakem doğrular, düzeltme bağımsız kontrol ve operatör onayıyla girer; doğrulanmış bildirim Kurucu'ya artı sayılır | K | operatör yönü | operatör, 2026-10-29 | açık |
+| E173 | Birim modeli (`asama-0/08` ölçüt 1 ve 3, MF4) her birimin kendi `package.json`'u ve kilit dosyası olduğunu varsayıyor; Nx tarzı bir monorepo'da (birimler `project.json`, tek kök kilit dosyası) kabul edilmiş MF4 gerçek hedefte 32 adaydan yalnız 2'sini uygun buldu ve Aşama 1 için seçilen birim aday bile değil; kök kilitte integrity'siz birkaç girdi 30 birimi birden uygunsuz yapıyor | K | evet | pilot: MF4'ün hedefte ilk koşusu | karar (operatör, 2026-10-29): birim modeli Nx'i destekler — aday `package.json` ya da `project.json` taşıyan dizin, kilit köke kadar en yakın npm kilidi; `tohum/14`, `26c`, `29f`/`29g` ve `profile` vektörleri (yeni vakalar iki kör hesapla) kararlar partisinde, tohum dönemiyle beyne; `asama-0/08` paket adı söylemediği için donmuş spec değişmez |
+| E180 | Tohum dönemi yalnız `spec/tohum` ve `seed/` taşır (`25` 10b); donmuş `spec/asama-0`'ın düzeltmesi (E157'nin `14` metni gibi) teslimle gelirse sonraki her kod push'u `spec_changed_after_freeze` olur, `spec/INDEX.md` değişikliği teslimi spec isteğine çevirir; donmuş dizini açmak operatör kararıdır (`29b`) ama yolu yok | B | evet (donmuş spec'in tohumla düzeltilmesi) | E88 kod partisi | açık |
+| E181 | Çıkışın tohumdan doğan nedeni `exit_condition vector_group_missing:<grup>` (E151) Kurucu'ya sayılıyor (`decide.counts_against_founder`); `29b` "Ret hafızası" yalnız Kurucu'nun düzeltebildiğini sayar; grup tohumla gelmeden üç çıkış isteği `not_learning` olur | B | — | E162 kod partisi | açık · `not_checked` sayılmaz (E162); bu denetlenen bir koşulun nedeni, dokunulmadı |
+| E182 | Özetin kurulum alanları `seed_commit`, `seed_tree_sha256` `26c`'de yok; `25` 10b ve `26c` ilk dönemi `seed_epochs[]` satırı sayar. Kod kurulum alanlarını kurulum dönemi olarak tutar (başlatıcı E154 için `seed_commit`'i okur), `seed_epochs[]` sonraki teslimleri; dizi yoksa davranış eskisidir | S | — | E88 kod partisi | açık · metin 29/29b partisinde hizalanır |
+| E183 | Taslak `29b`/`29e` (`docs/asama-0-daraltma-29-29b.md`) `seed_update`'i içerikle tanımlar ("yalnız tohum yolları değişmiş ve ağaçlar döneme eşit"); kod teslimin kendisini özetin adlandırdığı commit'le tanır (altındaki Kurucu commit'i onun adıyla yeniden yargılanmasın) ve sonraki push'larda teslim yollarını muaf tutar | S | — | E88 kod partisi | açık · taslak metin bu okumaya göre düzeltilir |
+| E184 | Dönemden sonra başın tohumu son satırın commit'ininkiyle ağaç hash'iyle karşılaştırılıyordu; hash çalıştırma bitini atar: Kurucu'nun `spec/tohum` ya da `seed/` dosyasında yalnız mod değişikliği teslim sayılıp `own`'dan düşüyordu (kodun yanında `kind=code`, kabul edilmiş bir push'tan sonra tek başına `none` → `noop`); ağaç okunamayınca (güvensiz ya da UTF-8 olmayan ad) karşılaştırma hiç yapılmıyor, teslim Kurucu'nun `seed_modified`'ı sayılıp seri başlatıyordu | K | — | E88/E162 incelemesi | kapandı · `gitio.same_under`: `git diff --quiet <dönem commit'i> <baş> -- spec/tohum seed` (içerik, ad ve mod; ağacın okunabilirliğinden bağımsız); testler ve 2 mutant |
+| E185 | E162'nin tablo testi "her satır ya kodda denetlenir (yeriyle) ya listededir" diyordu ama yalnız elle yazılmış bir sözlüğün anahtarlarını okuyordu: #yalniz'in `pre.append("exit_request_not_alone")` satırı silinince yeşil kaldı (denendi) | S | — | E88/E162 incelemesi | kapandı · her denetlenen satır `cli.py` ya da `decide.py`'deki satırlarıyla adlandırılır ve test o satırın kodda tam bir kez durduğunu ister; mutant `exit_alone_check_deleted` |
+| E190 | `.gitignore`'un gerçek sırlar için yazılmış `secrets/` kuralı `seed/bootstrap/vectors/secrets/`'ı da gizliyordu: MF2'nin fikstürleri commit'e girmeyecek, grup dosyasız koşup her Kurucu'da kırmızı olacaktı (`git status` göstermedi, `git check-ignore` `.gitignore:29` dedi) | K | — | E161 kod partisi | kapandı · yalnız o dizin için istisna (`!seed/bootstrap/vectors/secrets/`; başka her `secrets/` hâlâ gizli, `git check-ignore` ile denendi); dizindeki sır biçimli her değerin FAKE taşıdığını tohum testi denetler (`SeedDataVectorsTest`) |
+| E191 | `test_security_ledger` referans beynin `referee/`'sini `sys.path`'in başına koyuyordu; beynin yeni `profile/` paketi (MF4, MF6) aynı süreçte sonraki her test için standart kütüphanenin `profile`'ını gölgeliyordu (`import cProfile` → `AttributeError: module 'profile' has no attribute 'run'`, denendi) | S | — | E161 kod partisi | kapandı · yol sona ekleniyor; `test_its_profile_package_does_not_shadow_the_standard_library_here`, 1 mutant |
+| E192 | `29d` "İkisi de tutmazsa vektör kırmızıdır" diyordu, yani yalnız ikisi birden tutmazsa; koşucu ve `29a` ("yalnız doğru girdide yeşil kalan vektör testi test değildir") biri tutmazsa kırmızı sayar | B | — | E161 kod partisi | kapandı · metin "Biri tutmazsa … (`29a`)"; koşucunun kuralı `DataRunnerTest` |
+| E193 | `secrets.row_json_escape`'in fikstürü uzlaşılmış veride JSON'u çözülmüş duruyordu (`F` yerine `F`): ham satırda kimlik açıkça vardı, vaka kendi amacını ("ham satırda kimlik yok", kaçış çözülünce yakalanır) ve değişmiş girdisinin tanımını ("`F` → `&`, bir bayt") sınamıyordu; ham satırı tarayan bir uygulama geçerdi | K | — | E161 kod partisi | kapandı · fikstür vakanın tanımının pinlediği baytlarla (`F`; değişmişte `&`); beklenen değer değişmedi; iki kör uygulama bu baytlarda da beklenen değeri verir (E161 incelemesinden beri B repoda, her koşuda yeniden gösterilir); ham satırı tarayan kırık uygulama kırmızı (`row_scanned_raw`) |
+| E194 | `profile`'ın daraltma kuralı iki okumaya açık: genel cümle (`14:15-17` "türetmesinden farklı her öneri reddedilir", güvenlik yollarını ve hariç dizinleri değiştirmek dahil; `01b:35` "türetmeden farklıysa reddedilir"; MF4'ün testi 19, `asama-0/09:43` "farklıysa ya da onları daraltıyorsa reddedilir") genişletmeyi de reddeder; özel kurallar (`14:43` "hiçbir öneri onu daraltamaz", `14:52` "yalnız genişletebilir", `30d:17-18` "ekleyebilir") genişletmeye izin verir | B | evet | E161 kod partisi, E161 incelemesi | karar (operatör, 2026-10-29): öneri yalnız genişletebilir, daraltma reddedilir (`14:43`, `14:52`, `30d:17`, `01b:35` gibi); `14:15-17` metni hizalanacak ve `profile.accept_widened` vakası geri eklenecek — kararlar partisi |
+| E195 | `29d` `diffguard`'dan `asama-0/08` madde 1'in her nedenini ister; madde "diff beynin/entegrasyonun ucuna uygulanır"ı da sayar (`08:12`) ama `26a:25` `gate.diffguard`'a ağaç vermez, test 23 (`09:47`) de saymaz | B | evet | E161 kod partisi | karar (operatör, 2026-10-29): "diff head'e uygulanır" `diffguard` grubunun dışında kalır, `gate.check`'in (MF8) işidir; `29d` satırı buna göre yazılacak — kararlar partisi |
+| E196 | `contained` grubu Kurucu'nun kendi bildirdiği argv izdüşümünü karşılaştırır (`29d`: gruba özgü kod yok); isteği izdüşüme yankılayan bir uygulama geçer; koşu başına taze dizin, sonucun dışarıda hash'i ve kırmızı kontroller (testler 20, 21) grupta değil | S | — | E161 kod partisi | sınır · vektör tabandır; gerçeği (B) #kirmizi #kanarya (`asama-0/14` Kum); `argv` rakip için çıktıda |
+| E197 | MF2–MF7 sözleşmelerinin spec sessiz olduğu için bilerek sabitlemediği kurallar: `secrets` iki biçim dışı (düz parola ataması, E167); `profile` `test_path_rules`, sahiplik dosyasındaki güvenlik ekibi, genel otomasyon ve üretilmiş çıktı dizinleri; `npmlock` `deps_bytes` (tarball mı açılmış mı), yalnız sha1 bütünlüğü, depo içi `link`; `recipe` resmî araç zinciri imajı ile sürüm dosyası bağı, `lockfiles` ⊆ `inputs`, sınır değerleri; `diffguard` kökteki `.github/` vakasız | S | evet | E161 kod partisi | sınır · her biri spec yazılınca sonraki tohum döneminde vakaya döner; Kurucu fazlasını yapabilir, vektör tabandır (`29a`) |
+| E198 | Hakem `/vec`'e bütün `vectors/` dizinini, `vectors.json` dahil, Kurucu'nun her kapsayıcısına bağlıyordu (testler, vektörler, modülsüz kırmızı, yeniden üreticiler): her vakanın `expect`'i okunabilirdi; argv'sine ve stdin'ine uyan vakanın cevabını basan altı üç satırlık modül 94/94 yeşil aldı | K | — | E161 incelemesi (kahin beyin, `run_vectors` + yerel koşucu) | kapandı · `vectors.fixtures`: `/vec` `vectors.json`'sız bir kopyadır (`run-tests`, `reproduce`); hakem beklenen değeri kendi kopyasından okur; testler ve 4 mutant |
+| E199 | E161 incelemesinin veri koşucusu bulguları: (a) veri grubu, arayüz sayfası (`29f`, `29g`) Kurucu'nun tohumunda olmasa da koşuyordu (E88 açıkken tohumdan önce gelen vektörler Kurucu'yu hiç görmediği bir arayüzle reddederdi); (b) vektörlerin toplam süresi sınırsızdı (asılı kalan bir komut çağrı başına 2 × 120 s, `kos`'un 60 dk'sını aşıp Kurucu'ya hiç ulaşmayan kesinti olurdu; E18 yalnız testleri ve yeniden üreticileri sayar); (c) 1500+ seviye iç içe bir cevap satırı `RecursionError` ile `run-tests`'i çökertiyordu; (d) liste ve nesne içindeki değerlerin JSON karşılaştırmasını (`[true]` ≠ `[1]`) hiçbir test tutmuyordu | B | — | E161 incelemesi | kapandı · (a) sayfası ağaçta olmayan veri grubu `vector_group_missing` (uyarı, çıkışta ret); (b) `vectors.BUDGET_S` 1200 s (spec sessiz, seçim): bütçe biterken ilk asılı vektör kayıtlıdır, kalanlar `not_run:time_budget` ile kırmızı ve Kurucu'nundur, `kos`'un yarısını aşamaz; (c) derin satır "JSON nesnesi yok" (kırmızı); (d) iç içe değer testi; testler ve 9 mutant |
+| E200 | `tohum/26c:54` ve `tohum/14:20` `install_scripts_required[]`'i adlandırıyor ama elemanının biçimini (paket adı, `ad@sürüm`, kilit yolu) söylemiyor; Kurucu tam kilit anahtarı ya da `ad@sürüm` seçti, çıplak adı reddetti (her sürümü işaretlerdi) | S | — | **Kurucu raporu** spec-012 (döngü 15, MF5 kabul) | açık · kararlar partisi: Kurucu'nun dar seçimi `26c`'ye yazılmalı |
 
 **Kararlar (2026-10-29).** Operatör, "karar" sütunu `evet` olan 19 kalemin hepsinde aşağıdaki
 önerileri onayladı ve `snowball-mcp`'nin de açık olmasını istedi. E46–E48 test denetçisinden sonra
@@ -1122,6 +1139,161 @@ Testler `tests/test_rival_memory.py`'de, sınıf adları kalem numarasıyla. Dur
 - **Açık kalan.** E161 (16 grup ve genel veri koşucusu), E162 (çıkışın kodda olmayan koşulları, MF17'nin `wiring`
   denetimi dahil), E163 (modülsüz kırmızının iki okuması); E157'nin `14` metni; `spec/tohum/29`, `29b` ve yeni `29e`
   metinleri ayrı adımdır (`docs/asama-0-daraltma-29-29b.md`).
+
+### E88 E162 (2026-10-29) · tohum dönemi · çıkış kapalıya düşer · E180–E183 açıldı
+- **Özet satırı.** `setup/summary.json` `seed_epochs[]` taşıyabilir: `{commit, spec_tohum_sha256, seed_sha256,
+  bootstrap_sha256}` (`26c`), tam bu anahtarlar, `seed_sha256` beyinde `seed/` yoksa `null` (spec "beyinde varsa"
+  dışında sessiz; en dar okuma). `config.load_summary` satırları sıkı okur, boş ya da biçimsiz dizi durmadır; son
+  satır geçerli dönemdir. Dizi yoksa davranış öncekidir: `seed_commit`, `seed_tree_sha256` kurulum tohumudur
+  (`26c`'de bu adlar yok, E182; başlatıcı E154 için `seed_commit`'i okur, dokunulmadı).
+- **Satır kendi commit'ine uymalı.** Dizi varsa `pull` (içerik korumasının dışında) son satırın commit'ini beyinde
+  arar ve o commit'in `spec/tohum/` ve `seed/` ağaç hash'lerini satırla karşılaştırır (`cli._check_epoch`); uymazsa
+  `stop: setup/summary.json: the last seed epoch ...`, koşu durur, hiçbir push yanlış bir tohuma karşı yargılanmaz
+  (`25`: hash özetle uyuşmazsa durur; operatör dosyaları kapalıya düşer, `26c`). Satırı `seed-epoch` komutu
+  yazar (git blob'larından, satır sonundan bağımsız); `bootstrap_sha256` `--source`'un `seed/bootstrap/`'udur.
+- **(d) Teslimin kendisi.** Baş son satırın commit'iyse push `seed_update`'tir: değerlendirilmez, rakip, test ve
+  seri yok, `noop` imzalanır, `last_evaluated_sha` ilerler, `last_accepted_sha` ilerlemez (`cli._seed_update`,
+  `decide.NOTHING_TO_JUDGE`). Teslim Kurucu'nun reddedilmiş bir başının üstüne gelse de o kod onun adıyla yeniden
+  yargılanmaz (taslak metin içerikle tanımlıyordu, E183).
+- **(a) Sonraki push'lar.** Son kabul edilmiş SHA teslimden eskiyse teslim her diff'te kalır. Başın tohum ağaçları
+  son satıra eşitken diff'teki `spec/tohum/**` ve `seed/**` Kurucu'nun değişikliği sayılmaz (`meta.changed`
+  Kurucu'nunkiler), push kendi türüyle (kod, spec, çıkış, defter) yargılanır; rakibin diff'i tohum yollarını hiç
+  taşımaz (`exclude_dirs=HIDDEN_DIRS + SEED_DIRS`): orada kalan tohum yolu ancak teslimdir, başka tohum değişikliği
+  rakipten önce reddedilir. Çıkış isteğinde de böyledir: pinli SHA ile istek arasındaki teslim yolları #yalniz'i
+  bozmaz, Kurucu'nun değişikliği değildir.
+- **(b) Kurucu'nun tohum değişikliği.** Dizi varsa her başın iki ağacı son satıra eşit olmalı: değişen, eklenen ya da
+  silinen her tohum dosyası `seed_modified` ve `seed_tree_mismatch`'tir; `null` satırdan sonra eklenen `seed/` de.
+- **(c) İmzalı durum.** Dönem durumu sıfırlamaz: `seed_update` her `noop` gibi `last_evaluated_sha`, `runs` ve
+  `origin`'i ilerletir, başka bir başın bekleyen rakip sonucunu (`pending_rival`) bırakır; donmuş spec'ler, seriler,
+  `repeat_events`, açık iddialar, kanıtlanmış kusurlar, rakip artefaktları ve harcamalar aynen kalır, sonraki push
+  onlara karşı yargılanır (seri sürer, yeniden üreticiler istenir). Durum kaybolursa
+  `state.initial` son dönemin commit'inden başlar (`25` "Durum kaybolursa").
+- **Operatör yolu.** `seed/founder/README.md` "Tohum teslimi": `STOP` ve kill switch, hakem kopyası, beyne tek
+  commit (`git archive | tar`), `seed-epoch` satırı, kill switch kapalı, elle tetikleme ve `seed_update` doğrulaması,
+  dokunuş satırı. `25` 10b'nin sırası (satır, sonra beyne push) da çalışır: kill switch açıkken hakem koşmaz, push
+  edilmemiş commit'i adlandıran satır yalnız koşuyu durdurur.
+- **E162.** `decide.EXIT_NOT_CHECKED` = `kurucu-defteri`, `is-akisi`, `agac` (yalnız büyük-küçük harf duyarlı operatör
+  adı var; duyarsız ad, ajan yapılandırması, `toy_tree_sha256` yok), `genellik`, `spec` (`#lint #spec #okuyucu`
+  satırı), `durustluk`: her çıkışa `exit_condition` `not_checked:<koşul>` ekler, `transferable` olamaz. Denetlenen
+  koşullar nedenlerini korur (#testler #kirmizi #lisans, #modulsuz, #rakip, #lock #kilit, #tekrar, #yalniz).
+  `not_checked` Kurucu'ya sayılmaz (`29b` "Ret hafızası": yalnız düzeltebildiği); aynı mantıktaki
+  `vector_group_missing` çıkış nedeni sayılmaya devam eder (E181). Test, `asama-0/10` tablosunun her satırının ya
+  kodda denetlendiğini (yeriyle) ya listede olduğunu ister; sayfaya eklenen satır sessiz geçemez. (Bu commit'te
+  "yeri" serbest metindi ve koda bakılmıyordu; incelemeden sonra satırın kodu aranır, E185.)
+- **Testler ve mutantlar.** `tests/test_seed_epoch.py` (9 test: (a) iki, kod, spec, çıkış ve defter push'larıyla;
+  (b) iki; (c); (d); satır durması; özet okuma; kayıp durum); `test_decision.KindsAndExit`'e üç E162 testi; çıkış testleri (`test_decision`,
+  `test_rival_memory`, `test_flow`) altı `not_checked`'i bekler, `test_flow` aktarımı `EXIT_NOT_CHECKED` boşken
+  ölçer. 16 yeni mutant (E88 13, E162 3); `ledger_in_the_rivals_diff` ve `reports_in_the_rivals_diff` çapaları
+  yenilendi.
+- **Kanıt.** Taban (8900760): Windows 342 test OK (18 atlandı), Linux 360 OK (3 atlandı). Dal: Windows 354 OK (18
+  atlandı), Linux 372 OK (3 atlandı). Mutasyon: 16 yeni, çapası yenilenen 2 ve değişen satırlara bağlı 3 mutant
+  (`non_utf8_name_reaches_json`, `unsafe_name_reaches_the_tree_hash`, `ledger_breaks_an_exit_request`) `--only`
+  kümesiyle 21/21 öldü; sonra bütün liste dört parçada 188/188 (47 × 4, Linux kapsayıcı). README'nin 4., 5. ve 7.
+  adımı Git Bash'te sahte bir beyinde koşuldu: `git archive HEAD spec/tohum | tar -x -f -` 60 dosya, `seed-epoch`
+  satırı (`seed_sha256: null`), `control` ok, `pull` `kind=seed_update`, `pre_reasons []`; satırın
+  `spec_tohum_sha256`'sı (`8797ba63…`) `snowball-mcp` HEAD'inin `seed-hash`'iyle aynı (Windows'ta satır sonu gidip
+  gelince hash değişmedi). E181 bir koşuyla görüldü: `vector_group_missing:secrets` ile üç çıkış isteği
+  `not_learning`, aynı koşudaki altı `not_checked` sayılmadı.
+- **Yapılmayan.** `bootstrap_sha256` biçimce okunur, hakemin kendi `bootstrap/` kopyasıyla karşılaştırılmaz (E24);
+  teslim `spec/asama-*` ve `spec/INDEX.md` taşıyamaz (E180); altı koşulun denetimleri (E107, E100/E132, E130/E131,
+  E102, E79) ve MF17'nin her push'taki `wiring` denetimi; `spec/` bu dalda değişmedi, taslak metin E182/E183'te.
+
+### E88/E162 incelemesi (2026-10-29) · E184 E185 kapandı · E97 kapandı
+- **E184, mod biti.** `epoch_seed` artık `gitio.same_under`: `git diff --quiet <son dönemin commit'i> <baş> -- spec/tohum
+  seed`; içerik, ad ve mod karşılaştırılır, ağaç okunabilir olmasa da. Eski kodda (bu dalın `b6d821f`'i, Windows,
+  denendi) Kurucu'nun kodla birlikte `spec/tohum/00-cekirdek.md`'ye `+x` vermesi `kind=code` idi; şimdi
+  `seed_modified` ve `seed_tree_mismatch` ile ret, kabul edilmiş bir push'tan sonra tek başına mod değişikliği de
+  (`test_a_mode_change_to_the_seed_is_a_founder_change_too`).
+- **E184, okunamayan ağaç.** Teslimden sonra Kurucu'nun `x\y.md` ya da UTF-8 olmayan bir ad eklemesi eski kodda
+  `['seed_modified', 'unsafe_path']` veriyordu (Windows'ta da, git'in alt düzey komutlarıyla, denendi); şimdi
+  yalnız adın nedeni, `seed_modified:` serisi yok (`test_a_push_the_referee_cannot_read_is_not_charged_with_the_delivery`).
+- **E97.** Durum şeması 3: `rejected_exit_request` (son reddedilen isteğin baytlarının sha256'sı, ya da `null`);
+  şema 1 ve 2 `migrate` ile taşınır (`25`), biçimsiz değer durdurur. `decide` yalnız değerlendirilmiş bir reddi
+  hatırlar (kesinti değil). `pull`, kod push'unda aynı baytları yok sayar: `exit_request_not_alone` yok, push kendi
+  türüyle yargılanır; yalnız dosyayı değiştiren push (defter satırları bir yana) yine çıkış isteğidir. İsteği okumak
+  için dosyanın git blob'u kullanılır (ağacın başka bir adı okunamasa da). Eski kodda reddedilmiş çıkıştan sonraki üç
+  kırmızı kod push'unun ilki `exit_request_not_alone` verdi (`test_a_rejected_exit_request_left_in_place_is_ignored_by_later_pushes`, denendi).
+  İlk sürüm aynı baytları tek başına yeniden istemeyi de yok sayıyordu; Linux'taki `test_exit_request_and_import`
+  bunu yakaladı, kural kod push'larına daraltıldı (`29b`: yalnız `exit-request.json` değiştiren push çıkış isteğidir).
+- **E185.** Tablo testi her denetlenen satırı `cli.py`/`decide.py`'deki satırlarıyla adlandırır ve her birinin kodda
+  tam bir kez durduğunu ister. #yalniz'in satırı silinince eski test yeşildi, yenisi kırmızı (denendi).
+- **Doğrulama.** Windows 359 test OK (18 atlandı); Linux (`snowball_linux_test:git`) 377 OK (3 atlandı). 11 yeni
+  mutant (E184 2, E97 8, E185 1), çapası yenilenen 3
+  (`founder_seed_dir_change_passes`, `founder_spec_tohum_change_passes`, `old_state_not_migrated`) ve değişen satırlara
+  bağlı 20 eski: 34/34 öldü (Linux, dört kapsayıcı, her birinde önce yeşil baz koşu).
+### E161, kısmi (2026-10-29) · genel veri koşucusu ve MF2–MF7'nin vektörleri · E190–E197 açıldı
+- **Koşucu.** `vectors.py`'de tek veri yargıcı (`_data`): vakanın komutu, stdin'iyle, `referee/`'den koşar; stdout'un son
+  satırındaki JSON nesnesinde `expect`'in adlandırdığı her alan o değeri taşımalıdır, başka alanlar komutundur. Değerler
+  JSON olarak karşılaştırılır (`true` ≠ `1`, `1` ≠ `1.0`). `changed` aynı alanları vermeli ve `expect_not`'u vermemelidir;
+  cevapsızlık ya da eksik alan da kırmızıdır. Sonuç kimlikleri `<vaka>` ve `<vaka>.changed_input`; 125 `runner_fault`
+  kalır (`VectorRun.record`). Grup ya kendi yargıcıyla (`chain`, `cp_lower`, `mcnemar`, `match`, `drill`; dokunulmadı) ya
+  `"runner": "data"` işaretiyle koşar; `missing_groups` ikisinden birini bulamadığı grubu sayar, yani yeni grup kod
+  değil veridir (`29d`). Tablo güdümlü zamanlama ve `vector_group_missing` uyarısı aynen; MF2–MF7 için artık uyarı yok.
+- **Veri.** `vectors.json`'a altı grup, 47 vaka (incelemeden sonra 46: E194), iş akışının uzlaştırdığı vakalar olduğu gibi: komut, stdin, beklenen
+  değerler değiştirilmedi; aktarılan metinden tek fark E193'ün kaçışıdır (iki dosya). `fixture` komutun `/vec/` yollarıdır; 72 fikstür dosyası
+  `vectors/<grup>/` altında. Fikstürler bayt bayt okunur (tarball hash'i, diff başlığı, satır numarası): `.gitattributes`
+  onlara satır sonu dönüşümü uygulamaz (`core.autocrlf=true` Windows checkout'u diff başlıklarına CR katardı). Her
+  beklenen değer iki kör bağımsız uygulamanın (A, B) ikisinde de aynıydı; son veri gerçek koşucudan yeniden geçirildi:
+  A 94/94, B 94/94 sonuç yeşil (yerel koşucu, Windows). Bu commit'te B'nin kodu ve koşusu repoda yoktu, iddia
+  denetlenemezdi; incelemeden sonra B `local/blind_b/referee/` altında ve her koşuda yeniden hesaplanır (aşağıda).
+- **Arayüz.** `29f` (`secrets`, `contained`, `profile`) ve `29g` (`npmlock`, `recipe`, `diffguard`): komutlar, girdi
+  biçimi, karşılaştırılan alanlar, çıkış kodları, sır biçimleri ve neden sözlükleri, her vakanın amacı; beklenen değer
+  yok. 80 satır sınırı (`tohum/15` 1) sayfayı ikiye böldü. `29d` karşılaştırma kurallarını ve iki sayfayı gösterir;
+  `INDEX.md`'ye iki satır. `VectorInterfacePagesTest` sayfaların her grubu, komutu ve vaka adını taşıdığını, hiçbir
+  beklenen değeri (içerik adresi, yola bağlı neden, cevabın kendisi) taşımadığını denetler.
+- **Kanıt.** A'nın altı modülü `local/reference_brain/referee/` altında (`gate/`, `runner/`, `profile/`); beyin onları
+  bitmiş bildirmez (`done_mf` [1], testleri yok). `SeedVectorsOnReferenceImplementationsTest`: altı grup A'da 94/94
+  yeşil; 50 kırık (her biri bir vakanın yakalamak için orada olduğu hata: biçim eksik, yalnız eklenen satır, ham satır,
+  sabit bellek, sabit kullanıcı, yalnız dosya adında anahtar kelime, kilit sırası, yalnız ilk neden …) hedeflediği her sonucu
+  kırmızıya çevirir, çökerek değil yanlış cevap vererek; 47 vakanın her biri en az bir kırığın hedefi. `DataRunnerTest`
+  koşucunun her kuralını uydurma bir grupla, `SeedDataVectorsTest` verinin biçimini, fikstürlerin varlığını ve ölü
+  dosya olmadığını, sırların FAKE olduğunu denetler. `mutate.py`: 16 yeni mutant (koşucu 11, veri 2, sahiplik 1,
+  sayfa 1, E191 1) ve anlamı aynı kalıp yeni koda taşınan 3 çapa (`unowned_group_runs`, `missing_group_not_named`,
+  `seed_group_owner_drifts`); kopya artık `spec/INDEX.md`'yi de alır.
+- **Doğrulama (birleştirmeden önce, `a1e32dd`).** Windows 363 test OK (18 atlandı); Linux (`snowball_linux_test:git`)
+  381 OK (3 atlandı), prova yargıcı 31 OK; 16 yeni, 3 yeniden çapalanmış ve `vectors.py`'ye dokunan 3 eski mutant
+  (`vector_flake_blamed_on_founder`, `vector_exit_not_kept`, `groups_run_before_their_micro_feature`) Linux'ta
+  `mutate.run_mutant` ile, dört kapsayıcıda, her birinde önce yeşil baz koşu: 22/22 öldü. `local/e2e.py` ve 197
+  mutantın tamamı koşulmadı (CI'nin `main` işi).
+- **Açık kalan.** E161'in kalan 10 grubu (`k0map`, `refs`, `append`, `root`, `flaky`, `cause`, `revert_drill`, `prompt`,
+  `status`, `genesis`); E194 ve E195 operatör kararı; E196 ve E197 sınır; E167 (düz parola ataması `secrets`'ın
+  kapsamına girer mi) açık.
+
+### E161 incelemesi (2026-10-29) · E198 E199 kapandı · E194 düzeltildi · B repoda
+- **`/vec` (E198).** `vectors.fixtures` `vectors/`'ı iş dizinine `vectors.json`'sız kopyalar; `run-tests` (Kurucu'nun
+  testleri, vektörler, modülsüz kırmızı) ve `reproduce` (baş ve boş kontrol ağacı) yalnız bu kopyayı `/vec`'e
+  bağlar; hakem beklenen değeri kendi `vectors/vectors.json`'ından okur. İncelemenin kâhin beyni (cevabı
+  `/vec/vectors.json`'dan okuyan altı modül) eski bağlamada 94/94 yeşildi; `/vec` kopyaya eşlenince 92 sonucun 0'ı
+  yeşil, A ve B 92/92 (yerel koşucu, Windows, denendi). `test_the_founders_containers_get_the_fixtures_and_never_the_expected_values`
+  eski kodda kırmızıydı (bağlanan dizinde `vectors.json` vardı).
+- **E194.** `profile.accept_widened` ve yalnız onun kullandığı iki fikstür (`prop_widen.json`,
+  `prop_widen_drop_security.json`) çıkarıldı: 46 vaka, 92 sonuç, 49 kırık (`widening_rejected` gitti). `29f` yalnız
+  genişleten öneriyi vakasız bırakır ve `14`'ün iki okumasını da geçer sayar. `test_no_profile_case_decides_what_the_operator_has_not`:
+  A genel okumaya çevrilince (yol listesinde her fark ret) `profile` yeşil kalır; eski veride `accept_widened`
+  kırmızıydı (denendi). Kaydın ilk metni `01b:35` ve `asama-0/09:43`'ü genişletmeye izin veren kurallar arasında
+  sayıyordu; ikisi de "farklıysa reddedilir" der, satır düzeltildi.
+- **B, ikinci hesap.** İş akışının B'si (girdisi `cases.json`'da `expect` anahtarı yoktu, denendi) bayt bayt
+  `local/blind_b/referee/` altında (11 dosya, sha256'lar kaynakla aynı). `test_every_new_group_is_green_on_the_second_blind_implementation_too`:
+  B'nin her modülü A'nınkinden farklı, gerçek koşucuda 92/92 yeşil; mutant `blind_b_disagrees`. B eski veride de
+  94/94 verdi (`a1e32dd`'nin verisi, E193'ün baytları dahil; denendi). Kör yazıldığı bu oturumun iş akışının
+  kaydıdır; repo bunu değil, iki kodun her koşuda aynı değeri verdiğini gösterir.
+- **E199.** (a) Veri grubu, `interface` sayfası Kurucu'nun ağacında (`run-tests`'in açtığı ağaç) yoksa koşmaz ve
+  `vector_groups_missing`'te adlandırılır: kod push'unda uyarı, çıkışta ret; tohumun kendi denetimi (ağaçsız) aynı.
+  (b) `vectors.BUDGET_S` 1200 s: bir push'un bütün vektör çağrıları, yeniden denemeler dahil; her denemenin süresi
+  kalan bütçeyle sınırlı. Bitince kalan vektörler `not_run:time_budget` ile kırmızı, `exit` yok, `runner_fault`
+  değil, Kurucu'nundur (E18'in planındaki ad). Spec sessiz, değer seçimdir: dürüst çağrı birkaç saniyedir, bütçe
+  `kos`'un 60 dakikasının yarısını aşamaz (`test_the_vectors_leave_the_kos_job_half_its_time`); E161'in kalan
+  grupları gelince yeniden bakılır. Eski kodda her girdide asılı kalan bir uygulama 188 çağrı × 120 s = 22 560 s
+  (376 dk) sürerdi, şimdi 10 çağrı ve 1200 s (denendi). (c) `_last_json` `RecursionError`'ı "JSON nesnesi yok"
+  sayar: 100 000 seviyelik satır kırmızı, `run-tests` çökmez (eski kodda test `RecursionError` ile düştü). (d) Liste
+  ve nesne içindeki değerler için test; incelemenin mutantı (`a == b and type(a) is type(b)`) eski `test_units`'te
+  yaşıyordu (53 OK, denendi), yeni testle ölür (`data_python_equality_nested`).
+- **Doğrulama.** Windows 372 test OK (18 atlandı); Linux (`snowball_linux_test:git`) 390 OK (3 atlandı). 13 yeni
+  mutant, çapası yenilenen 3 (`missing_group_not_reported`, `data_groups_have_no_judge`, `control_tree_is_the_head`)
+  ve değişen dosyalara bağlı 23 eski: 39/39 öldü (Linux, dört kapsayıcı, her birinde önce yeşil baz koşu). İki
+  `reproduce` testinin referee'sine `vectors/` kondu (`reproduce` artık onu kopyalar; üretimde dizin hep var).
+- **Açık kalan.** E194 ve E195 operatör kararı; E161'in kalan 10 grubu; E18 (testlerin ve yeniden üreticilerin
+  toplam süresi).
 
 ## Doğrulanmış sağlam taraflar
 Kapsayıcı bayrakları ve kırmızı kontroller; host'ta kabuk enjeksiyonu yok; `$GITHUB_OUTPUT`'a serbest

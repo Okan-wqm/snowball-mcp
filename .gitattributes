@@ -2,3 +2,9 @@
 # ("no such file or directory"), which stopped the first pilot session before it started (E152).
 *.sh text eol=lf
 seed/founder/Dockerfile text eol=lf
+# Seed vector fixtures are read byte for byte (tarball hashes, diff headers, line numbers): never converted.
+seed/bootstrap/vectors/secrets/** -text
+seed/bootstrap/vectors/profile/** -text
+seed/bootstrap/vectors/npmlock/** -text
+seed/bootstrap/vectors/recipe/** -text
+seed/bootstrap/vectors/diffguard/** -text
