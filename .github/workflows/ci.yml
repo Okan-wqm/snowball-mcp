@@ -1,0 +1,122 @@
+# CI for snowball-mcp's own code (gap register E26). The repository is public, so standard runners
+# are free. Every job is read-only and holds no secret; pull requests from forks run under the same limits.
+#
+#   every push and pull request: the referee's unit tests on Linux and Windows, the drill judge's tests
+#   main and weekly, in addition: the mutation checks (referee in 8 shards, reference brain, drill
+#   judge), the end-to-end run against Docker, and the claude CLI contract against the pinned binary
+#   (a made-up token: it spends nothing)
+
+name: ci
+
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: "17 3 * * 1"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHONDONTWRITEBYTECODE: "1"
+
+jobs:
+  unit-linux:
+    runs-on: ubuntu-24.04  # its system python3 is the 3.12 the referee's own workflow runs on
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Referee unit tests
+        working-directory: seed/bootstrap
+        run: PYTHONPATH=.:tests python3 -m unittest discover -s tests
+      - name: Drill judge tests
+        working-directory: seed/drill
+        run: python3 -m unittest discover -s tests
+
+  unit-windows:
+    runs-on: windows-2025  # the operator imports at stage exits on Windows
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - name: Referee unit tests
+        working-directory: seed/bootstrap
+        shell: bash
+        run: PYTHONPATH=".;tests" python -m unittest discover -s tests
+      - name: Drill judge tests
+        working-directory: seed/drill
+        shell: bash
+        run: python -m unittest discover -s tests
+
+  mutation:
+    if: github.event_name != 'pull_request' && (github.event_name != 'push' || github.ref == 'refs/heads/main')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5, 6, 7]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Referee mutants (every one must be killed)
+        working-directory: seed/bootstrap
+        env:
+          SHARD: ${{ matrix.shard }}
+        run: python3 local/mutate.py --shard "$SHARD/8"
+
+  fixture-mutation:
+    if: github.event_name != 'pull_request' && (github.event_name != 'push' || github.ref == 'refs/heads/main')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Reference brain mutants
+        working-directory: seed/bootstrap
+        run: python3 local/mutate_brain.py
+      - name: Drill judge mutants
+        working-directory: seed/drill
+        run: python3 local/mutate_drill.py
+
+  e2e:
+    if: github.event_name != 'pull_request' && (github.event_name != 'push' || github.ref == 'refs/heads/main')
+    runs-on: ubuntu-24.04  # Docker is on the runner; the image is pinned by digest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: The referee end to end against real containers (rival stubbed)
+        working-directory: seed/bootstrap
+        run: python3 local/e2e.py
+
+  cli-contract:
+    if: github.event_name != 'pull_request' && (github.event_name != 'push' || github.ref == 'refs/heads/main')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: The pinned claude CLI, as the referee installs it
+        run: npm ci --prefix seed/bootstrap/requirements/claude-cli --no-audit --no-fund
+      - name: CLI contract (made-up token, no spend)
+        working-directory: seed/bootstrap
+        run: |
+          export PATH="$PWD/requirements/claude-cli/node_modules/.bin:$PATH"
+          claude --version
+          PYTHONPATH=.:tests python3 -m unittest discover -s tests -p test_live_cli.py -v
