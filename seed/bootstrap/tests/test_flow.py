@@ -1,13 +1,18 @@
 """End to end over local git repositories: pull -> decide, across spec, code and exit requests."""
 
+import contextlib
+import datetime
 import io
 import json
 import os
 import stat
+import subprocess
 import tarfile
 import tempfile
 import unittest
+import zipfile
 from pathlib import Path
+from unittest import mock
 
 from snowball_bootstrap import cli, gitio
 from snowball_bootstrap.container import DockerRunner
@@ -16,7 +21,7 @@ from snowball_bootstrap.importer import ImportErrorStop, run_import
 from snowball_bootstrap.manifest import STAGE0_MF_TESTS
 from snowball_bootstrap.treehash import TreeError, tree_hash
 
-from helpers import commit, make_repo, sh
+from helpers import commit, install_fake_claude, make_repo, ok_result, posix_only, sh, submit
 
 SEED_FILES = {"spec/tohum/00-cekirdek.md": "# core\n", "spec/asama-0/00-ozet.md": "# stage 0\n"}
 
@@ -41,10 +46,8 @@ class Flow(unittest.TestCase):
         (self.referee / "bootstrap.json").write_text(json.dumps({
             "brain_repo": "owner/brain", "brain_branch": "main",
             "image": "docker.io/library/python:3.12-slim@sha256:" + "a" * 64,
-            "rival": {"model": "claude-sonnet-5-5", "effort": "medium", "max_turns": 30, "max_tokens": 16000,
-                      "per_run_cap_usd_micros": 3_000_000,
-                      "price_micros_per_mtok": {"input": 2_000_000, "output": 10_000_000,
-                                                "cache_write": 2_500_000, "cache_read": 200_000}},
+            "rival": {"model": "claude-sonnet-5-5", "effort": "medium", "max_turns": 30,
+                      "per_run_cap_usd_micros": 3_000_000},
             "limits": {"test_timeout_s": 600, "reproducer_timeout_s": 120, "max_prompt_chars": 600_000,
                        "max_tree_bytes": 50_000_000}}))
         (self.referee / "policy.json").write_text(json.dumps({"constitutional": {
@@ -55,7 +58,8 @@ class Flow(unittest.TestCase):
         self.state = {"schema": "snowball-bootstrap-state/1", "origin": "initial",
                       "last_accepted_sha": self.seed_sha, "last_evaluated_sha": None, "frozen_specs": {},
                       "rival_artifacts": [], "month": "2026-10", "month_spend_usd_micros": 0,
-                      "stage_spend_usd_micros": 0, "runs": 0, "reject_streaks": {}, "repeat_events": 0}
+                      "stage_spend_usd_micros": 0, "runs": 0, "reject_streaks": {}, "repeat_events": 0,
+                      "outage_sha": None, "outage_count": 0}
         self.n = 0
 
     def tearDown(self):
@@ -69,7 +73,7 @@ class Flow(unittest.TestCase):
         rc = cli.main(["pull", "--root", str(self.referee), "--state", str(state_path),
                        "--work", str(Path(self.tmp.name) / "work"), "--out", str(out), "--remote", str(self.brain)])
         self.assertEqual(rc, 0)
-        return json.loads((out / "meta.json").read_text())
+        return json.loads((out / "meta.json").read_text(encoding="utf-8"))  # not the platform's default: names can be non-ASCII
 
     def finish(self, meta, run=None, rival=None, repro=None, jobs=None):
         result = decide(meta, run, rival, repro, jobs or {}, rival_min_attempts=2, repeat_reject_limit=3)
@@ -84,6 +88,162 @@ class Flow(unittest.TestCase):
         tests = [{"id": t["id"], "cmd_sha256": "c", "ok": True, "output_tail": ""}
                  for t in meta["manifest"]["tests"]]
         return {"controls": [{"id": "exit_one", "ok": True}], "tests": tests, "vectors": [], "green": True}
+
+    def test_the_rivals_own_failures_are_evaluated_not_retried(self):
+        """Unlike an outage, these end the commit's evaluation (what they count toward is the owner's call)."""
+        commit(self.brain, {"spec/asama-0/00-ozet.md": "# stage 0, revised" + chr(10)}, "spec only")
+        for reason in ("model_mismatch", "refusal", "max_turns", "budget", "no_verdict:end_turn",
+                       "malformed_verdict:x", "secret_in_verdict:aws_access_key", "prompt_too_large"):
+            self.state["last_evaluated_sha"] = None  # the same head, polled again for the next reason
+            meta = self.pull()
+            rival = {"verdict": "unresolved", "attempts": [], "reasons": [reason], "cost_usd_micros": 100,
+                     "reproducer_count": 0}
+            result = self.finish(meta, rival=rival, jobs={"cagir": "success"})
+            self.assertEqual(result["verdict"], "rejected", reason)
+            self.assertEqual(result["state"]["last_evaluated_sha"], meta["head"], reason)
+            self.assertEqual(result["state"]["outage_count"], 0, reason)
+
+    def commit_with_raw_name(self, name: bytes) -> str:
+        """A root file whose name is not UTF-8, written with git's plumbing (a file system may not allow it)."""
+        def git(*argv, data=b""):
+            return subprocess.run(["git", *argv], cwd=self.brain, input=data, capture_output=True, check=True).stdout
+        blob = git("hash-object", "-w", "--stdin", data=b"x" + chr(10).encode()).strip()
+        tree = git("mktree", "-z", data=git("ls-tree", "-z", "HEAD") + b"100644 blob " + blob + b"\t" + name + b"\0").strip()
+        sha = git("commit-tree", tree.decode(), "-p", "HEAD", "-m", "odd name").strip().decode()
+        git("update-ref", "refs/heads/main", sha)
+        return sha
+
+    def test_a_file_name_that_is_not_utf8_is_one_rejection_not_a_crash_on_every_poll(self):
+        """V3: canonical JSON cannot hold the lone surrogate git keeps for it, so `pull` died before `decide`."""
+        sha = self.commit_with_raw_name(b"bad" + bytes([0xFF]) + b".md")
+        meta = self.pull()
+        self.assertEqual(meta["head"], sha)
+        self.assertIn("non_utf8_path", meta["pre_reasons"])
+        self.assertEqual(meta["changed"], ["bad" + chr(0xFFFD) + ".md"])
+        result = self.finish(meta)
+        self.assertEqual(result["verdict"], "rejected")
+        self.assertEqual(result["state"]["last_evaluated_sha"], sha)  # judged once, not polled forever
+
+    def test_a_crashed_job_is_one_infrastructure_reason_not_two(self):
+        commit(self.brain, {"spec/asama-0/00-ozet.md": "# stage 0, revised" + chr(10)}, "spec only")
+        meta = self.pull()
+        result = self.finish(meta, rival=None, jobs={"cagir": "failure"})
+        self.assertEqual([r["kind"] for r in result["reasons"]], ["infra"])  # no misleading rival_missing
+        self.assertEqual(result["state"]["outage_count"], 1)
+
+    def test_a_commit_that_keeps_failing_is_parked_and_the_outage_is_booked(self):
+        commit(self.brain, {"spec/asama-0/00-ozet.md": "# stage 0, revised" + chr(10)}, "spec only")
+        meta = self.pull()
+        outage = {"verdict": "unresolved", "attempts": [], "reasons": ["api_error:http_429"],
+                  "cost_usd_micros": 500, "reproducer_count": 0}
+        seen = []
+        for _ in range(3):
+            result = self.finish(meta, rival=outage, jobs={"cagir": "success"})
+            seen.append((result["state"]["outage_sha"] == meta["head"], result["state"]["outage_count"]))
+            meta = self.pull()  # not evaluated, so the same commit comes back
+        self.assertEqual(seen, [(True, 1), (True, 2), (True, 3)])
+        self.assertEqual(self.state["month_spend_usd_micros"], 1500)  # what an outage spent is on the books
+        self.assertEqual(self.state["reject_streaks"], {})
+        result = self.finish(meta, rival=self.rival_ok(), jobs={"cagir": "success"})  # a verdict ends the streak
+        self.assertEqual((result["state"]["outage_sha"], result["state"]["outage_count"]), (None, 0))
+
+    def poll(self, prev_state, age_hours, head="c" * 40, with_keys=True):
+        created = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=age_hours))
+        archive = io.BytesIO()
+        state = dict(prev_state) if with_keys else {k: v for k, v in prev_state.items() if not k.startswith("outage")}
+        with zipfile.ZipFile(archive, "w") as zf:
+            zf.writestr("result.json", json.dumps({"state": state}))
+            zf.writestr("result.json.sigstore.json", "{}")
+        gh = Path(self.tmp.name) / "poll_gh"
+        gh.write_text("")
+        env = {"GH_TOKEN": "t", "GITHUB_REPOSITORY": "o/r", "GITHUB_OUTPUT": str(gh)}
+        with contextlib.ExitStack() as stack:
+            stack.enter_context(mock.patch.dict(os.environ, env))
+            stack.enter_context(mock.patch.object(cli.gitio, "remote_head", return_value=head))
+            stack.enter_context(mock.patch.object(cli.ghapi, "latest_artifact", return_value={
+                "id": 1, "created_at": created.isoformat().replace("+00:00", "Z")}))
+            stack.enter_context(mock.patch.object(cli.ghapi, "download_zip", return_value=archive.getvalue()))
+            stack.enter_context(contextlib.redirect_stdout(io.StringIO()))
+            rc = cli.main(["poll", "--root", str(self.referee), "--out", str(Path(self.tmp.name) / "poll_out"),
+                           "--remote", "x"])
+        self.assertEqual(rc, 0)
+        return dict(line.split("=", 1) for line in gh.read_text().split())["skip"]
+
+    def test_poll_parks_a_failing_commit_and_retries_it_once_a_day(self):
+        head = "c" * 40
+        parked = dict(self.state, outage_sha=head, outage_count=3)
+        self.assertEqual(self.poll(parked, age_hours=2), "true")  # parked: not an hourly re-run
+        self.assertEqual(self.poll(parked, age_hours=30), "false")  # a day later: one more try
+        self.assertEqual(self.poll(dict(parked, outage_count=2), age_hours=2), "false")  # not yet parked
+        self.assertEqual(self.poll(dict(parked, outage_sha="d" * 40), age_hours=2), "false")  # another commit
+        self.assertEqual(self.poll(parked, age_hours=2, head="e" * 40), "false")  # a new push is never parked
+        self.assertEqual(self.poll(parked, age_hours=2, with_keys=False), "false")  # an older state shape: no crash
+
+    def test_no_rival_result_is_never_acceptance(self):
+        commit(self.brain, {"spec/asama-0/00-ozet.md": "# stage 0, revised" + chr(10)}, "spec only")
+        meta = self.pull()
+        result = self.finish(meta, rival=None, jobs={"cagir": "success"})  # the job ran, its result is missing
+        self.assertEqual(result["verdict"], "rejected")
+        self.assertIn("rival_missing", [r["kind"] for r in result["reasons"]])
+        self.assertEqual(result["state"]["frozen_specs"], {})
+
+    def test_rival_infrastructure_failure_is_retried_and_never_held_against_the_push(self):
+        commit(self.brain, {"spec/asama-0/00-ozet.md": "# stage 0, revised" + chr(10)}, "spec only")
+        first = self.pull()
+        self.assertEqual((first["kind"], first["run_rival"]), ("spec", True))
+        for reason in ("api_error:http_401", "api_error:http_429", "api_error:unknown", "api_error:bad_cli_result"):
+            rival = {"verdict": "unresolved", "attempts": [], "reasons": [reason], "cost_usd_micros": 0,
+                     "reproducer_count": 0}
+            result = self.finish(first, rival=rival, jobs={"cagir": "success"})
+            self.assertEqual(result["verdict"], "rejected", reason)
+            self.assertEqual(result["state"]["reject_streaks"], {}, reason)
+            self.assertEqual(result["learning"]["not_learning"], [], reason)
+            self.assertIsNone(result["state"]["last_evaluated_sha"], reason)
+            again = self.pull()
+            self.assertEqual((again["kind"], again["head"]), ("spec", first["head"]), reason)
+
+    def test_rival_command_end_to_end_and_when_the_rival_cannot_run(self):
+        seats = self.referee / "seats"
+        seats.mkdir()
+        seats_source = Path(__file__).resolve().parents[3] / "spec" / "tohum" / cli.SEATS_FILE
+        (seats / cli.SEATS_FILE).write_text(seats_source.read_text(encoding="utf-8"), encoding="utf-8")
+        commit(self.brain, {"spec/asama-0/00-ozet.md": "# stage 0, revised" + chr(10)}, "spec only")
+        meta = self.pull()
+        pulled = Path(self.tmp.name) / f"pulled{self.n}"
+        bin_dir = Path(self.tmp.name) / "bin"
+        bin_dir.mkdir()
+        claude = install_fake_claude(bin_dir)
+        gh_output = Path(self.tmp.name) / "gh_output"
+        os.environ["GITHUB_OUTPUT"] = str(gh_output)
+        self.addCleanup(os.environ.pop, "GITHUB_OUTPUT", None)
+
+        def run_rival_command(tag):
+            out = Path(self.tmp.name) / f"rival_{tag}"
+            rc = cli.main(["rival", "--root", str(self.referee), "--pulled", str(pulled),
+                           "--work", str(Path(self.tmp.name) / f"work_{tag}"), "--out", str(out),
+                           "--claude", str(claude)])
+            return rc, json.loads((out / "rival.json").read_text())
+
+        (bin_dir / "scenario.json").write_text(json.dumps({"calls": [submit()], "result": ok_result()}))
+        rc, rival = run_rival_command("ok")
+        self.assertEqual((rc, rival["verdict"], rival["model_served"], rival["cost_usd_micros"]),
+                         (0, "not_refuted", "claude-sonnet-5-5", 12300))
+        self.assertIn("has_repro=false", gh_output.read_text())
+        self.assertEqual(self.finish(meta, rival=rival, jobs={"cagir": "success"})["verdict"], "frozen")
+
+        signed_out = json.loads((Path(__file__).resolve().parent / "fixtures" / "cli" /
+                                 "unauthenticated_bad_token.json").read_text())
+        (bin_dir / "scenario.json").write_text(json.dumps({"events": signed_out["events"], "exit": 1}))
+        shown = io.StringIO()
+        with contextlib.redirect_stdout(shown):
+            rc, rival = run_rival_command("signed_out")
+        # An outage is a warning, not a red job: rival.json must reach `decide`, which books it and retries.
+        self.assertEqual((rc, rival["verdict"], rival["reasons"]), (0, "unresolved", ["api_error:http_401"]))
+        self.assertIn("::warning title=The seed rival could not run::api_error:http_401", shown.getvalue())
+        result = self.finish(meta, rival=rival, jobs={"cagir": "success"})
+        self.assertEqual((result["verdict"], result["state"]["reject_streaks"]), ("rejected", {}))
+        self.assertIsNone(result["state"]["last_evaluated_sha"])
+        self.assertEqual((result["state"]["outage_sha"], result["state"]["outage_count"]), (meta["head"], 1))
 
     def test_full_stage0_path(self):
         meta = self.pull()
@@ -151,6 +311,7 @@ class Flow(unittest.TestCase):
                              jobs={"getir": "success", "kos": "success", "cagir": "success", "yeniden": "success"})
         self.assertEqual(result["reasons"][0]["kind"], "refutation_reproduced")
 
+    @posix_only
     def test_exit_request_and_import(self):
         # Freeze the spec, then accept a complete stage 0.
         commit(self.brain, {"spec/asama-0/00-ozet.md": "# stage 0 v2\n"}, "spec")
@@ -258,7 +419,9 @@ class Flow(unittest.TestCase):
 
         first = red_push(1)
         self.assertEqual(first["learning"], {"repeated": [], "not_learning": [], "repeat_events": 0})
-        self.assertEqual(red_push(2)["learning"]["repeated"], [same])
+        second = red_push(2)
+        self.assertEqual(second["learning"]["repeated"], [same])
+        self.assertEqual(second["learning"]["not_learning"], [])  # two is a repeat, three is "not learning"
         third = red_push(3)
         self.assertEqual(third["learning"]["not_learning"], [same])
         self.assertEqual(third["state"]["repeat_events"], 2)
@@ -306,6 +469,7 @@ class Flow(unittest.TestCase):
         self.assertIn("history_rewritten", meta["pre_reasons"])
         self.assertEqual(meta["kind"], "rejected")
 
+    @posix_only
     def test_symlink_and_export_ignore(self):
         (self.brain / "referee").mkdir()
         os.symlink("/etc/passwd", self.brain / "referee" / "link")
@@ -344,6 +508,7 @@ class DockerRunnerTest(unittest.TestCase):
         self.assertFalse([e for e in envs if e.startswith(("ACTIONS_", "GITHUB_", "ANTHROPIC"))])
         self.assertIn("SNOWBALL_CMD=python -m unittest", envs)
 
+    @posix_only
     def test_exit_code_and_timeout_through_a_fake_docker(self):
         with tempfile.TemporaryDirectory() as tmp:
             fake = Path(tmp) / "docker"

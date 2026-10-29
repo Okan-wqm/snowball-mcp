@@ -28,7 +28,7 @@ def write_vectors(vectors_dir: Path) -> dict[str, Any]:
     out.mkdir(parents=True, exist_ok=True)
     cases = []
     for name, doc in drill_docs().items():
-        (out / f"{name}.json").write_text(json.dumps(doc, sort_keys=True, separators=(",", ":")) + "\n",
+        (out / f"{name}.json").write_text(json.dumps(doc, sort_keys=True, separators=(",", ":")) + "\n", newline="\n",
                                           encoding="utf-8")
         result = judge(doc)
         cases.append({"name": name, "file": f"drill/{name}.json", "drill": result["drill"],
@@ -37,5 +37,5 @@ def write_vectors(vectors_dir: Path) -> dict[str, Any]:
     spec = json.loads(index.read_text(encoding="utf-8"))
     spec["drill"] = {"mf": 18, "source": f"seed/drill: python -m snowball_drill vectors (seed {SEED})",
                      "cases": cases}
-    index.write_text(json.dumps(spec, indent=2) + "\n", encoding="utf-8")
+    index.write_text(json.dumps(spec, indent=2) + "\n", encoding="utf-8", newline="\n")
     return spec["drill"]

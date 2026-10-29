@@ -45,14 +45,22 @@ class VectorRun:
         self.runner = runner
         self.timeout_s = timeout_s
         self.results: list[dict[str, Any]] = []
+        self.fault = ""
 
     def call(self, cmd: str, stdin: bytes = b"") -> dict[str, Any] | None:
-        res = self.runner.run(cmd, cwd=CWD, stdin=stdin, timeout_s=self.timeout_s)
-        if res.timed_out:
-            return None
-        return _last_json(res.stdout)
+        for _ in range(2):  # a container the host killed under load answers nothing: ask again before blaming the judge
+            res = self.runner.run(cmd, cwd=CWD, stdin=stdin, timeout_s=self.timeout_s)
+            if not res.timed_out and res.stdout.strip():
+                self.fault = ""
+                return _last_json(res.stdout)
+        tail = res.stderr[-100:].decode("utf-8", "replace") if isinstance(res.stderr, bytes) else ""
+        self.fault = f"no answer: exit {res.exit_code}{', timed out' if res.timed_out else ''} {tail}".strip()
+        return None
 
     def record(self, vid: str, ok: bool, detail: str = "") -> None:
+        if not ok and self.fault:
+            detail = f"{detail} | {self.fault}"
+            self.fault = ""
         self.results.append({"id": vid, "ok": ok, "detail": detail[:200]})
 
 

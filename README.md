@@ -33,20 +33,23 @@ Two rules run through everything:
   license is read from the wheel itself, every place in it that names a license must be allowed,
   and an unknown license is refused. The bootstrap applies this to the founder's dependencies and
   to its own pinned wheels before installing them (`seed/bootstrap/requirements/licenses.json`).
+  The one exception is the `claude` CLI the rival runs through: a proprietary vendor tool pinned by
+  `seed/bootstrap/requirements/claude-cli/package-lock.json`, outside the wheel gate (`spec/tohum/24`).
   Patterns learned from other repositories are re-written, not copied.
 - **Learning and self-improvement are tested, not assumed.** Drills on a toy target, with answers
   committed in advance, check that a lesson is born from the right event, given to the right work,
   reduces errors there, is withdrawn when wrong, earns no credit when irrelevant, and survives a
   restart (`spec/tohum/22a-ders-provasi.md`); and that the system grows an organ from a measured
   gap, retires a useless one, replaces a weak one and does not grow without need
-  (`spec/tohum/12a-genesis-provasi.md`). A stage that brings one of these capabilities cannot pass
+  (`spec/tohum/12a-genesis-provasi.md`; the lesson drill exists as code, the genesis drill is specified but not yet
+  implemented). A stage that brings one of these capabilities cannot pass
   its exit without the drill. The lesson drill's judge is itself tested: `seed/drill/` holds a
   reference judge and simulated brains, one that learns and uses what it learned and fourteen that
   each lack one part of it. Over 500 drills each, the learner passed 498 times and was never
   failed. None of the fourteen ever passed. The founder's own judge must give the same verdicts on
   the resulting vectors (`spec/tohum/29c-prova-vektorleri.md`). These are simulated brains; whether
-  the real brain learns is shown when the drill runs on it. The bootstrap also remembers its own rejections and stops the founder
-  when the same rejection comes back three times in a row.
+  the real brain learns is shown when the drill runs on it. The bootstrap also remembers its own rejections and reports `not_learning` when the
+  same rejection comes back three times in a row; the Founder is specified to stop then (`spec/tohum/24`).
 
 Run its tests with:
 
@@ -54,6 +57,27 @@ Run its tests with:
 cd seed/bootstrap && PYTHONPATH=.:tests python3 -m unittest discover -s tests
 cd seed/drill && python3 -m unittest discover -s tests
 ```
+
+Linux is the reference platform: several tests need a POSIX shell and skip elsewhere, so on Windows run
+them in a `python:3.12-slim` container with git installed. Three more checks go beyond the unit tests:
+
+- `python3 local/e2e.py [--rival]`, run from `seed/bootstrap` (needs git, Python 3.12, Docker and network access
+  for the PyPI download), runs the whole referee against real containers. With `--rival` the real rival runs through your own `claude` login, so it also needs
+  Claude Code signed in; there is no API key anywhere while this system is for internal use.
+- `python3 local/mutate.py`, run from `seed/bootstrap` on Linux, breaks the referee's code on purpose and demands that a test
+  notices. A mutant that survives names behaviour no test measures.
+- `tests/test_live_cli.py` runs when `claude` is on `PATH`. It spends nothing (a made-up token) and fails
+  when the CLI renames a flag or changes its output format.
+
+One limit of running the rival on Windows: the MCP server's per-call deadline for a model-chosen regex uses the POSIX
+interval timer, so there it does not exist and a runaway `grep` ends only at the CLI timeout. Run the rival on Linux
+(or in Docker) when that matters; the referee's workflow does.
+
+The rival's CLI is pinned in `seed/bootstrap/requirements/claude-cli/`. To move the pin, edit the version
+of both packages and of `allowScripts` in `package.json` (the platform package holding the binary is a hard dependency, so that
+a wrong digest fails the install instead of being skipped), regenerate the lock on Linux x64
+(`docker run --rm -v <that dir>:/lock -w /lock node:22 npx -y npm@11 install --package-lock-only`), and run
+`tests/test_live_cli.py`; the workflow refuses a CLI whose `--version` differs from the pin.
 
 ## Where to start
 

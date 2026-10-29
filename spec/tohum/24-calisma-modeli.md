@@ -22,10 +22,10 @@ Okunma: Aşama 0 inşasından önce ve her dispatch değişikliğinde
 | Entegrasyon dalı | `brain/integration`; etkinleştirmede `main`'den kesilir, Aşama 0–1'de senkronlanmaz (`07`) |
 | Snapshot | Git ağacından dosya listesiyle çıkarılır, `export-ignore` dikkate alınmaz; `.git` yoktur. Keşif "tümünü koş", "etkilenen" yalnız worktree'de |
 | Bağımlılık | `getir` işinde, kurulum betikleri kapalı, içerik adresli artefakt; Actions önbelleği kullanılmaz (`08` 5) |
-| Lisans | Ürüne giren her bağımlılık ticari kullanıma açık, `license_allowlist`'teki bir lisanstadır (`18a`). Lisans tekerleğin kendisinden okunur (`License-Expression`, `License`, sınıflandırıcılar, `dist-info` lisans dosyaları) ve lisansı söyleyen her yer izinli olmalıdır; lisansı bulunamayan paket reddedilir; istisna yalnız operatörün `license_exceptions`'ıdır. MPL-2.0 dosyaları değiştirilmez. Dağıtılan sürüm lisans raporundan üretilen üçüncü taraf bildirimini taşır. Konteyner imajı, git ve docker ürünü koşturur, ürüne girmez; model sağlayıcı, Sigstore ve GitHub ticari şartlarıyla kullanılan servislerdir |
+| Lisans | Ürüne giren her bağımlılık ticari kullanıma açık, `license_allowlist`'teki bir lisanstadır (`18a`). Lisans tekerleğin kendisinden okunur (`License-Expression`, `License`, sınıflandırıcılar, `dist-info` lisans dosyaları) ve lisansı söyleyen her yer izinli olmalıdır; lisansı bulunamayan paket reddedilir; istisna yalnız operatörün `license_exceptions`'ıdır. MPL-2.0 dosyaları değiştirilmez. Dağıtılan sürüm lisans raporundan üretilen üçüncü taraf bildirimini taşır. Konteyner imajı, git ve docker ürünü koşturur, ürüne girmez; model sağlayıcı, Sigstore ve GitHub ticari şartlarıyla kullanılan servislerdir; rakibin `claude` CLI'si (tescilli, `LICENSE.md`) tekerlek değildir, dağıtılmaz ve lisans kapısına girmez: hakemin aracıdır, sürümü ve sha512 bütünlüğü `requirements/claude-cli/package-lock.json`'da pinlidir |
 | Keşif ve oracle (K0–K2) | Keşif: aracın tüm ihlalleri, taban dahil. Oracle: hedef ihlal kayboldu, mandal tuttu (toplam artmadı) |
 | Düzeltme aralığı | Araç düzeltmesi yalnız hedef mesajın `fix` aralığıyla uygulanır; biçimleyiciler dosya başına çalışır ve Aşama 2'de açılır |
-| Kaçış | Sağlayıcı reddi, zaman aşımı ya da `stop_reason: refusal` koşuyu `unresolved` yapar; sessiz yeniden deneme yoktur |
+| Kaçış | Sağlayıcı reddi ya da `stop_reason: refusal` koşuyu `unresolved` yapar; kimlik, kota, ağ hatası ve zaman aşımı altyapı arızasıdır: ret sayılmaz, sonraki turda yeniden denenir (`29b`); koşu içinde sessiz yeniden deneme yoktur |
 
 ## Kurucu
 

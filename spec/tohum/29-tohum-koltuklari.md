@@ -12,7 +12,7 @@ kurulumda onları bu metinlerle hakem reposunun `seats/` dizinine kopyalar (`25`
 aktarımıyla girer (`09a`). Kanaryada başarısız olan koltuk bu sayfadaki sürüme geri döner.
 
 **Tohum rakibi.** Model: üreticiden farklı olan; Kurucu Opus olduğu için Sonnet. Araçları yalnız
-Read, Grep, Glob; Bash ve ağ yoktur. Ayrı bağlamda yalnız artefaktı (son kabul edilmiş SHA'dan bu
+hakemin salt okunur `read_file`, `grep`, `glob` ve `submit_verdict` araçlarıdır (`29b`); Bash ve ağ yoktur. Ayrı bağlamda yalnız artefaktı (son kabul edilmiş SHA'dan bu
 yana tam diff) ve ilgili tohum sayfalarını görür; Kurucu'nun defterini ve gerekçesini görmez.
 Kurulumdan itibaren önyükleme hakemi çağırır (`29b`).
 

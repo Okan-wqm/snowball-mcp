@@ -19,12 +19,12 @@ from . import canon, config, ghapi, gitio, licenses, state as st
 from .classify import classify, spec_stage_dirs
 from .container import DockerRunner
 from .controls import run_controls
-from .decide import decide
+from .decide import OUTAGE_RETRY_LIMIT, decide
 from .importer import ImportErrorStop, run_import, verify_signature
 from .manifest import ManifestError, check_stage0, parse_lockfile, parse_manifest
 from .reproduce import run_reproducers
-from .rival import build_context, extract_seat_prompt, run_rival
-from .treehash import TreeError, extract, iter_files, tree_hash
+from .rival import build_context, extract_seat_prompt, resolve_claude, run_rival
+from .treehash import TreeError, extract, is_utf8_name, iter_files, shown, tree_hash
 from .vectors import run_vectors
 
 EXIT_FILE = "exit-request.json"
@@ -160,11 +160,16 @@ def cmd_poll(args: argparse.Namespace) -> int:
     try:
         prev = read_json(prev_dir / "result.json")["state"]
         seen = {prev["last_accepted_sha"], prev["last_evaluated_sha"]}
-    except (KeyError, TypeError, json.JSONDecodeError):
-        seen = set()
+        parked = prev.get("outage_sha") if int(prev.get("outage_count", 0)) >= OUTAGE_RETRY_LIMIT else None
+    except (KeyError, TypeError, ValueError, AttributeError, json.JSONDecodeError):
+        seen, parked = set(), None
     created = datetime.datetime.fromisoformat(art["created_at"].replace("Z", "+00:00"))
-    reupload = (datetime.datetime.now(datetime.timezone.utc) - created).days >= 7
-    output(skip=head in seen, reupload=reupload, head=head)
+    age = datetime.datetime.now(datetime.timezone.utc) - created
+    waiting = parked == head and age < datetime.timedelta(days=1)  # parked: one retry a day, not one an hour
+    if waiting:
+        print(f"::notice title=Commit parked::{head} failed {OUTAGE_RETRY_LIMIT} times for infrastructure "
+              "reasons and is retried once a day")
+    output(skip=head in seen or waiting, reupload=age.days >= 7, head=head)
     return 0
 
 
@@ -237,6 +242,9 @@ def cmd_pull(args: argparse.Namespace) -> int:
     elif not gitio.is_ancestor(repo, base, head):
         pre.append("history_rewritten")
     changed = gitio.changed_paths(repo, base, head) if base_ok else []
+    if not all(map(is_utf8_name, changed + gitio.tree_paths(repo, head))):
+        pre.append("non_utf8_path")  # canonical JSON cannot hold such a name: keep it out of meta.json, say so once
+    changed = [shown(p) for p in changed]
     if changed == [EXIT_FILE]:
         kind = "exit"
     else:
@@ -244,14 +252,15 @@ def cmd_pull(args: argparse.Namespace) -> int:
         pre += reasons
         if EXIT_FILE in changed:
             pre.append("exit_request_not_alone")
-    if "base_unreachable" in pre or "history_rewritten" in pre:
+    if {"base_unreachable", "history_rewritten", "non_utf8_path"} & set(pre):  # nothing of the tree can be read safely
         kind = "rejected"
     pre += [f"not_regular_file:{x}" for x in gitio.special_entries(repo, head)][:20]
     tar_bytes = gitio.archive(repo, head)
     if len(tar_bytes) > boot.limits.max_tree_bytes:
         pre.append("tree_too_large")
     try:
-        if tree_hash(tar_bytes, "spec/tohum", forbid_operator_names=False) != summary_cfg.seed_tree_sha256:
+        if ("non_utf8_path" not in pre
+                and tree_hash(tar_bytes, "spec/tohum", forbid_operator_names=False) != summary_cfg.seed_tree_sha256):
             pre.append("seed_tree_mismatch")
     except TreeError:
         pre.append("seed_tree_missing")
@@ -415,15 +424,15 @@ def cmd_rival(args: argparse.Namespace) -> int:
     seat = extract_seat_prompt((root / "seats" / SEATS_FILE).read_text(encoding="utf-8"))
     context = build_context(meta["kind"], meta["base"], meta["head"], meta["changed"],
                             (pulled / "diff.patch").read_text(encoding="utf-8"), _pages(tar_bytes, meta["kind"]))
-    import anthropic  # installed only in this job, from requirements/call.txt
-
-    client = anthropic.Anthropic(max_retries=2, timeout=600.0)
-    outcome = run_rival(client, boot.rival, seat_prompt=seat, context=context, tree_root=tree,
-                        budget_usd_micros=remaining_budget(policy, meta["state"]),
+    outcome = run_rival(boot.rival, claude_bin=resolve_claude(args.claude), seat_prompt=seat, context=context,
+                        tree_root=tree, budget_usd_micros=remaining_budget(policy, meta["state"]),
                         max_prompt_chars=boot.limits.max_prompt_chars)
     result = outcome.as_dict()
     write_json(out / "rival.json", result)
     output(has_repro=result["reproducer_count"] > 0 and result["verdict"] in ("refuted", "not_refuted"))
+    outage = [r for r in result["reasons"] if str(r).startswith("api_error")]
+    if outage:  # the job stays green so rival.json reaches `decide`, which books the cost and retries the commit
+        print(f"::warning title=The seed rival could not run::{', '.join(outage)}")
     return 0
 
 
@@ -518,7 +527,8 @@ def build_parser() -> argparse.ArgumentParser:
     add("pull", cmd_pull, root, ("--state", req), ("--work", req), ("--out", req), ("--remote", {}))
     add("fetch-deps", cmd_fetch_deps, ("--pulled", req), ("--work", req), ("--out", req))
     add("run-tests", cmd_run_tests, root, ("--pulled", req), ("--deps", req), ("--work", req), ("--out", req))
-    add("rival", cmd_rival, root, ("--pulled", req), ("--work", req), ("--out", req))
+    add("rival", cmd_rival, root, ("--pulled", req), ("--work", req), ("--out", req),
+        ("--claude", {"help": "path of the claude CLI (default: the one on PATH)"}))
     add("reproduce", cmd_reproduce, root, ("--pulled", req), ("--deps", req), ("--rival", req),
         ("--work", req), ("--out", req))
     add("decide", cmd_decide, root, ("--pulled", req), ("--run", {}), ("--rival", {}), ("--repro", {}),

@@ -19,12 +19,12 @@ STAGE0_MF_TESTS: dict[int, tuple[int, ...]] = {
     23: (39,), 24: (40,), 25: (41,), 26: (42,), 27: (43,), 28: (29,), 29: (44,), 30: (45,),
 }
 STAGE0_MF_COUNT = len(STAGE0_MF_TESTS)
-TEST_ID_RE = re.compile(r"^T([1-9][0-9]{0,2})$")
+TEST_ID_RE = re.compile(r"^T([1-9][0-9]{0,2})\Z")
 MAX_CMD = 2000
 MAX_TESTS = 200
 MAX_LOCKFILES = 10
-REQ_LINE_RE = re.compile(r"^([A-Za-z0-9][A-Za-z0-9._-]*)==([A-Za-z0-9._+!-]+)$")
-HASH_TOKEN_RE = re.compile(r"^--hash=sha256:[0-9a-f]{64}$")
+REQ_LINE_RE = re.compile(r"^([A-Za-z0-9][A-Za-z0-9._-]*)==([A-Za-z0-9._+!-]+)\Z")
+HASH_TOKEN_RE = re.compile(r"^--hash=sha256:[0-9a-f]{64}\Z")
 
 
 class ManifestError(ValueError):

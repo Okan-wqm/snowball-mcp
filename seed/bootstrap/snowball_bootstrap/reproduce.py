@@ -11,6 +11,8 @@ import hashlib
 from .container import Runner
 from .rival import MAX_REPRODUCERS
 
+DOCKER_ERROR = 125  # `docker run` exits with this when docker itself failed, before the command ran
+
 
 def run_reproducers(runner: Runner, attempts: list[dict], timeout_s: int) -> list[dict]:
     results = []
@@ -26,6 +28,7 @@ def run_reproducers(runner: Runner, attempts: list[dict], timeout_s: int) -> lis
         results.append({
             "attempt_index": index,
             "reproduced": bool(checks) and all(checks),
+            "runner_fault": res.exit_code == DOCKER_ERROR,  # the sandbox failed: nothing was shown either way
             "exit": res.exit_code,
             "timed_out": res.timed_out,
             "stdout_sha256": hashlib.sha256(res.stdout).hexdigest(),

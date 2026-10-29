@@ -21,6 +21,14 @@ def _excerpt(text: str) -> str | None:
     return None if secretscan.scan(tail) else tail
 
 
+WITHHELD = "(withheld: the text matches a secret pattern)"
+
+
+def _redacted(text: Any) -> Any:
+    """A published copy of a free-text field: dropped when it carries a secret, like a reason's detail."""
+    return WITHHELD if isinstance(text, str) and secretscan.scan(text) else text
+
+
 def _reason(kind: str, ref: str = "", detail: str = "", test_id: str | None = None) -> dict[str, Any]:
     item: dict[str, Any] = {"kind": kind, "ref": ref,
                             "detail_sha256": hashlib.sha256(detail.encode("utf-8", "replace")).hexdigest()}
@@ -33,8 +41,19 @@ def _reason(kind: str, ref: str = "", detail: str = "", test_id: str | None = No
 
 
 def signature(reason: dict[str, Any]) -> str:
-    """What makes two rejections "the same": the kind and the test, check or condition it names."""
+    """What makes two rejections "the same": the kind and the test, check or condition it names.
+
+    A reproduced refutation is named by its claim, not by its position among the rival's attempts: every
+    refutation is "attempt 0", and three different defects in a row must not stop the Founder as not learning.
+    """
+    if reason["kind"] == "refutation_reproduced":
+        return f"{reason['kind']}:{reason['detail_sha256'][:12]}"
     return f"{reason['kind']}:{reason.get('test_id') or reason['ref']}"
+
+
+OUTAGE_RETRY_LIMIT = 3  # consecutive infrastructure failures of one commit before `poll` parks it
+NOT_THE_FOUNDERS = ("budget",)  # stops the run for the operator; never counts as the Founder not learning
+DOCKER_ERROR = 125  # `docker run` exit code for a failure of docker itself
 
 
 def _learning(state: dict[str, Any], reasons: list[dict[str, Any]], limit: int) -> dict[str, Any]:
@@ -44,7 +63,7 @@ def _learning(state: dict[str, Any], reasons: list[dict[str, Any]], limit: int) 
     commit that is not; an accepted commit has no reasons, so it ends them all.
     """
     old = state["reject_streaks"]
-    now = sorted({signature(r) for r in reasons})
+    now = sorted({signature(r) for r in reasons if r["kind"] not in NOT_THE_FOUNDERS})
     state["reject_streaks"] = {sig: old.get(sig, 0) + 1 for sig in now}
     state["repeat_events"] += sum(1 for sig in now if sig in old)
     streaks = state["reject_streaks"]
@@ -61,6 +80,7 @@ def decide(meta: dict[str, Any], run: dict[str, Any] | None, rival: dict[str, An
     head, base, kind = meta["head"], meta["base"], meta["kind"]
     reasons: list[dict[str, Any]] = [_reason(r) for r in meta.get("pre_reasons", [])]
     evaluate = bool(meta.get("evaluate", True))
+    outage = False  # an infrastructure failure: the commit is retried, never counted as a rejection
 
     # The rival is skipped on purpose when the tests are red (it would spend budget on a commit
     # that is rejected anyway), so it is expected only for spec requests or green test runs.
@@ -71,40 +91,52 @@ def decide(meta: dict[str, Any], run: dict[str, Any] | None, rival: dict[str, An
         if expected and job_results.get(job) != "success":
             reasons.append(_reason("infra", ref=f"{job}:{job_results.get(job)}"))
             evaluate = False
+            outage = True
 
     tests = (run or {}).get("tests", [])
     vectors = (run or {}).get("vectors", [])
     controls = (run or {}).get("controls", [])
     if meta.get("run_tests") and run is not None:
-        for c in controls:
-            if not c["ok"]:
-                reasons.append(_reason("control_failed", ref=c["id"]))
-        for t in tests:
-            if not t["ok"]:
-                reasons.append(_reason("test_failed", ref=t["cmd_sha256"], detail=t.get("output_tail", ""),
-                                       test_id=t["id"]))
-        for v in vectors:
-            if not v["ok"]:
-                reasons.append(_reason("vector_failed", ref=v["id"], detail=v.get("detail", "")))
-        for lic in (run or {}).get("licenses", []):
-            if not lic["allowed"]:
-                reasons.append(_reason("license_not_allowed",
-                                       ref=f"{lic['name']}=={lic['version']}:{lic['expression']}"))
-        if not tests:
-            reasons.append(_reason("zero_tests"))
+        broken = [c["id"] for c in controls if not c["ok"]]
+        if not broken and any(t.get("exit") == DOCKER_ERROR for t in tests):
+            broken = ["docker"]
+        if broken:  # the sandbox itself failed: nothing it printed is evidence about the push
+            reasons.append(_reason("infra", ref="kos:" + ",".join(broken)))
+            evaluate = False
+            outage = True
+        else:
+            for t in tests:
+                if not t["ok"]:
+                    reasons.append(_reason("test_failed", ref=t["cmd_sha256"], detail=t.get("output_tail", ""),
+                                           test_id=t["id"]))
+            for v in vectors:
+                if not v["ok"]:
+                    reasons.append(_reason("vector_failed", ref=v["id"], detail=v.get("detail", "")))
+            for lic in (run or {}).get("licenses", []):
+                if not lic["allowed"]:
+                    reasons.append(_reason("license_not_allowed",
+                                           ref=f"{lic['name']}=={lic['version']}:{lic['expression']}"))
+            if not tests:
+                reasons.append(_reason("zero_tests"))
 
     rival_valid = False
     if rival_expected:
         if rival is None:
-            reasons.append(_reason("rival_missing"))
+            if job_results.get("cagir") == "success":  # a failed job is already reported as infra
+                reasons.append(_reason("rival_missing"))
         else:
             state["month_spend_usd_micros"] += int(rival.get("cost_usd_micros", 0))
             state["stage_spend_usd_micros"] += int(rival.get("cost_usd_micros", 0))
             if rival.get("verdict") in VALID_RIVAL:
                 rival_valid = True
-                if job_results.get("yeniden") not in (None, "success", "skipped") and rival.get("reproducer_count"):
+                if rival.get("reproducer_count") and job_results.get("yeniden") != "success":
                     reasons.append(_reason("infra", ref=f"yeniden:{job_results.get('yeniden')}"))
                     evaluate = False
+                    outage = True
+                elif any(r.get("runner_fault") for r in repro or []):  # docker failed: "not reproduced" proves nothing
+                    reasons.append(_reason("infra", ref="yeniden:docker"))
+                    evaluate = False
+                    outage = True
                 for r in repro or []:
                     if r["reproduced"]:
                         attempt = rival["attempts"][r["attempt_index"]]
@@ -114,7 +146,8 @@ def decide(meta: dict[str, Any], run: dict[str, Any] | None, rival: dict[str, An
                 for why in rival.get("reasons", []) or ["unresolved"]:
                     reasons.append(_reason("rival_unresolved", ref=why))
                 if any(str(w).startswith("api_error") for w in rival.get("reasons", [])):
-                    evaluate = False  # provider or transport failure: retry this commit next poll
+                    evaluate = False  # identity, quota, network or timeout: retry this commit later
+                    outage = True
 
     exit_block: dict[str, Any] = {"requested": kind == "exit", "transferable": False, "missing": []}
     if kind == "exit":
@@ -145,6 +178,15 @@ def decide(meta: dict[str, Any], run: dict[str, Any] | None, rival: dict[str, An
     if evaluate and kind != "none":
         state["last_evaluated_sha"] = head
         learning = _learning(state, reasons, repeat_reject_limit)
+    elif evaluate:  # an unchanged tree (an empty commit, a revert): nothing to judge and nothing to learn from
+        state["last_evaluated_sha"] = head
+    if outage:
+        if state["outage_sha"] == head:
+            state["outage_count"] += 1
+        else:
+            state["outage_sha"], state["outage_count"] = head, 1
+    elif evaluate and kind != "none":
+        state["outage_sha"], state["outage_count"] = None, 0
     if accepted:
         state["last_accepted_sha"] = head
         if kind == "spec":
@@ -170,8 +212,8 @@ def decide(meta: dict[str, Any], run: dict[str, Any] | None, rival: dict[str, An
         "kind": kind,
         "verdict": verdict,
         "reasons": reasons,
-        "tests": tests,
-        "vectors": vectors,
+        "tests": [dict(t, output_tail=_redacted(t.get("output_tail"))) if "output_tail" in t else t for t in tests],
+        "vectors": [dict(v, detail=_redacted(v.get("detail"))) if "detail" in v else v for v in vectors],
         "controls": controls,
         "rival": rival,
         "reproducers": repro or [],

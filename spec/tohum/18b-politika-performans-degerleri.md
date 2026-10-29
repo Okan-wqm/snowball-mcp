@@ -26,7 +26,7 @@ aynıdır.
 | `op_allow` | K0 `lint_fix`; K1 `lint_fix`, `change_type`; K2 `remove`; K5–K6 `doc_fix` dışı hepsi; K8 `doc_fix` | `04a` 8, `26` |
 | `cheapest_model` | `claude-haiku-5-5`; yalnız panel faz 1–2 | `06`, `09` |
 | `effort` | Kurucu `high`; rakip `medium`; panel koltuğu `low`; düzeltici `low` | `24`, `10a` |
-| `rules.max_turns` | Rakip 30, avcı 60, panel koltuğu 12 | `24` |
+| `rules.max_turns` | Rakip 30 (CLI turu; `bootstrap.json` `rival.max_turns`), avcı 60, panel koltuğu 12 | `24` |
 | `rules.gap_rule` | gap ≥ 0,2 iki pencere üst üste ve havuz ≥ 20 vaka | `17` |
 | `signal_thresholds` | `17`'deki tablonun eşik sütunu | `17` |
 | `rules.drift_bound` | Bir eşiğin başlangıçtan net hareketi > %20 → Gözcü işareti | `18` |
