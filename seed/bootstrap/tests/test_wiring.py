@@ -247,9 +247,63 @@ class StageTableMatchesTheSpecTest(unittest.TestCase):
         self.assertEqual(listed, named)
         seed = json.loads((BOOT / "vectors" / "vectors.json").read_text(encoding="utf-8"))
         groups = {k: v for k, v in seed.items() if isinstance(v, dict)}
-        self.assertEqual(set(groups), {name for name, _fn in vectors.GROUPS})
+        own = {name for name, _fn in vectors.GROUPS}
+        data = {name for name, group in groups.items() if group.get("runner") == vectors.DATA_RUNNER}
+        self.assertEqual((set(groups), own & data), (own | data, set()))  # every group has exactly one judge
         for name, group in groups.items():
             self.assertEqual(group["owner"] == "asama-0", name in named, name)
+
+
+VECTOR_PAGES = ("29f", "29g")
+
+
+class VectorInterfacePagesTest(unittest.TestCase):
+    """`29f` and `29g` are what the Founder reads of the data groups (it never sees `vectors.json`): every group's
+    command and every case's purpose are there, the expected values are not (`29a`: the vectors are a floor)."""
+
+    SEED = json.loads((BOOT / "vectors" / "vectors.json").read_text(encoding="utf-8"))
+    DATA = {n: g for n, g in SEED.items() if isinstance(g, dict) and g.get("runner") == vectors.DATA_RUNNER}
+
+    def test_each_page_is_a_seed_page_and_29d_and_the_index_point_to_it(self):
+        index, groups_page = (ROOT / "spec" / "INDEX.md").read_text(encoding="utf-8"), spec_page("tohum", "29d")
+        for prefix in VECTOR_PAGES:
+            page = spec_page("tohum", prefix)
+            name = next((ROOT / "spec" / "tohum").glob(f"{prefix}-*.md")).name
+            lines = page.splitlines()
+            with self.subTest(page=name):
+                self.assertLessEqual(len(lines), 80)  # `tohum/15` 1
+                self.assertRegex(lines[2], r"^Tarih: \d{4}-\d\d-\d\d · Sürüm: [\d.]+ · Durum: \w+ · Sahibi: operatör$")
+                self.assertTrue(lines[3].startswith("Okunma: ") and lines[4].startswith("Çapa: "))
+                self.assertIn(f"| `tohum/{name}` | {lines[0].removeprefix('# ')} | {lines[3].removeprefix('Okunma: ')} |",
+                              index)
+                self.assertIn(f"`{prefix}`", groups_page)
+
+    def test_every_data_group_its_commands_and_every_case_are_on_its_page(self):
+        self.assertEqual(set(self.DATA), {"secrets", "contained", "profile", "npmlock", "recipe", "diffguard"})
+        for name, group in self.DATA.items():
+            page = (ROOT / group["interface"]).read_text(encoding="utf-8")
+            self.assertIn(f"`{name}`", page)
+            for case in group["cases"]:
+                with self.subTest(case=case["id"]):
+                    for variant in (case, case["changed"]):
+                        self.assertIn(" ".join(variant["cmd"].split()[:4]), page)  # python -m <module> <verb>
+                    self.assertIn(f"`{case['id'].split('.', 1)[1]}`", page)
+
+    def test_no_expected_value_is_on_a_page(self):
+        def atoms(value):
+            if isinstance(value, dict):
+                return [a for v in value.values() for a in atoms(v)]
+            if isinstance(value, list):
+                return [a for v in value for a in atoms(v)]
+            return [value]
+        pages = "".join(spec_page("tohum", p) for p in VECTOR_PAGES)
+        for group in self.DATA.values():
+            for case in group["cases"]:
+                expect = case["expect"]
+                self.assertNotIn(json.dumps(expect, separators=(",", ":"), sort_keys=True), pages)
+                for atom in atoms(expect):  # content addresses and reasons bound to a path
+                    if isinstance(atom, str) and (atom.startswith("sha256:") or (":" in atom and "/" in atom)):
+                        self.assertNotIn(atom, pages, case["id"])
 
 
 class NothingStaleTest(unittest.TestCase):

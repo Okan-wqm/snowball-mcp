@@ -1,6 +1,7 @@
 import io
 import json
 import re
+import shlex
 import tarfile
 import tempfile
 import time
@@ -11,6 +12,7 @@ from pathlib import Path
 from snowball_bootstrap import canon, licenses, secretscan, stages
 from snowball_bootstrap.classify import classify, spec_stage_dirs
 from snowball_bootstrap.config import ConfigError, load_bootstrap
+from snowball_bootstrap.container import RunResult
 from snowball_bootstrap.controls import run_controls
 from snowball_bootstrap.manifest import ManifestError, check_stage0, parse_lockfile, parse_manifest
 from snowball_bootstrap.treehash import TreeError, extract
@@ -20,6 +22,9 @@ from helpers import DRILL, EVERY_GROUP, STATS, FakeRunner
 
 BOOTSTRAP = Path(__file__).resolve().parents[1]
 VECTORS = BOOTSTRAP / "vectors"
+# Stage 0's groups the seed has vectors for; every other group the table names is still missing (`29d`, E161).
+STAGE0_SEEDED = ("chain", "secrets", "contained", "profile", "npmlock", "recipe", "diffguard")
+DATA_GROUPS = STAGE0_SEEDED[1:]
 POLICY_DEFAULTS = BOOTSTRAP.parents[1] / "spec" / "tohum" / "18a-politika-baslangic-degerleri.md"
 Z = "0" * 64
 
@@ -140,27 +145,29 @@ class VectorsTest(unittest.TestCase):
     def test_groups_wait_for_their_micro_feature(self):
         self.assertEqual(run_vectors(FakeRunner(VECTORS), VECTORS, (2,), table=EVERY_GROUP)[0]["id"],
                          "cp_lower.60/60")
-        self.assertEqual(run_vectors(FakeRunner(VECTORS), VECTORS, (2,)), [])  # Stage 0's MF2 is `secrets`
+        ids = {r["id"].split(".")[0] for r in run_vectors(FakeRunner(VECTORS), VECTORS, (2,))}
+        self.assertEqual(ids, {"secrets"})  # Stage 0's MF2
         ids = {r["id"].split(".")[0] for r in run_vectors(FakeRunner(VECTORS), VECTORS, (1,))}
         self.assertEqual(ids, {"chain"})
 
     def test_a_group_no_stage0_micro_feature_owns_never_runs_in_stage0(self):
         """`29d`: `cp_lower`, `mcnemar`, `match` (P1) and `drill` (Stage 2 batch) have no owner in the Stage 0
-        table; with every micro-feature done only `chain` runs (MF1 and MF10 both own it, it runs once)."""
+        table; with every micro-feature done only Stage 0's groups run (`chain`, owned by MF1 and MF10, once)."""
         ids = [r["id"] for r in run_vectors(FakeRunner(VECTORS), VECTORS, tuple(range(1, 19)))]
-        self.assertEqual({i.split(".")[0] for i in ids}, {"chain"})
+        self.assertEqual({i.split(".")[0] for i in ids}, set(STAGE0_SEEDED))
         self.assertEqual(len(ids), len(set(ids)))
         self.assertEqual(stages.load(0).groups_of((10,)), ("chain", "append"))
 
     def test_a_group_the_seed_has_no_vectors_for_is_named_not_invented(self):
-        """The sixteen Stage 0 groups after `chain` come with the seed (`29d`); until they do the referee says which
-        a finished micro-feature owns, and runs nothing in their place."""
+        """The Stage 0 groups after `diffguard` come with a later seed epoch (`29d`); until they do the referee says
+        which a finished micro-feature owns, and runs nothing in their place. MF2-MF7's groups no longer warn."""
         self.assertEqual(missing_groups(VECTORS, (1,), stages.load(0)), [])
-        self.assertEqual(missing_groups(VECTORS, (1, 2), stages.load(0)), ["secrets"])
-        self.assertEqual(missing_groups(VECTORS, tuple(range(1, 11)), stages.load(0)),
-                         ["secrets", "contained", "profile", "npmlock", "recipe", "diffguard", "k0map", "refs",
-                          "append"])
-        self.assertEqual(len(missing_groups(VECTORS, tuple(range(1, 19)), stages.load(0))), 16)
+        self.assertEqual(missing_groups(VECTORS, tuple(range(1, 8)), stages.load(0)), [])
+        self.assertEqual(missing_groups(VECTORS, (1, 8), stages.load(0)), ["k0map"])
+        self.assertEqual(missing_groups(VECTORS, tuple(range(1, 11)), stages.load(0)), ["k0map", "refs", "append"])
+        self.assertEqual(missing_groups(VECTORS, tuple(range(1, 19)), stages.load(0)),
+                         ["k0map", "refs", "append", "root", "flaky", "cause", "revert_drill", "prompt", "status",
+                          "genesis"])
         self.assertEqual(missing_groups(VECTORS, STATS + DRILL, EVERY_GROUP), [])
 
     def test_wrong_implementations_fail(self):
@@ -181,6 +188,155 @@ class VectorsTest(unittest.TestCase):
         blind = {r["id"] for r in run_vectors(FakeRunner(VECTORS, wrong={"drill_ignores_commitment"}), VECTORS,
                                              DRILL, table=EVERY_GROUP) if not r["ok"]}
         self.assertEqual(blind, {"drill.tampered_key"})
+
+
+class Scripted:
+    """A container that answers each (command, stdin) pair with a fixed (exit, stdout); anything else exits 1."""
+
+    def __init__(self, answers):
+        self.answers, self.calls = answers, []
+
+    def run(self, cmd, *, cwd=".", stdin=b"", timeout_s):
+        self.calls.append((cmd, cwd, stdin))
+        code, out = self.answers.get((cmd, stdin), (1, b""))
+        return RunResult(code, out, b"", 1)
+
+
+class DataRunnerTest(unittest.TestCase):
+    """The generic data runner (`29d`) on a made-up group: one case, its changed input, and every way to fail."""
+
+    TABLE = stages.parse_table(json.dumps({"stage": 0, "mfs": [
+        {"mf": 1, "tests": [13], "groups": ["probe"], "module": "probe/x.py", "calls": []}]}), 0)
+    CASE = {"id": "probe.one", "purpose": "a made-up case", "cmd": "python -m probe.x run /vec/probe/a.txt",
+            "stdin": '{"n": 1}', "fixture": ["probe/a.txt"], "expect": {"ok": True, "n": 1},
+            "changed": {"description": "one field", "cmd": "python -m probe.x run /vec/probe/b.txt",
+                        "stdin": '{"n": 2}', "fixture": ["probe/b.txt"], "expect_not": {"ok": True, "n": 1}}}
+    GOOD = (0, b'{"ok": true, "n": 1, "argv": ["docker", "run"], "reason": "free text"}\n')
+    OTHER = (1, b'{"ok": false, "n": 1}\n')
+
+    def run_case(self, original, changed, group=None):
+        with tempfile.TemporaryDirectory() as tmp:
+            Path(tmp, "vectors.json").write_text(json.dumps(
+                {"probe": group or {"owner": "asama-0", "runner": "data", "cases": [self.CASE]}}), encoding="utf-8")
+            runner = Scripted({(self.CASE["cmd"], b'{"n": 1}'): original,
+                               (self.CASE["changed"]["cmd"], b'{"n": 2}'): changed})
+            results = run_vectors(runner, Path(tmp), (1,), table=self.TABLE)
+        return {r["id"]: r for r in results}, runner
+
+    def test_the_named_fields_are_compared_and_the_others_are_the_commands_own(self):
+        results, runner = self.run_case(self.GOOD, self.OTHER)
+        self.assertEqual({k: r["ok"] for k, r in results.items()}, {"probe.one": True, "probe.one.changed_input": True})
+        self.assertEqual(runner.calls, [(self.CASE["cmd"], "referee", b'{"n": 1}'),
+                                        (self.CASE["changed"]["cmd"], "referee", b'{"n": 2}')])
+        results, _ = self.run_case((0, b"progress...\n" + self.GOOD[1]), self.OTHER)
+        self.assertTrue(results["probe.one"]["ok"])  # the last line of stdout is the answer
+
+    def test_values_are_compared_as_json_not_as_python(self):
+        for wrong in (b'{"ok": 1, "n": 1}', b'{"ok": true, "n": 1.0}', b'{"ok": true, "n": true}', b'{"ok": true}',
+                      b'{"ok": true, "n": "1"}', b'[true, 1]', b'not json'):
+            results, _ = self.run_case((0, wrong), self.OTHER)
+            self.assertEqual((results["probe.one"]["ok"], results["probe.one.changed_input"]["ok"]), (False, True),
+                             wrong)
+
+    def test_a_changed_input_must_answer_the_same_fields_and_differently(self):
+        for changed in (self.GOOD, (0, b'{"ok": false}'), (0, b"{}"), (1, b""), (1, b"Traceback")):
+            results, _ = self.run_case(self.GOOD, changed)
+            self.assertEqual((results["probe.one"]["ok"], results["probe.one.changed_input"]["ok"]), (True, False),
+                             changed)
+
+    def test_exit_125_stays_a_runner_fault(self):
+        results, _ = self.run_case((125, b""), self.OTHER)
+        self.assertEqual((results["probe.one"]["ok"], results["probe.one"]["runner_fault"]), (False, True))
+        results, _ = self.run_case((1, b""), self.OTHER)
+        self.assertEqual((results["probe.one"]["ok"], results["probe.one"]["runner_fault"]), (False, False))
+
+    def test_only_a_group_marked_as_data_has_a_judge(self):
+        for group, missing in (({"owner": "asama-0", "runner": "data", "cases": [self.CASE]}, []),
+                               ({"owner": "asama-0", "runner": "other", "cases": [self.CASE]}, ["probe"]),
+                               ({"owner": "asama-0", "cases": [self.CASE]}, ["probe"])):
+            with tempfile.TemporaryDirectory() as tmp:
+                Path(tmp, "vectors.json").write_text(json.dumps({"probe": group}), encoding="utf-8")
+                self.assertEqual(missing_groups(Path(tmp), (1,), self.TABLE), missing, group)
+                ran = run_vectors(Scripted({}), Path(tmp), (1,), table=self.TABLE)
+                self.assertEqual(len(ran), 0 if missing else 2, group)  # a group without a judge runs nothing
+
+
+class SeedDataVectorsTest(unittest.TestCase):
+    """MF2-MF7's seed vectors as the data runner reads them (`29d`): the format, the fixtures, nothing dead."""
+
+    SEED = json.loads((VECTORS / "vectors.json").read_text(encoding="utf-8"))
+
+    def test_every_data_group_has_the_29d_format(self):
+        self.assertEqual([n for n, g in self.SEED.items() if isinstance(g, dict) and g.get("runner") == "data"],
+                         list(DATA_GROUPS))
+        ids = []
+        for name in DATA_GROUPS:
+            group = self.SEED[name]
+            self.assertEqual(set(group), {"owner", "runner", "interface", "source", "cases"})
+            for case in group["cases"]:
+                with self.subTest(case=case["id"]):
+                    changed = case["changed"]
+                    self.assertTrue(case["id"].startswith(name + "."))
+                    self.assertTrue({"id", "purpose", "cmd", "fixture", "expect", "changed"} <= set(case)
+                                    <= {"id", "purpose", "cmd", "stdin", "fixture", "expect", "changed"})
+                    self.assertTrue({"description", "cmd", "fixture", "expect_not"} <= set(changed)
+                                    <= {"description", "cmd", "stdin", "fixture", "expect_not"})
+                    self.assertTrue(case["expect"])
+                    self.assertEqual(json.dumps(changed["expect_not"], sort_keys=True),
+                                     json.dumps(case["expect"], sort_keys=True))  # "does not give expect"
+                    self.assertNotEqual((case["cmd"], case.get("stdin")), (changed["cmd"], changed.get("stdin")))
+                    for variant in (case, changed):
+                        self.assertTrue(variant["cmd"].startswith("python -m "))
+                        self.assertEqual(variant["fixture"], [p[len("/vec/"):] for p in shlex.split(variant["cmd"])
+                                                              if p.startswith("/vec/")])
+                    ids.append(case["id"])
+        self.assertEqual(len(ids), len(set(ids)))
+        self.assertEqual(len(ids), 47)
+
+    def test_expected_values_carry_no_floats(self):
+        """`tohum/26`: hashed artefacts carry no floats; nor do the vectors' answers (the runner tells 1 from 1.0)."""
+        def walk(value):
+            if isinstance(value, dict):
+                return any(walk(v) for v in value.values())
+            if isinstance(value, list):
+                return any(walk(v) for v in value)
+            return isinstance(value, float)
+        for name in DATA_GROUPS:
+            for case in self.SEED[name]["cases"]:
+                self.assertFalse(walk(case["expect"]), case["id"])
+
+    def test_every_fixture_exists_and_every_fixture_file_is_used(self):
+        for name in DATA_GROUPS:
+            used = set()
+            for case in self.SEED[name]["cases"]:
+                for variant in (case, case["changed"]):
+                    for rel in variant["fixture"]:
+                        self.assertTrue(rel.startswith(name + "/") and (VECTORS / rel).exists(), rel)
+                        used.add(rel)
+            base = VECTORS / name
+            files = [p.relative_to(VECTORS).as_posix() for p in base.rglob("*") if p.is_file()] if base.exists() else []
+            for rel in files:
+                self.assertTrue(any(rel == u or rel.startswith(u + "/") for u in used), f"{rel} is no case's fixture")
+
+    def test_every_secret_in_the_fixtures_is_marked_fake(self):
+        """The `secrets` fixtures are the one place the seed holds secret-shaped strings (.gitignore lets them in):
+        each is a made-up value marked FAKE, also inside a decoded ledger row."""
+        formats = (re.compile("gh[pousr]_[A-Za-z0-9]{36}"), re.compile("(?:AKIA|ASIA)[A-Z0-9]{16}"))
+        found = 0
+        for path in sorted((VECTORS / "secrets").iterdir()):
+            text = path.read_text(encoding="utf-8")
+            texts = [text]
+            for line in text.splitlines() if path.suffix == ".jsonl" else []:
+                try:
+                    texts.append(json.dumps(json.loads(line), ensure_ascii=False))
+                except ValueError:
+                    pass
+            for candidate in texts:
+                for fmt in formats:
+                    for match in fmt.finditer(candidate):
+                        found += 1
+                        self.assertIn("FAKE", match.group(0), path.name)
+        self.assertGreaterEqual(found, 8)  # one per matching line of the fixtures as written today
 
 
 class ControlsTest(unittest.TestCase):

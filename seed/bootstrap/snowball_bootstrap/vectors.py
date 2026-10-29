@@ -4,6 +4,9 @@ A vector group applies once a micro-feature of the stage table that owns it is d
 table does not name has no owner in this stage and does not run (`cp_lower`, `mcnemar`, `match` are P1's,
 `drill` the Stage 2 batch's). Every vector is checked twice: the right input must give the expected answer,
 and a changed input must not.
+
+`chain` and the P1 and drill groups have judges of their own, written before `29d`. Every other group is data
+(`"runner": "data"`) and one judge applies it, so a seed epoch adds a group without adding code (`29d`).
 """
 
 from __future__ import annotations
@@ -12,7 +15,7 @@ import json
 import shlex
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from . import stages
 from .container import Runner
@@ -132,11 +135,54 @@ def _drill(run: VectorRun, spec: dict[str, Any]) -> None:
         run.record(f"drill.{item['name']}", got == (item["drill"], item["verdicts"]), json.dumps(got)[:200])
 
 
+def _same(a: Any, b: Any) -> bool:
+    """Equal as JSON values. Python's ``==`` would take ``1`` for ``true`` and ``1.0`` for ``1``; JSON does not."""
+    return json.dumps(a, sort_keys=True) == json.dumps(b, sort_keys=True)
+
+
+def _gives(out: dict[str, Any] | None, fields: dict[str, Any]) -> bool:
+    return out is not None and all(name in out and _same(out[name], value) for name, value in fields.items())
+
+
+def _shown(out: dict[str, Any] | None, fields: dict[str, Any]) -> str:
+    return "no JSON object" if out is None else "got " + json.dumps({k: out[k] for k in fields if k in out})
+
+
+def _data(run: VectorRun, spec: dict[str, Any]) -> None:
+    """The generic data runner (`29d`). A case's command, run from ``referee/`` with its stdin, must print every
+    field ``expect`` names with that value; other fields of the line (an argv, a reason) are not compared. Its
+    changed input must answer the same fields, and not with ``expect_not``: an answer that ignores the input
+    fails there, and so does no answer at all."""
+    for case in spec["cases"]:
+        out = run.call(case["cmd"], case.get("stdin", "").encode("utf-8"))
+        run.record(case["id"], _gives(out, case["expect"]), _shown(out, case["expect"]))
+        changed = case["changed"]
+        avoid = changed["expect_not"]
+        out = run.call(changed["cmd"], changed.get("stdin", "").encode("utf-8"))
+        run.record(f"{case['id']}.changed_input",
+                   out is not None and all(name in out for name in avoid) and not _gives(out, avoid),
+                   _shown(out, avoid))
+
+
 GROUPS = (("chain", _chain), ("cp_lower", _cp), ("mcnemar", _mcnemar), ("match", _match), ("drill", _drill))
+DATA_RUNNER = "data"  # a group of `{cmd, stdin?, fixture, expect, changed: {..., expect_not}}` cases (`29d`)
 
 
 def _seed(vectors_dir: Path) -> dict[str, Any]:
     return json.loads((vectors_dir / "vectors.json").read_text(encoding="utf-8"))
+
+
+def _judges(spec: dict[str, Any]) -> dict[str, Callable[[VectorRun, dict[str, Any]], None]]:
+    """Every group the seed has a judge for, in the seed's order: its own judge, or the data runner for a group
+    marked as data. A group with neither cannot run."""
+    own = dict(GROUPS)
+    judges: dict[str, Callable[[VectorRun, dict[str, Any]], None]] = {}
+    for name, group in spec.items():
+        if name in own:
+            judges[name] = own[name]
+        elif isinstance(group, dict) and group.get("runner") == DATA_RUNNER:
+            judges[name] = _data
+    return judges
 
 
 def missing_groups(vectors_dir: Path, done_mf: tuple[int, ...], table: stages.StageTable) -> list[str]:
@@ -145,9 +191,8 @@ def missing_groups(vectors_dir: Path, done_mf: tuple[int, ...], table: stages.St
     Their expected values come with the seed, computed twice independently (`29a`); the referee never makes them
     up. `decide` warns on a code push and refuses the exit while any is missing.
     """
-    spec = _seed(vectors_dir)
-    runnable = {name for name, _fn in GROUPS}
-    return [g for g in table.groups_of(done_mf) if g not in spec or g not in runnable]
+    judges = _judges(_seed(vectors_dir))
+    return [g for g in table.groups_of(done_mf) if g not in judges]
 
 
 def run_vectors(runner: Runner, vectors_dir: Path, done_mf: tuple[int, ...], timeout_s: int = 120, *,
@@ -155,7 +200,7 @@ def run_vectors(runner: Runner, vectors_dir: Path, done_mf: tuple[int, ...], tim
     owned = set((table or stages.load(0)).groups_of(done_mf))
     spec = _seed(vectors_dir)
     run = VectorRun(runner, timeout_s)
-    for name, fn in GROUPS:
-        if name in owned and name in spec:
-            fn(run, spec[name])
+    for name, judge in _judges(spec).items():
+        if name in owned:
+            judge(run, spec[name])
     return run.results

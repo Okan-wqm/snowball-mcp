@@ -337,10 +337,10 @@ class KindsAndExit(unittest.TestCase):
         """`asama-0/10` #testler: every group passes. A group the seed has no vectors for cannot, so the exit is
         refused until a seed epoch brings it; on a code push the same gap is a warning (below)."""
         ready = state0(rival_artifacts=survived(A, "1" * 40, "2" * 40))
-        run = dict(green_run(), vector_groups_missing=["secrets", "genesis"])
+        run = dict(green_run(), vector_groups_missing=["k0map", "genesis"])
         res = run_decide(self.exit_meta(ready), run, None, None, {"getir": "success", "kos": "success"})
         self.assertEqual(res["verdict"], "rejected")
-        self.assertEqual(res["exit"]["missing"], ["vector_group_missing:secrets", "vector_group_missing:genesis"])
+        self.assertEqual(res["exit"]["missing"], ["vector_group_missing:k0map", "vector_group_missing:genesis"])
         self.assertFalse(res["exit"]["transferable"])
 
     def test_the_exit_block_carries_the_founders_repeat_count(self):  # D36
@@ -398,9 +398,9 @@ class ModuleLessRed(unittest.TestCase):
     def test_a_vector_group_the_seed_lacks_warns_on_a_code_push_and_never_counts_against_the_founder(self):
         """The group's vectors are the seed's to bring (`29a`, `29d`), never the Founder's: the push is judged on
         what exists and the operator is told; the exit waits for the group (`KindsAndExit`)."""
-        res = self.code(dict(green_run(), vector_groups_missing=["secrets"]), module_less_mfs=())
+        res = self.code(dict(green_run(), vector_groups_missing=["k0map"]), module_less_mfs=())
         self.assertEqual(res["verdict"], "accepted")
-        self.assertEqual(res["warnings"], ["vector_group_missing:secrets"])
+        self.assertEqual(res["warnings"], ["vector_group_missing:k0map"])
         self.assertEqual(res["state"]["reject_streaks"], {})
 
 
@@ -829,11 +829,12 @@ class PullGates(unittest.TestCase):
 
     def test_run_tests_names_the_vector_groups_the_seed_still_lacks(self):  # `29d`
         manifest = {"tests": [{"id": "T13", "cmd": "python -m unittest t13", "stage": 0},
-                              {"id": "T38", "cmd": "python -m unittest t38", "stage": 0}], "done_mf": [1, 2],
+                              {"id": "T38", "cmd": "python -m unittest t38", "stage": 0},
+                              {"id": "T35", "cmd": "python -m unittest t35", "stage": 0}], "done_mf": [1, 2, 8],
                     "lockfiles": []}
         run, _ = self.run_tests_with({"manifest": manifest, "module_less": []})
-        self.assertEqual(run["vector_groups_missing"], ["secrets"])
-        self.assertEqual({v["id"].split(".")[0] for v in run["vectors"]}, {"chain"})
+        self.assertEqual(run["vector_groups_missing"], ["k0map"])  # MF2's `secrets` came with the seed (E161)
+        self.assertEqual({v["id"].split(".")[0] for v in run["vectors"]}, {"chain", "secrets"})
 
     def test_reproducers_run_with_the_reproducer_timeout(self):  # L32
         pulled, vectors = self.stage_pulled({"manifest": None})
