@@ -1,6 +1,6 @@
 # Prova Vektörleri: Ders Provasının Referans Yargıcı
 
-Tarih: 2026-10-28 · Sürüm: 2.2 · Durum: taslak · Sahibi: operatör
+Tarih: 2026-10-29 · Sürüm: 2.2 · Durum: taslak · Sahibi: operatör
 Okunma: `exit.drill`'in yargıcını yazarken (Aşama 0, mikro özellik 18) ve ders provası tasarlanırken
 Çapa: `seed/drill/` (referans yargıç, simüle beyinler, testler); `seed/bootstrap/vectors/drill/`
 
@@ -54,8 +54,8 @@ aynen çıktığını denetler.
 ## Ölçülen ayırma gücü
 
 Her beyin 500 bağımsız provada koştu: öğrenen 498'inde PASS, 2'sinde UNMEASURABLE aldı, hiç FAIL
-almadı; 14 kusurlu beynin hiçbiri bir kez bile PASS almadı. Referans yargıçtaki 19 kasıtlı bozmanın
-hepsini tohum testleri yakalar.
+almadı; 14 kusurlu beynin hiçbiri bir kez bile PASS almadı. Referans yargıçtaki kasıtlı bozmalar
+`seed/drill/local/mutate_drill.py`'dedir; tohum testleri her birini yakalamalıdır.
 
 Güç etkinin büyüklüğüne bağlıdır (k = 20, 1.000 prova; dersle / derssiz başarı → PASS, FAIL):
 0,9/0,1 → %99,7, %0; 0,7/0,1 → %98,9, %0,8; 0,7/0,3 → %57,9, %2,7 (kalan ölçülemez); 0,5/0,3 →

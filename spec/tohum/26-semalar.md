@@ -1,6 +1,6 @@
 # Şemalar ve Kanonik Biçimler: Defter, Bulgu, Vaka, Koşu
 
-Tarih: 2026-10-28 · Sürüm: 2.2 · Durum: taslak · Sahibi: operatör
+Tarih: 2026-10-29 · Sürüm: 2.2 · Durum: taslak · Sahibi: operatör
 Okunma: Aşama 0 inşasında ve her şema değişikliğinde
 Çapa: beklemede: aşama 0 — hakem reposundaki schemas/
 
@@ -69,8 +69,8 @@ declared_exits[]}`. Model, token ve maliyet alanlarını `çağır` işi ya da s
 ve `imported_used`'ı dispatcher yazar. Ajanın yazdığı tek alan `declared_exits`'tir.
 
 **rival payload** (`part: rival`): `{subject_sha, verdict: refuted|not_refuted|unresolved,
-attempts:[{claim, evidence_refs, reproducer?}], reproduced}`. `reproduced` hakemin yeniden
-üreticiyi `koş`ta koşturmasının sonucudur; yalnız `reproduced: true` çürütmedir.
+attempts:[{claim, evidence_refs, reproducer?}], reproduced}`. `reproduced` hakemin yeniden üreticiyi
+`koş`ta (önyükleme hakeminde `yeniden`) koşturmasının sonucudur; yalnız `reproduced: true` çürütmedir.
 
 **drill payload** (`part: drill`): `{drill: lesson|revert|context|genesis, question, family,
 instance_id, arm?: with|without, commitment_sha256, revealed_sha256?, outcome, verdict}`.

@@ -1,14 +1,15 @@
 # Araç İmzaları: Aşama 0 ve 1
 
-Tarih: 2026-10-28 · Sürüm: 2.2 · Durum: taslak · Sahibi: operatör
+Tarih: 2026-10-29 · Sürüm: 2.2 · Durum: taslak · Sahibi: operatör
 Okunma: araç yazarken ve çağırırken
 Çapa: beklemede: aşama 0 — hakem ve beyin MCP araç tanımları
 
 ---
 
 Her araç `{input, output, side_effects, allowed_callers}` ile tanımlıdır; `allowed_callers` boş
-araç yoktur. "İş" sütunu aracın hangi hakem işinde koştuğudur (`08` 1): `çek` kimliksiz (özel hedefte okuyucu App'iyle)
-çeker, `getir` bağımlılık getirir, `koş` sırsız ve ağsızdır, `çağır` model çağrısı yapar, `yaz`
+araç yoktur. "İş" sütunu aracın hangi hakem işinde koştuğudur (`08` 1): `çek` kimliksiz (özel
+hedefte okuyucu App'iyle) çeker, `getir` bağımlılık getirir, `koş` sırsız ve ağsızdır, `çağır` model
+çağrısı yapar ve iç kullanımda araç kullanan ajanı yalnız hakemin MCP araçlarıyla koşar (`08` 5), `yaz`
 yazar App'ini tutar. Oyuncu kodu yalnız `koş`ta koşar; sırlı işler oyuncu kodu koşturmaz.
 
 | Araç | Yer | İş | Girdi | Çıktı | Yan etki | Çağıran |
@@ -28,8 +29,8 @@ yazar App'ini tutar. Oyuncu kodu yalnız `koş`ta koşar; sırlı işler oyuncu 
 | `profile.derive` | Hakem | `çek` | hedef ağacı | profil | yok | etkinleştirme, `brain.accept` |
 | `deps.fetch` | Hakem | `getir` | lockfile'lar, profil | içerik adresli artefakt, lisans raporu (`24`) | izinli olmayan lisans adayı kırmızı yapar | hakem |
 | `run.contained` | Hakem | `koş` | komut, ağaçlar, artefaktlar | sonuçlar ve hash'leri, ölçülen `files_read` | yok | hakem |
-| `llm.call` | Hakem | `çağır` | tipli girdi, şablon, model, bütçe belirteci | yapılandırılmış çıktı, sunulan model, maliyet | `cost` satırı | `fixer.llm` adına hakem |
-| `agent.dispatch` | Hakem | `koş` + geçit | rol, prompt, araç listesi | çıktı, `run_meta` | yok | hakem (rakip; sonra her ajan) |
+| `llm.call` | Hakem | `çağır` | tipli girdi, şablon, model, çağrı başı tavan (iç kullanımda `claude` CLI'sinin `--max-budget-usd`'si; satışta API anahtarı ve bütçe belirteci) | yapılandırılmış çıktı, sunulan model, maliyet | `cost` satırı | `fixer.llm` adına hakem |
+| `agent.dispatch` | Hakem | `çağır` (iç kullanımda `claude` CLI'si; satışta `koş` + geçit, `08` 5) | rol, prompt, hakemin MCP araç listesi | çıktı, `run_meta` | yok | hakem (rakip; sonra her ajan) |
 | `gate.diffguard` | Hakem | `yaz` | diff, profil, politika | ret nedenleri | yok | `gate.check` |
 | `gate.check` | Hakem | `yaz` | aday, `koş` sonuçları | karar | PR, durum kontrolü, merge | hakem döngüsü |
 | `sentinel.run` | Hakem | `koş` | `brain/integration` başı | etkilenen test sonuçları | yok | her merge sonrası |

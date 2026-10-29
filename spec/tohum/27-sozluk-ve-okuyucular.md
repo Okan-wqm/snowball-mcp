@@ -1,6 +1,6 @@
 # Sözlük ve Okuyucular
 
-Tarih: 2026-10-28 · Sürüm: 2.2 · Durum: taslak · Sahibi: operatör
+Tarih: 2026-10-29 · Sürüm: 2.2 · Durum: taslak · Sahibi: operatör
 Okunma: yeni terim ya da dosya eklerken
 Çapa: her yazılan dosyanın satırı bu tablodadır (spec.lint denetler)
 
@@ -15,14 +15,14 @@ Okunma: yeni terim ya da dosya eklerken
 | İnsan dokunuşu | Operatör aktarımları ve sert duruş kalkışlarının sayacı; `status.md` üst bloğunda |
 | Kırmızı kontrol | Her `koş` işinde koşan bilinen kötü aday; kırmızı çıkmazsa o koşunun hiçbir sonucu sayılmaz |
 | Yazma modu, eğitim modu | Hedefe PR ve merge yapılabilen bağlanma; yapılamayan, yalnız okuyan ve deneyen bağlanma (`21`) |
-| `çek`, `getir`, `koş`, `çağır`, `yaz` | Hakemin beş işi (`08` 1) |
+| `çek`, `getir`, `koş`, `çağır`, `yaz` | Hakemin beş işi (`08` 1); önyükleme hakeminde altıncısı `yeniden`, rakibin yeniden üreticilerini koşar (`29b`) |
 | Tohum vektörü | Kurucu'nun değiştiremediği sabit girdi ve beklenen çıktı çifti (`29a`) |
 | İzin listesi | `accept` satırlarından kurulan, çıktısı merge kapısına gidebilen organ tanım hash'leri |
 | Aday paketi | Bulgu, diff ve organ tanım hash'leri (`26a`) |
 | `impact_miss` | Merge sonrası kırmızının nedeni beyan edilen etki kümesinin dışında |
 | Tohum dışı organ | Tohumda adı geçmeyen ve ablasyonda katkısı kanıtlanmış organ; sistemin kendi keşfinin ölçüsü. Provaya konan (`planted`) organ sayılmaz |
 | Prova | Cevabı önceden hash'le bağlanmış, oyuncak hedefte koşan çıkış testi: ders provası, geri alma ve bağlam provası (`22a`), genesis provası (`12a`); referans yargıç `29c` |
-| Ret hafızası, `not_learning` | Önyükleme hakeminin ret imzası sayacı; aynı imza ardışık sınırı aşınca Kurucu oturumu durur (`29b`) |
+| Ret hafızası, `not_learning` | Önyükleme hakeminin, Kurucu'nun düzeltebildiği retlerin imza sayacı; aynı imza ardışık sınıra ulaşınca Kurucu oturumu durur (`29b`) |
 | Lisans kapısı | Bağımlılığın lisansını tekerleğin kendisinden okuyup `license_allowlist`'e karşı denetleyen kapı (`24`) |
 | Harness puanı | Hakem harness'inin bir koşuya verdiği rapor |
 | Taban avcı | Hakemin property başına sabit grep kümesi; maliyeti sıfır |
@@ -42,11 +42,13 @@ dosyaları içindir; kod dizinlerinin çağıranları `24` ve `26a`'dadır.
 
 | Dosya | Yazar | Okuyucu | Değişen karar | Açılış |
 |---|---|---|---|---|
-| `control.json`, hakem reposu | operatör | her iş, Kurucu oturum başı | Durmak | Kurulum |
+| `control.json`, hakem reposu | operatör | her iş (`main`'den canlı), Kurucu oturum başı, gecelik bekçi | Durmak; belirteç süresi uyarısı | Kurulum |
+| `bootstrap.json`, hakem reposu | operatör | önyükleme hakemi | İzlenen beyin dalı, imaj, rakip modeli ve tavanları | Kurulum |
 | `policy.json` anayasal, hakem reposu | operatör | her kapı, `spec.lint` | Eşik, zorunlu çıkış satırı | Kurulum |
-| `setup/summary.json`, hakem reposu | operatör | `drift.check` | Sert duruş | Kurulum |
+| `setup/summary.json`, hakem reposu | operatör | `drift.check`, önyükleme hakemi | Sert duruş; tohum ağacı, kurulum hash'leri, ilk koşu | Kurulum |
+| `setup/imports.jsonl`, hakem reposu | aktarım betiği | `status.block`, operatör | İnsan dokunuşu sayacı | Aşama 0 çıkışı |
 | `vectors/`, `seats/`, hakem reposu | operatör, tohumdan | önyükleme hakemi, `agent.dispatch` | Kabul, koltuk promptu | Kurulum |
-| Önyükleme koşu artefaktları, Rekor kayıtları | önyükleme hakemi | Kurucu, aktarım betiği | Neyin düzeltileceği, aktarılacak SHA | Aşama 0 |
+| Önyükleme koşu artefaktları, Rekor kayıtları | önyükleme hakemi | Kurucu, aktarım betiği, sonraki koşu (imzalı durum) | Neyin düzeltileceği, aktarılacak SHA, sonraki karar | Aşama 0 |
 | `founder-ledger.jsonl`, beyin reposu | Kurucu | Kurucu sonraki oturum | Neye devam edilecek | Aşama 0 |
 | `spec/`, `INDEX.md`, beyin reposu | Kurucu, `docs.index` | Kurucu, `spec.lint`, `lock.check` | Aşama açma, kilit | Aşama 0 |
 | `referee/`, beyin reposu | Kurucu | önyükleme hakemi, aktarım betiği | Aktarılacak hakem | Aşama 0 |

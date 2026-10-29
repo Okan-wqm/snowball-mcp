@@ -1,6 +1,6 @@
 # Kurucu'nun Sınırları, Operatörün İşi, İlk Görev
 
-Tarih: 2026-10-28 · Sürüm: 2.2 · Durum: taslak · Sahibi: operatör
+Tarih: 2026-10-29 · Sürüm: 2.2 · Durum: taslak · Sahibi: operatör
 Okunma: her oturumda, çekirdekten hemen sonra
 Çapa: izin yapılandırması; control.json; policy.json; status.md; founder-ledger.jsonl
 
@@ -42,7 +42,7 @@ sayacına bir satır yazar; sayacın büyümesi, sistemin insana yaslandığın�
 | Kurulum, iki bölüm | İnşadan önce (`25`); Aşama 0 çıkışında aktarım ve etkinleştirme (`25a`) |
 | Hakem aktarımı | Aşama çıkışında; mekanik betik, ağaç hash'i pinli beyin SHA'sının `referee/` ağacıyla aynı (`01a`) |
 | Bütçe tavanları ve paylar | İstediğinde; hakem reposundaki anayasal `policy.json` |
-| Kill switch | İstediğinde: `control.json` + App askıya alma + sağlayıcı harcama tavanı |
+| Kill switch | İstediğinde: `control.json` bayrağı, `gh run cancel`, `gh workflow disable`, belirteç sırrını silmek, sağlayıcı tavanı ya da (App'ler kurulunca) App askıya alma (`25` 9) |
 | Sert duruştan yeniden başlatma | Gözcü sert duruş yazdıysa (`28`) |
 | Yasalar, çekirdek, anayasal eşikler | İstediğinde |
 | Hata setine insan yazarlı vaka eklemek | İsterse |
@@ -67,9 +67,11 @@ onay vermez.
 ## İlk görevin
 
 1. `control.json`'u oku; kill switch açıksa dur ve kaydet.
-2. `asama-0/00-ozet.md`'yi oku, `02`'deki yapısal listeyle denetle ve beyin reposuna push et.
-   Önyükleme hakemi spec'i tohum rakibine çürüttürür (`29b`); yeniden üretilmiş çürütme yoksa spec
-   donar. Sonucu hakem reposundan oku.
+2. `asama-0/00-ozet.md`'yi oku, `02`'deki yapısal listeyle denetle ve gerekirse düzelt; düzeltme
+   gerekmiyorsa incelemeni `spec/asama-0/CHANGELOG.md`'ye tarihli bir satır olarak ekle. Yalnız
+   `spec/asama-0/`'ı değiştiren bir push yap (değişiklik taşımayan push değerlendirilmez). Önyükleme
+   hakemi spec'i tohum rakibine çürüttürür (`29b`); yeniden üretilmiş çürütme yoksa spec donar.
+   Sonucu hakem reposundan oku.
 3. Aşama 0'ı `asama-0/14` sırasıyla inşa et; ilk iki mikro özellik zincirli defter yazıcı ve
    `founder-ledger.jsonl`'dır. Her push'u önyükleme hakemi denetler; sonraki mikro özellik
    öncekinin sonucu yeşilken başlar.

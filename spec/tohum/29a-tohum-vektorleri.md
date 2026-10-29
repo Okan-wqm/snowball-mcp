@@ -1,6 +1,6 @@
 # Tohum Vektörleri: Değişmeyen Beklenen Çıktılar
 
-Tarih: 2026-10-28 · Sürüm: 2.2 · Durum: taslak · Sahibi: operatör
+Tarih: 2026-10-29 · Sürüm: 2.2 · Durum: taslak · Sahibi: operatör
 Okunma: zincir, istatistik ve puanlama kodu yazarken
 Çapa: hakem reposu `vectors/` dosyası; hash'i `setup/summary.json`'da
 
@@ -63,17 +63,17 @@ Tam tek yönlü McNemar p-değeri (b: eskinin lehine, c: yeninin lehine uyuşmaz
 ## Arayüz
 
 Önyükleme hakemi vektörleri Kurucu'nun koduna şu komutlarla, `referee/` kökünden uygular; çıktı
-stdout'ta tek satır JSON'dur:
+stdout'ta tek satır JSON'dur, karşılaştırma tablodaki basamak sayısıyla yapılır:
 
 - `python -m ledger.chain hash` (stdin: tek satır) → `{"row_hash": ...}`
 - `python -m ledger.chain verify <dosya> [--previous <dosya>]` → `{"valid": bool, "broken_row": ...}`
 - `python -m harness.stats cp_lower <x> <n> <alpha>` → `{"lb": "0.962400"}` (altı ondalık dizgi)
 - `python -m harness.stats mcnemar <b> <c>` → `{"p": "0.062500"}`
-- `python -m harness.score <bulgular> <vakalar>` (iki JSON dizisi) → `{"hits": int}`; eşleme fikstürleri önyükleme
-  hakemiyle birlikte `seed/bootstrap/vectors/` altında gelir.
+- `python -m harness.score <bulgular> <vakalar>` (iki JSON dizisi) → `{"hits": int}`; eşleme fikstürleri
+  `seed/bootstrap/vectors/`'te.
 - `python -m harness.drill judge <prova dosyası>` → `{"drill": ..., "verdicts": {...}}`; kurallar ve vektörler `29c`'de.
-
-Karşılaştırma tablodaki basamak sayısıyla yapılır.
+- Yalnız çıkışta (`29b`): `python -m spec.lint <spec dizini>` → `{"violations": [...]}` (boş olmalı) ve
+  `python -m gate.lock check <aşama> <spec_sha256> <çıkış isteği>` → `{"open": bool}` (`true` olmalı).
 
 Her vektörün testi hem doğru sonucu hem de bir bayt değiştirilmiş girdide yanlış sonucun
 reddedildiğini gösterir; yalnız doğru girdide yeşil kalan vektör testi test değildir (`04`).

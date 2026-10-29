@@ -1,6 +1,6 @@
 # Aşama 1 §1.5 — Döngü, adım adım
 
-Tarih: 2026-10-28 · Sürüm: 2.2 · Durum: taslak · Sahibi: operatör
+Tarih: 2026-10-29 · Sürüm: 2.2 · Durum: taslak · Sahibi: operatör
 Okunma: Aşama 1 çalışırken
 Çapa: beklemede: aşama 1 çıkış raporu
 
@@ -15,7 +15,8 @@ Okunma: Aşama 1 çalışırken
    olmuş parmak izleri atlanır.
 3. **Execute.** `koş`ta bulgu başına worktree açılır. Dosya güvenlik yolundaysa bulgu `blocked`.
    Önce `fixer.range`. Araç düzeltemezse `fixer.llm` tipli bir istek üretir; `çağır` onu `llm.call`
-   ile işler (prompt taraması, bütçe belirteci, sunulan model) ve yapılandırılmış düzenlemeyi
+   ile işler (prompt taraması, çağrı başı tavan, sunulan model; iç kullanımda `claude` CLI'siyle, API
+   anahtarı yok, `tohum/24`) ve yapılandırılmış düzenlemeyi
    döndürür; `koş` onu deterministik uygulayıcıyla yalnız o aralığa yazar.
 4. **Approve.** Aynı `koş`ta araç worktree üzerinde yeniden koşar: hedef ihlal kaybolmuş, mandal
    tutmuş; etkilenen-test komutu konteynerde koşar, sıfır test kırmızıdır. Kırmızı kontrol kırmızı

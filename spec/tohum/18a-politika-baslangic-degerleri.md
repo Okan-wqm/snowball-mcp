@@ -1,6 +1,6 @@
 # Politika Başlangıç Değerleri: Anayasal Bölüm
 
-Tarih: 2026-10-28 · Sürüm: 2.2 · Durum: taslak · Sahibi: operatör
+Tarih: 2026-10-29 · Sürüm: 2.2 · Durum: taslak · Sahibi: operatör
 Okunma: kurulumda `policy.json` yazılırken ve bir eşiğin ilk değeri aranırken
 Çapa: beklemede: aşama 0 — hakem reposundaki policy.json; şema `26b`
 
@@ -14,8 +14,8 @@ Performans değerleri `18b`'dedir ve `18`'deki prosedürle değişir. Adlar `26b
 
 | Anahtar | Başlangıç | Okuyan |
 |---|---|---|
-| `monthly_cap_usd` | Operatör yazar; öneri 300 USD | `06`, Gözcü (`28`) |
-| `monthly_cap_ci_minutes` | 1.800 dk (Free özel repo kotası 2.000; açık repoda kota yok, tavan fren olarak kalır) | `01b`, `06`, `28` |
+| `monthly_cap_usd` | Operatör yazar; öneri 300 USD | `06`, Gözcü (`28`), önyükleme hakemi (`29b`) |
+| `monthly_cap_ci_minutes` | 1.800 dk (Free özel repo kotası 2.000; açık repoda kota yok, tavan fren olarak kalır; önyükleme hakemi ölçmez, Aşama 0'da fren GitHub harcama sınırıdır, `25` 8) | `01b`, `06`, `28` |
 | `session_cap_usd` | Kurucu oturumu başına 20 USD | `24` |
 | `shares` | Keşif ≤ %30, üretim ≤ %40, ölçüm ≤ %20, genel ≤ %10 | `06` |
 | `class_floors.K0` | `{kind: census, misses: 0}`; clean'de FP 0 | `19`, aşama çıkışları |
@@ -51,6 +51,6 @@ Performans değerleri `18b`'dedir ve `18`'deki prosedürle değişir. Adlar `26b
 | `stage_params.planted_max_cases` | Snapshot başına 5 vaka | `asama-0/06` |
 | `stage_params.evidence_ref_max_lines` | Birincil ref ≤ 30 satır | `asama-0/07` |
 | `stage_params.match_window_lines` | K3 ve üstü eşleme penceresi ±15 satır | `asama-0/08` |
-| `stage_params.rival_min_attempts` | Aşama başına 5 ayrı artefakt, artefakt başına 1 deneme | `asama-0/10`, `29` |
+| `stage_params.rival_min_attempts` | Aşama başına rakipten sağ çıkmış 5 ayrı artefakt, artefakt başına 1 deneme | `asama-0/10`, `29`, `29b` |
 | `stage_params.repeat_reject_limit` | Aynı imzalı 3 ardışık ret → `not_learning` | `24`, `29b` |
-| `stage_budgets` | Aşama sayfalarının bütçe tabloları; toplamdır, aylık tavan ayrıca bağlar | aşama bütçe sayfaları, Gözcü |
+| `stage_budgets` | Aşama sayfalarının bütçe tabloları; toplamdır, aylık tavan ayrıca bağlar | aşama bütçe sayfaları, Gözcü, önyükleme hakemi (`asama_0.rival_usd`, `29b`) |

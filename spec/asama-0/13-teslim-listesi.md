@@ -1,6 +1,6 @@
 # Aşama 0 §0.13 — Teslim listesi
 
-Tarih: 2026-10-28 · Sürüm: 2.2 · Durum: taslak · Sahibi: operatör
+Tarih: 2026-10-29 · Sürüm: 2.2 · Durum: taslak · Sahibi: operatör
 Okunma: Aşama 0 çalışırken
 Çapa: beklemede: aşama 0 çıkış raporu
 
@@ -13,7 +13,8 @@ Okunma: Aşama 0 çalışırken
 `gate/` (`gate.diffguard`, `gate.check`, `sentinel.run`, `gate.revert`, `lock.check`,
 `brain.accept`), `drift.check`, `llm.call`, `secrets.scan`, `dispatcher/` (`agent.dispatch`),
 `gozcu/` (`gozcu.evaluate`, `status.block`), `schemas/`, beş işin iş akışları (`çek`, `getir`,
-`koş`, `çağır`, `yaz`), kendi testleri, aktarım ve etkinleştirme betikleri.
+`koş`, `çağır`, `yaz`; önyükleme hakeminde ayrıca `yeniden`), kendi testleri, aktarım ve
+etkinleştirme betikleri.
 
 **Beyin reposunda, oyuncu:** `cli/` (`snowball init`), `profile.propose`, `mcp/` (bu aşamanın
 beyin araçları, `tohum/26a`), `docs.index`, `founder-ledger.jsonl`, `tests/fixtures/toy-repo/`
@@ -27,7 +28,8 @@ iyi ve hazır kötü adayı.
 (hakemin durum bloğu ve Aşama 0 şablonu). Oyuncak hedefte ayrıca canlı döngünün
 `brain/integration` merge'ü.
 
-**Rekor'da:** (A) sonuçları, kurulum özeti hash'i ve ilk kök hash.
+**Rekor'da:** (A) sonuçları (her biri kurulum özeti, vektör, koltuk ve politika hash'lerini taşır,
+`tohum/25`) ve ilk kök hash.
 
 **`asama-0/` altında:** tarihli çıkış raporu: PASS satırının kopyası, taban recall ve maliyeti,
 güven kökü, insan dokunuşu sayacı.

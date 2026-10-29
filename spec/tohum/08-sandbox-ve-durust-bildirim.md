@@ -1,12 +1,13 @@
 # Sandbox ve Dürüst Bildirim (Y10)
 
-Tarih: 2026-10-28 · Sürüm: 2.2 · Durum: taslak · Sahibi: operatör
+Tarih: 2026-10-29 · Sürüm: 2.2 · Durum: taslak · Sahibi: operatör
 Okunma: her hakem işi tasarlanırken ve her ajan dispatch'inde
 Çapa: beklemede: aşama 0 — `run.contained` kırmızı kontrol kayıtları
 
 ---
 
-1. **Beş iş.** Bir işin süreçleri o işin bütün sırlarını okuyabilir; bu yüzden kod yürüten hiçbir
+1. **Beş iş** (önyükleme hakeminde altıncısı `yeniden`: rakibin yeniden üreticileri, `koş` gibi sırsız
+   ve ağsız; `29b`). Bir işin süreçleri o işin bütün sırlarını okuyabilir; bu yüzden kod yürüten hiçbir
    iş sır taşımaz ve sır taşıyan hiçbir iş kod yürütmez.
 
    | İş | Sır | Ne yapar |
@@ -14,7 +15,7 @@ Okunma: her hakem işi tasarlanırken ve her ajan dispatch'inde
    | `çek` | Kimliksiz; özel hedefte okuyucu App'i | Beynin ve hedefin istenen SHA'larını çeker, ağaçları içerik kimliğiyle artefakt yapar; kod koşturmaz |
    | `getir` | Yok, ağ var | Bağımlılıkları kurulum betikleri kapalı getirir; çıktı içerik adresli artefakt. Betik gerektiren adım profilde işaretlidir ve `koş`ta ağsız koşar |
    | `koş` | Yok (`permissions: {}`), ağ yok | Oyuncu ve hedef kodunu iç içe konteynerde koşar; sonuçlar konteyner dışında hash'lenir |
-   | `çağır` | Sağlayıcı kimliği | Kod koşturmaz; tipli girdiden prompt kurar, `secrets.scan` uygular, tek model çağrısı yapar, sunulan modeli ve maliyeti yanıttan yazar |
+   | `çağır` | Sağlayıcı kimliği | Kod koşturmaz; tipli girdiden prompt kurar, `secrets.scan` uygular, tek model çağrısı yapar ya da (iç kullanımda) araç kullanan ajanı yalnız hakemin MCP araçlarıyla koşar (5); sunulan modeli ve maliyeti yanıttan yazar |
    | `yaz` | Yazar App'i, OIDC | Kod koşturmaz; `koş` ve `çağır` çıktılarını artefakt kimliğiyle alır, hash'leri doğrular, kapı kararını hakem koduyla verir, defteri yazar, kökü Rekor'a gönderir |
 
 2. **Konteyner.** `koş` işindeki her kod iç içe, kısa ömürlü bir konteynerde koşar:
@@ -29,15 +30,18 @@ Okunma: her hakem işi tasarlanırken ve her ajan dispatch'inde
    okuyabildiği bir alan, sırsız işin sırlı işi zehirlemesine yoldur. Bağımlılıklar `getir`
    işinin içerik adresli artefaktıdır; özeti `yaz` işi kaydeder, geri yüklemede doğrulanır. Sırlı
    işler hiçbir şey geri yüklemez.
-5. **Sağlayıcı geçidi.** Araç kullanan ajanların modele tek yolu, ajan işinden ayrı bir işte ya da
-   makinede koşan geçittir. Geçit yalnız {`run_id`, model, `max_usd`, son kullanma} bağlı koşu
-   belirteci kabul eder, kimliği kendisi ekler, bütçeyi kendisi ölçer ve tavanda keser. Ajan işi
-   `permissions: {}` ile koşar: `id-token` yok, docker soketi yok; ajanın araç süreçlerinin
-   geçide ağ yolu yoktur. Bütçe istemcinin tahmini değil, geçidin ölçümüdür.
+5. **Sağlayıcı geçidi.** İç kullanımda geçit yoktur: araç kullanan ajan `çağır` işinde `claude`
+   CLI'siyle ve yalnız hakemin MCP araçlarıyla koşar (tohum rakibi gibi, `29b`); maliyeti CLI'nin
+   liste fiyatı tahminidir (`06`). Koşuya bağlı belirteçli geçit ticari kullanımda API anahtarıyla
+   açılır: o zaman araç kullanan ajanların modele tek yolu, ajan işinden ayrı bir işte ya da makinede
+   koşan geçittir. Geçit yalnız {`run_id`, model, `max_usd`, son kullanma} bağlı koşu belirteci kabul
+   eder, kimliği kendisi ekler, bütçeyi kendisi ölçer ve tavanda keser. Ajan işi `permissions: {}`
+   ile koşar: `id-token` yok, docker soketi yok; ajanın araç süreçlerinin geçide ağ yolu yoktur.
+   Bütçe istemcinin tahmini değil, geçidin ölçümüdür.
 6. **Ölçüm.** Ajanın yazdığı yollar, koştuğu komutlar, maliyeti ve okuduğu dosyalar ajanın
-   beyanından değil, geçit ve sandbox ölçümünden yazılır. Kullanıcı hesabında GitHub denetim
-   günlüğü yoktur; uzak yan etkiler repo etkinlik API'sinden, check-run ve PR listelerinden okunur.
-   Her koşu yalnız kendi adını taşıyan dallara iter; atıf böyle yapılır.
+   beyanından değil, `çağır` işinin (satışta geçidin) ve sandbox'ın ölçümünden yazılır. Kullanıcı
+   hesabında GitHub denetim günlüğü yoktur; uzak yan etkiler repo etkinlik API'sinden, check-run ve PR
+   listelerinden okunur. Her koşu yalnız kendi adını taşıyan dallara iter; atıf böyle yapılır.
 7. **Kapsayıcılık özetleri ve sandbox kanaryası.** Çalışma zamanında araç kullanan ilk ajanla
    (en geç Aşama 4 avcısı) zorunludur: hakem her koşudan önce ve sonra worktree'nin, `<state_root>`'un
    ve konteynerin özetini alır (dosya → hash); worktree ve açılan yüzeyler dışındaki her fark

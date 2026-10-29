@@ -1,9 +1,16 @@
 # Değişiklik Günlüğü — Tohum
 
-Tarih: 2026-10-28 · Sürüm: 2.2
+Tarih: 2026-10-29 · Sürüm: 2.2
 Okunma: bir sayfanın geçmişi aranırken
 Çapa: git geçmişi ve zincirdeki spec hash satırları
 
+- 2.2 (2026-10-29): eksik kaydının (`docs/eksik-kaydi.md`) onaylanan kararları. İç kullanımda geçit ve API
+  anahtarı yoktur: `llm.call` ve araç kullanan ajan tohum rakibi gibi `çağır`'da `claude` CLI'siyle koşar (`24`,
+  `08`, `06`, `26a`). Rakip defteri görmez; yeniden üretici sözleşmesi, kontrol ağacı, kanıtlanmış kusur ve açık
+  iddia hafızası (`29`); ret hafızası yalnız Kurucu'nun düzeltebildiğini sayar; kesinti ile `request_rejected`
+  ayrıldı; durum yoksa durur, karşılaştır-ve-yaz; kill switch canlı, `stopped`; çıkışta yalnız sağ çıkan artefakt,
+  `spec.lint` ve `gate.lock`; donmuş spec yeniden donmaz; bütçe bitince iş başlamaz (`29b`, `29a`, `28`). Kurulum
+  hash'leri her sonuçta, kurtarma, uyarılar ve `oauth_token_expires` (`25`); açık hakem reposuna yalnız açık hedef.
 - 2.2 (2026-10-29): iç kullanımda beyin ve hakem repoları açıktır (operatör kararı; satışta özel olur). Önyükleme
   hakeminde okuyucu App'i yoktur: açık beyin kimliksiz okunur, App yalnız özel hedef gelince kurulur. Standart
   koşucu dakikası açık repoda ücretsizdir; 60 gün etkinlik yoksa zamanlayıcı kapanır (`25`).

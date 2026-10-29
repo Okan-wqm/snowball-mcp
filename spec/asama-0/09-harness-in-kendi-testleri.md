@@ -1,6 +1,6 @@
 # Aşama 0 §0.9 — Harness'in ve hakemin kendi testleri
 
-Tarih: 2026-10-28 · Sürüm: 2.2 · Durum: taslak · Sahibi: operatör
+Tarih: 2026-10-29 · Sürüm: 2.2 · Durum: taslak · Sahibi: operatör
 Okunma: Aşama 0 çalışırken
 Çapa: beklemede: aşama 0 çıkış raporu
 
@@ -8,6 +8,12 @@ Okunma: Aşama 0 çalışırken
 
 Testleri Kurucu yazar; önyükleme hakemi onları her push'ta `koş`ta koşturur ve tohum vektörlerini
 (`tohum/29a`) Kurucu'nun koduna karşı ayrıca uygular. Vektörler tabandır, yeter değildir.
+
+**Test bildirimi.** Kurucu kökte `snowball-tests.json` tutar (`tohum/26b`); hakem yalnız oradaki
+komutları repo kökünden (vektörleri `referee/`'den) koşturur. Bitti denen (`done_mf`, sırayla 1'den)
+bir mikro özelliğin `asama-0/14`'teki test numarası bir komuta bağlı değilse ya da hiç komut yoksa
+sonuç kırmızıdır (`tohum/29b`). Vektörler `tohum/29a`'daki arayüzle, sahibi olan mikro özellik bitince
+uygulanır.
 
 | # | Test | Ne zaman |
 |---|---|---|
@@ -47,7 +53,7 @@ Testleri Kurucu yazar; önyükleme hakemi onları her push'ta `koş`ta koşturur
 | 34 | `deps.fetch`: kurulum betiği isteyen paket profilde işaretli değilse reddedilir; aynı kilit dosyası aynı içerik adresi; lisansı `license_allowlist` dışında ya da bulunamayan paket, ve lisansı söyleyen yerlerden biri izinsiz olan paket reddedilir (`tohum/24`) | Aşama 0 |
 | 35 | Kapı: sıfır test, mandal artışı, izin listesi dışı tanım hash'i ve artefakt hash uyuşmazlığı reddedilir; iki aday aynı anda merge olmaz | Aşama 0 |
 | 36 | Nöbetçi: merge sonrası etkilenen testler `koş`ta; kırmızıda 3/3 flaky kuralı | Aşama 0 |
-| 37 | `llm.call` (taklit sağlayıcıyla): tipli girdi dışı alan prompta girmez; bütçe belirteci aşımı kesilir; sunulan model farklıysa koşu geçersiz | Aşama 0 |
+| 37 | `llm.call` (taklit `claude` CLI'siyle; API anahtarı yok): tipli girdi dışı alan prompta girmez; yerleşik araç, ayar kaynağı ve oturum kaydı yok; her çağrı `--max-budget-usd` tavanıyla gider ve aşan çağrı kesilir; sunulan model farklıysa koşu geçersiz | Aşama 0 |
 | 38 | `secrets.scan`: diff, satır ve promptta gömülü sahte sır yakalanır; prompt gönderilmez | Aşama 0 |
 | 39 | `ledger.append`: döngü başına tek commit; oyuncu önerisi `trust: inferred`; yazımdan önce `chain.verify` | Aşama 0 |
 | 40 | `rekor.anchor` (taklit Rekor'la): kök kaydı yazılır; yazılamazsa sert duruş | Aşama 0 |
