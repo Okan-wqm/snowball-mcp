@@ -419,6 +419,10 @@ def decide(meta: dict[str, Any], run: dict[str, Any] | None, rival: dict[str, An
         exit_block["repeat_events"] = state["repeat_events"]
         exit_block["open_claims"] = [{"id": c["id"], "claim": c["claim"], "first_head": c["first_head"]}
                                      for c in state["open_claims"]]
+        if verdict == "rejected" and evaluate and meta.get("exit_request_sha256"):
+            # `asama-0/10`, `26c`: the same bytes left in place are ignored in later code pushes (E97), so a request the
+            # seed cannot accept yet (E162) never turns every later code push into `exit_request_not_alone`.
+            state["rejected_exit_request"] = meta["exit_request_sha256"]
     state["runs"] += 1
     state["origin"] = "artifact"
 

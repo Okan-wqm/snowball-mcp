@@ -29,11 +29,12 @@ UNCHECKED = [decide_module.NOT_CHECKED + anchor for anchor in decide_module.EXIT
 
 
 def state0(**kw):
-    s = {"schema": "snowball-bootstrap-state/2", "origin": "artifact", "last_accepted_sha": A,
+    s = {"schema": "snowball-bootstrap-state/3", "origin": "artifact", "last_accepted_sha": A,
          "last_evaluated_sha": None, "frozen_specs": {}, "rival_artifacts": [], "month": "2026-10",
          "month_spend_usd_micros": 1000, "stage_spend_usd_micros": 2000, "runs": 4, "reject_streaks": {},
          "repeat_events": 0, "outage_sha": None, "outage_count": 0, "outage_since": None, "outage_stop": None,
-         "rival_side_streak": 0, "open_refutations": [], "open_claims": [], "pending_rival": None}
+         "rival_side_streak": 0, "open_refutations": [], "open_claims": [], "pending_rival": None,
+         "rejected_exit_request": None}
     s.update(kw)
     return s
 
@@ -359,17 +360,32 @@ class KindsAndExit(unittest.TestCase):
         self.assertEqual(res["state"]["last_accepted_sha"], A)  # the exit SHA is not moved past
 
     def test_every_row_of_the_exit_table_is_checked_or_named_unchecked(self):
-        """E162: a row of the `asama-0/10` table is either checked by this code (where, below) or listed in
-        EXIT_NOT_CHECKED; a row added to the page without either fails here instead of passing silently."""
+        """E162: a row of the `asama-0/10` table is either checked by this code or listed in EXIT_NOT_CHECKED; a row
+        added to the page without either fails here instead of passing silently. "Checked" is held to the code: each
+        row names the lines of `cli.py` (pull) or `decide.py` that check it, and a line that is gone fails the row
+        (E185: the names alone stayed green with the check deleted)."""
         checked = {
-            ("testler", "kirmizi", "lisans"): "decide: not_all_micro_features_done, test_failed, vector_failed, "
-                                              "vector_group_missing, kos controls, license_not_allowed; manifest",
-            ("modulsuz",): "pull: module_less for every done MF at the exit; decide: module_less_green",
-            ("rakip",): "decide: no_rival_attempt_on_exit_sha, rival_attempts, refutation_still_reproduces, open_claims",
-            ("lock", "kilit"): "pull: exit_request_wrong_stage, _sha_is_not_last_accepted, _spec_hash_mismatch",
-            ("tekrar",): "decide: exit.repeat_events",
-            ("yalniz",): "pull: kind exit only for exit-request.json (ledger rows aside, E148), else _not_alone",
+            ("testler", "kirmizi", "lisans"): {"decide": ['missing.append("not_all_micro_features_done")',
+                                                          '_reason("test_failed"', '_reason("vector_failed"',
+                                                          'missing += [f"vector_group_missing:{g}"',
+                                                          '_reason("license_not_allowed"']},
+            ("modulsuz",): {"cli": ['before = set() if kind == "exit" else _base_done(repo, base)'],
+                            "decide": ["reasons += _module_less_green(module_less)"]},
+            ("rakip",): {"decide": ['missing.append("no_rival_attempt_on_exit_sha")',
+                                    'missing.append(f"rival_attempts:{len(others)}<{rival_min_attempts}")',
+                                    '_reason("refutation_still_reproduces"', 'exit_block["open_claims"] = ']},
+            ("lock", "kilit"): {"cli": ['pre.append("exit_request_wrong_stage")',
+                                        'pre.append("exit_request_sha_is_not_last_accepted")',
+                                        'pre.append("exit_request_spec_hash_mismatch")']},
+            ("tekrar",): {"decide": ['exit_block["repeat_events"] = state["repeat_events"]']},
+            ("yalniz",): {"cli": ["if judged == [EXIT_FILE]:", 'pre.append("exit_request_not_alone")']},
         }
+        sources = {name: (Path(cli.__file__).parent / f"{name}.py").read_text(encoding="utf-8")
+                   for name in ("cli", "decide")}
+        for row, where in checked.items():
+            for module, lines in where.items():
+                for line in lines:
+                    self.assertEqual(sources[module].count(line), 1, f"#{row[0]}: {module}.py no longer has {line!r}")
         page = (Path(__file__).resolve().parents[3] / "spec" / "asama-0" / "10-cikis-testi.md").read_text(encoding="utf-8")
         cells = [line.split("|")[1] for line in page.splitlines() if line.startswith("| #")]
         rows = [tuple(found) for found in (re.findall(r"#([a-z-]+)", cell) for cell in cells) if found]  # not "| # |"
@@ -380,6 +396,16 @@ class KindsAndExit(unittest.TestCase):
         anchors = {a for row in rows for a in row}
         self.assertLessEqual(set(decide_module.EXIT_NOT_CHECKED), anchors)
         self.assertLessEqual(set(checked), set(rows))
+
+    def test_a_rejected_exit_request_is_remembered_only_when_it_was_judged(self):
+        """E97: the bytes of a rejected request are kept so the same file left in place is ignored later; an outage
+        judged nothing, so it remembers nothing."""
+        ready = state0(rival_artifacts=survived(A, "1" * 40, "2" * 40))
+        meta = dict(self.exit_meta(ready), exit_request_sha256="9" * 64)
+        res = run_decide(meta, green_run(), None, None, {"getir": "success", "kos": "success"})
+        self.assertEqual((res["verdict"], res["state"]["rejected_exit_request"]), ("rejected", "9" * 64))
+        res = run_decide(meta, None, None, None, {"getir": "success", "kos": "failure"})
+        self.assertEqual((res["verdict"], res["state"]["rejected_exit_request"]), ("rejected", None))
 
     def test_what_the_seed_cannot_check_is_not_the_founders_rejection(self):
         """E162, `29b` "Ret hafızası": only what the Founder can fix is counted. Asking for the exit again before the

@@ -107,7 +107,7 @@ hepsi yazılıdır. Bulguları birleştiren ve doğrulayan: Claude Code (Opus 5.
 | E94 | Kurucu ile rakip muhtemelen aynı abonelik kotasını paylaşıyor | K | evet | e2e-1 A7 | onaylandı · operatör adımı bekliyor (ayrı Claude hesabı) |
 | E95 | Beyin reposunda ruleset yok: force-push ya da dal silme hakemi kilitler | K | — | e2e-1 A8 | açık |
 | E96 | Aşama çıkışı → etkinleştirme geçişi güvensiz ve durumu taşımıyor (bütçe, donmuş spec, açık iddialar) | B | evet | e2e-1 A9 | onaylandı · açık |
-| E97 | Reddedilmiş çıkış isteği sonraki her push'u kilitliyor | B | — | e2e-1 A10 | açık |
+| E97 | Reddedilmiş çıkış isteği sonraki her push'u kilitliyor | B | — | e2e-1 A10; E88/E162 incelemesi (E162'den sonra kesin) | kapandı · `asama-0/10` ve `26c`'nin kuralı kodda: reddedilmiş isteğin baytlarının sha256'sı imzalı durumda (`rejected_exit_request`, durum şeması 3; şema 1 ve 2 taşınır), baytı baytına aynı `exit-request.json` sonraki kod push'larında yok sayılır (#yalniz'i bozmaz); yalnız o dosyayı değiştiren push yine çıkış isteğidir ve yeniden yargılanır (`29b`); başka bayt yine istektir; kesinti hiçbir isteği hatırlatmaz; ayrıntı Kapanışlar "E88/E162 incelemesi" |
 | E98 | Aşama 0'daki insan dokunuşlarının kaydı yok | B | — | e2e-1 A11 | açık |
 | E99 | Aşama 0'ın gerçek hedefi hiç seçilmemiş | B | evet | e2e-1 A12 | onaylandı · açık |
 | E100 | Hakemin iş akışlarını hiçbir mikro özellik kurmuyor ve sınamıyor; içe aktarma hakem reposundaki tek iş akışını siliyor | K | evet | e2e-2 B1 | onaylandı · açık |
@@ -172,7 +172,7 @@ hepsi yazılıdır. Bulguları birleştiren ve doğrulayan: Claude Code (Opus 5.
 | E159 | `29a` zincir CLI'sinin kırık zincirde çıkış kodunu ve `row_id`'siz satırın `broken_row` değerini söylemiyor; hakem çıkış koduna değil stdout JSON'una baktığı için zararsız ama yazılı değil | S | — | **Kurucu raporu** seed-007 (döngü 2) | açık · 29/29b düzenlemesiyle |
 | E160 | `test_an_interrupted_run_takes_the_cli_and_its_children_with_it` init'siz konteynerde kararsız: öldürülen ama biçilmemiş (zombi) süreci `kill(pid, 0)` canlı sayıyor; mutasyon temel koşusunu rastgele durduruyordu | S | — | pilot hazırlığı (6 temel koşudan 6'sı düştü, tam takım geçti) | kapandı · test projenin `helpers.process_alive`'ını kullanıyor (zombi = ölü) |
 | E161 | Aşama 0'ın `chain` dışındaki 16 vektör grubu (`secrets` … `genesis`, `29d`) ve genel veri koşucusu (`{cmd, stdin?, fixture, expect, changed}`) tohumda yok; MF2'den itibaren bitmiş MF'nin tabanı eksik | K | — | E151 kod partisi | açık · beklenen değerler tohum yazarınca iki bağımsız hesapla (`29a`); o güne kadar kod push'unda `vector_group_missing:<grup>` uyarısı, çıkışta ret (E151) |
-| E162 | Çıkış isteği kodda olmayan (A) koşullarında kapalıya düşmüyor: #kurucu-defteri, #is-akisi (MF17'nin `wiring` denetimi dahil; her push'ta da yok), #agac (yalnız büyük-küçük harf duyarlı operatör adı var), #genellik, #spec, #durustluk denetlenmeden `transferable` olabilir | K | — | E151 kod partisi | kapandı · `decide.EXIT_NOT_CHECKED`: altı koşulun her biri `exit_condition` `not_checked:<koşul>` ile çıkışı kapalı tutar, Kurucu'ya sayılmaz (`29b` Ret hafızası); `asama-0/10` tablosunun her satırı ya kodda denetlenir ya listededir (test); 3 mutant; denetimlerin kendisi E107, E132, E130/E131, E102, E79'da açık |
+| E162 | Çıkış isteği kodda olmayan (A) koşullarında kapalıya düşmüyor: #kurucu-defteri, #is-akisi (MF17'nin `wiring` denetimi dahil; her push'ta da yok), #agac (yalnız büyük-küçük harf duyarlı operatör adı var), #genellik, #spec, #durustluk denetlenmeden `transferable` olabilir | K | — | E151 kod partisi | kapandı · `decide.EXIT_NOT_CHECKED`: altı koşulun her biri `exit_condition` `not_checked:<koşul>` ile çıkışı kapalı tutar, Kurucu'ya sayılmaz (`29b` Ret hafızası); `asama-0/10` tablosunun her satırı ya kodda denetlenir ya listededir (test); 3 mutant; denetimlerin kendisi E107, E132, E130/E131, E102, E79'da açık · inceleme: her çıkış artık reddedildiği için bırakılan istek her kod push'unu `exit_request_not_alone` yapıyordu (E97, kapandı); tablo testi denetlenen satırı koda bağlamıyordu (E185, kapandı) |
 | E163 | `asama-0/14` modülsüz kırmızıda iki okumaya açık: "testlerini … yeşil kalırsa" hepsi mi, biri mi (`calls`'taki "17 ve 18 hepsini çağırır" E157'dir) | S | — | E151 kod partisi | açık · kod test başına okur (`tohum/04` 1: biri yeşil kalırsa ret); metin 29/29b partisinde netleşir |
 | E164 | Rakibe gidecek istekte sır biçimli bir dize bulununca hakem yalnız desenin adını söylüyor (`secret_in_prompt:generic_assignment`), hangi dosyada olduğunu söylemiyor; MF2'nin kendi testleri sahte sır taşıdığı için rakip hiç koşmadı ve Kurucu nereye bakacağını bilmeden reddedildi | B | — | pilot döngü 3 (MF2 `9f229b0`) | kapandı · `rival.secret_paths`: diff'in sırrı taşıyan dosyaları (değer asla), istek metnindeyse `(request text)`, sır biçimli yol adlandırılmaz; `result.rival.secret_paths`; test ve 3 mutant |
 | E165 | Sır tarayıcısını (MF2) inceleyen rakip kararında kimlik bilgisi biçimli bir değer yazdı; hakem kararı haklı olarak kullanmadı (`secret_in_verdict:generic_assignment_bare`), inceleme kayboldu; protokol rakibe böyle dizeleri çalışma anında kurmasını söylemiyordu | B | — | pilot döngü 5 (`99278a5`) | kapandı · `rival.PROTOCOL`: sır biçimli dizeyi asla yazma, yeniden üreticide parçalardan kur (`'gh'+'p_'+'A'*36`), iddiada alıntılama; protokolün kendisinin tarayıcıdan temiz geçtiği test edildi; 1 mutant |
@@ -181,6 +181,8 @@ hepsi yazılıdır. Bulguları birleştiren ve doğrulayan: Claude Code (Opus 5.
 | E181 | Çıkışın tohumdan doğan nedeni `exit_condition vector_group_missing:<grup>` (E151) Kurucu'ya sayılıyor (`decide.counts_against_founder`); `29b` "Ret hafızası" yalnız Kurucu'nun düzeltebildiğini sayar; grup tohumla gelmeden üç çıkış isteği `not_learning` olur | B | — | E162 kod partisi | açık · `not_checked` sayılmaz (E162); bu denetlenen bir koşulun nedeni, dokunulmadı |
 | E182 | Özetin kurulum alanları `seed_commit`, `seed_tree_sha256` `26c`'de yok; `25` 10b ve `26c` ilk dönemi `seed_epochs[]` satırı sayar. Kod kurulum alanlarını kurulum dönemi olarak tutar (başlatıcı E154 için `seed_commit`'i okur), `seed_epochs[]` sonraki teslimleri; dizi yoksa davranış eskisidir | S | — | E88 kod partisi | açık · metin 29/29b partisinde hizalanır |
 | E183 | Taslak `29b`/`29e` (`docs/asama-0-daraltma-29-29b.md`) `seed_update`'i içerikle tanımlar ("yalnız tohum yolları değişmiş ve ağaçlar döneme eşit"); kod teslimin kendisini özetin adlandırdığı commit'le tanır (altındaki Kurucu commit'i onun adıyla yeniden yargılanmasın) ve sonraki push'larda teslim yollarını muaf tutar | S | — | E88 kod partisi | açık · taslak metin bu okumaya göre düzeltilir |
+| E184 | Dönemden sonra başın tohumu son satırın commit'ininkiyle ağaç hash'iyle karşılaştırılıyordu; hash çalıştırma bitini atar: Kurucu'nun `spec/tohum` ya da `seed/` dosyasında yalnız mod değişikliği teslim sayılıp `own`'dan düşüyordu (kodun yanında `kind=code`, kabul edilmiş bir push'tan sonra tek başına `none` → `noop`); ağaç okunamayınca (güvensiz ya da UTF-8 olmayan ad) karşılaştırma hiç yapılmıyor, teslim Kurucu'nun `seed_modified`'ı sayılıp seri başlatıyordu | K | — | E88/E162 incelemesi | kapandı · `gitio.same_under`: `git diff --quiet <dönem commit'i> <baş> -- spec/tohum seed` (içerik, ad ve mod; ağacın okunabilirliğinden bağımsız); testler ve 2 mutant |
+| E185 | E162'nin tablo testi "her satır ya kodda denetlenir (yeriyle) ya listededir" diyordu ama yalnız elle yazılmış bir sözlüğün anahtarlarını okuyordu: #yalniz'in `pre.append("exit_request_not_alone")` satırı silinince yeşil kaldı (denendi) | S | — | E88/E162 incelemesi | kapandı · her denetlenen satır `cli.py` ya da `decide.py`'deki satırlarıyla adlandırılır ve test o satırın kodda tam bir kez durduğunu ister; mutant `exit_alone_check_deleted` |
 | E62 | Filo genelinde güvenlik: bir repoda doğrulanan açık dedektöre dönüşür, gizlilik duvarından geçer, bağlı bütün repolarda taranır; her repoya yalnız kendi açığı bildirilir | B | operatör yönü | operatör, 2026-10-29 | açık (çok repo ile, `21`) |
 | E60 | Satış zamanı: sistemin ürettiği dosyaların yeri; varsayılan müşteride, açık izinle müşteri başına ayrı, özel, şifreli barındırma; güvenlik bulguları hep müşteride | satış | operatör sorusu | operatör, 2026-10-29 | satışta açılır |
 | E61 | Satış zamanı: repolar arası öğrenmede gizlilik duvarı; kalıp taşınır, müşteri bilgisi taşınmaz; terfi öncesi otomatik sızıntı kontrolü ve sözleşmede izin | satış | operatör sorusu | operatör, 2026-10-29 | satışta açılır |
@@ -1158,7 +1160,8 @@ Testler `tests/test_rival_memory.py`'de, sınıf adları kalem numarasıyla. Dur
   koşullar nedenlerini korur (#testler #kirmizi #lisans, #modulsuz, #rakip, #lock #kilit, #tekrar, #yalniz).
   `not_checked` Kurucu'ya sayılmaz (`29b` "Ret hafızası": yalnız düzeltebildiği); aynı mantıktaki
   `vector_group_missing` çıkış nedeni sayılmaya devam eder (E181). Test, `asama-0/10` tablosunun her satırının ya
-  kodda denetlendiğini (yeriyle) ya listede olduğunu ister; sayfaya eklenen satır sessiz geçemez.
+  kodda denetlendiğini (yeriyle) ya listede olduğunu ister; sayfaya eklenen satır sessiz geçemez. (Bu commit'te
+  "yeri" serbest metindi ve koda bakılmıyordu; incelemeden sonra satırın kodu aranır, E185.)
 - **Testler ve mutantlar.** `tests/test_seed_epoch.py` (9 test: (a) iki, kod, spec, çıkış ve defter push'larıyla;
   (b) iki; (c); (d); satır durması; özet okuma; kayıp durum); `test_decision.KindsAndExit`'e üç E162 testi; çıkış testleri (`test_decision`,
   `test_rival_memory`, `test_flow`) altı `not_checked`'i bekler, `test_flow` aktarımı `EXIT_NOT_CHECKED` boşken
@@ -1176,6 +1179,30 @@ Testler `tests/test_rival_memory.py`'de, sınıf adları kalem numarasıyla. Dur
 - **Yapılmayan.** `bootstrap_sha256` biçimce okunur, hakemin kendi `bootstrap/` kopyasıyla karşılaştırılmaz (E24);
   teslim `spec/asama-*` ve `spec/INDEX.md` taşıyamaz (E180); altı koşulun denetimleri (E107, E100/E132, E130/E131,
   E102, E79) ve MF17'nin her push'taki `wiring` denetimi; `spec/` bu dalda değişmedi, taslak metin E182/E183'te.
+
+### E88/E162 incelemesi (2026-10-29) · E184 E185 kapandı · E97 kapandı
+- **E184, mod biti.** `epoch_seed` artık `gitio.same_under`: `git diff --quiet <son dönemin commit'i> <baş> -- spec/tohum
+  seed`; içerik, ad ve mod karşılaştırılır, ağaç okunabilir olmasa da. Eski kodda (bu dalın `b6d821f`'i, Windows,
+  denendi) Kurucu'nun kodla birlikte `spec/tohum/00-cekirdek.md`'ye `+x` vermesi `kind=code` idi; şimdi
+  `seed_modified` ve `seed_tree_mismatch` ile ret, kabul edilmiş bir push'tan sonra tek başına mod değişikliği de
+  (`test_a_mode_change_to_the_seed_is_a_founder_change_too`).
+- **E184, okunamayan ağaç.** Teslimden sonra Kurucu'nun `x\y.md` ya da UTF-8 olmayan bir ad eklemesi eski kodda
+  `['seed_modified', 'unsafe_path']` veriyordu (Windows'ta da, git'in alt düzey komutlarıyla, denendi); şimdi
+  yalnız adın nedeni, `seed_modified:` serisi yok (`test_a_push_the_referee_cannot_read_is_not_charged_with_the_delivery`).
+- **E97.** Durum şeması 3: `rejected_exit_request` (son reddedilen isteğin baytlarının sha256'sı, ya da `null`);
+  şema 1 ve 2 `migrate` ile taşınır (`25`), biçimsiz değer durdurur. `decide` yalnız değerlendirilmiş bir reddi
+  hatırlar (kesinti değil). `pull`, kod push'unda aynı baytları yok sayar: `exit_request_not_alone` yok, push kendi
+  türüyle yargılanır; yalnız dosyayı değiştiren push (defter satırları bir yana) yine çıkış isteğidir. İsteği okumak
+  için dosyanın git blob'u kullanılır (ağacın başka bir adı okunamasa da). Eski kodda reddedilmiş çıkıştan sonraki üç
+  kırmızı kod push'unun ilki `exit_request_not_alone` verdi (`test_a_rejected_exit_request_left_in_place_is_ignored_by_later_pushes`, denendi).
+  İlk sürüm aynı baytları tek başına yeniden istemeyi de yok sayıyordu; Linux'taki `test_exit_request_and_import`
+  bunu yakaladı, kural kod push'larına daraltıldı (`29b`: yalnız `exit-request.json` değiştiren push çıkış isteğidir).
+- **E185.** Tablo testi her denetlenen satırı `cli.py`/`decide.py`'deki satırlarıyla adlandırır ve her birinin kodda
+  tam bir kez durduğunu ister. #yalniz'in satırı silinince eski test yeşildi, yenisi kırmızı (denendi).
+- **Doğrulama.** Windows 359 test OK (18 atlandı); Linux (`snowball_linux_test:git`) 377 OK (3 atlandı). 11 yeni
+  mutant (E184 2, E97 8, E185 1), çapası yenilenen 3
+  (`founder_seed_dir_change_passes`, `founder_spec_tohum_change_passes`, `old_state_not_migrated`) ve değişen satırlara
+  bağlı 20 eski: 34/34 öldü (Linux, dört kapsayıcı, her birinde önce yeşil baz koşu).
 
 ## Doğrulanmış sağlam taraflar
 Kapsayıcı bayrakları ve kırmızı kontroller; host'ta kabuk enjeksiyonu yok; `$GITHUB_OUTPUT`'a serbest

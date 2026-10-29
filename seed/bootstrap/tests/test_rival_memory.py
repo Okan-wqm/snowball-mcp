@@ -38,11 +38,12 @@ WORKFLOW = (Path(__file__).resolve().parents[1] / "workflow" / "bootstrap.yml").
 
 
 def state2(**kw):
-    s = {"schema": "snowball-bootstrap-state/2", "origin": "artifact", "last_accepted_sha": A,
+    s = {"schema": "snowball-bootstrap-state/3", "origin": "artifact", "last_accepted_sha": A,
          "last_evaluated_sha": None, "frozen_specs": {}, "rival_artifacts": [], "month": "2026-10",
          "month_spend_usd_micros": 1000, "stage_spend_usd_micros": 2000, "runs": 4, "reject_streaks": {},
          "repeat_events": 0, "outage_sha": None, "outage_count": 0, "outage_since": None, "outage_stop": None,
-         "rival_side_streak": 0, "open_refutations": [], "open_claims": [], "pending_rival": None}
+         "rival_side_streak": 0, "open_refutations": [], "open_claims": [], "pending_rival": None,
+         "rejected_exit_request": None}
     s.update(kw)
     return s
 
@@ -1130,14 +1131,24 @@ class StateSchemaV2(unittest.TestCase):
 
     def test_a_v1_state_is_carried_forward(self):
         new = st.validate(st.migrate(self.v1(), NOW))
-        self.assertEqual(new["schema"], "snowball-bootstrap-state/2")
+        self.assertEqual(new["schema"], "snowball-bootstrap-state/3")
         for key in ("last_accepted_sha", "last_evaluated_sha", "frozen_specs", "month", "month_spend_usd_micros",
                     "stage_spend_usd_micros", "runs", "reject_streaks", "repeat_events", "outage_sha", "outage_count"):
             self.assertEqual(new[key], self.v1()[key], key)
         self.assertEqual(new["rival_artifacts"], [{"sha": A, "outcome": "survived"}, {"sha": "1" * 40, "outcome": "unknown"}])
-        self.assertEqual((new["outage_since"], new["open_refutations"], new["open_claims"], new["pending_rival"]),
-                         (NOW, [], [], None))
+        self.assertEqual((new["outage_since"], new["open_refutations"], new["open_claims"], new["pending_rival"],
+                          new["rejected_exit_request"]), (NOW, [], [], None, None))
         self.assertEqual(st.migrate(new, NOW), new)  # a current state passes unchanged
+
+    def test_a_v2_state_is_carried_forward_with_no_rejected_exit_request(self):
+        """E97 added `rejected_exit_request`: a state of the schema before it keeps everything and remembers none."""
+        v2 = dict(st.initial(Summary(A, "b" * 64), "2026-10"), schema="snowball-bootstrap-state/2",
+                  reject_streaks={"test_failed:T13": 2}, open_claims=[claim_entry()])
+        del v2["rejected_exit_request"]
+        new = st.validate(st.migrate(v2, NOW))
+        self.assertEqual(new, dict(v2, schema="snowball-bootstrap-state/3", rejected_exit_request=None))
+        with self.assertRaises(ConfigError):
+            st.validate(dict(new, rejected_exit_request="not a hash"))
 
     def test_states_of_unknown_shape_are_still_refused(self):
         for bad in ({"schema": "snowball-bootstrap-state/9"}, dict(self.v1(), extra=1), "x",
@@ -1170,7 +1181,7 @@ class StateSchemaV2(unittest.TestCase):
         self.assertEqual(case.fetch_ok(), 0)
         got = json.loads((case.root / "state" / "state.json").read_text())
         self.assertEqual((got["schema"], got["reject_streaks"], got["frozen_specs"]),
-                         ("snowball-bootstrap-state/2", {"test_failed:T13": 2}, {"spec/asama-0": "e" * 64}))
+                         ("snowball-bootstrap-state/3", {"test_failed:T13": 2}, {"spec/asama-0": "e" * 64}))
 
 
 class PullOutputsWiring(unittest.TestCase):

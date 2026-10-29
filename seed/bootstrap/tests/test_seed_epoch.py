@@ -35,6 +35,7 @@ class SeedEpochFlow(unittest.TestCase):
     rival_ok = test_flow.Flow.rival_ok
     green_run = test_flow.Flow.green_run
     freeze_stage0 = test_flow.Flow.freeze_stage0
+    commit_with_raw_name = test_flow.Flow.commit_with_raw_name
 
     def summary_path(self) -> Path:
         return self.referee / "setup" / "summary.json"
@@ -151,6 +152,55 @@ class SeedEpochFlow(unittest.TestCase):
             result = self.finish(meta)
             self.assertEqual(result["verdict"], "rejected", name)
             sh(self.brain, "git", "reset", "-q", "--hard", delivery)
+
+    def chmod_commit(self, path, files=None):
+        """A commit that sets the executable bit of ``path`` (beside ``files``): git records a mode change only."""
+        for rel, content in (files or {}).items():
+            (self.brain / rel).parent.mkdir(parents=True, exist_ok=True)
+            (self.brain / rel).write_text(content)
+        sh(self.brain, "git", "add", "-A")
+        sh(self.brain, "git", "update-index", "--chmod=+x", path)
+        sh(self.brain, "git", "commit", "-q", "-m", f"chmod +x {path}")
+        return sh(self.brain, "git", "rev-parse", "HEAD")
+
+    def test_a_mode_change_to_the_seed_is_a_founder_change_too(self):
+        """(b), E184: the seed's tree hashes leave the executable bit out, git does not. A mode change under spec/tohum/
+        or seed/ is rejected after the epoch as it is without one: beside code, and alone after an accepted push."""
+        self.accept_mf1()
+        delivery = self.deliver()
+        self.finish(self.pull())
+        for path in ("spec/tohum/00-cekirdek.md", "seed/bootstrap/vectors/new.json"):
+            self.chmod_commit(path, {"referee/ledger/chain.py": "x = 9\n"})
+            meta = self.pull()
+            self.assertEqual(meta["kind"], "rejected", path)
+            self.assertIn("seed_modified", meta["pre_reasons"], path)
+            self.assertIn("seed_tree_mismatch", meta["pre_reasons"], path)
+            self.assertEqual(self.finish(meta)["verdict"], "rejected", path)
+            sh(self.brain, "git", "reset", "-q", "--hard", delivery)
+        commit(self.brain, {"referee/ledger/chain.py": "x = 3\n"}, "accepted on top of the delivery")
+        meta = self.pull()
+        result = self.finish(meta, run=self.green_run(meta), rival=self.rival_ok(), jobs=CODE_JOBS)
+        self.assertEqual(result["verdict"], "accepted", result["reasons"])
+        self.chmod_commit("spec/tohum/29d-yeni.md")
+        meta = self.pull()
+        self.assertEqual(meta["changed"], ["spec/tohum/29d-yeni.md"])
+        self.assertIn("seed_modified", meta["pre_reasons"])
+        self.assertEqual(self.finish(meta)["verdict"], "rejected")
+
+    def test_a_push_the_referee_cannot_read_is_not_charged_with_the_delivery(self):
+        """E184: an unsafe or non-UTF-8 name leaves the tree unread, but the delivered seed in the diff is still the
+        operator's: the rejection names the name alone, and no `seed_modified` streak points at the operator's seed."""
+        self.accept_mf1()
+        delivery = self.deliver()
+        self.finish(self.pull())
+        for raw, reason in ((b"x" + bytes([92]) + b"y.md", "unsafe_path"), (b"bad" + bytes([0xFF]) + b".md", "non_utf8_path")):
+            self.commit_with_raw_name(raw)
+            meta = self.pull()
+            self.assertEqual((meta["kind"], meta["pre_reasons"]), ("rejected", [reason]), raw)
+            result = self.finish(meta)
+            self.assertEqual([r["kind"] for r in result["reasons"]], [reason], raw)
+            self.assertNotIn("seed_modified:", result["state"]["reject_streaks"], raw)
+            sh(self.brain, "git", "update-ref", "refs/heads/main", delivery)
 
     def test_a_brain_without_seed_gets_a_null_row_and_may_not_grow_one(self):
         """(b) `seed/` only when the brain has one: the row's seed_sha256 is null and the referee's bootstrap/ is

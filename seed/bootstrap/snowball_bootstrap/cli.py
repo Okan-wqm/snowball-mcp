@@ -310,7 +310,7 @@ def cmd_pull(args: argparse.Namespace) -> int:
 def _pull_meta(head: str, base: str, prev: dict[str, Any]) -> dict[str, Any]:
     return {"schema": "snowball-bootstrap-pull/1", "head": head, "base": base, "state": prev,
             "kind": "none", "changed": [], "pre_reasons": [], "evaluate": True,
-            "run_tests": False, "run_rival": False, "manifest": None, "exit_request": None,
+            "run_tests": False, "run_rival": False, "manifest": None, "exit_request": None, "exit_request_sha256": None,
             "referee_tree_sha256": None, "spec_dir_hashes": {}, "state_repro": [], "reuse_rival": False,
             "waived": [], "module_less": []}
 
@@ -385,17 +385,26 @@ def _pull_classify(boot: config.Bootstrap, policy: config.Policy, summary_cfg: c
     tar_bytes = gitio.archive(repo, head)
     readable = not {"non_utf8_path", "unsafe_path"} & set(pre)
     trees = seed_trees(tar_bytes) if readable else (None, None)
-    # While the head's seed trees are the last epoch's, the seed paths in the diff from the last accepted commit are
-    # the operator's delivery, not the Founder's change (`25` 10b, E88); any other seed is checked below.
-    epoch_seed = epoch is not None and trees == (epoch.spec_tohum_sha256, epoch.seed_sha256)
+    # While the head's seed is the last epoch's commit's, the seed paths in the diff from the last accepted commit are
+    # the operator's delivery, not the Founder's change (`25` 10b, E88); any other seed is checked below. Git compares
+    # them: a mode change counts (the tree hashes leave the executable bit out) and an unreadable tree is no excuse
+    # to charge the delivery to the Founder (E184).
+    epoch_seed = epoch is not None and gitio.same_under(repo, epoch.commit, head, SEED_DIRS)
     own = [p for p in changed if not (epoch_seed and is_seed_path(p))]
+    exit_raw = gitio.file_at(repo, head, EXIT_FILE)  # from its blob: readable even when another name is not
+    exit_sha = hashlib.sha256(exit_raw).hexdigest() if exit_raw is not None else None
     judged = [p for p in own if not is_founder_record(p)]  # the Founder's ledger rows may ride along
     if judged == [EXIT_FILE]:
-        kind = "exit"
+        kind = "exit"  # the same bytes asked for again alone are a request again, judged again
     else:
+        # In a code push, a file byte for byte a request the referee rejected is ignored (`asama-0/10`, `26c`, E97):
+        # left in place it does not make the push "not alone".
+        left_in_place = exit_sha is not None and exit_sha == prev.get("rejected_exit_request")
+        if left_in_place:
+            own = [p for p in own if p != EXIT_FILE]
         kind, reasons = classify(own)
         pre += reasons
-        if EXIT_FILE in judged:
+        if EXIT_FILE in judged and not left_in_place:
             pre.append("exit_request_not_alone")
     if {"base_unreachable", "history_rewritten", "non_utf8_path", "unsafe_path"} & set(pre):  # nothing can be read safely
         kind = "rejected"
@@ -443,8 +452,9 @@ def _pull_classify(boot: config.Bootstrap, policy: config.Policy, summary_cfg: c
             meta["module_less"] = [k for k in manifest.done_mf if k not in before]
 
     if kind == "exit":
+        meta["exit_request_sha256"] = exit_sha  # rejected, these bytes are ignored in later pushes (E97)
         try:
-            req = json.loads((tar_file(tar_bytes, EXIT_FILE) or b"").decode("utf-8"))
+            req = json.loads((exit_raw or b"").decode("utf-8"))
         except (ValueError, RecursionError):  # bad UTF-8 or JSON, or nested deeper than the parser goes
             req = None
         if not _well_formed_exit_request(req):
