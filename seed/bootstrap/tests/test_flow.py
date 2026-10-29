@@ -6,6 +6,7 @@ import io
 import json
 import os
 import stat
+import subprocess
 import tarfile
 import tempfile
 import unittest
@@ -72,7 +73,7 @@ class Flow(unittest.TestCase):
         rc = cli.main(["pull", "--root", str(self.referee), "--state", str(state_path),
                        "--work", str(Path(self.tmp.name) / "work"), "--out", str(out), "--remote", str(self.brain)])
         self.assertEqual(rc, 0)
-        return json.loads((out / "meta.json").read_text())
+        return json.loads((out / "meta.json").read_text(encoding="utf-8"))  # not the platform's default: names can be non-ASCII
 
     def finish(self, meta, run=None, rival=None, repro=None, jobs=None):
         result = decide(meta, run, rival, repro, jobs or {}, rival_min_attempts=2, repeat_reject_limit=3)
@@ -101,6 +102,27 @@ class Flow(unittest.TestCase):
             self.assertEqual(result["verdict"], "rejected", reason)
             self.assertEqual(result["state"]["last_evaluated_sha"], meta["head"], reason)
             self.assertEqual(result["state"]["outage_count"], 0, reason)
+
+    def commit_with_raw_name(self, name: bytes) -> str:
+        """A root file whose name is not UTF-8, written with git's plumbing (a file system may not allow it)."""
+        def git(*argv, data=b""):
+            return subprocess.run(["git", *argv], cwd=self.brain, input=data, capture_output=True, check=True).stdout
+        blob = git("hash-object", "-w", "--stdin", data=b"x" + chr(10).encode()).strip()
+        tree = git("mktree", "-z", data=git("ls-tree", "-z", "HEAD") + b"100644 blob " + blob + b"\t" + name + b"\0").strip()
+        sha = git("commit-tree", tree.decode(), "-p", "HEAD", "-m", "odd name").strip().decode()
+        git("update-ref", "refs/heads/main", sha)
+        return sha
+
+    def test_a_file_name_that_is_not_utf8_is_one_rejection_not_a_crash_on_every_poll(self):
+        """V3: canonical JSON cannot hold the lone surrogate git keeps for it, so `pull` died before `decide`."""
+        sha = self.commit_with_raw_name(b"bad" + bytes([0xFF]) + b".md")
+        meta = self.pull()
+        self.assertEqual(meta["head"], sha)
+        self.assertIn("non_utf8_path", meta["pre_reasons"])
+        self.assertEqual(meta["changed"], ["bad" + chr(0xFFFD) + ".md"])
+        result = self.finish(meta)
+        self.assertEqual(result["verdict"], "rejected")
+        self.assertEqual(result["state"]["last_evaluated_sha"], sha)  # judged once, not polled forever
 
     def test_a_crashed_job_is_one_infrastructure_reason_not_two(self):
         commit(self.brain, {"spec/asama-0/00-ozet.md": "# stage 0, revised" + chr(10)}, "spec only")

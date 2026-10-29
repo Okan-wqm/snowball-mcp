@@ -24,7 +24,7 @@ from .importer import ImportErrorStop, run_import, verify_signature
 from .manifest import ManifestError, check_stage0, parse_lockfile, parse_manifest
 from .reproduce import run_reproducers
 from .rival import build_context, extract_seat_prompt, resolve_claude, run_rival
-from .treehash import TreeError, extract, iter_files, tree_hash
+from .treehash import TreeError, extract, is_utf8_name, iter_files, shown, tree_hash
 from .vectors import run_vectors
 
 EXIT_FILE = "exit-request.json"
@@ -242,6 +242,9 @@ def cmd_pull(args: argparse.Namespace) -> int:
     elif not gitio.is_ancestor(repo, base, head):
         pre.append("history_rewritten")
     changed = gitio.changed_paths(repo, base, head) if base_ok else []
+    if not all(map(is_utf8_name, changed + gitio.tree_paths(repo, head))):
+        pre.append("non_utf8_path")  # canonical JSON cannot hold such a name: keep it out of meta.json, say so once
+    changed = [shown(p) for p in changed]
     if changed == [EXIT_FILE]:
         kind = "exit"
     else:
@@ -249,14 +252,15 @@ def cmd_pull(args: argparse.Namespace) -> int:
         pre += reasons
         if EXIT_FILE in changed:
             pre.append("exit_request_not_alone")
-    if "base_unreachable" in pre or "history_rewritten" in pre:
+    if {"base_unreachable", "history_rewritten", "non_utf8_path"} & set(pre):  # nothing of the tree can be read safely
         kind = "rejected"
     pre += [f"not_regular_file:{x}" for x in gitio.special_entries(repo, head)][:20]
     tar_bytes = gitio.archive(repo, head)
     if len(tar_bytes) > boot.limits.max_tree_bytes:
         pre.append("tree_too_large")
     try:
-        if tree_hash(tar_bytes, "spec/tohum", forbid_operator_names=False) != summary_cfg.seed_tree_sha256:
+        if ("non_utf8_path" not in pre
+                and tree_hash(tar_bytes, "spec/tohum", forbid_operator_names=False) != summary_cfg.seed_tree_sha256):
             pre.append("seed_tree_mismatch")
     except TreeError:
         pre.append("seed_tree_missing")

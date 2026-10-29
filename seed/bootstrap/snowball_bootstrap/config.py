@@ -15,11 +15,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-SHA_RE = re.compile(r"^[0-9a-f]{40}$")
-HEX64_RE = re.compile(r"^[0-9a-f]{64}$")
-REPO_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9-]{0,38}/[A-Za-z0-9._-]{1,100}$")
-IMAGE_RE = re.compile(r"^[a-z0-9./_-]+(?::[A-Za-z0-9._-]+)?@sha256:[0-9a-f]{64}$")
-BRANCH_RE = re.compile(r"^[A-Za-z0-9._/-]{1,200}$")
+SHA_RE = re.compile(r"^[0-9a-f]{40}\Z")
+HEX64_RE = re.compile(r"^[0-9a-f]{64}\Z")
+REPO_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9-]{0,38}/[A-Za-z0-9._-]{1,100}\Z")
+IMAGE_RE = re.compile(r"^[a-z0-9./_-]+(?::[A-Za-z0-9._-]+)?@sha256:[0-9a-f]{64}\Z")
+BRANCH_RE = re.compile(r"^[A-Za-z0-9._/-]{1,200}\Z")
 
 
 class ConfigError(ValueError):
@@ -153,8 +153,8 @@ def check_control(root: Path) -> None:
         raise ConfigError("control.json: budget_state is not 'ok'")
 
 
-SPDX_ID_RE = re.compile(r"^[A-Za-z0-9.+-]{1,64}$")
-PIN_RE = re.compile(r"^[a-z0-9][a-z0-9-]*==[A-Za-z0-9.+!-]+$")
+SPDX_ID_RE = re.compile(r"^[A-Za-z0-9.+-]{1,64}\Z")
+PIN_RE = re.compile(r"^[a-z0-9][a-z0-9-]*==[A-Za-z0-9.+!-]+\Z")
 
 
 @dataclass(frozen=True)

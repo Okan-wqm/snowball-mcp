@@ -476,6 +476,19 @@ def _isolation_fault(init: dict[str, Any] | None, usage: dict[str, Any]) -> str 
     return None
 
 
+def _texts(value: Any):
+    """Every string inside a verdict, as written: JSON turns a newline into two characters and a letter into an
+    escape, and the secret patterns' word boundaries then no longer see where a key starts."""
+    if isinstance(value, str):
+        yield value
+    elif isinstance(value, dict):
+        for item in value.values():
+            yield from _texts(item)
+    elif isinstance(value, list):
+        for item in value:
+            yield from _texts(item)
+
+
 def run_rival(cfg: RivalConfig, *, claude_bin: str | None, seat_prompt: str, context: str, tree_root: Path,
               budget_usd_micros: int, max_prompt_chars: int) -> RivalOutcome:
     out = RivalOutcome(model_requested=cfg.model)
@@ -570,7 +583,7 @@ def run_rival(cfg: RivalConfig, *, claude_bin: str | None, seat_prompt: str, con
         except ValueError as exc:
             out.reasons.append(f"malformed_verdict:{exc}")
             return out
-        leaked = secretscan.scan(json.dumps(verdict["attempts"]))
+        leaked = secretscan.scan(chr(10).join(_texts(verdict["attempts"])))
         if leaked:
             out.reasons.append("secret_in_verdict:" + ",".join(leaked))
             return out

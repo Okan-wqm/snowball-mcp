@@ -211,6 +211,17 @@ class RivalTest(unittest.TestCase):
         self.assertEqual((out.verdict, out.reasons, out.attempts),
                          ("unresolved", ["secret_in_verdict:aws_access_key"], []))
 
+    def test_a_secret_after_a_newline_or_a_non_ascii_letter_cannot_hide_in_json_escapes(self):
+        """V3: the scan read json.dumps(), where a newline is two characters and a letter an escape, so a key that
+        started a line or followed an accented letter had no word boundary before it, and was written to rival.json."""
+        key = "sk-" + "proj-" + "A" * 40
+        refs = [{"path": "referee/a.py", "line_start": 1, "line_end": 1}]
+        for lead in (chr(10), chr(0xE9), chr(0x2028), " "):
+            out = self.run_with({"calls": [submit("refuted", [{"claim": "see" + lead + key, "evidence_refs": refs}])],
+                                 "result": ok_result()})
+            self.assertEqual((out.verdict, out.reasons, out.attempts), ("unresolved", ["secret_in_verdict:openai_key"], []),
+                             repr(lead))
+
     def test_the_model_the_api_named_is_what_counts_not_the_one_the_cli_asked_for(self):
         """modelUsage is keyed by the requested model: an auditor's fake API answered as claude-haiku-9-9."""
         out = self.run_with({"calls": [submit()], "result": ok_result(), "api_models": ["claude-haiku-9-9"]})

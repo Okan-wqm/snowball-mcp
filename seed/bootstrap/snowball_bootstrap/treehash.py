@@ -20,7 +20,19 @@ class TreeError(ValueError):
     """The archive contains something other than regular files and directories."""
 
 
+def is_utf8_name(name: str) -> bool:
+    """False for a name that is not UTF-8: git and tar keep its bytes as lone surrogates."""
+    return not any("\ud800" <= char <= "\udfff" for char in name)
+
+
+def shown(name: str) -> str:
+    """The name as text that canonical JSON and a message can hold (a lone surrogate can be neither)."""
+    return name.encode("utf-8", "surrogateescape").decode("utf-8", "replace")
+
+
 def _clean(name: str) -> PurePosixPath:
+    if not is_utf8_name(name):
+        raise TreeError(f"path in archive is not valid UTF-8: {shown(name)}")
     path = PurePosixPath(name)
     if path.is_absolute() or ".." in path.parts or "\\" in name or ":" in name or "\x00" in name:
         raise TreeError(f"unsafe path in archive: {name}")
@@ -29,18 +41,21 @@ def _clean(name: str) -> PurePosixPath:
 
 def iter_files(tar_bytes: bytes):
     """Yield (path, content, executable) for regular files; refuse links and special files."""
-    with tarfile.open(fileobj=io.BytesIO(tar_bytes), mode="r:") as tar:
-        for member in tar.getmembers():
-            if member.name == "pax_global_header" or member.type == tarfile.XGLTYPE:
-                continue
-            path = _clean(member.name)
-            if member.isdir():
-                continue
-            if not member.isfile():
-                raise TreeError(f"not a regular file: {member.name}")
-            handle = tar.extractfile(member)
-            assert handle is not None
-            yield path, handle.read(), bool(member.mode & 0o111)
+    try:
+        with tarfile.open(fileobj=io.BytesIO(tar_bytes), mode="r:") as tar:
+            for member in tar.getmembers():
+                if member.name == "pax_global_header" or member.type == tarfile.XGLTYPE:
+                    continue
+                path = _clean(member.name)
+                if member.isdir():
+                    continue
+                if not member.isfile():
+                    raise TreeError(f"not a regular file: {member.name}")
+                handle = tar.extractfile(member)
+                assert handle is not None
+                yield path, handle.read(), bool(member.mode & 0o111)
+    except tarfile.TarError as exc:  # a corrupt or truncated archive is the same kind of refusal
+        raise TreeError(f"not a readable archive: {type(exc).__name__}") from exc
 
 
 def tree_hash(tar_bytes: bytes, prefix: str, forbid_operator_names: bool = True) -> str:

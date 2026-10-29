@@ -538,6 +538,19 @@ class TreeHardeningGaps(unittest.TestCase):
             with self.assertRaises(TreeError):
                 extract(data, Path(tmp) / "dest", 1000)
 
+    def test_a_name_that_is_not_utf8_is_a_tree_error_that_can_be_reported(self):
+        """V3: it crashed `tree_hash` with UnicodeEncodeError, and a message holding it could not be written either."""
+        data = tar_with(name="spec/tohum/bad" + chr(0xDCFF) + ".md")
+        with self.assertRaises(TreeError) as ctx:
+            tree_hash(data, "spec/tohum")
+        str(ctx.exception).encode("utf-8")  # a lone surrogate in the message would raise here
+
+    def test_an_archive_that_is_not_one_is_a_tree_error(self):
+        """V3: tarfile.ReadError escaped as itself."""
+        for data in (b"not a tar", b"x" * 1024):
+            with self.assertRaises(TreeError, msg=data[:5]):
+                tree_hash(data, "referee")
+
     def test_unsafe_names_are_refused_by_iter_files_itself_not_only_by_extract(self):
         """T01 T03 T04: hash and import paths use iter_files/tree_hash and never reach extract's resolve check."""
         for name in ("/abs", "a/../b", "x\\y", "a:b"):

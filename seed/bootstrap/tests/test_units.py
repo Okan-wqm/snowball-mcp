@@ -3,6 +3,7 @@ import json
 import re
 import tarfile
 import tempfile
+import time
 import unittest
 import zipfile
 from pathlib import Path
@@ -400,6 +401,8 @@ class SecretScanCoverageTest(unittest.TestCase):
     def test_the_commonest_credential_shapes_are_found(self):
         cases = {
             "generic_assignment": ['GITHUB_TOKEN = "' + self.TOK + '"', "db_password: '" + self.TOK + "'",
+                                   '{"password": "' + self.TOK + '"}', "{'api_key': '" + self.TOK + "'}",
+                                   "a_very_long_name_" * 4 + "token = '" + self.TOK + "'",
                                    'AWS_SECRET_ACCESS_KEY = "' + "wJalrXUtnFEMI/K7MDENG" + "bPxRfiCY" + '"'],
             "generic_assignment_bare": ["AWS_SECRET_ACCESS_KEY=" + "wJalrXUtnFEMI/K7MDENG" + "bPxRfiCY",
                                         "api_key: " + self.TOK, "TOKEN=" + "0123456789abcdef" * 2],
@@ -408,6 +411,8 @@ class SecretScanCoverageTest(unittest.TestCase):
             "google_api_key": ["AI" + "za" + "A" * 35],
             "npm_token": ["npm" + "_" + "A" * 36],
             "jwt": ["ey" + "J" + "A" * 12 + ".ey" + "J" + "A" * 12 + "." + "A" * 12],
+            "url_credentials": ["DATABASE_URL=postgres://app:" + "Pa55w0rd" + "Xyz9@db.internal:5432/app",
+                                "git+https://builder:" + "ci9Token8Value" + "@example.com/org/repo.git"],
         }
         for name, samples in cases.items():
             for sample in samples:
@@ -416,6 +421,8 @@ class SecretScanCoverageTest(unittest.TestCase):
     def test_identifiers_numbers_and_lookups_are_not_secrets(self):
         for line in ("token = tokenizer_pretrained_model_name_v2", "secret = get_secret_value_from_vault_1",
                      "token_count = 12345678901234567890", 'api_key = os.environ["API_KEY"]', "max_tokens = 100000",
+                     "postgres://user:password@localhost:5432/db", "https://example.com:8080/a/b?c=d",
+                     "git@github.com:owner/repo.git", "http://user:pass@localhost/",
                      'password = "changeme"', "password_field = hash_password_with_salt_and_pepper",
                      "SECRET_KEY = config.get('secret_key_name')", "token: Bearer",
                      "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"):
@@ -436,11 +443,35 @@ class SecretScanCoverageTest(unittest.TestCase):
         self.assertGreater(checked, 100)
 
 
+class SecretScanSpeedTest(unittest.TestCase):
+    """V3: a pattern with two open-ended repeats around a keyword took 24 s on 2000 characters of `token` and
+    minutes on one long hex line; the diff, whole files and verdicts reach the scan unbounded."""
+
+    def test_hostile_lines_are_scanned_in_linear_time(self):
+        hostile = {"keyword run": "token" * 10_000, "name tail": "api_key" * 7_000, "hex line": "0123456789abcdef" * 3_125,
+                   "jwt alphabet": "eyJ-" * 50_000, "url prefix": "a://b:c1" * 6_250, "long value": "token=" + "Aa1" * 16_000}
+        for label, text in hostile.items():
+            started = time.perf_counter()
+            secretscan.scan(text)
+            self.assertLess(time.perf_counter() - started, 1.0, label)
+
+
 class SecretScanBoundaryTest(unittest.TestCase):
     def test_a_token_glued_to_other_characters_is_still_a_token(self):
         for text in ("x" + "gh" + "p_" + "A" * 36, "_" + "gh" + "p_" + "A" * 36, "a-" + "AKIA" + "ABCDEFGHIJKLMNOP",
                      "-----BEGIN PGP PRIV" + "ATE KEY BLOCK-----"):
             self.assertNotEqual(secretscan.scan(text), [], text)
+
+    def test_every_whole_string_pattern_rejects_a_trailing_newline(self):
+        """V3: `$` matches before a final newline, so `<sha>\n` passed for a sha; `\Z` does not."""
+        import re
+        from snowball_bootstrap import config, manifest, state as st
+        for module in (config, st, manifest):
+            for name, value in vars(module).items():
+                if isinstance(value, re.Pattern) and value.pattern.startswith("^"):
+                    self.assertTrue(value.pattern.endswith("\Z"), f"{module.__name__}.{name}: {value.pattern}")
+        self.assertIsNone(st.SHA_RE.match("a" * 40 + chr(10)))
+        self.assertIsNotNone(st.SHA_RE.match("a" * 40))
 
     def test_a_jwt_shape_inside_a_longer_word_is_not_one(self):
         jwt = "ey" + "J" + "A" * 12 + ".ey" + "J" + "A" * 12 + "." + "A" * 12

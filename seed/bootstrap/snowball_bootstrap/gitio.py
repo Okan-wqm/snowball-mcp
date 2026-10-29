@@ -14,6 +14,8 @@ import subprocess
 import tarfile
 from pathlib import Path
 
+from .treehash import shown
+
 SAFE_CONFIG = (
     "-c", "core.hooksPath=/dev/null",
     "-c", "core.fsmonitor=false",
@@ -114,7 +116,12 @@ def _entries(repo: Path, head: str) -> list[tuple[str, str, str]]:
 
 def special_entries(repo: Path, head: str) -> list[str]:
     """Paths that are not regular files (symlinks, submodules)."""
-    return sorted(f"{SPECIAL_MODES[m]}:{p}" for m, _s, p in _entries(repo, head) if m in SPECIAL_MODES)
+    return sorted(f"{SPECIAL_MODES[m]}:{shown(p)}" for m, _s, p in _entries(repo, head) if m in SPECIAL_MODES)
+
+
+def tree_paths(repo: Path, head: str) -> list[str]:
+    """Every path in the tree at ``head``, as git stores it (a name that is not UTF-8 keeps lone surrogates)."""
+    return [p for _m, _s, p in _entries(repo, head)]
 
 
 def archive(repo: Path, head: str) -> bytes:

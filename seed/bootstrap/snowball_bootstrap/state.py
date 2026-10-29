@@ -20,9 +20,9 @@ from typing import Any
 from .config import ConfigError, Summary
 
 SCHEMA = "snowball-bootstrap-state/1"
-SHA_RE = re.compile(r"^[0-9a-f]{40}$")
-HEX64_RE = re.compile(r"^[0-9a-f]{64}$")
-MONTH_RE = re.compile(r"^\d{4}-\d{2}$")
+SHA_RE = re.compile(r"^[0-9a-f]{40}\Z")
+HEX64_RE = re.compile(r"^[0-9a-f]{64}\Z")
+MONTH_RE = re.compile(r"^\d{4}-\d{2}\Z")
 KEYS = {"schema", "origin", "last_accepted_sha", "last_evaluated_sha", "frozen_specs", "rival_artifacts",
         "month", "month_spend_usd_micros", "stage_spend_usd_micros", "runs", "reject_streaks", "repeat_events",
         "outage_sha", "outage_count"}
