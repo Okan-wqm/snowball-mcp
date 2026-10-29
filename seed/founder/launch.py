@@ -56,6 +56,15 @@ def say(msg: str) -> None:
     print(f"[{now()}] {msg}", flush=True)
 
 
+def write_build_context(ctx: Path) -> None:
+    """Copy exactly the files the image needs, with LF line ends: a Windows checkout may hand over CRLF, and a CR
+    after the entrypoint's shebang makes the container fail before it starts (E152)."""
+    for rel in BUILD_FILES:
+        dest = ctx / rel
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes((SEED / rel).read_bytes().replace(b"\r\n", b"\n"))
+
+
 class Pilot:
     def __init__(self, work: Path, brain: str, referee: str, target: str) -> None:
         self.work, self.brain, self.referee = work, brain, referee
@@ -89,10 +98,7 @@ class Pilot:
         placeholders it cannot read, and nothing else of the repository belongs in the capsule."""
         say("building the capsule image")
         with tempfile.TemporaryDirectory(prefix="snowball-founder-") as ctx:
-            for rel in BUILD_FILES:
-                dest = Path(ctx, rel)
-                dest.parent.mkdir(parents=True, exist_ok=True)
-                dest.write_bytes((SEED / rel).read_bytes())
+            write_build_context(Path(ctx))
             proc = run("docker", "build", "--quiet", "-t", IMAGE, "-f", str(Path(ctx, "founder/Dockerfile")), ctx,
                        check=False, timeout=3600)
         if proc.returncode != 0:
@@ -180,13 +186,16 @@ class Pilot:
     def session(self, stamp: str, model: str, max_turns: int, budget_usd: int, timeout_s: int) -> dict:
         cmd = self.capsule_argv(stamp, model, max_turns, budget_usd)
         started = time.monotonic()
+        err = ""
         try:
             proc = run(*cmd, check=False, timeout=timeout_s)
             exit_code, tail = proc.returncode, proc.stdout.decode(errors="replace").strip().splitlines()[-1:]
+            err = proc.stderr.decode(errors="replace").strip()[-600:]  # docker's own complaint; the CLI's goes to logs/
         except subprocess.TimeoutExpired:
             run("docker", "stop", f"snowball_founder_{stamp.lower()}", check=False)  # the container this script started
             exit_code, tail = -1, ["session timed out"]
-        out = {"exit": exit_code, "minutes": round((time.monotonic() - started) / 60, 1), "line": tail[0] if tail else ""}
+        out = {"exit": exit_code, "minutes": round((time.monotonic() - started) / 60, 1), "line": tail[0] if tail else "",
+               "stderr": err}
         out.update(self.transcript_summary(self.logs / f"session-{stamp}.jsonl"))
         return out
 
@@ -239,6 +248,8 @@ class Pilot:
                  f"- Hakemin önceki kararı (Kurucu'nun okuduğu): {(prior or {}).get('verdict', 'yok')}",
                  f"- Defter: {len(new_rows)} yeni satır " + (json.dumps(kinds, ensure_ascii=False) if kinds else ""),
                  ]
+        if sess.get("exit") not in (0, None) and sess.get("stderr"):
+            lines.append(f"- Kapsül hatası: `{sess['stderr'].replace('`', chr(39))}`")
         for row in new_rows:
             if row.get("kind") in ("seed_issue", "blocked", "missing_capability"):
                 lines.append(f"  - **{row.get('kind')}**: {json.dumps(row, ensure_ascii=False)[:600]}")
