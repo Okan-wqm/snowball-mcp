@@ -1,0 +1,4 @@
+# Files that run inside Linux containers keep LF on every checkout: a CR after the shebang makes exec fail
+# ("no such file or directory"), which stopped the first pilot session before it started (E152).
+*.sh text eol=lf
+seed/founder/Dockerfile text eol=lf

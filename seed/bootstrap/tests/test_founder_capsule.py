@@ -64,6 +64,24 @@ class CapsuleArgvTest(unittest.TestCase):
                 self.assertTrue(Path(src).is_relative_to(self.work), src)
 
 
+class BuildContextTest(unittest.TestCase):
+    def test_a_windows_checkout_reaches_the_image_with_lf_and_nothing_else(self):  # E152
+        launch = load_launch()
+        seed = Path(tempfile.mkdtemp())
+        for rel in launch.BUILD_FILES:
+            (seed / rel).parent.mkdir(parents=True, exist_ok=True)
+            (seed / rel).write_bytes(b"#!/bin/sh\r\nset -eu\r\n" if rel.endswith(".sh") else b"line\r\nline\r\n")
+        (seed / "founder" / "secret-notes.txt").write_bytes(b"not for the image\n")
+        launch.SEED = seed
+        ctx = Path(tempfile.mkdtemp())
+        launch.write_build_context(ctx)
+        files = sorted(p.relative_to(ctx).as_posix() for p in ctx.rglob("*") if p.is_file())
+        self.assertEqual(files, sorted(launch.BUILD_FILES))
+        for rel in files:
+            self.assertNotIn(b"\r", (ctx / rel).read_bytes(), rel)
+        self.assertEqual((ctx / "founder/entrypoint.sh").read_bytes(), b"#!/bin/sh\nset -eu\n")
+
+
 class TranscriptTest(unittest.TestCase):
     def test_the_closing_result_event_is_what_the_report_reads(self):
         launch = load_launch()
@@ -102,6 +120,9 @@ class ImageAndEntrypointTest(unittest.TestCase):
         self.assertIn("--no-session-persistence", self.entry)
         self.assertIn('CLAUDE_CONFIG_DIR="$(mktemp -d)"', self.entry)
         self.assertNotIn("ANTHROPIC_API_KEY", self.entry + self.dockerfile)
+
+    def test_git_trusts_the_brain_clone_on_its_root_owned_tmpfs(self):  # E152: without it no commit, no push
+        self.assertIn("safe.directory /work/brain", self.entry)
 
     def test_the_github_token_never_reaches_a_url_a_command_line_or_the_log(self):
         self.assertIn("http.https://github.com/.extraheader", self.entry)
