@@ -13,6 +13,7 @@ evidir. Sınırlar `seed/bootstrap/tests/test_founder_capsule.py`'de sabitlidir.
 | `referee/` | hakemin son imzalı sonucu (`result.json`), Kurucu okur |
 | `logs/` | oturum dökümleri (`stream-json`) |
 | `pilot-log.md` | operatörün raporu: her döngüde push, hakem kararı, yeni defter satırları ve bildirimler |
+| `pilot-metrics.jsonl` | her döngünün ölçümü: push, karar, nedenler ve **sahipleri** (hakemin kendi kuralıyla: Kurucu / rakip / hakem), rakibin kanıtlanmış bulguları, eski çürütmeler, yeni bildirimler, süre, maliyet, hakemin yeniden inceleme sayısı |
 | `STOP` | oluşturulursa başlatıcı o adımdan sonra durur |
 
 **Çalıştırma** (operatörün `gh` girişi ve Docker gerekir):

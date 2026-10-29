@@ -34,9 +34,12 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 SEED = HERE.parent
+sys.path.insert(0, str(SEED / "bootstrap"))
+from snowball_bootstrap.decide import counts_against_founder  # noqa: E402  (the referee's rule, not a copy)
 IMAGE = "snowball-founder:pilot"
 REFEREE_WORKFLOW = "bootstrap.yml"
 STATE_ARTIFACT = "bootstrap-state"
+MAX_REFEREE_RETRIES = 2  # with the first run, as many as the referee's own retries (decide.RIVAL_SIDE_WARN)
 BUILD_FILES = ("founder/Dockerfile", "founder/entrypoint.sh", "founder/prompt.md",
                "bootstrap/requirements/claude-cli/package.json", "bootstrap/requirements/claude-cli/package-lock.json")
 
@@ -57,6 +60,15 @@ def say(msg: str) -> None:
     print(f"[{now()}] {msg}", flush=True)
 
 
+def reason_owner(reason: dict) -> str:
+    """Whose move a rejection reason asks for, by the referee's own rule (one source of truth): the measure of
+    whether every rejection the Founder sees is one it can act on (E166, E167)."""
+    item = {"kind": str(reason.get("kind", "")), "ref": str(reason.get("ref") or "")}
+    if counts_against_founder(item):
+        return "founder"
+    return "rival" if item["kind"] in ("rival_unresolved", "rival_missing") else "referee"
+
+
 def write_build_context(ctx: Path) -> None:
     """Copy exactly the files the image needs, with LF line ends: a Windows checkout may hand over CRLF, and a CR
     after the entrypoint's shebang makes the container fail before it starts (E152)."""
@@ -74,6 +86,7 @@ class Pilot:
         self.result_dir = work / "referee"
         self.logs = work / "logs"
         self.report = work / "pilot-log.md"
+        self.metrics = work / "pilot-metrics.jsonl"  # one machine-readable line per cycle (what docs/pilot-gunlugu.md counts)
         self.seed = ""  # the brain commit the referee's setup summary pins; the capsule cuts history there
 
     # ---- checks -------------------------------------------------------------------------------------------
@@ -239,6 +252,10 @@ class Pilot:
         with self.report.open("a", encoding="utf-8") as fh:
             fh.write(text)
 
+    def record_metrics(self, row: dict) -> None:
+        with self.metrics.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(row, ensure_ascii=False, sort_keys=True) + "\n")
+
     def cycle(self, n: int, args) -> bool:
         """One cycle; False when the pilot should stop."""
         stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
@@ -252,10 +269,19 @@ class Pilot:
         new_rows = rows_after[len(rows_before):] if rows_after[:len(rows_before)] == rows_before else rows_after
         verdict = None
         dispatched = None
+        retries = 0
         if after != before and not self.stopped():
             say(f"cycle {n}: brain moved to {after[:7]}, dispatching the referee")
             dispatched = self.dispatch_referee(args.referee_timeout)
             verdict = self.fetch_result()
+            # A commit the referee left unevaluated (the rival failed on its own side, or an outage) is reviewed
+            # again before the Founder is asked for anything: it cannot fix what was not its fault (E166).
+            while (retries < MAX_REFEREE_RETRIES and verdict and verdict.get("head") == after
+                   and (verdict.get("state") or {}).get("last_evaluated_sha") != after and not self.stopped()):
+                retries += 1
+                say(f"cycle {n}: {after[:7]} was not evaluated ({verdict.get('warnings')}); referee again, retry {retries}")
+                dispatched = self.dispatch_referee(args.referee_timeout)
+                verdict = self.fetch_result()
         kinds: dict[str, int] = {}
         for row in new_rows:
             kinds[str(row.get("kind"))] = kinds.get(str(row.get("kind")), 0) + 1
@@ -272,7 +298,8 @@ class Pilot:
             if row.get("kind") in ("seed_issue", "blocked", "missing_capability"):
                 lines.append(f"  - **{row.get('kind')}**: {json.dumps(row, ensure_ascii=False)[:600]}")
         if dispatched is not None:
-            lines.append(f"- Hakem koşusu: {dispatched['conclusion']} {dispatched['url']}")
+            lines.append(f"- Hakem koşusu: {dispatched['conclusion']} {dispatched['url']}"
+                         + (f" (aynı commit {retries} kez yeniden incelendi)" if retries else ""))
             if verdict:
                 lines.append(f"- Hakemin kararı: **{verdict.get('verdict')}**, nedenler {verdict.get('reasons')}")
                 if verdict.get("learning"):
@@ -282,6 +309,20 @@ class Pilot:
         if sess.get("final"):
             lines.append("- Kurucu'nun kapanış notu:\n\n  > " + sess["final"].replace("\n", "\n  > "))
         self.write("\n".join(lines) + "\n")
+        self.record_metrics({
+            "stamp": stamp, "brain_before": before, "brain_after": after, "pushed": after != before,
+            "session_exit": sess.get("exit"), "minutes": sess.get("minutes"), "turns": sess.get("turns"),
+            "cost_usd": sess.get("cost_usd"), "verdict": (verdict or {}).get("verdict"), "kind": (verdict or {}).get("kind"),
+            "reasons": [{"kind": r.get("kind"), "ref": r.get("ref"), "owner": reason_owner(r)}
+                        for r in (verdict or {}).get("reasons", [])],
+            "warnings": (verdict or {}).get("warnings", []), "referee_retries": retries,
+            "rival_attempts": len(((verdict or {}).get("rival") or {}).get("attempts", [])),
+            "reproduced": sum(1 for p in (verdict or {}).get("reproducers") or [] if p.get("reproduced") and not p.get("tautological")),
+            "old_refutations_still_reproducing": sum(1 for p in (verdict or {}).get("state_reproducers") or [] if p.get("reproduced")),
+            "ledger_new": kinds,
+            "reports_new": [r.get("payload", {}).get("summary", "")[:120] for r in new_rows
+                            if r.get("kind") in ("seed_issue", "blocked", "missing_capability")],
+        })
         say(f"cycle {n}: done, verdict {(verdict or {}).get('verdict', '-')}")
         self.idle = self.idle + 1 if after == before else 0
         return not (self.stopped() or self.idle >= 2 or sess.get("exit") == -1)
