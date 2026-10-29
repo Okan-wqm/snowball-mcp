@@ -247,6 +247,12 @@ class ImageAndEntrypointTest(unittest.TestCase):
         for idea in ("her iki yönde", "başka repolarda", "benzediğini", "kütüphane", "geriye dönük"):
             self.assertNotIn(idea, prompt)
 
+    def test_disagreements_between_its_agents_are_settled_by_evidence(self):  # E208, owner 2026-10-29
+        prompt = " ".join((FOUNDER / "prompt.md").read_text(encoding="utf-8").split())
+        for phrase in ("Anlaşmazlık kanıtla çözülür", "oyla, otoriteyle, ilk ya da son gelenle karar verilmez",
+                       "kanıtı tutan sonuç alınır", "ikisini ayıran deney tasarlanır"):
+            self.assertIn(phrase, prompt)
+
     def test_documents_are_hints_and_the_founders_own_docs_are_generated(self):  # E206, owner 2026-10-29
         prompt = " ".join((FOUNDER / "prompt.md").read_text(encoding="utf-8").split())
         for phrase in ("Belge ipucudur, gerçek koddur", "her iddiayı kodla, yapılandırmayla ve testle doğrula",
