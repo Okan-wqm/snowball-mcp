@@ -22,6 +22,8 @@ dökümleri `logs/`'tadır (GitHub'a gitmez, sır içerebilir diye). Hedef: ger�
 | 0 | kapsül açılmadı (çıkış 255) | — | — | E152: CRLF shebang |
 | 1 | Aşama 0 spec'ini `tohum/02` listesine göre denetledi, düzeltme gerekmedi; 6 bildirim | `e5bd405` spec isteği | **frozen**; rakip bir tutarsızlık buldu (aşağıda), yeniden üreticisiz olduğu için açık iddia olarak saklandı | 4,5 dk, 34 tur, ~2 USD; rakip 0,13 USD |
 | 2 | açık iddiayı okudu ve kabul etti; MF1 `ledger.chain` (22 test, 12 kasıtlı bozma); 1 yeni bildirim | `ffaa457` kod (MF1) | **accepted**: T13 22/22, `chain` vektörlerinin hepsi, rakip çürütemedi | ~7 dk; rakip 0,20 USD |
+| 3 | 18 MF'lik tabloyla ilk döngü; MF2 `gate.secrets` (`scan`, `send`), T38 16 test | `9f229b0` kod (MF2) | **rejected** `rival_unresolved: secret_in_prompt:generic_assignment`: MF2'nin testlerindeki sahte sırlar yüzünden istek rakibe gönderilmedi; testler ve vektörler yeşil; `secrets` vektörleri tohumda yok (uyarı) | ~9 dk |
+| 4 | reddi okudu, hakem yeri söylemediği için eşleşmeleri kendi kuralıyla buldu, sahte sırları çalışma anında birleştirdi, buna karşı öz-denetim testleri ekledi; aynı eksiği seed-009 olarak bildirdi (hakem yeri söylemiyor — E164 ile aynı anda) | `1c83fb7` kod | **rejected** `refutation_reproduced`: rakip Kurucu'nun tarayıcısında gerçek bir açık buldu — token kuralları `\b` ile başlıyor, alt çizgi kelime karakteri olduğu için `x_ghp_…` gibi yapışık bir token yakalanmıyor, gerçek bir sır giden prompta sızabilir; hakem yeniden üreticiyi kumda koştu, kontrol ağacında görünmedi (totolojik değil) | ~5 dk; rakip 0,23 USD |
 
 ## Değerlendirme
 
@@ -45,6 +47,16 @@ kirli** sayılır. Kapatıldı (E154): klon artık tohum commit'inde kesiliyor, 
 **Hakem ve rakip.** Rakip iki push'ta gerçek iş yaptı (spec'te bir çelişki buldu, MF1'de çürütme bulamadı).
 Rakibin Kurucu'nun raporlarını görmesi spec'e aykırıydı (E153); kapatıldı.
 
+**Döngü 3–4: sistem gerçek bir güvenlik açığı yakaladı.** MF2'nin ilk push'u bir tasarım gerilimine çarptı: sır
+tarayıcısının testleri sahte sır taşımak zorunda, hakem ise sır biçimli hiçbir şeyi modele göndermez. Kurucu
+reddi okudu, nedenini kendisi buldu, düzeltti ve önlem testleri ekledi (öğrendi, uyguladı). İkinci push'ta rakip
+çalışabildi ve Kurucu'nun tarayıcısında yapışık tokenları kaçıran gerçek bir açık buldu; hakem açığı kumda yeniden
+üretip kanıtladı ve push'u reddetti. Operatör aynı açığın hakemin kendi tarayıcısında olup olmadığını denedi: yok
+(`x_ghp_`, `x_AKIA`, `x_sk_live_`, `x_npm_`, `x_github_pat_` yakalanıyor; yalnız harfe yapışık `sk-`, `sk_live_`,
+`AIza` önekleri kelime içi yanlış alarmı önlemek için bilerek dışarıda — `secretscan._L`). Kurucu'nun "hakem sırrın
+yerini söylemiyor" bildirimi operatörün E164 düzeltmesiyle aynı anda geldi: rakibe gidemeyen istekte artık sırrı
+taşıyan dosyalar (değer asla) `result.rival.secret_paths`'te yazılıyor.
+
 ## Pilotun tetiklediği düzeltmeler
 
 E148 (defter satırları push türünü bozuyordu), E149 (`main` mutasyonu hiç koşmuyordu), E152 (CRLF, `safe.directory`),
@@ -53,5 +65,8 @@ zombi testi). Ayrıntılar `docs/eksik-kaydi.md`'de.
 
 ## Sıradaki
 
-MF2 (`secrets.scan`, T38). Hakem hâlâ 30 MF'lik eski tabloyla sayıyor (E151); MF2 eski tabloda T30 istediği için,
-doğru iş hakem yüzünden reddedilmesin diye döngü 3 `stage0.json` partisi birleşip hakeme yüklendikten sonra başlar.
+Döngü 5'ten itibaren altı döngülük koşu: Kurucu önce rakibin kanıtladığı `\b` açığını kapatmalı, sonra MF3'e
+geçmeli. Hakem 18 MF'lik tabloyla sayıyor (E151 kapandı, `294ab95`), modülsüz kırmızı etkin. Paralelde 10 ajanlık iş
+akışı MF2–MF7'nin vektör sözleşmelerini (iki kör bağımsız hesapla), genel veri koşucusunu, tohum dönemini (E88) ve
+kapalı varsayılan çıkışı (E162) hazırlıyor; arayüz sayfası tohum dönemiyle beyne ulaşınca Kurucu kendi MF2–MF7
+arayüzlerini ona uydurmak zorunda kalacak ("spec değişti, uyum sağla" sınavı).
