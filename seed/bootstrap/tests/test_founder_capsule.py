@@ -27,6 +27,7 @@ class CapsuleArgvTest(unittest.TestCase):
         self.launch = load_launch()
         self.work = Path(tempfile.mkdtemp())
         pilot = self.launch.Pilot(self.work, "owner/brain", "owner/referee", "target")
+        pilot.seed = "a" * 40
         self.argv = pilot.capsule_argv("20261029T000000Z", "claude-opus-5-5", 200, 50)
         self.joined = " ".join(self.argv)
 
@@ -56,6 +57,13 @@ class CapsuleArgvTest(unittest.TestCase):
         for i, arg in enumerate(self.argv):
             if arg == "-e":
                 self.assertNotRegex(self.argv[i + 1], r"TOKEN|KEY|SECRET", "a secret passed as an environment flag")
+
+    def test_a_session_sees_only_its_own_transcript_folder_and_gets_the_seed(self):  # E155, E154
+        logs = [self.argv[i + 1] for i, a in enumerate(self.argv) if a == "--mount" and "dst=/work/logs" in self.argv[i + 1]]
+        self.assertEqual(len(logs), 1)
+        src = Path(re.search(r"src=([^,]+)", logs[0]).group(1))
+        self.assertEqual(src, self.work / "logs" / "20261029T000000Z")
+        self.assertIn("BRAIN_SEED=" + "a" * 40, self.argv)
 
     def test_every_mount_stays_inside_the_one_work_folder(self):
         for i, arg in enumerate(self.argv):
@@ -123,6 +131,15 @@ class ImageAndEntrypointTest(unittest.TestCase):
 
     def test_git_trusts_the_brain_clone_on_its_root_owned_tmpfs(self):  # E152: without it no commit, no push
         self.assertIn("safe.directory /work/brain", self.entry)
+
+    def test_the_clone_holds_no_history_before_the_seed(self):  # E154: earlier rehearsal code is not the Founder's
+        cut = self.entry[self.entry.index('if [ -n "${BRAIN_SEED:-}" ]'):]
+        self.assertIn('merge-base --is-ancestor "$BRAIN_SEED" HEAD', cut)
+        self.assertIn("> /work/brain/.git/shallow", cut)
+        self.assertIn("reflog expire --expire=now --all", cut)
+        self.assertIn("gc --quiet --prune=now", cut)
+        self.assertLess(self.entry.index("git clone"), self.entry.index('if [ -n "${BRAIN_SEED:-}" ]'))
+        self.assertLess(self.entry.index("gc --quiet --prune=now"), self.entry.index("claude -p"))
 
     def test_the_github_token_never_reaches_a_url_a_command_line_or_the_log(self):
         self.assertIn("http.https://github.com/.extraheader", self.entry)
