@@ -29,20 +29,26 @@ defterini ve gerekçesini görmez. Kurulumdan itibaren önyükleme hakemi çağ�
 
 **Rakibin kuralları.** Çürütme ancak hakem yeniden üreticiyi `koş` işinde (önyükleme hakeminde
 `yeniden`) koşturup iddia edilen sonucu gördüğünde sayılır (`reproduced: true`, `26`). **Sözleşme.**
-Yeniden üretici bir komut ve gözlenecek şeydir: çıkış kodu ya da stdout veya stderr'de bir parça. Gözlenen
-şey kusur yüzünden olmalı, kod doğru olsaydı olmamalıdır. Karar başına en çok 5 yeniden üretici vardır.
-Zaman aşımı hiçbir zaman "üretildi" değildir. Gözleneni gösteren her yeniden üretici aynı imajda, kilit
-dosyası kurulmadan boş bir kontrol ağacında da koşar; orada da gösteriyorsa `tautological`'dır ve sayılmaz.
+Yeniden üretici bir komut ve iki taraflı gözlemdir, her taraf çıkış kodu ya da stdout veya stderr'de
+bir parça: belirti (`expect_*`) incelenen başın kusur yüzünden yazdığıdır, kod doğru olsaydı
+olmamalıdır; doğru çıktı (`correct_*`) kod doğru olunca aynı komutun yazdığıdır ve belirtinin parçası
+olamaz. Hakem bir metnin hangi tarafın olduğunu göremez, kutbu rakip adlandırır: doğru çıktıyı belirti
+diye yazmak (testin beklentisi gibi) düzeltmeyi kusur diye kanıtlardı. Karar başına en çok 5 yeniden
+üretici vardır. Zaman aşımı hiçbir zaman "üretildi" değildir. **Kanıt yalnız kendi başında:** yeniden
+üretici yazıldığı başta belirtisi görünür, doğru çıktısı görünmez ve belirti aynı imajda, kilit dosyası
+kurulmadan boş bir kontrol ağacında görünmezse kusuru kanıtlar; orada da görünüyorsa `tautological`'dır.
 "Önceden var" etiketi (son kabul edilmiş ağaçta da üretmek) önyükleme hakeminde ölçülmez: `yeniden` o
-ağacı görmez. **Hafıza.** Üretilmiş yeniden üretici (en çok 20) imzalı durumda tutulur ve sonraki her kod
-push'unda, çıkış isteğinde de, yeniden koşar; hâlâ üretiyorsa push `refutation_still_reproduces` ile
-reddedilir. İmzası iddia metninin değil, komut ve beklentinin hash'idir. Kayıt, kabul edilmiş bir başta
-artık üretmeyince ya da operatör feragatiyle (`control.json` `waived_refutations`) kapanır. Yeniden
-üreticisiz iddia kayda geçer ama kabulü durdurmaz. Yeniden üreticisi üretmeyen iddia da durdurmaz; açık
-iddia olarak (en çok 10) durumda kalır ve sonraki rakip koşusuna kimliğiyle verilir, rakip yeniden
-üreticisini bir kez yeniden yazabilir (`open_claim`). Açık iddialar her yeni kod başında mekanik olarak
-yeniden koşar, üretirse kanıtlanmış kusur olur, ve aşama çıkışında listelenir. **Kapalıya düşer:**
-zaman aşımı, sağlayıcı reddi, şemaya uymayan çıktı ve `unresolved` kabul değildir; yalnız açık
+ağacı görmez. **Hafıza.** Üretilmiş yeniden üretici (en
+çok 20) imzalı durumda tutulur ve sonraki her kod push'unda, çıkış isteğinde de, yeniden koşar; hâlâ
+üretiyorsa push `refutation_still_reproduces` ile reddedilir. İmzası iddia metninin değil, komut ve
+belirtinin hash'idir. Kayıt, kabul edilmiş bir başta artık üretmeyince ya da operatör feragatiyle
+(`control.json` `waived_refutations`) kapanır. Yeniden üreticisiz iddia kayda geçer ama kabulü durdurmaz.
+Yeniden üreticisi kendi başında kanıtlamayan iddia da durdurmaz; açık iddia olarak (en çok 10) durumda kalır
+ve sonraki rakip koşusuna kimliğiyle verilir, rakip yeniden üreticisini bir kez yeniden yazabilir
+(`open_claim`). Açık iddialar her yeni kod başında mekanik olarak yeniden koşar ve gördükleri sonraki rakibe
+verilir; sonraki bir başta görünmeleri kanıt değildir (beklenti belirtiyse gerileme, doğru çıktıysa
+düzeltmedir), rakip iddiayı gönderirse incelenen başta yargılanır; aşama çıkışında listelenir. **Kapalıya
+düşer:** zaman aşımı, sağlayıcı reddi, şemaya uymayan çıktı ve `unresolved` kabul değildir; yalnız açık
 `not_refuted` kabuldür. Rakip kanaryası kaçırma oranını ölçene kadar artefakt başına tek deneme
 yapılır: aynı başın yeniden denemesi saklı rakip sonucunu kullanır, yalnız yeniden üreticileri koşturur.
 

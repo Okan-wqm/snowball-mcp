@@ -146,7 +146,8 @@ class E06ReproducerContract(unittest.TestCase):
         tool = next(t for t in rival.TOOLS if t["name"] == "submit_verdict")
         rep = tool["input_schema"]["properties"]["attempts"]["items"]["properties"]["reproducer"]
         self.assertEqual(set(rep["properties"]),
-                         {"cmd", "expect_exit", "expect_stdout_contains", "expect_stderr_contains"})
+                         {"cmd", "expect_exit", "expect_stdout_contains", "expect_stderr_contains",
+                          "correct_exit", "correct_stdout_contains", "correct_stderr_contains"})  # E260: both sides
         self.assertEqual(rep["properties"]["expect_stderr_contains"]["maxLength"], rival.MAX_EXPECT_CHARS)
         self.assertIn("because of the defect", tool["description"] + rep["description"])
 
@@ -189,11 +190,12 @@ class E06ReproducerContract(unittest.TestCase):
             box = rival.ToolBox(Path(tmp))
             got = rival.validate_verdict({"verdict": "refuted", "attempts": [
                 {"claim": "c", "evidence_refs": REFS, "reproducer": {"cmd": "python -m x", "expect_stderr_contains":
-                                                                      "ValueError: boom"}}]}, box)
+                                                                      "ValueError: boom", "correct_exit": 0}}]}, box)
             self.assertEqual(got["attempts"][0]["reproducer"]["expect_stderr_contains"], "ValueError: boom")
             with self.assertRaises(ValueError):
                 rival.validate_verdict({"verdict": "refuted", "attempts": [
-                    {"claim": "c", "evidence_refs": REFS, "reproducer": {"cmd": "x", "expect_stderr_contains": ""}}]},
+                    {"claim": "c", "evidence_refs": REFS, "reproducer": {"cmd": "x", "expect_stderr_contains": "",
+                                                                         "correct_exit": 0}}]},
                     box)
 
     def test_a_traceback_only_on_stderr_is_reproduced_and_both_tails_are_kept(self):
@@ -895,21 +897,23 @@ class E07OpenClaims(unittest.TestCase):
             (Path(tmp) / "referee" / "a.py").write_text("x = 1\n")
             box = rival.ToolBox(Path(tmp))
             ok = {"claim": "c", "evidence_refs": REFS, "open_claim": "0123456789ab",
-                  "reproducer": {"cmd": "x", "expect_exit": 1}}
+                  "reproducer": {"cmd": "x", "expect_exit": 1, "correct_exit": 0}}
             self.assertEqual(rival.validate_verdict({"verdict": "refuted", "attempts": [ok]}, box)["attempts"][0]
                              ["open_claim"], "0123456789ab")
             with self.assertRaises(ValueError):
                 rival.validate_verdict({"verdict": "refuted", "attempts": [dict(ok, open_claim="nothex")]}, box)
 
-    def test_an_open_claim_that_reproduces_on_a_later_head_blocks_it_and_becomes_a_proven_defect(self):
+    def test_an_open_claim_that_shows_on_a_later_head_is_recorded_for_the_next_rival_not_proven(self):
+        """E260 changed this rule: an open claim's reproducer did not prove its claim on the head the claim was made
+        for, so its showing on a later head is the fix as often as the defect (live claim 87c088321252 proved its own
+        fix; `test_reproducer_polarity`). It is re-run on every code head and what it showed is kept for the rival."""
         claim = claim_entry()
         res = run_decide(meta2("code", state2(open_claims=[claim]), state_repro=[claim["id"]]), green(), not_refuted(),
                          [], CODE_JOBS, state_repro=[state_ran(claim["id"], "claim", True)])
-        self.assertEqual(res["verdict"], "rejected")
-        self.assertEqual([(r["kind"], r["ref"]) for r in res["reasons"]],
-                         [("refutation_reproduced", "repro:" + key_of(REP))])
-        self.assertEqual(res["state"]["open_claims"], [])
-        self.assertEqual([e["key"] for e in res["state"]["open_refutations"]], [key_of(REP)])
+        self.assertEqual((res["verdict"], res["reasons"], res["state"]["open_refutations"]), ("accepted", [], []))
+        kept = res["state"]["open_claims"]
+        self.assertEqual([c["id"] for c in kept], [claim["id"]])
+        self.assertEqual((kept[0]["observed"]["head"], kept[0]["observed"]["shown"]), (B, True))
 
     def test_a_claim_the_rival_proves_is_no_longer_open(self):
         claim, named = claim_entry(rep=None), claim_entry("named by id", rep=None)

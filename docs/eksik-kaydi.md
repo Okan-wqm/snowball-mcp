@@ -25,8 +25,8 @@ hepsi yazılıdır. Bulguları birleştiren ve doğrulayan: Claude Code (Opus 5.
 | E03 | Dosya adındaki satır sonu rakibin isteğine sahte bölüm ekliyor | K | — | R5 | kapandı · parti 1 |
 | E04 | İçe aktarma, beynin `.git/hooks`'unu operatörün checkout'una yazıyor | K | — | X1 | kapandı · parti 1 |
 | E05 | Beşinciden sonraki yeniden üreticiler sessizce koşmuyor | K | — | R7 D3 | kapandı · parti 1 |
-| E06 | Yeniden üretici sözleşmesi belirsiz; stderr ve çıktı atılıyor | K | — | R2 D4 | kapandı · parti 2 |
-| E07 | Yeniden üretilemeyen iddia iz bırakmıyor | K | evet | D4 R2 | kapandı · parti 2 |
+| E06 | Yeniden üretici sözleşmesi belirsiz; stderr ve çıktı atılıyor | K | — | R2 D4 | kapandı · parti 2 · sözleşme E260 ile iki taraflı (belirti ve doğru çıktı) |
+| E07 | Yeniden üretilemeyen iddia iz bırakmıyor | K | evet | D4 R2 | kapandı · parti 2 · (c) E260 ile değişti: açık iddianın sonraki baştaki gösterimi kanıt değil, gözlemdir |
 | E08 | Kanıtlanmış kusur unutuluyor; tekrar sayacı iddia metnine bağlı | K | evet | R1 D9 | kapandı · parti 2 |
 | E09 | Totolojik yeniden üretici (`true`) "yeniden üretildi" sayılıyor | K | evet | R3 | kapandı · parti 2 ("önceden var" etiketi: sınır, bkz. Parti 2) |
 | E10 | Rakip Kurucu'nun defterini görüyor (spec yasaklıyor) | K | evet | R6 S3 | kapandı · parti 2 |
@@ -219,6 +219,7 @@ hepsi yazılıdır. Bulguları birleştiren ve doğrulayan: Claude Code (Opus 5.
 | E206 | Sahip: repoya tam hâkim olunca sistem belge yazmaya başlamalı; var olan belgelere güvenmemeli, kullanmalı ama doğrulamalı (eski olabilir). Kurucu talimatında belge-kod ilişkisi yoktu | B | evet | sahip (2026-10-29) | kısmen kapandı · Kurucu: belge ipucudur, iddiası kod/yapılandırma/testle doğrulanır, tutmayan iddia "bayat belge" bulgusudur; hâkimiyetten sonra belge doğrulanmış haritadan üretilir ve kodla yeniden üretilir; test · açık: hedefte belge-kod sapmasını mekanik ölçen alet (Aşama 1+, `tohum/15` doküman üreticisinin hedefe genişlemesi) ve danışma kataloğunda "yaşayan belgeleme" |
 | E207 | Repolar arası öğrenme ne kuruldu ne test edildi | K | evet | sahip (2026-10-29) | açık · **sahip: fikirleri sistem bulmalı** — sahibin ve operatörün bu konudaki fikirleri Kurucu'ya, tohuma ve herkese açık repolara yazılmaz; operatörün gizli fikir ölçütünde durur, sistem her birini kendi başına önerdiğinde tarih ve kanıtla işaretlenir (ölçü: kaç fikir, kaç döngüde); Kurucu talimatı yalnız kendi fikrini istemeyi taşır (kapanış adımı), test hiçbir fikrin yazılmadığını denetler; deney Aşama 1 sonrası |
 | E208 | Sahip: sistemin ajanları ve becerileri (kendi yazacakları dahil) uzmanlıkta kesişip farklı sonuca varabilir; o zaman aralarında kanıt göstererek, dürüstçe çalışıp sonuç getirmeliler; her şey kanıt ve gerçek testle yürümeli. Kurucu talimatında ajanlar arası anlaşmazlık kuralı yoktu (Kurucu döngü 17'de kendi alt ajanlarını kullanmaya başladı) | K | evet | sahip (2026-10-29) | kısmen kapandı · talimat: oy, otorite, sıra değil; kanıt (test, yeniden üretici, ölçüm) karşılaştırılır, yetmezse ayırıcı deney; anlaşmazlık, kanıt ve sonuç deftere; test · açık: Kurucu'nun yazacağı ajanlar ve beceriler için bu kuralın hakem tarafında denetimi (Aşama 1+, ajan ve beceri organları) |
+| E260 | Yeniden üreticinin kutbu tanımsız: hakem yalnız bir metnin görünüp görünmediğini görür, belirti mi doğru çıktı mı olduğunu göremez. Rakip beklentiyi testin beklentisi gibi (doğru çıktı) yazınca açık iddia kusurlu başta görünmedi, düzeltmede göründü; E07 (c) düzeltmeyi kanıtlanmış kusur yapıyor, E08 sonra her doğru başı `refutation_still_reproduces` ile reddediyordu (kalıcı ret döngüsü). Aynı karışıklık doğru kodda yanlış iddiayı hemen kanıtlar | K | evet | **Kurucu raporu** f102 (iddia `87c088321252`, anahtar `027465767d2d46dc`; 86cc8b4'te gösterilmedi; düzeltme f668776 koşu 40967821066'da `refutation_reproduced` ile reddedildi, rakip `not_refuted` dediği hâlde; döngüyü operatör 40969705356'da `waived_refutations` ile elle kırdı) | kapandı · `gaps/reproducer-polarity` (birleştirme ve operatör onayı bekliyor: E07 (c)'yi değiştirir) · kanıt yalnız yeniden üreticinin kendi başında; açık iddianın sonraki baştaki gösterimi gözlem (baş, `shown`, `contradicted`), sonraki rakibe verilir; iki taraflı sözleşme (`expect_*` belirti, `correct_*` doğru çıktı, belirtinin parçası olamaz, başta görünürse kanıt yok); alanların tek kaynağı `rival.REPRODUCER_FIELDS`; anahtar ve durum şeması 3 aynı · sınır: iki tarafı bilerek ters yazan yeniden üretici doğru kodda yine kanıtlar (anlam, mekanik değil) |
 
 **Kararlar (2026-10-29).** Operatör, "karar" sütunu `evet` olan 19 kalemin hepsinde aşağıdaki
 önerileri onayladı ve `snowball-mcp`'nin de açık olmasını istedi. E46–E48 test denetçisinden sonra
@@ -1302,6 +1303,57 @@ Testler `tests/test_rival_memory.py`'de, sınıf adları kalem numarasıyla. Dur
   `reproduce` testinin referee'sine `vectors/` kondu (`reproduce` artık onu kopyalar; üretimde dizin hep var).
 - **Açık kalan.** E194 ve E195 operatör kararı; E161'in kalan 10 grubu; E18 (testlerin ve yeniden üreticilerin
   toplam süresi).
+
+### E260 (2026-10-30) · yeniden üreticinin kutbu · dal `gaps/reproducer-polarity`
+- **Kanıt (canlı, imzalı sonuçlar).** 86cc8b4 (koşu 40962413404): rakibin iddiası `87c088321252` doğruydu ("bir satır
+  gizli adlı anahtara uzun değer atarsa temiz raporlanır"), ama yeniden üreticisi `expect_stdout_contains: "\"clean\":
+  false"` bekledi, yani doğru kodun çıktısını; baş `{"clean": true, "lines": []}` yazdı, gösterilmedi, açık iddia
+  kaldı. Kurucu düzeltti (f668776) ve f102'de olacakları yazdı. Koşu 40966312329'da durum yeniden koşusu `shown: true,
+  tautological: false, reproduced: true` verdi (rakibin 429'u kararı erteledi); 40967821066'da düzeltme
+  `refutation_reproduced repro:027465767d2d46dc` ile reddedildi, rakip `not_refuted` dediği hâlde; E08 sonraki her
+  doğru başı reddedecekti, operatör 40969705356'da `waived_refutations` ile elle kırdı. Pilotun eldeki 21 imzalı
+  sonucunda rakibin 8 yeniden üreticisi var: 7'si belirti kutbunda, her biri kendi başında kanıtlandı ve kabul
+  edilen düzeltmede kapandı; 1'i (bu) doğru çıktı kutbunda. E06'nın ikinci provadaki ters beklentisi de aynı
+  hataydı: protokoldeki düzyazı kural ("kod doğru olsaydı görülmemeli") ikisini de önlemedi. E07 (c)'nin canlı
+  veride tek tetiklenişi bu sahte kanıttı; meşru bir kanıt üretmedi.
+- **Kök neden.** Kutup anlamdır, baytlarda yoktur. Hakem bir metnin başta ve boş ağaçta görünüp görünmediğini
+  görür; doğru çıktıyı bekleyen yeniden üretici doğru kodda, belirtiyi bekleyen aynı çıktılı kusurlu kodda aynı
+  baytları üretir. Boş ağaç (E09) yalnız koddan bağımsız gösterimi ayırır: doğru çıktı da orada yoktur. Buradan iki
+  yol: (1) E07 (c) kendi başında kanıtlamamış yeniden üreticinin sonraki baştaki gösterimini kanıt sayıyordu; o
+  gösterim yalnız "bu baş beklentiye doğru değişti" der, yönünü (gerileme mi düzeltme mi) söyleyemez; (2) aynı
+  karışıklık yanlış bir iddiayı doğru kodda ilk başta kanıtlar.
+- **Çözüm.** (a) *Kanıt yalnız kendi başında* (`decide`): açık iddianın durum yeniden koşusu kanıt değil gözlemdir;
+  `observed`'a baş, `shown`, `contradicted` ile yazılır ve sonraki rakibe verilir; rakip iddiayı `open_claim` ile
+  gönderirse incelenen başta yargılanır ve orada kanıtlanır. E08 aynen: kendi başında kanıtlanmış kusur sonraki
+  başlarda yeniden koşar. Yol 1 mekanik olarak kapandı, canlı durumdaki eski açık iddialar dahil. (b) *İki taraflı
+  sözleşme* (`rival`, `reproduce`): her yeni yeniden üretici belirtiyi (`expect_*`) ve doğru çıktıyı (`correct_*`)
+  adlandırır; aynı akışta doğru taraf belirtinin parçası olamaz (alt dize ya da aynı çıkış kodu); başta doğru taraf da
+  görünürse (`contradicted`) hiçbir şey kanıtlanmaz, boş ağaç koşusu da yapılmaz. Canlı hatanın biçimi (iki tarafa
+  doğru çıktı) doğrulayıcıda reddedilir ve rakibe hatasıyla döner. Alanların tek kaynağı `rival.OBSERVABLES`,
+  `SYMPTOM`, `CORRECT`, `REPRODUCER_FIELDS`: şema, doğrulayıcı, koşucu, imzalı durum ve anahtar onu okur (önceden
+  dört ayrı kopyaydı). Pilot satırı (`launch.py`) `old_refutations_still_reproducing`'i ham yeniden koşulardan
+  değil hakemin `refutation_still_reproduces` nedenlerinden sayar.
+- **Uyum.** Durum şeması 3 kaldı. E260'tan önceki yeniden üreticiler (`correct_*` yok) yüklenir, anahtarları aynı
+  (anahtar komut + belirti; canlı `027465767d2d46dc` testte sabit) ve yalnız belirtiyle okunur: kanıtlanmış
+  kusurların anlamı aynı. Açık iddiaların anlamı bilerek değişti: sonraki başta kanıtlanmazlar. Yeni durum
+  `correct_*` taşıyabilir; E260 öncesi bir hakem onu `bad open_claims` ile reddedip durur (sessiz yanlış okuma yok).
+- **Bedel.** Yalnız eski bir açık iddianın yakaladığı gerileme artık kendiliğinden reddedilmez: yeniden koşu
+  gösterir, kayda geçer, sonraki rakip görür; gönderirse kanıtlanır (test).
+- **Sınır (mekanik kapanmaz).** İki tarafı bilerek ters yazan (belirtiye doğru çıktı, doğru tarafa kusurun
+  çıktısı) yeniden üretici yanlış bir iddiayı doğru kodda yine kanıtlar; bunu yalnız anlamı okuyan ayırır. Kapanış
+  yolu operatör feragatidir; Kurucu'nun kanıtlı itirazını hakeme ya da rakibe taşıyan yol yok (açık).
+- **Testler.** `tests/test_reproducer_polarity.py` (9), canlı veri `fixtures/rival/polarity_87c088321252.json`
+  (imzalı sonuçlardan kopya). Eski kodda kırmızı: yol 1 `[('rejected', ['refutation_reproduced'], 1), ('rejected',
+  ['refutation_still_reproduces'], 1)] != [('accepted', [], 0), ('accepted', [], 0)]`; yol 2 `('rejected',
+  ['refutation_reproduced'], [...]) != ('accepted', [], [])`; doğrulayıcı tek taraflı canlı yeniden üreticiyi kabul
+  ediyordu; pilot satırı `1 != 0`. E07'nin (c) testi yeni kurala yazıldı; doğrulayıcıdan geçen eski test yeniden
+  üreticilerine `correct_*` eklendi.
+- **Mutantlar.** Yeni 12: `open_claim_proven_on_a_later_head`, `open_claim_observation_dropped`,
+  `observation_without_its_head`, `correct_side_not_required`, `correct_side_inside_the_symptom_accepted`,
+  `correct_side_not_in_the_schema`, `rival_not_told_the_polarity`, `rival_told_a_later_show_proves`,
+  `correct_side_ignored_at_run_time`, `reproducer_key_includes_the_correct_side`, `state_refuses_the_correct_side`,
+  `pilot_counts_claim_observations`. Çapası yenilenen 3: `protocol_without_the_contract`,
+  `stderr_expectation_ignored`, `tautology_not_checked`.
 
 ## Doğrulanmış sağlam taraflar
 Kapsayıcı bayrakları ve kırmızı kontroller; host'ta kabuk enjeksiyonu yok; `$GITHUB_OUTPUT`'a serbest

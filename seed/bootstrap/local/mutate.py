@@ -205,10 +205,10 @@ MUTANTS = [
      "bootstrap.yml@refs/heads/main" + chr(34), "bootstrap.yml@${{ github.ref }}" + chr(34),
      "E17: the branch name is pasted into bash and the identity follows the dispatched ref"),
     # ---- batch 2 (E06-E13, E20, E27, E33, state v2)
-    ("protocol_without_the_contract", f"{PKG}/rival.py", "- The observable must show because of the defect",
-     "- The observable shows the defect", "E06: the rival is not told the observable must come from the defect"),
-    ("stderr_expectation_ignored", f"{PKG}/reproduce.py",
-     'checks.append(rep["expect_stderr_contains"] in res.stderr.decode("utf-8", "replace"))', "checks.append(True)",
+    ("protocol_without_the_contract", f"{PKG}/rival.py", "- The symptom must show because of the defect",
+     "- The symptom shows the defect", "E06: the rival is not told the observable must come from the defect"),
+    ("stderr_expectation_ignored", f"{PKG}/reproduce.py", "else want in seen[o]",
+     'else (o == "stderr_contains" or want in seen[o])',
      "E06: a traceback the reproducer expects on stderr is never looked for"),
     ("timed_out_run_reproduces", f"{PKG}/reproduce.py", "if res.timed_out:  # whatever a killed run printed",
      "if False:  # whatever a killed run printed", "E06, R3: a timed-out run whose output matched counts"),
@@ -242,8 +242,9 @@ MUTANTS = [
     ("reproduction_job_only_for_the_rival", "seed/bootstrap/workflow/bootstrap.yml",
      "(needs.cek.outputs.repro == 'true' &&", "(false &&",
      "E08: the state's reproducers never run when the rival brought none"),
-    ("tautology_not_checked", f"{PKG}/reproduce.py", '"reproduced": shown and not fault and tautological is False,',
-     '"reproduced": shown and not fault,', "E09, R3: `true` with expect_exit 0 is a proven defect"),
+    ("tautology_not_checked", f"{PKG}/reproduce.py",
+     '"reproduced": shown and not contradicted and not fault and tautological is False,',
+     '"reproduced": shown and not contradicted and not fault,', "E09, R3: `true` with expect_exit 0 is a proven defect"),
     ("control_tree_is_the_head", f"{PKG}/cli.py", 'control = _runner(boot, empty, Path(args.deps), vec, [])',
      "control = runner", "E09: the control run sees the code, so every real defect reads as tautological"),
     ("ledger_readable_by_the_rival", f"{PKG}/rival.py",
@@ -648,6 +649,45 @@ MUTANTS = [
     ("deep_json_crashes_the_vector_run", f"{PKG}/vectors.py",
      "except (json.JSONDecodeError, RecursionError):  # nested", "except json.JSONDecodeError:  # nested",
      "a 100 000-level answer kills run-tests: the push becomes an outage instead of vector_failed"),
+    # ---- E260: a reproducer's polarity (live claim 87c088321252 proved its own fix a defect)
+    ("open_claim_proven_on_a_later_head", f"{PKG}/decide.py", '                claim["observed"] = _observed(s, head)',
+     '                if s["reproduced"]:' + chr(10)
+     + '                    key = reproducer_key(claim["reproducer"])' + chr(10)
+     + '                    reasons.append(_reason("refutation_reproduced", ref=f"repro:{key}", detail=claim["claim"]))'
+     + chr(10) + "                    _remember(refutations, key, claim, head)" + chr(10)
+     + "                    claims.remove(claim)" + chr(10)
+     + "                else:" + chr(10) + '                    claim["observed"] = _observed(s, head)',
+     "E260: an open claim that expects what correct code prints proves the fix a defect, then rejects every correct head"),
+    ("open_claim_observation_dropped", f"{PKG}/decide.py", '                claim["observed"] = _observed(s, head)',
+     "                pass", "E260: what an open claim showed on a later head never reaches the next rival"),
+    ("observation_without_its_head", f"{PKG}/decide.py", "    return dict(seen, head=head)", "    return seen",
+     "E260: the next rival cannot tell on which head an open claim's reproducer showed"),
+    ("correct_side_not_required", f"{PKG}/rival.py",
+     "if all(clean_rep[name] is None for name in CORRECT):  # E260", "if False:  # E260",
+     "E260: a reproducer that names only one text leaves its polarity unstated, as the live claim's did"),
+    ("correct_side_inside_the_symptom_accepted", f"{PKG}/rival.py",
+     "if symptom is not None and correct is not None and (", "if False and (",
+     "E260: a test's habit, the correct output written on both sides, is accepted"),
+    ("correct_side_not_in_the_schema", f"{PKG}/rival.py", "for f in SYMPTOM + CORRECT},", "for f in SYMPTOM},",
+     "E260: the tool's schema never offers the rival the correct side the validator demands"),
+    ("rival_not_told_the_polarity", f"{PKG}/rival.py", "Never write the output you expect from correct code as the",
+     "You may write the output you expect from correct code as the",
+     "E260: the rival is not warned that a test's expectation is the wrong polarity"),
+    ("rival_told_a_later_show_proves", f"{PKG}/rival.py", "proves nothing on a later one", "proves it on a later one",
+     "E260: the rival relies on an open claim's re-run to prove what it never proved on its own head"),
+    ("correct_side_ignored_at_run_time", f"{PKG}/reproduce.py", 'contradicted = _holds(rep, "correct", res)',
+     "contradicted = False", "E260: a head that prints what the reproducer calls correct still proves the defect"),
+    ("reproducer_key_includes_the_correct_side", f"{PKG}/reproduce.py", "**{k: rep.get(k) for k in SYMPTOM}}",
+     '**{k: rep.get(k) for k in rep if k != "cmd"}}',
+     "E260: the same defect with the correct side worded otherwise is a new entry and a new streak"),
+    ("state_refuses_the_correct_side", f"{PKG}/state.py", "and set(rep) <= set(REPRODUCER_FIELDS))",
+     "and set(rep) <= set(REPRODUCER_FIELDS[:4]))",
+     "E260: the referee stops on its own state once a two-sided reproducer is kept"),
+    ("pilot_counts_claim_observations", "seed/founder/launch.py",
+     'if r.get("kind") == "refutation_still_reproduces"),',
+     'if r.get("kind") == "refutation_still_reproduces") + sum(1 for p in (verdict or {}).get("state_reproducers")'
+     ' or [] if p.get("source") == "claim" and p.get("reproduced")),',
+     "E260: the pilot's line counts an open claim's re-run as a proven defect still reproducing"),
 ]
 
 

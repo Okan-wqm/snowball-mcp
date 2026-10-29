@@ -991,7 +991,7 @@ class PullGates(unittest.TestCase):
         os.environ["GITHUB_OUTPUT"] = str(gh_output)
         self.addCleanup(os.environ.pop, "GITHUB_OUTPUT", None)
         attempt = {"claim": "c", "evidence_refs": [{"path": "spec/asama-0/00-ozet.md", "line_start": 1, "line_end": 1}],
-                   "reproducer": {"cmd": "python -m x", "expect_exit": 1}}
+                   "reproducer": {"cmd": "python -m x", "expect_exit": 1, "correct_exit": 0}}
         (bin_dir / "scenario.json").write_text(json.dumps({"calls": [submit("refuted", [attempt])],
                                                            "result": ok_result()}))
         rc = cli.main(["rival", "--root", str(self.referee), "--pulled", str(pulled), "--work",

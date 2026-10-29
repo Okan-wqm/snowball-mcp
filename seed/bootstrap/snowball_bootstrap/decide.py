@@ -2,8 +2,9 @@
 
 Pure function of the jobs' verified outputs and of the time it is handed. Nothing here runs code or calls a
 network. Besides the verdict it keeps the referee's memory of the rival (`tohum/29`, "Rakibin kuralları"):
-proven defects that must stop reproducing (E08), claims nobody could reproduce yet (E07), the rival result a
-retry reuses (E20), and what counts against the Founder and what only warns the operator (E11, E12).
+proven defects that must stop reproducing (E08), claims no reproducer proved on the head they were made for, with
+what their reproducers showed since (E07, E260), the rival result a retry reuses (E20), and what counts against the
+Founder and what only warns the operator (E11, E12).
 """
 
 from __future__ import annotations
@@ -15,6 +16,7 @@ from typing import Any
 
 from . import secretscan, stages
 from .reproduce import reproducer_key
+from .rival import REPRODUCER_FIELDS
 from .state import MAX_OPEN_CLAIMS, MAX_OPEN_REFUTATIONS
 
 RESULT_SCHEMA = "snowball-bootstrap-result/1"
@@ -116,17 +118,17 @@ def _learning(state: dict[str, Any], reasons: list[dict[str, Any]], limit: int) 
             "repeat_events": state["repeat_events"]}
 
 
-REPRODUCER_FIELDS = ("cmd", "expect_exit", "expect_stdout_contains", "expect_stderr_contains")
-
-
 def _reproducer(rep: dict[str, Any] | None) -> dict[str, Any] | None:
     return None if rep is None else {k: rep.get(k) for k in REPRODUCER_FIELDS}
 
 
-def _observed(result: dict[str, Any] | None) -> dict[str, Any] | None:
+def _observed(result: dict[str, Any] | None, head: str) -> dict[str, Any] | None:
+    """What a claim's reproducer showed and on which head, for the next rival (E07, E260)."""
     if result is None:
         return None
-    return {k: result.get(k) for k in ("exit", "timed_out", "tautological", "stdout_tail", "stderr_tail")}
+    seen = {k: result.get(k) for k in ("exit", "timed_out", "shown", "contradicted", "tautological", "stdout_tail",
+                                       "stderr_tail")}
+    return dict(seen, head=head)
 
 
 def _remember(refutations: dict[str, dict[str, Any]], key: str, source: dict[str, Any], head: str) -> None:
@@ -149,13 +151,14 @@ def _keep_claim(claims: list[dict[str, Any]], attempt: dict[str, Any], result: d
     existing = next((c for c in claims if c["id"] == target), None) if target else None
     if existing is not None:
         if not existing["rewritten"] and "reproducer" in attempt:
-            existing.update(reproducer=_reproducer(attempt["reproducer"]), observed=_observed(result), rewritten=True)
+            existing.update(reproducer=_reproducer(attempt["reproducer"]), observed=_observed(result, head),
+                            rewritten=True)
         return
     claim_id = _claim_id(attempt["claim"])
     if any(c["id"] == claim_id for c in claims):
         return
     claims.append({"id": claim_id, "claim": attempt["claim"][:2000], "evidence_refs": list(attempt["evidence_refs"])[:20],
-                   "reproducer": _reproducer(attempt.get("reproducer")), "observed": _observed(result),
+                   "reproducer": _reproducer(attempt.get("reproducer")), "observed": _observed(result, head),
                    "first_head": head, "rewritten": False})
 
 
@@ -328,17 +331,12 @@ def decide(meta: dict[str, Any], run: dict[str, Any] | None, rival: dict[str, An
                     reported.add(s["key"])
                 continue
             claim = next((c for c in claims if c["id"] == s["key"]), None)
-            if claim is None or claim["reproducer"] is None:
-                continue
-            if s["reproduced"]:  # an open claim shown on this head is a proven defect
-                key = reproducer_key(claim["reproducer"])
-                if key not in reported:
-                    reasons.append(_reason("refutation_reproduced", ref=f"repro:{key}", detail=claim["claim"]))
-                    reported.add(key)
-                _remember(refutations, key, claim, head)
-                claims.remove(claim)
-            else:
-                claim["observed"] = _observed(s)
+            if claim is not None:
+                # A reproducer proves only on the head it was written for (E260). An open claim's did not prove there,
+                # so its showing here says only that this head behaves the way it expects: the defect if it expects
+                # the symptom, the fix if it expects what correct code prints, which the bytes cannot tell apart. It
+                # is recorded for the next rival, which can send it again to be judged on the head it reviews.
+                claim["observed"] = _observed(s, head)
         by_index = {r["attempt_index"]: r for r in repro or []}
         for i, attempt in enumerate(attempts):
             result = by_index.get(i)
