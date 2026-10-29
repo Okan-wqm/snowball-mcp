@@ -122,6 +122,15 @@ hepsi yazılıdır. Bulguları birleştiren ve doğrulayan: Claude Code (Opus 5.
 | E109 | `exit.sample` ve `exit.drill`'in gizli tohumunu hangi işin tuttuğu sayfalar arasında çelişkili | B | evet | e2e-2 B10 | açık |
 | E110 | Etkinleştirme defterinin `security` satırlarının tohum güvenlik defterinden nasıl devam edeceği belirsiz | B | — | e2e-2 B11 | açık |
 | E111 | Taban avcının sabit grep kümesi tanımsız; Kurucu kendi avcılarının geçeceği çıtayı kendisi koyuyor | B | evet | e2e-2 B12 | açık |
+| E112 | Kurucu kimliği yok: operatörün yönetici GitHub hesabı ve kişisel Claude ortamıyla (hafıza, bağlayıcılar) koşar; Y6 iyi niyete kalır | K | evet (kimlik, yalıtım) | e2e-6 O2 | açık |
+| E113 | 'not_learning'den sonra Kurucu'yu yeniden başlatmak tanımsız ve döngüye giriyor | K | evet | e2e-6 O3 | açık |
+| E114 | Kurulum 3-4 ve `seed-hash` yazıldığı gibi çalıştırılamıyor: şablon, PowerShell komutu, anayasal politika saplaması | K | — | e2e-6 O4 | açık |
+| E115 | Kesinti giderilince 'şimdi yeniden dene' kolu yok; elle koşu yeşil görünür ama yargılamaz | B | — | e2e-6 O6 | açık |
+| E116 | Aşama 0 aktarımı operatörün Windows makinesinde koşamaz (Sigstore tekerlekleri yalnız manylinux) | B | — | e2e-6 O8 | açık |
+| E117 | Duraklatma yazılı değil; kill switch her saat kırmızı koşu ve e-posta üretiyor | B | evet (E16'yı değiştirir) | e2e-6 O9 | açık |
+| E118 | Olay kitabı yok; iletiler İngilizce; hangisinin operatörün işi olduğu yazmıyor | B | evet (kanarya harcaması) | e2e-6 O10 | açık |
+| E119 | Bus faktörü: her şey tek kişide; hesap taşınırsa imzalı geçmiş kırılır | B | evet (organizasyon) | e2e-6 O12 | açık |
+| E120 | Aşama 0'da tek bir durum yeri yok (harcama, park, seriler, belirteç süresi zip içinde) | B | — | e2e-6 O11 | açık |
 | E62 | Filo genelinde güvenlik: bir repoda doğrulanan açık dedektöre dönüşür, gizlilik duvarından geçer, bağlı bütün repolarda taranır; her repoya yalnız kendi açığı bildirilir | B | operatör yönü | operatör, 2026-10-29 | açık (çok repo ile, `21`) |
 | E60 | Satış zamanı: sistemin ürettiği dosyaların yeri; varsayılan müşteride, açık izinle müşteri başına ayrı, özel, şifreli barındırma; güvenlik bulguları hep müşteride | satış | operatör sorusu | operatör, 2026-10-29 | satışta açılır |
 | E61 | Satış zamanı: repolar arası öğrenmede gizlilik duvarı; kalıp taşınır, müşteri bilgisi taşınmaz; terfi öncesi otomatik sızıntı kontrolü ve sözleşmede izin | satış | operatör sorusu | operatör, 2026-10-29 | satışta açılır |
@@ -711,6 +720,42 @@ Denetçi akışı gerçek `pull` ve `decide` ile yerel git üzerinde simüle ett
   `security` satırları ortak zincirde genesis'ten sonra gelir.
 - **E111 (B12).** Taban avcının K0 grep kümesi çıkışta donar, hash'i genesis'te ya da tohumla gelir; Kurucu
   değiştiremez.
+
+### Uçtan uca denetim · operasyon ve operatör (e2e-6)
+- **Birleştirilenler.** O1 → E88 (tohum güncellemesi; runbook: CI'ı yeşil commit seç, kill switch, beyne yalnız
+  `spec/tohum` ve `seed/`, hakeme aynı commit'ten kopya, `seed_updates` satırı, `kind: seed, accepted`, insan
+  dokunuşu; prova zaten kaymış: beyin tohumunda `30`–`30f` yok, `29`/`29b` eski). O5 → E94 (abonelikte operatörün
+  koyabileceği "sağlayıcı tavanı" yok, yalnız ücretli "extra usage"; `25` 8-9 ve `28:35` düzeltilir; sistem için
+  ayrı Claude hesabı). O7 → E96 (etkinleştirme kırmızıysa içe aktarma commit'i `git revert`, iş akışı geri gelir).
+- **E112 (O2).** Kurucu için ince taneli belirteçler: yalnız beyin reposu, Contents yazma, Metadata okuma (Workflows
+  ve Actions yok); hakem için yalnız okuma; bitiş tarihi `control.json`'da. Kurucu ayrı bir işletim sistemi
+  kullanıcısında ya da kapsayıcıda koşar; orada `gh auth login` yapılmaz; taze `CLAUDE_CONFIG_DIR`, otomatik hafıza
+  kapalı, kullanıcı ayarı ve MCP yüklenmez (E90 ile). Kurulum provası: Kurucu belirteciyle hakeme push 403,
+  artefakt silme 403, `.github/workflows`'a dokunan push 403.
+- **E113 (O3).** `control.json`'a `founder_resume: {after_run, note}`; Kurucu o koşudan sonra "ne değiştiriyorum"
+  defter satırını yazıp bir kez push edebilir; aynı imza tekrar durdurur. Runbook `25`'te.
+- **E114 (O4).** `seed/bootstrap/operator-templates/` (dört geçerli JSON ve Türkçe README) ve `init-referee` alt
+  komutu; `25`'te PowerShell komutları (`C:\Python312\python.exe`, `$env:PYTHONPATH`); `18a`'nın anayasal
+  anahtarlarının tamamı şablonda; Windows CI işi `25`'in kod bloklarını aynen koşar ve `control`'dan geçirir.
+- **E115 (O6).** `control.json`'a tek kullanımlık `retry_now: "<sha>"`; park edilmişken baş ile eşitse yargılar; poll
+  adım özetine "PARKED <sha>, sonraki deneme <zaman>" yazar.
+- **E116 (O8).** Yazılı Docker/WSL içe aktarma ya da ikinci pinli küme `sign-windows.txt`; `25a`'ya tam komut
+  (`gh run download …`, `import … --identity …@refs/heads/main`); CI belgelenen komutu gerçek bir prova paketine
+  karşı koşar.
+- **E117 (O9).** Kill switch açıkken `cek` `paused` bildirimiyle 0 döner, sonraki adımlar atlanır, kırmızı yalnız
+  gerçek arızalar için; runbook: duraklat, devam (`gh workflow list`, `enable`, `run`); 60 günü aşacaksa 45 günde
+  bir hakeme commit. E16'nın "durunca kırmızı" kuralını değiştirir.
+- **E118 (O10).** Yeni `spec/tohum/25b-olay-kitabi.md`: belirti (tam ileti) → anlamı → kim → adımlar → doğrulama;
+  satırlar: belirteç süresi doldu/iptal/sızdı, 429, model emekli, CLI eskidi, Sigstore doğrulama/imza hatası,
+  GitHub kesintisi, CI kırmızı, durum kaybı, `not_learning`, kötü kabul (`revoked_shas`), makine kaybı; doğrulama
+  hata iletisi üç sınıfa (ağ, kimlik, imza); günlük kanarya rakip çağrısı; CI: koddaki her neden ve `stop:` iletisi
+  `25b`'de.
+- **E119 (O12).** İkinci sahipli GitHub organizasyonu (2FA, çevrimdışı kurtarma kodları), Kurucu'dan önce taşınır;
+  ya da `summary.json` tarih aralıklı kabul edilen kimlikleri listeler; tarayıcıdan acil durdurma ve ödünç makine
+  runbook'u; iCloud Drive yedek değildir.
+- **E120 (O11).** Her koşu (boşta olanlar dahil) `status-stage0.md` yükler ve adım özetine yazar: son kabul ve son
+  değerlendirilen SHA, park, seriler, tavanlara karşı harcama, belirteç süresi, son 5 karar; Türkçe başlık, İngilizce
+  kod (E98'in dokunuş kaydı ve E29 ile).
 
 ## Doğrulanmış sağlam taraflar
 Kapsayıcı bayrakları ve kırmızı kontroller; host'ta kabuk enjeksiyonu yok; `$GITHUB_OUTPUT`'a serbest
