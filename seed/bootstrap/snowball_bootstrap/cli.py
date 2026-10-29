@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Any
 
 from . import canon, config, ghapi, gitio, licenses, state as st
-from .classify import classify, spec_stage_dirs
+from .classify import classify, is_founder_record, spec_stage_dirs
 from .container import DockerRunner
 from .controls import run_controls
 from .decide import OUTAGE_GIVE_UP_DAYS, OUTAGE_RETRY_LIMIT, decide, utc_now
@@ -329,12 +329,13 @@ def _pull_classify(boot: config.Bootstrap, policy: config.Policy, summary_cfg: c
     elif any(path_problem(p) for p in names):
         pre.append("unsafe_path")  # a control character, a .git component, ':' or '\\' (E03, E04)
     changed = [shown(p) for p in changed]
-    if changed == [EXIT_FILE]:
+    judged = [p for p in changed if not is_founder_record(p)]  # the Founder's ledger rows may ride along
+    if judged == [EXIT_FILE]:
         kind = "exit"
     else:
         kind, reasons = classify(changed)
         pre += reasons
-        if EXIT_FILE in changed:
+        if EXIT_FILE in judged:
             pre.append("exit_request_not_alone")
     if {"base_unreachable", "history_rewritten", "non_utf8_path", "unsafe_path"} & set(pre):  # nothing can be read safely
         kind = "rejected"

@@ -610,6 +610,26 @@ class PullGates(unittest.TestCase):
         commit(self.brain, {"referee/a.py": "x = 1\n"}, "company")
         self.assertIn("exit_request_not_alone", self.pull()["pre_reasons"])
 
+    def test_the_founders_ledger_rides_along_with_any_push(self):
+        """Ledger rows written in the same session never make a spec request mixed or an exit request
+        accompanied; a push of ledger rows alone is a no-op, not a judgement."""
+        commit(self.brain, {"spec/asama-0/00-ozet.md": "# stage 0 v2\n",
+                            "founder-ledger.jsonl": '{"kind":"session"}\n'}, "spec and ledger")
+        meta = self.pull()
+        self.assertEqual((meta["kind"], meta["pre_reasons"]), ("spec", []))
+        self.finish(meta, rival=self.rival_ok(), jobs={"cagir": "success"})
+        self.assertIn("spec/asama-0", self.state["frozen_specs"])
+        commit(self.brain, {"founder-ledger.jsonl": '{"kind":"session"}\n{"kind":"seed_issue"}\n'}, "ledger only")
+        meta = self.pull()
+        self.assertEqual((meta["kind"], meta["run_tests"], meta["run_rival"]), ("none", False, False))
+        request = {"stage": 0, "sha": self.state["last_accepted_sha"], "spec_sha256": "0" * 64}
+        commit(self.brain, {"exit-request.json": json.dumps(request),
+                            "founder-ledger.jsonl": '{"kind":"session"}\n{"kind":"seed_issue"}\n{"kind":"exit"}\n'},
+               "exit and ledger")
+        meta = self.pull()
+        self.assertEqual(meta["kind"], "exit")
+        self.assertNotIn("exit_request_not_alone", meta["pre_reasons"])
+
     def test_an_oversized_tree_is_refused(self):  # L20
         path = self.referee / "bootstrap.json"
         doc = json.loads(path.read_text())

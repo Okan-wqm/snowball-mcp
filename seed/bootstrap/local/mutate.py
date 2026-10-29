@@ -339,6 +339,14 @@ MUTANTS = [
      "state v2: v1 artifacts of unknown outcome count at the exit"),
     ("new_state_fields_unchecked", f"{PKG}/state.py", 'raise ConfigError("previous state: bad open_refutations")', "pass",
      "state v2: a malformed proven-defect list is trusted"),
+    ("founder_records_judged", f"{PKG}/classify.py", "        if is_founder_record(path):\n            continue\n", "",
+     "pilot: the Founder's ledger rows turn its spec request into a mixed push"),
+    ("ledger_only_push_judged_as_code", f"{PKG}/classify.py", '    if not (spec or code):\n        return "none", []\n', "",
+     "pilot: a push of ledger rows alone is judged as code"),
+    ("ledger_breaks_an_exit_request", f"{PKG}/cli.py", "if judged == [EXIT_FILE]:", "if changed == [EXIT_FILE]:",
+     "pilot: ledger rows written with an exit request make it an accompanied one"),
+    ("ledger_look_alikes_escape", f"{PKG}/classify.py", "return path == LEDGER_FILE or", "return path.endswith(LEDGER_FILE) or",
+     "pilot: a file named like the ledger anywhere in the tree escapes judgement"),
 ]
 
 
@@ -350,6 +358,8 @@ def run_mutant(index: int, mutant: tuple[str, str, str, str, str] | None) -> tup
         ignore = shutil.ignore_patterns("__pycache__", "node_modules", ".git")
         shutil.copytree(ROOT / "seed", work / "seed", ignore=ignore)
         shutil.copytree(ROOT / "spec" / "tohum", work / "spec" / "tohum", ignore=ignore)
+        # The security ledger's test checks that every CI job a row names still exists (`30e`).
+        shutil.copytree(ROOT / ".github" / "workflows", work / ".github" / "workflows", ignore=ignore)
         if mutant is not None:
             _name, rel, old, new, _why = mutant
             target = work / rel
