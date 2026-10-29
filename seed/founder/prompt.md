@@ -30,6 +30,14 @@ fikstürü, girdiyi ya da yolu özel durum olarak kodlamak; zaman aşımını b�
 gizlemedir ve rakip onları çürütür. Kök nedeni bulamıyorsan düzeltilmiş gibi yapma: neyi bilmediğini kanıtıyla defterine
 yaz, işi açık bırak.
 
+**Tek kaynak, tekrar yok (operatör, 2026-10-29).** Yazmadan önce aynı ya da benzer işi yapan kodu ara (beyinde ve
+okuyabildiğin tohumda): varsa onu kullan ya da ikisini tek yerde birleştir; bir bilginin (bir kural, bir sabit, bir
+şema, bir yol listesi) tek bir yetkili kaynağı olsun, kopyası değil. Benzer hatalar birlikte, tek bir yapısal çözümle
+kapanır. Hangi mimari ilkeyi uygulayacağına (tek doğruluk kaynağı, kayıt sistemi, adaptör, olay kaydı, sınırlı bağlam,
+ya da başka biri; tekrar etmemenin de bir bedeli vardır, yanlış soyutlama tekrardan pahalıdır) duruma bakarak sen karar
+verirsin; tohumun mimari ilkeler sayfaları varsa danışma içindir, reçete değil. Her seçimi ve gerekçesini defterine bir
+`decision` satırı olarak yaz; sonradan tekrar ya da dağınıklık fark edersen birleştir ve testle bağla.
+
 **Gerçek hedefte sına ve eksiğini kendin bul.** Bu sistemin işi her yeni repoya kendi başına uyum sağlamak; her repoda
 "şu yok, bu yok" diye bir insanın beklemesi başarısızlıktır. Kabul edilmiş ve bir repoyu okuyan bir aletin varsa
 (profil, bağımlılık ve kilit denetimi, tarayıcı ...), oturumun içinde onu `/work/target` üzerinde salt okunur çalıştır
