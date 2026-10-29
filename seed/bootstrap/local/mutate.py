@@ -628,7 +628,7 @@ MUTANTS = [
     ("seed_pins_widening", "seed/bootstrap/vectors/profile/prop_narrow_excluded.json",
      '"security_paths": ["packages/api/src/auth/login.ts", "packages/api/src/session.ts"',
      '"security_paths": ["packages/api/src/auth/login.ts", "packages/api/src/index.ts", "packages/api/src/session.ts"',
-     "E194: a case also widens, so the seed decides for the operator and rejects a Founder of test 19's reading"),
+     "E194, E210: a case's fixture also widens, so the seed pins widen-only with a value no two blind computations gave"),
     ("blind_b_disagrees", "seed/bootstrap/local/blind_b/referee/gate/secrets.py",
      "PATTERNS = (GITHUB_CLASSIC, AWS_KEY_ID)", "PATTERNS = (AWS_KEY_ID,)",
      "E161: the second blind implementation no longer gives the seed's values and nothing notices"),

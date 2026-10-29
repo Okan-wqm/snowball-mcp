@@ -32,7 +32,7 @@ grupların komutları, girdileri, çıktı alanları ve vakaları `29f` ve `29g`
 | `profile` | 4 | fikstür ağaçlarda diller, birim adayları, güvenlik ve hariç yollar; ajan yapılandırması büyük-küçük harf duyarsız hariç; daraltan öneri ret |
 | `npmlock` | 5 | `integrity` eşleşmesi; bir baytı değişmiş tarball, izinsiz `resolved`, git ve dosya bağımlılığı ret |
 | `recipe` | 6 | statik tarif denetimi: imaj `@sha256`, `inputs`, komutlar, sınırların `operating{}` anahtarları |
-| `diffguard` | 7 | `asama-0/08` madde 1'in her ret nedeni |
+| `diffguard` | 7 | `asama-0/08` madde 1'in her ret nedeni; diff'in `brain/integration` başına uygulanması hariç: o `gate.check`'in (MF8) işidir |
 | `k0map` | 8 | eşlenmiş satır kuralı (`asama-0/08`) ve madde 3–8'in kararları, fikstür `koş` çıktılarıyla; arayüz `29h` |
 | `refs` | 9 | yazılan her ref `refs/heads/brain/` altında; `main`'e ve `brain/` dışına yazma ret; geri alma ağacı ilk ebeveynin ağacı; arayüz `29i` |
 | `append` | 10 | devir başına tek commit; yazımdan önce `verify --previous`; arayüz `29i` |

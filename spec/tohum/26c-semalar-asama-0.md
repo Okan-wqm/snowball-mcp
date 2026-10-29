@@ -54,8 +54,14 @@ dosya); `expect.json` `{decision: merge|reject, reason?}` (kötü adayın beklen
 `{unit_id, path, inputs[], toolchain, env_image (@sha256), lockfiles[], install_scripts_required[],
 lint_cmd[], test_cmd[], affected_test_cmd[], services: [], limits{}}`. `inputs` birimin dizini, kullandığı
 ortak kütüphaneler ve kök yapılandırmalardır; yeterliliğinin kanıtı yalnız bu girdilerle HEAD'in 3/3
-yeşil koşmasıdır (`unit.verify`). İmaj resmi araç zinciri imajıdır, depodaki sürüm dosyasıyla aynı sürüm.
-`services` Aşama 0'da boştur. Önerinin hariç yolları ya da güvenlik yollarını daraltması reddedilir.
+yeşil koşmasıdır (`unit.verify`). Lint için yeşil: `lint_cmd` üç koşunun her birinde 0 ya da 1 ile biter ve
+üç koşunun çıkış kodu ve stdout'u bayt bayt aynıdır (ESLint'te 1 bulunan ihlaldir; `asama-0/08` ölçüt 5 ihlal
+ister, ölçüt 6 yeşil). `toolchain` `node@X.Y.Z`'dir: kesin sürüm (üç ondalık bileşen; aralık ya da `lts` gibi
+takma ad değil), birimin dizininden köke doğru en yakın sürüm dosyasındaki sürüm. İmaj resmi araç zinciri
+imajıdır, etiketindeki sürüm de `X.Y.Z`'dir. `install_scripts_required[]`'in her elemanı kilitteki tam paket
+yolu (ör. `node_modules/x`) ya da tarball'ın `ad@sürüm`'üdür; çıplak ad (her sürümü işaretlerdi) işaret
+değildir, hiçbir paketi işaretlemez (`29g`). `services` Aşama 0'da boştur. Önerinin hariç yolları ya da
+güvenlik yollarını daraltması reddedilir.
 
 **policy.json `operating{}`**: `{key: {value, band: [min, max]}}`; anahtarlar `unit_inputs_bytes`,
 `deps_bytes`, `worktree_bytes`, `container_mem_bytes`, `kos_wall_s`, `test_total_s`, `output_bytes`.

@@ -431,10 +431,11 @@ class SeedVectorsOnReferenceImplementationsTest(unittest.TestCase):
         self.assertEqual(len(results), 92)
         self.assertEqual([(r["id"], r["detail"]) for r in results if not r["ok"]], [])
 
-    def test_no_profile_case_decides_what_the_operator_has_not(self):
-        """E194: `tohum/14:15-17`, `01b` and test 19 (`asama-0/09`) reject every proposal that differs from the derivation;
-        `14:52` and `30d` let a proposal widen. Until the operator aligns them, an implementation of either reading passes
-        the seed: A turned into the general reading (any difference in a path list rejected) stays green."""
+    def test_no_profile_case_pins_widening_while_its_case_is_disputed(self):
+        """E194: the operator decided that a proposal may only widen the two path lists (`tohum/14`, `01b`, `29f`), but
+        `profile.accept_widened`, the case that would pin it, is out of the seed while it stands disputed (E210). No case
+        tells the readings apart until it is back: A turned into the general reading (any difference in a path list
+        rejected) stays green. When the case returns, this becomes a break that must turn it red."""
         ids = [c["id"] + s for c in seed_vectors()["profile"]["cases"] for s in ("", ".changed_input")]
         with tempfile.TemporaryDirectory() as tmp:
             work = Path(tmp)
