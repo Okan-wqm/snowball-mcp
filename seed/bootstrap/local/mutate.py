@@ -595,7 +595,7 @@ MUTANTS = [
      "E161: a group's later cases never run"),
     ("data_groups_have_no_judge", f"{PKG}/vectors.py",
      'elif isinstance(group, dict) and group.get("runner") == DATA_RUNNER and _delivered(group, tree):', "elif False:",
-     "E161: MF2-MF7's groups stay vector_group_missing and never run"),
+     "E161: MF2-MF13's groups stay vector_group_missing and never run"),
     ("seed_vector_expect_drifts", "seed/bootstrap/vectors/vectors.json",
      chr(10) + " " * 12 + '"limit_key_unknown:cpu_seconds"', chr(10) + " " * 12 + '"limit_key_unknown:cpu_secondz"',
      "E161: an expected value of the seed changes and nothing notices"),
@@ -648,6 +648,20 @@ MUTANTS = [
     ("deep_json_crashes_the_vector_run", f"{PKG}/vectors.py",
      "except (json.JSONDecodeError, RecursionError):  # nested", "except json.JSONDecodeError:  # nested",
      "a 100 000-level answer kills run-tests: the push becomes an outage instead of vector_failed"),
+    # E161, MF8-MF13: their seed vectors, fixtures and interface pages (`29h`, `29i`)
+    ("seed_new_expect_drifts", "seed/bootstrap/vectors/vectors.json", chr(10) + " " * 12 + "21,",
+     chr(10) + " " * 12 + "22,", "E161: an expected value of MF8's group changes and nothing notices"),
+    ("seed_new_fixture_drifts", "seed/bootstrap/vectors/refs/api.json", '"base":{"ref":"main"',
+     '"base":{"ref":"brain/x"', "E161: a fixture of MF9's group changes under its expected values"),
+    ("seed_secret_written_plain", "seed/bootstrap/vectors/vectors.json", "gh" + chr(92) * 2 + "u0070_", "ghp_",
+     "append.refuse_secret_row's fake token sits raw in vectors.json, so tools that scan raw text withhold the file"),
+    ("new_vector_page_drops_a_case", "spec/tohum/29i-vektor-arayuzleri-mf8-13-devam.md", "`verify_entry_missing`",
+     "`verify_missing`", "E161: an MF8-MF13 case's purpose is missing from the page the Founder reads"),
+    ("new_vector_page_not_indexed", "spec/INDEX.md", "| `tohum/29h-vektor-arayuzleri-mf8-13.md` |",
+     "| `tohum/29h-vektor-arayuzleri.md` |", "E161: the page of MF8's and MF9's groups is not in the index"),
+    ("new_vector_page_shows_a_hash", "spec/tohum/29i-vektor-arayuzleri-mf8-13-devam.md", "baytlarının sha256'sı, `13`)",
+     "baytlarının sha256'sı, `13`; örnek `aa5cd3a2973dac466402f09c45c8cc9f34b9d53d85a8937a34b962ed179c83de`)",
+     "E161: the page the Founder reads gives root.part_tips's expected root, so the vector is no longer a floor"),
 ]
 
 
