@@ -256,11 +256,34 @@ class Pilot:
         with self.metrics.open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(row, ensure_ascii=False, sort_keys=True) + "\n")
 
+    @staticmethod
+    def evaluated(verdict: dict | None, head: str) -> bool:
+        return bool(verdict) and verdict.get("head") == head and (verdict.get("state") or {}).get("last_evaluated_sha") == head
+
+    def judge(self, n: int, head: str, timeout_s: int) -> tuple[dict, dict | None, int]:
+        """Dispatch the referee for head, and again while it leaves head unevaluated (the rival failed on its own
+        side, or an outage): the Founder is never asked to fix what was not its fault (E166)."""
+        dispatched = self.dispatch_referee(timeout_s)
+        verdict, retries = self.fetch_result(), 0
+        while (retries < MAX_REFEREE_RETRIES and verdict and verdict.get("head") == head
+               and not self.evaluated(verdict, head) and not self.stopped()):
+            retries += 1
+            say(f"cycle {n}: {head[:7]} was not evaluated ({verdict.get('warnings')}); referee again, retry {retries}")
+            dispatched = self.dispatch_referee(timeout_s)
+            verdict = self.fetch_result()
+        return dispatched, verdict, retries
+
     def cycle(self, n: int, args) -> bool:
         """One cycle; False when the pilot should stop."""
         stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
         prior = self.fetch_result()
         before = self.brain_head()
+        if before != self.seed and not self.evaluated(prior, before) and not self.stopped():
+            # A push the referee never judged (the launcher stopped in between, an outage): judge it before the
+            # Founder works on, so its next session reads the verdict on its own last push (E168).
+            say(f"cycle {n}: {before[:7]} has no verdict yet; referee first")
+            _, caught_up, _ = self.judge(n, before, args.referee_timeout)
+            prior = caught_up or prior
         rows_before = self.ledger_rows(before)
         say(f"cycle {n}: Founder session {stamp} (brain {before[:7]})")
         sess = self.session(stamp, args.model, args.max_turns, args.budget_usd, args.session_timeout)
@@ -272,16 +295,7 @@ class Pilot:
         retries = 0
         if after != before and not self.stopped():
             say(f"cycle {n}: brain moved to {after[:7]}, dispatching the referee")
-            dispatched = self.dispatch_referee(args.referee_timeout)
-            verdict = self.fetch_result()
-            # A commit the referee left unevaluated (the rival failed on its own side, or an outage) is reviewed
-            # again before the Founder is asked for anything: it cannot fix what was not its fault (E166).
-            while (retries < MAX_REFEREE_RETRIES and verdict and verdict.get("head") == after
-                   and (verdict.get("state") or {}).get("last_evaluated_sha") != after and not self.stopped()):
-                retries += 1
-                say(f"cycle {n}: {after[:7]} was not evaluated ({verdict.get('warnings')}); referee again, retry {retries}")
-                dispatched = self.dispatch_referee(args.referee_timeout)
-                verdict = self.fetch_result()
+            dispatched, verdict, retries = self.judge(n, after, args.referee_timeout)
         kinds: dict[str, int] = {}
         for row in new_rows:
             kinds[str(row.get("kind"))] = kinds.get(str(row.get("kind")), 0) + 1
