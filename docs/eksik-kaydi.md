@@ -110,6 +110,18 @@ hepsi yazılıdır. Bulguları birleştiren ve doğrulayan: Claude Code (Opus 5.
 | E97 | Reddedilmiş çıkış isteği sonraki her push'u kilitliyor | B | — | e2e-1 A10 | açık |
 | E98 | Aşama 0'daki insan dokunuşlarının kaydı yok | B | — | e2e-1 A11 | açık |
 | E99 | Aşama 0'ın gerçek hedefi hiç seçilmemiş | B | evet | e2e-1 A12 | açık |
+| E100 | Hakemin iş akışlarını hiçbir mikro özellik kurmuyor ve sınamıyor; içe aktarma hakem reposundaki tek iş akışını siliyor | K | evet | e2e-2 B1 | açık |
+| E101 | MF13, MF22 ve MF30 testleri hakemin kum havuzunda koşamaz (imajda git, docker, node yok) | K | evet | e2e-2 B2 | açık |
+| E102 | Çıkıştaki #lint ve #lock yanlış yollara bakıyor; kilit (A)'da tanımı gereği açık olamaz; vektör yok; donmuş spec kendi lint'inden geçemez | K | evet (kilit anlamı) | e2e-2 B3 | açık |
+| E103 | Tohum vektörleri yalnız MF1, MF9, MF18'i bağlıyor; bütün testleri `true` olan manifest kabul ediliyor | K | evet (gruplar) | e2e-2 B4 | açık |
+| E104 | Aşama 0 mikro özelliklerinin okuduğu operatör dosyalarının (`control.json`, `setup/summary.json`, `imports.jsonl`) şeması yok | K | evet (özet alanları) | e2e-2 B5 | açık |
+| E105 | Mikro özellik sırası: bazı testler ve çağrılar sonraki mikro özelliklere muhtaç | K | — | e2e-2 B6 | açık |
+| E106 | `harness.score`'un iki uyumsuz arayüzü; `26a` ile `29a` başka yerlerde de çelişiyor | K | — | e2e-2 B7 | açık |
+| E107 | MF2'nin çıktısı `founder-ledger.jsonl`'ı kimse denetlemiyor | B | — | e2e-2 B8 | açık |
+| E108 | K0 eşleme kuralının 'eşlenmiş satır'ı tanımsız; vektörler bunu bağlamıyor | K | — | e2e-2 B9 | açık |
+| E109 | `exit.sample` ve `exit.drill`'in gizli tohumunu hangi işin tuttuğu sayfalar arasında çelişkili | B | evet | e2e-2 B10 | açık |
+| E110 | Etkinleştirme defterinin `security` satırlarının tohum güvenlik defterinden nasıl devam edeceği belirsiz | B | — | e2e-2 B11 | açık |
+| E111 | Taban avcının sabit grep kümesi tanımsız; Kurucu kendi avcılarının geçeceği çıtayı kendisi koyuyor | B | evet | e2e-2 B12 | açık |
 | E62 | Filo genelinde güvenlik: bir repoda doğrulanan açık dedektöre dönüşür, gizlilik duvarından geçer, bağlı bütün repolarda taranır; her repoya yalnız kendi açığı bildirilir | B | operatör yönü | operatör, 2026-10-29 | açık (çok repo ile, `21`) |
 | E60 | Satış zamanı: sistemin ürettiği dosyaların yeri; varsayılan müşteride, açık izinle müşteri başına ayrı, özel, şifreli barındırma; güvenlik bulguları hep müşteride | satış | operatör sorusu | operatör, 2026-10-29 | satışta açılır |
 | E61 | Satış zamanı: repolar arası öğrenmede gizlilik duvarı; kalıp taşınır, müşteri bilgisi taşınmaz; terfi öncesi otomatik sızıntı kontrolü ve sözleşmede izin | satış | operatör sorusu | operatör, 2026-10-29 | satışta açılır |
@@ -666,6 +678,39 @@ Denetçi akışı gerçek `pull` ve `decide` ile yerel git üzerinde simüle ett
   bloğunda sayı.
 - **E99 (A12).** `25`'e Aşama 0'ın gerçek hedefini (açık ya da eğitim modu) ve klon yolunu adlandıran satır;
   özete girer; drift denetimi.
+
+### Uçtan uca denetim · Aşama 0'ın inşa edilebilirliği (e2e-2)
+- **E100 (B1).** `asama-0/13:15-16` beş işin iş akışlarını teslim sayıyor; `14` ve `09`'da yok; `importer.py:51-59`
+  `.github/` ve `bootstrap/`'ı siliyor. Plan: `14`'e iş akışları mikro özelliği (`koş`/`yeniden` sırsız ve
+  `permissions: {}`, sırlı iş kod koşturmaz, `run:` içinde `${{ github.* }}` yok) ve `09`'a test 46; `snowball
+  init`, `mcp/`, `schemas/` için sahip mikro özellik ya da `13`'ten çıkarma; kablolama testi: `13`'teki her
+  teslim `14`'te adlı.
+- **E101 (B2).** Testler 20, 21, 22, 45 önyükleme kumunda taklit koşucu, git ve CLI ile koşar; gerçekleri (B)'de
+  aktarılan hakemin ilk koşusunda #sandbox, #dispatch, #kirmizi satırlarıyla doğrulanır; ya da operatör git'li
+  bir imaj pinler.
+- **E102 (B3).** Yollar `../spec/asama-0` ve `../exit-request.json`; (A)'da kilit yalnız (aşama, donmuş spec
+  hash'i) çiftini denetler, PASS satırına bağlı açılış (B)'nin; `policy.json` kapsayıcıya `/policy/` olarak
+  salt okunur bağlanır; `29a`'ya `lint` ve `lock` vektör grupları; tohumdaki Aşama 0 spec'i tohumlanmadan önce
+  `02` listesinden geçirilir (anahtarsız eşikler: `12:13,15,17`, `09:55`, `06:17`).
+- **E103 (B4).** `29a`'ya `control`, `diffguard`, `secrets`, `license` vektör grupları; her `14` satırına modül
+  yolu ve "modülsüz kırmızı" denetimi (modül silinince o MF'nin testleri kırmızı olmalı).
+- **E104 (B5).** `26b`'ye `control.json` (`kill_switch`, `budget_state`, `oauth_token_expires`; eksik ya da
+  bilinmeyen alan kapalıya düşer), `setup/summary.json` (açık alanlar) ve `setup/imports.jsonl`; `config.py`
+  alanlarının `26b` ile aynı olduğunu sınayan test.
+- **E105 (B6).** Test 26'nın Rekor, kayma ve rakip zaman aşımı vakaları 40, 24 ve 22'ye taşınır; `secrets.scan`
+  MF16'dan öne; MF23'e "Rekor bağlantısı 24'te"; MF6 ile MF7 yer değiştirir; `26a` çağıran MF ≥ çağrılan MF testi.
+- **E106 (B7).** `26a` `harness.score` satırı `29a` CLI'siyle uyumlanır, `hits` `26b`'ye; `harness.stats` ve
+  `harness.drill` `26a`, `13` ve MF9/MF18 satırlarına; `29a:70` örneği `"0.962351"`; her `29a` komutu `26a`'da.
+- **E107 (B8).** `founder-ledger.jsonl`'ın zincirli kısmı önyükleme hakeminin kanonik koduyla zincir ve son kabul
+  edilmiş SHA'daki sürüme göre yalnız-ekleme denetiminden geçer; aksi `founder_ledger_invalid`.
+- **E108 (B9).** `26` vakasına `mapped_line` (K0–K2'de zorunlu); `08`: isabet `tool`, `rule_id` eşit ve
+  `evidence_refs[0].line_start = mapped_line`, eşleme açgözlü `finding_id` sonra `case_id`; yeni vektör.
+- **E109 (B10).** `26a`'da iş `yaz` (sırlı, kod koşturmaz), seçim hash'i `koş`'tan önce zincire; araç → iş
+  tablosunun `08`'in sır sütunuyla aynı olduğunu sınayan test.
+- **E110 (B11).** Genesis satırının `payload`'ı `seed_security_ledger_sha256` ve son `row_hash`'i taşır;
+  `security` satırları ortak zincirde genesis'ten sonra gelir.
+- **E111 (B12).** Taban avcının K0 grep kümesi çıkışta donar, hash'i genesis'te ya da tohumla gelir; Kurucu
+  değiştiremez.
 
 ## Doğrulanmış sağlam taraflar
 Kapsayıcı bayrakları ve kırmızı kontroller; host'ta kabuk enjeksiyonu yok; `$GITHUB_OUTPUT`'a serbest
