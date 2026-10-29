@@ -71,6 +71,15 @@ Okunma: sayfa ararken; görev seçmek için `tohum/00b-gorev-haritasi.md`
 | `tohum/30d-hedef-guvenlik-profili.md` | Hedef Güvenlik Profili: Tehdit Modeli ve Kural–Test Bağı | yeni bir hedefe bağlanırken, her güvenlik testi bağlanırken ve her K6 işinde |
 | `tohum/30e-guvenlik-defteri.md` | Güvenlik Defteri: Zincirli Kayıt, Yaşam Döngüsü, Öğrenme | her güvenlik bulgusunda, düzeltmesinde, testinde ve feragatinde; yeni bir hedefe bağlanırken |
 | `tohum/30f-guvenlik-avcisi.md` | Güvenlik Avcısı: Bağımsız, Salt Okunur, Ölçülen | P2 aktarımında (koltuk), her güvenlik koşusunda ve avcının kanaryası tasarlanırken |
+| `tohum/31-mimari-ilkeler.md` | Mimari İlkeler Kataloğu: Danışma, Seçim, Kanıt | bir tasarım ya da düzeltme biçimi seçilirken; iki yerde bulunan hata, aynı veriyi isteyen ikinci servis, yeni ekosistem, kaynakla ya da kodla çelişen rapor ve doküman; rakip tekrar ve ikinci kaynak iddiası kurarken |
+| `tohum/31a-dogruluk-ve-veri-sahipligi.md` | Mimari İlkeler I: Doğruluk ve Veri Sahipliği | bir gerçek birden çok yerde durduğunda; ikinci servis aynı veriyi istediğinde; rapor kaynakla çeliştiğinde; iki yazar ya da iki tanım bulunduğunda |
+| `tohum/31b-tekrar-ve-uyum.md` | Mimari İlkeler II: Tekrar ve Uyum | bir hata iki yerde bulunduğunda; klon dedektörü bir eşleşme bildirdiğinde; ortak bir soyutlama ya da paylaşılan kütüphane önerilirken; rakip tekrar iddiası kurarken |
+| `tohum/31c-sinirlar-ve-yapi.md` | Mimari İlkeler III: Sınırlar ve Yapı | modül, servis ya da organ sınırı çizilirken; yeni bir ekosistem (pnpm, poetry, cargo, Go modülleri) desteklenirken; dış ya da eski bir modele bağlanırken |
+| `tohum/31d-degisim-durum-olay.md` | Mimari İlkeler IV: Değişim, Durum ve Olaylar | bir işleyici hem veritabanına yazıp hem mesaj yayımladığında; en az bir kez teslim edilen mesaj tüketilirken; birden çok servisi kapsayan iş akışında; defter ve değişmez veri tasarlanırken |
+| `tohum/31e-guvenilirlik-ve-evrim.md` | Mimari İlkeler V: Güvenilirlik ve Evrim | paylaşılan bir arayüz (GraphQL alanı, olay, konu, yapılandırma anahtarı) değişirken; eski bir modül değiştirilirken; yapılandırma, politika ve gözlemlenebilirlik incelenirken; bir ilke benimsenip kontrole bağlanırken |
+| `tohum/31f-dokumantasyon-ve-bilgi.md` | Mimari İlkeler VI: Dokümantasyon ve Bilgi | bir repo ilk kez haritalanırken; doküman ile kod çeliştiğinde; her K8 işinde; sistem hedefin dokümanını yazmaya ya da üretmeye başlarken |
+| `tohum/31g-karar-rehberi.md` | Mimari İlkeler VII: Karar Rehberi | aşağıdaki durumlardan biri ortaya çıktığında, `decision` satırı yazılmadan önce |
+| `tohum/31h-catismalar-ve-tarama.md` | Mimari İlkeler VIII: Çatışmalar ve Tarama Sinyalleri | iki ilke aynı durumda farklı yön gösterdiğinde; bir repo ilkeler açısından taranırken; rakip bir tasarımı çürütmeye çalışırken |
 | `tohum/CHANGELOG.md` | Değişiklik Günlüğü — Tohum | bir sayfanın geçmişi aranırken |
 
 ## Aşama 0 — Yürüyen İskelet: İlk Canlı Döngü
