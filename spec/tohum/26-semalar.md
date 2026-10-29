@@ -15,11 +15,11 @@ da yeni kategori önerisini genesis değil şerit yazarı yapar (`09a`).
 
 | Bölüm (`part`) | Dosya | Yazar | Açılış |
 |---|---|---|---|
-| `founder` | beyin reposunda `founder-ledger.jsonl` | Kurucu | Aşama 0 |
-| `events`, `cost`, `freeze`, `rival`, `accept`, `security` | `<state_root>/ledger.jsonl` (`security`'nin hakem ve beyin kapsamı tohumda `seed/security-ledger.jsonl`, `30e`) | Hakem işleri | Etkinleştirme |
+| `founder` | beyin reposunda `founder-ledger.jsonl` | Kurucu, tohumun defter aracıyla | Aşama 0, ilk oturum |
+| `events`, `cost`, `drill` | `<state_root>/ledger.jsonl` | Hakem işleri; `drill` `exit.drill` (Aşama 0'da yalnız geri alma provası) | Etkinleştirme |
+| `freeze`; `rival`, `accept`; `security` | aynı dosya (`security`'nin hakem ve beyin kapsamı tohumda `seed/security-ledger.jsonl`, `30e`) | Gözcü; döngünün `yaz`'ı, önyükleme hakeminin imzalı sonucundan; `security.run` | P1; Aşama 1 MF6; P2 (`asama-1/13`) |
 | `looks` | `<state_root>/ledger.jsonl` | Hakem exit işi | İlk held-out havuzu |
-| `drill` | `<state_root>/ledger.jsonl` | Hakem `exit.drill` işi | İlk prova (`18`, `22a`, `12a`) |
-| — (bulgu satırları) | `<state_root>/findings.jsonl` | Hakem, adapter önerisinden | Etkinleştirme |
+| — (bulgu satırları) | `<state_root>/findings.jsonl` | Hakem, adapter önerisinden | Aşama 1 |
 | — (unresolved satırları) | `<state_root>/unresolved.jsonl` | Hakem kapısı | Aşama 1 |
 | — (kökler) | `<state_root>/chain/root.jsonl` | Hakem `yaz` işi | Etkinleştirme |
 
@@ -30,10 +30,9 @@ ile işaretlenir ve `trust: inferred` saklanır. Kanonik biçim RFC 8785; `row_h
 sha256(canonical(row − row_hash) ‖ prev_hash)`, küçük harf onaltılık; ilk satırın `prev_hash`'i
 64 sıfır. Vektörler `29a`'da. **Sayılar:** hash'lenen hiçbir artefaktta kayan nokta yoktur;
 tamsayı (para `*_micros`, süre `*_ms`) ya da en çok altı ondalıklı sabit ondalık dizgi
-(`"0.962400"`) kullanılır. **`founder` satırı:** `kind` ∈ {`session_start`, `decision`, `build`,
-`blocked`, `seed_issue`, `cost`, `session_end`}, `payload` `{summary, refs[]}`, `snapshot_id` beyin
-reposunun o anki SHA'sı. `findings.jsonl` ve `unresolved.jsonl` satırları da `prev_hash`,
-`row_hash` taşır.
+(`"0.962400"`) kullanılır. **`founder` satırı:** `kind` ∈ {`session_start`, `decision`, `build`, `blocked`,
+`seed_issue`, `cost`, `session_end`}, `payload` `{summary, refs[]}`, `snapshot_id` beyin reposunun o anki
+SHA'sı. `findings.jsonl` ve `unresolved.jsonl` satırları da `prev_hash`, `row_hash` taşır.
 
 **derivation** (kapalı küme): `tool`, `static_analysis`, `test_verified`, `llm_inference`,
 `name_similarity`, `imported`. **trust**: `verified`, `observed`, `inferred`. Merge kararına
@@ -76,5 +75,6 @@ attempts:[{claim, evidence_refs, reproducer?}], reproduced}`. `reproduced` hakem
 instance_id, arm?: with|without, commitment_sha256, revealed_sha256?, outcome, verdict}`.
 Taahhüt koşudan önce, açılım koşudan sonra yazılır; eşleşmezse prova `FAIL`'dır. Prova dosyası `29c`'de.
 
-Diğer şemalar (ders, bilgi, öneri, harita, organ, itibar, rapor, profil, politika, test-yazıcı,
-bakış, mühür, sözleşme) `26b`'de; güvenlik profili `30d`'de, `security` satırının yükü `30e`'dedir.
+Diğer şemalar (ders, bilgi, öneri, harita, organ, itibar, rapor, profil, politika, test-yazıcı, bakış,
+mühür, sözleşme) `26b`'de; Aşama 0'ın dosyaları (`control.json`, `setup/*`, tarif, aday, bildirim,
+`snowball-tests.json`) `26c`'de; güvenlik profili `30d`'de, `security` satırının yükü `30e`'dedir.
