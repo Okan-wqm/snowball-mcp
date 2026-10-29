@@ -129,7 +129,7 @@ hepsi yazılıdır. Bulguları birleştiren ve doğrulayan: Claude Code (Opus 5.
 | E116 | Aşama 0 aktarımı operatörün Windows makinesinde koşamaz (Sigstore tekerlekleri yalnız manylinux) | B | — | e2e-6 O8 | açık |
 | E117 | Duraklatma yazılı değil; kill switch her saat kırmızı koşu ve e-posta üretiyor | B | evet (E16'yı değiştirir) | e2e-6 O9 | onaylandı · açık |
 | E118 | Olay kitabı yok; iletiler İngilizce; hangisinin operatörün işi olduğu yazmıyor | B | evet (kanarya harcaması) | e2e-6 O10 | onaylandı · açık |
-| E119 | Bus faktörü: her şey tek kişide; hesap taşınırsa imzalı geçmiş kırılır | B | evet (organizasyon) | e2e-6 O12 | onaylandı · ertelendi: şimdilik `Okan-wqm`; `suderra`'ya taşıma gerçek hakem ve beyin repoları açılmadan (kurulum günü) önce |
+| E119 | Bus faktörü: her şey tek kişide; hesap taşınırsa imzalı geçmiş kırılır | B | evet (organizasyon) | e2e-6 O12 | karar: taşınmayacak (kişisel test projesi, `Okan-wqm`'de kalır); iş görürse taşınır, o gün hakem durumu yeni kimlikle yeniden başlar |
 | E120 | Aşama 0'da tek bir durum yeri yok (harcama, park, seriler, belirteç süresi zip içinde) | B | — | e2e-6 O11 | açık |
 | E121 | Organizma kimseye haber vermeden durabilir: `not_learning`, park ve sonuçsuz bekleme yeşil koşuyla biter | K | — | e2e-3 C2 | açık |
 | E122 | Hakemin kendini onarma yolu ölü: şerit yazarının ne başlatıcısı ne yazma kimliği var; Gözcü işaretleri hiçbir yerde saklanmıyor | K | evet (artefakt mı repo mu) | e2e-3 C3 | onaylandı · açık |
@@ -905,7 +905,9 @@ Operatör dört kararın dördünü de önerilen yönde verdi:
    kalite eşikleri yalnız sıkılaşır; kendi kusurunu bildirmeye kredi yok; dürüstlük provası; bağımlılık
    güncellemesi sonraya).
 
-**E119 zamanlaması (2026-10-29).** Operatör: şimdilik `Okan-wqm` hesabından devam; `suderra` şirketin hesabıdır,
+**E119 (2026-10-29, son karar).** Operatör: `suderra`'ya taşınmayacak; bu kişisel bir test projesi, iş görürse
+taşınır; repolar kirletilmez (yalnız gerekli iki repo: beyin ve hakem; prova repoları kurulum günü silinir). Taşıma
+günü hakemin imzalı durumu yeni kimlikle yeniden başlar. Önceki not: Operatör: şimdilik `Okan-wqm` hesabından devam; `suderra` şirketin hesabıdır,
 sonra oraya aktarılır. Kural: taşıma gerçek hakem ve beyin repoları açılmadan (kurulum günü) yapılır, çünkü
 imzalı durumun Sigstore kimliği repo adına bağlıdır; prova repoları atılacağı için etkilenmez.
 
