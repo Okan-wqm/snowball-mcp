@@ -348,6 +348,9 @@ class E260PilotMetric(unittest.TestCase):
             def ledger_rows(self, sha):
                 return []
 
+            def refresh_inputs(self):  # test_founder_capsule.VectorInputsTest's subject
+                pass
+
             def session(self, *a):
                 return {"exit": 0, "minutes": 1}
 

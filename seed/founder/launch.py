@@ -2,14 +2,18 @@
 
 One cycle:
   1. download the referee's last signed result (`bootstrap-state` artifact of the referee's main branch);
-  2. run one Founder session in the capsule (seed/founder/Dockerfile);
-  3. if the brain moved, dispatch the referee (its schedule does not fire, E32) and wait for it;
-  4. append what happened to <work>/pilot-log.md.
+  2. rebuild <work>/vec from the `vectors/` of the referee repo's main (E244); if that fails, no session: stop;
+  3. run one Founder session in the capsule (seed/founder/Dockerfile);
+  4. if the brain moved, dispatch the referee (its schedule does not fire, E32) and wait for it;
+  5. append what happened to <work>/pilot-log.md.
 
 Everything lives in one folder, <work> (the operator deletes it to remove the pilot):
   <work>/snowball-founder.env   the Founder's two secrets; written by the operator, never read by this script
   <work>/aquaculture_platform   the target clone, mounted read-only
   <work>/referee/               the last referee result the Founder reads
+  <work>/vec/                   the vectors' inputs, mounted read-only at /vec: cases.json (every data case's command,
+                                stdin and fixtures) and the fixtures; no expected value is there. A vector that
+                                contradicts its page stays red until the operator answers with a seed epoch.
   <work>/logs/                  session transcripts
   <work>/pilot-log.md           the operator's report
   <work>/STOP                   create this file to stop after the current step
@@ -26,6 +30,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tarfile
 import tempfile
 import time
 import zipfile
@@ -36,9 +41,11 @@ HERE = Path(__file__).resolve().parent
 SEED = HERE.parent
 sys.path.insert(0, str(SEED / "bootstrap"))
 from snowball_bootstrap.decide import counts_against_founder  # noqa: E402  (the referee's rule, not a copy)
+from snowball_bootstrap.vectors import founder_inputs  # noqa: E402  (the referee's projection, not a copy: E244)
 IMAGE = "snowball-founder:pilot"
 REFEREE_WORKFLOW = "bootstrap.yml"
 STATE_ARTIFACT = "bootstrap-state"
+REFEREE_VECTORS = "vectors"  # the referee repo's copy of seed/bootstrap/vectors (README, seed delivery step 3)
 MAX_REFEREE_RETRIES = 2  # with the first run, as many as the referee's own retries (decide.RIVAL_SIDE_WARN)
 BUILD_FILES = ("founder/Dockerfile", "founder/entrypoint.sh", "founder/prompt.md",
                "bootstrap/requirements/claude-cli/package.json", "bootstrap/requirements/claude-cli/package-lock.json")
@@ -100,12 +107,25 @@ def write_build_context(ctx: Path) -> None:
         dest.write_bytes((SEED / rel).read_bytes().replace(b"\r\n", b"\n"))
 
 
+def referee_vectors(blob: bytes, dest: Path) -> Path:
+    """Unpack the `vectors/` of a referee repository tarball (`gh api .../tarball/main`) into dest, and nothing else of
+    it: the referee's code never lands on the way to the capsule. Returns the unpacked `vectors/` folder."""
+    with tarfile.open(fileobj=io.BytesIO(blob), mode="r:*") as tar:
+        members = [m for m in tar.getmembers() if m.name.split("/")[1:2] == [REFEREE_VECTORS]]
+        tops = {m.name.split("/", 1)[0] for m in members}
+        if len(tops) != 1:
+            raise ValueError(f"the referee's tarball has {len(tops)} top folders with {REFEREE_VECTORS}/, not one")
+        tar.extractall(dest, members=members, filter="data")
+    return dest / tops.pop() / REFEREE_VECTORS
+
+
 class Pilot:
     def __init__(self, work: Path, brain: str, referee: str, target: str) -> None:
         self.work, self.brain, self.referee = work, brain, referee
         self.target = work / target
         self.env_file = work / "snowball-founder.env"
         self.result_dir = work / "referee"
+        self.inputs = work / "vec"  # the vectors' inputs, rebuilt before each session (E244)
         self.logs = work / "logs"
         self.report = work / "pilot-log.md"
         self.metrics = work / "pilot-metrics.jsonl"  # one machine-readable line per cycle (what docs/pilot-gunlugu.md counts)
@@ -187,6 +207,15 @@ class Pilot:
         path = self.result_dir / "result.json"
         return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else None
 
+    def refresh_inputs(self) -> None:
+        """Rebuild <work>/vec from the `vectors/` of the referee repo's main, with the referee's own projection
+        (`vectors.founder_inputs`): what the referee will run next, never an older copy. Raises when it cannot."""
+        proc = run("gh", "api", f"repos/{self.referee}/tarball/main", check=False, timeout=600)
+        if proc.returncode != 0:
+            raise OSError(f"gh api repos/{self.referee}/tarball/main: {proc.stderr.decode(errors='replace')[-300:]}")
+        with tempfile.TemporaryDirectory(prefix="snowball-vec-") as tmp:
+            founder_inputs(referee_vectors(proc.stdout, Path(tmp)), self.inputs)
+
     def dispatch_referee(self, timeout_s: int) -> dict:
         """Dispatch the referee on main and wait for that run; returns {id, conclusion, url}."""
         since = datetime.now(timezone.utc)
@@ -229,6 +258,7 @@ class Pilot:
                *bind(self.env_file, "/run/secrets/founder.env", True),
                *bind(self.result_dir, "/work/referee", True),
                *bind(self.target, "/work/target", True),
+               *bind(self.inputs, "/vec", True),  # where each case's command reads its fixtures, as in the referee's
                *bind(self.session_logs(stamp), "/work/logs", False),  # its own folder: memory is the ledger (E155)
                "-e", f"BRAIN_REPO={self.brain}", "-e", f"BRAIN_SEED={self.seed}", "-e", f"SESSION_STAMP={stamp}",
                "-e", f"FOUNDER_MODEL={model}", "-e", f"FOUNDER_MAX_TURNS={max_turns}",
@@ -316,6 +346,14 @@ class Pilot:
             _, caught_up, _ = self.judge(n, before, args.referee_timeout)
             prior = caught_up or prior
         rows_before = self.ledger_rows(before)
+        try:
+            self.refresh_inputs()
+        except (OSError, ValueError, KeyError, tarfile.TarError, subprocess.SubprocessError) as exc:
+            # No session on stale or missing inputs: the Founder would test against vectors the referee no longer runs.
+            say(f"cycle {n}: the vector inputs could not be rebuilt ({exc}); no session, stopping")
+            self.write(f"\n## Döngü {n} — {stamp}\n\n- Vektör girdileri yenilenemedi, oturum yok: "
+                       f"`{str(exc).replace('`', chr(39))}`\n")
+            return False
         say(f"cycle {n}: Founder session {stamp} (brain {before[:7]})")
         sess = self.session(stamp, args.model, args.max_turns, args.budget_usd, args.session_timeout)
         after = self.brain_head()
@@ -415,7 +453,7 @@ def main(argv: list[str] | None = None) -> int:
             say("STOP file found; stopping")
             break
         if not pilot.cycle(n, args):
-            say("stopping (STOP file, two sessions without a push, or a timed-out session)")
+            say("stopping (STOP file, two sessions without a push, a timed-out session, or no vector inputs)")
             break
     return 0
 

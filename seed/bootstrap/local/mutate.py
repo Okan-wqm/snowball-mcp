@@ -771,6 +771,20 @@ MUTANTS = [
      "E240: the seed expects a forced ref update (07: no force push) and nothing notices"),
     ("new_vector_page_29j_not_indexed", "spec/INDEX.md", "| `tohum/29j-vektor-arayuzleri-mf8-13-son.md` |",
      "| `tohum/29j-vektor-arayuzleri.md` |", "the page of MF11-MF13's groups is not in the index"),
+    # ---- E244: the vectors' inputs in the Founder's capsule (f97), never their answers
+    ("capsule_inputs_not_mounted", "seed/founder/launch.py", '*bind(self.inputs, "/vec", True),', "",
+     "E244: the Founder cannot run a vector's command on the inputs the referee runs it on, as f97 reported"),
+    ("capsule_inputs_writable", "seed/founder/launch.py", '*bind(self.inputs, "/vec", True),',
+     '*bind(self.inputs, "/vec", False),', "E244: a session can rewrite the inputs the next one reads"),
+    ("projection_leaks_expect", f"{PKG}/vectors.py",
+     '"stdin": changed.get("stdin", ""), "fixture": changed["fixture"]}}',
+     '"stdin": changed.get("stdin", ""), "fixture": changed["fixture"], "expect_not": changed["expect_not"]}}',
+     "E244: cases.json carries the answer a changed input must not give, which is the case's own answer"),
+    ("whole_referee_repo", "seed/founder/launch.py",
+     'members = [m for m in tar.getmembers() if m.name.split("/")[1:2] == [REFEREE_VECTORS]]',
+     "members = tar.getmembers()", "E244: the referee's code and vectors.json land on the way to the capsule"),
+    ("fixture_answer_check_off", f"{PKG}/vectors.py", "    if lookups:\n", "    if False:\n",
+     "E244: a fixture that holds an answer its case must compute reaches the Founder as an answer sheet"),
 ]
 
 
