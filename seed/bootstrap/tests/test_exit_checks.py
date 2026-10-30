@@ -12,6 +12,7 @@ import io
 import json
 import tarfile
 import tempfile
+import unicodedata
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -109,6 +110,15 @@ class FounderLedgerRules(unittest.TestCase):
         tail = ledger_bytes(ledger_rows(1, start=3, prev=rows[1]["row_hash"]))
         self.assertEqual(self.check(partial + b" " + b"\n" + tail, partial, whole=False), [f"{INVALID}:rewritten:L2"])
 
+    def test_an_accepted_partial_line_is_an_accepted_row(self):  # ledger_accepted_partial_line_counted_new
+        """A bad row the referee accepted without its newline is still the referee's acceptance: a push closing it
+        with its newline is not charged for it, and the exit reports it apart."""
+        rows = ledger_rows(3, edits={1: {"kind": "learning"}})
+        partial = ledger_bytes(rows[:2])[:-1]
+        head = partial + b"\n" + ledger_bytes(rows[2:])
+        self.assertEqual(self.check(head, partial, whole=False), [])
+        self.assertEqual(self.check(head, partial), [f"{ACCEPTED}:kind:L2"])
+
     def test_values_canonical_json_cannot_hold_are_refused(self):  # ledger_noncanonical_passes
         good = ledger_rows(1)[0]
         for value in ("1.5", "NaN", "Infinity", str(2 ** 60)):
@@ -127,6 +137,16 @@ class FounderLedgerRules(unittest.TestCase):
         self.assertEqual(self.check(deep.encode() + b"\n"), [f"{INVALID}:too_deep:L1"])
         shallow_but_over = '{"payload":' + "[" * 100 + "]" * 100 + "}"
         self.assertEqual(self.check(shallow_but_over.encode() + b"\n"), [f"{INVALID}:too_deep:L1"])
+
+    def test_nesting_is_capped_at_exactly_max_depth(self):  # ledger_depth_bound_65
+        def nested(levels):  # the row is level 1, its payload level 2, `refs` level 3, each list inside one more
+            inner: list = []
+            for _ in range(levels - 3):
+                inner = [inner]
+            return ledger_bytes(ledger_rows(1, edits={0: {"payload": {"refs": inner}}}))
+        self.assertEqual(ledgercheck.MAX_DEPTH, 64)
+        self.assertEqual(self.check(nested(ledgercheck.MAX_DEPTH)), [])
+        self.assertEqual(self.check(nested(ledgercheck.MAX_DEPTH + 1)), [f"{INVALID}:too_deep:L1"])
 
     def test_the_kind_set_and_the_part_are_test_30s(self):  # ledger_kind_unchecked ledger_part_unchecked
         for kind in ledgercheck.FOUNDER_KINDS:
@@ -398,6 +418,29 @@ class WorkflowSubset(unittest.TestCase):
         with self.assertRaises(wiring.Unparseable):
             wiring.parse(b"a: " + b"x" * wiring.MAX_BYTES + b"\n")
 
+    def test_what_yaml_reads_otherwise_is_refused_by_name(self):
+        # wiring_paragraph_separator_passes wiring_noncharacters_pass wiring_double_quote_text_after_passes
+        # wiring_literal_blank_with_spaces_passes
+        cases = {"name: lo\u2029op\n": "control_character",  # a line break to YAML 1.1, text to 1.2
+                 "name: lo\ufffeop\n": "control_character", "name: lo\uffffop\n": "control_character",  # not printable
+                 'name: "a" b\n': "text_after_quote",  # GitHub refuses it; read as "a" it would pass
+                 "run: |\n  echo 1\n   \n  echo 2\n": "blank_line_with_spaces"}  # content or a blank: two readings
+        for text, why in cases.items():
+            with self.subTest(text=text), self.assertRaises(wiring.Unparseable) as caught:
+                wiring.parse(text.encode("utf-8"))
+            self.assertEqual(caught.exception.why, why, text)
+        self.assertEqual(wiring.parse("name: lo\ufffdop\nrun: |\n  echo 1\n\n  echo 2\n".encode()),
+                         {"name": "lo\ufffdop", "run": "echo 1\n\necho 2\n"})
+
+    def test_nesting_is_capped_at_exactly_max_depth(self):  # wiring_depth_bound_33
+        def nested(levels):
+            return ("".join(f"{'  ' * i}k{i}:\n" for i in range(levels - 1)) + "  " * (levels - 1) + "v: 1\n").encode()
+        self.assertEqual(wiring.MAX_DEPTH, 32)
+        self.assertIsInstance(wiring.parse(nested(wiring.MAX_DEPTH)), dict)
+        with self.assertRaises(wiring.Unparseable) as caught:
+            wiring.parse(nested(wiring.MAX_DEPTH + 1))
+        self.assertEqual(caught.exception.why, "too_deep")
+
 
 def workflow(old=None, new=None, *more):
     """LOOP_YML with each ``old`` (found exactly once) replaced by ``new``."""
@@ -521,6 +564,63 @@ class WorkflowRules(unittest.TestCase):
             self.assertEqual(self.check(text), ["workflow_secrets_enumerated:cagir"], value)
         inherit = workflow(*in_job("cagir", "    needs:\n", "    secrets: inherit\n    needs:\n"))
         self.assertEqual(self.check(inherit), ["workflow_secrets_enumerated:cagir"])
+        top = workflow("permissions: {}\njobs:", "permissions: {}\nenv:\n  ALL: ${{ toJSON(secrets) }}\njobs:")
+        self.assertEqual(self.check(top), ["workflow_secret_job:workflow", "workflow_secrets_enumerated:workflow"])
+        # wiring_top_level_enumeration_unchecked
+
+    def test_an_expression_ends_where_githubs_template_reader_ends_it(self):
+        """E288: GitHub ends ``${{`` at the first ``}}`` outside a single-quoted literal; ending it at any ``}}`` let
+        ``'}}' && secrets.X`` hand a secret to the job that runs the Founder's code."""
+        # expression_ends_at_any_braces expression_left_open_ignored
+        self.assertEqual(wiring._expressions("${{ '}}' && secrets.X }}"), [" '}}' && secrets.X "])
+        self.assertEqual(wiring._expressions("a ${{ 'it''s }}' }} b ${{x}}}"), [" 'it''s }}' ", "x"])
+        self.assertEqual(wiring._expressions("${{ github.ref"), [" github.ref"])  # left open: all of it is read
+        self.assertEqual(wiring._expressions("${{ '}}' && github.ref"), [" '}}' && github.ref"])
+        self.assertEqual(wiring._expressions("no ${ { expression } }"), [])
+        kos = workflow("      - name: run\n        run: python3 -m loop run\n",
+                       "      - name: run\n        env:\n          T: ${{ '}}' && secrets.CLAUDE_CODE_OAUTH_TOKEN }}\n"
+                       "        run: python3 -m loop run\n")
+        self.assertEqual(self.check(kos), ["workflow_secret_in_code_job:kos"])
+        run = workflow("run: python3 -m loop fetch", "run: echo ${{ '}}' && github.event.head_commit.message }}")
+        self.assertEqual(self.check(run), ["workflow_github_in_run:getir:2"])
+        every = workflow("CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}",
+                         "CLAUDE_CODE_OAUTH_TOKEN: ${{ '}}' && toJSON(secrets) }}")
+        self.assertEqual(self.check(every), ["workflow_secrets_enumerated:cagir"])
+
+    def test_no_github_context_in_any_script_the_runner_executes(self):
+        """Test 46's ``run:`` read for what it guards (E288): the shell line, ``defaults.run`` and github-script's
+        ``script`` are code too. ``working-directory`` is a path the runner starts the process in, not code."""
+        # script_shell_unchecked github_script_unchecked job_defaults_unchecked workflow_defaults_unchecked
+        fetch = "      - name: fetch\n        run: python3 -m loop fetch\n"
+        shell = fetch + "        shell: bash -c \"${{ github.event.head_commit.message }} {0}\"\n"
+        self.assertEqual(self.check(workflow(fetch, shell)), ["workflow_github_in_run:getir:2"])
+        script = ("      - uses: actions/github-script@0123456789abcdef0123456789abcdef01234567\n        with:\n"
+                  "          script: console.log('${{ github.event.issue.title }}')\n")
+        self.assertEqual(self.check(workflow(fetch, script)), ["workflow_github_in_run:getir:2"])
+        defaults = "    defaults:\n      run:\n        shell: bash ${{ github.head_ref }} {0}\n    steps:\n"
+        self.assertEqual(self.check(workflow(*in_job("getir", "    steps:\n", defaults))),
+                         ["workflow_github_in_run:getir:defaults"])
+        top = workflow("permissions: {}\njobs:", "permissions: {}\ndefaults:\n  run:\n    shell: ${{ github.ref }}\njobs:")
+        self.assertEqual(self.check(top), ["workflow_github_in_run:workflow:defaults"])
+        self.assertEqual(self.check(workflow("permissions: {}\njobs:", "permissions: {}\ndefaults: x\njobs:")),
+                         ["workflow_github_in_run:workflow:defaults"])  # not a mapping: no script the seed can read
+        where = fetch + "        working-directory: ${{ github.workspace }}/referee\n"
+        self.assertEqual(self.check(workflow(fetch, where)), [])
+        quiet = fetch + "        shell: bash\n"
+        self.assertEqual(self.check(workflow(fetch, quiet)), [])
+
+    def test_a_workflow_directory_spelt_in_other_letters_is_the_same_directory(self):
+        """E289: the operator imports on a case-insensitive file system, where `.GITHUB/workflows/` is
+        `.github/workflows/`; a file there is an extra file, and a `loop.yml` only there is no `loop.yml`."""
+        # workflow_directory_case_sensitive case_variant_directory_read_as_loop
+        found = wiring.files_in({LOOP: b"a", "referee/.GITHUB/workflows/evil.yml": b"b", "referee/x.py": b"c",
+                                 "referee/.github/workflows.py": b"d", "referee/.github/WorkFlows/sub/c.yml": b"e"})
+        self.assertEqual(found, {"loop.yml": b"a", ".GITHUB/workflows/evil.yml": b"b", ".github/WorkFlows/sub/c.yml": b"e"})
+        self.assertEqual(wiring.check(dict(found, **{"loop.yml": workflow()})),
+                         ["workflow_extra_file:.GITHUB/workflows/evil.yml", "workflow_extra_file:.github/WorkFlows/sub/c.yml"])
+        only = wiring.files_in({"referee/.GITHUB/Workflows/loop.yml": workflow()})
+        self.assertEqual(wiring.check(only), ["workflow_extra_file:.GITHUB/Workflows/loop.yml", "workflow_missing:loop.yml"])
+        self.assertEqual(wiring.check({"LOOP.yml": workflow()}), ["workflow_extra_file:LOOP.yml", "workflow_missing:loop.yml"])
 
 
 class WorkflowOnEveryPush(ExitFlow):
@@ -538,6 +638,26 @@ class WorkflowOnEveryPush(ExitFlow):
         meta = self.pull()
         self.assertEqual((meta["pre_reasons"], meta["run_rival"]), (["workflow_top_permissions"], False))
         commit(self.brain, {LOOP: workflow()}, "MF17 fixed")
+        self.assertEqual(self.pull()["pre_reasons"], [])
+
+    def test_a_finished_micro_feature_cannot_be_undeclared(self):  # done_mf_withdrawal_passes wiring_due_on_the_head_alone
+        """E292: a group, and MF17's wiring check, run on every push after the one the MF entered done_mf in
+        (`asama-0/14`, `29a`). Declaring fewer would switch them off, so the push is refused and still checked."""
+        self.freeze_stage0()
+        self.accept({"referee/ledger/chain.py": "x = 1\n", LOOP: workflow()}, done=range(1, 18))
+        commit(self.brain, {LOOP: workflow("permissions: {}\njobs:", "jobs:"), "referee/ledger/chain.py": "x = 2\n",
+                            "snowball-tests.json": test_flow.all_tests_manifest(range(1, 17))}, "MF17 undeclared")
+        meta = self.pull()
+        self.assertEqual(meta["pre_reasons"], ["done_mf_withdrawn:MF17", "workflow_top_permissions"])
+        self.assertEqual((meta["run_tests"], meta["run_rival"]), (False, False))
+        result = self.finish(meta, jobs=CODE_JOBS)
+        self.assertEqual(result["verdict"], "rejected")
+        self.assertIn("done_mf_withdrawn:MF17:", result["state"]["reject_streaks"])  # the Founder's to fix
+        commit(self.brain, {LOOP: workflow(), "snowball-tests.json": test_flow.all_tests_manifest(range(1, 15))},
+               "three undeclared, the workflow fixed")
+        self.assertEqual(self.pull()["pre_reasons"], ["done_mf_withdrawn:MF15", "done_mf_withdrawn:MF16",
+                                                      "done_mf_withdrawn:MF17"])
+        commit(self.brain, {"snowball-tests.json": test_flow.all_tests_manifest(range(1, 18))}, "declared again")
         self.assertEqual(self.pull()["pre_reasons"], [])
 
     def test_at_the_exit_the_rules_are_checked_and_the_control_rule_stays_open(self):  # exit_wiring_check_not_wired
@@ -566,6 +686,38 @@ class RefereeTree(unittest.TestCase):
                 tree_hash(tar_of({"referee/a.py": "x", name: "y"}), "referee")
         self.assertEqual(len(tree_hash(tar_of({"referee/a.py": "x", "referee/tests/setup/x.py": "y",
                                               "referee/policy_check.py": "z"}), "referee")), 64)
+
+    def test_two_names_one_on_a_case_insensitive_file_system_are_refused(self):  # case_collisions_pass
+        """E289, E130: the operator imports on Windows, where the second of two such names is written over the first
+        (the probe: `.GITHUB/workflows/evil.yml` beside `.github/workflows/loop.yml` committed as `.GITHUB/`, so GitHub
+        ran no workflow and an unchecked one sat in the referee repo)."""
+        for files in ({"referee/.github/workflows/loop.yml": "a", "referee/.GITHUB/workflows/evil.yml": "b"},
+                      {"referee/a.py": "x", "referee/A.py": "y"}, {"referee/gate/x.py": "x", "referee/GATE/y.py": "y"},
+                      {"referee/gate": "x", "referee/Gate/y.py": "y"}):
+            with self.subTest(files=sorted(files)), self.assertRaises(TreeError) as caught:
+                tree_hash(tar_of(files), "referee")
+            self.assertIn("case-insensitive", str(caught.exception))
+        self.assertEqual(len(tree_hash(tar_of({"referee/a.py": "x", "referee/ab.py": "y", "referee/b/a.py": "z"}),
+                                       "referee")), 64)
+        loose = tar_of({"spec/asama-0/a.md": "x", "spec/asama-0/A.md": "y"})  # not imported: hashed as it is
+        self.assertEqual(len(tree_hash(loose, "spec/asama-0", forbid_operator_names=False)), 64)
+
+    def test_the_import_refuses_names_its_file_system_would_fold(self):
+        """The brain's git keeps both names; the import stops before it wipes anything of the operator's."""
+        brain_tar = tar_of({"referee/.github/workflows/loop.yml": LOOP_YML, "referee/.GITHUB/workflows/evil.yml": "x"})
+        with tempfile.TemporaryDirectory() as tmp:
+            result = Path(tmp) / "result.json"
+            result.write_text(json.dumps({"verdict": "accepted", "head": A, "exit": {
+                "transferable": True, "brain_sha": A, "referee_tree_sha256": "0" * 64}}))
+            referee = Path(tmp) / "referee"
+            (referee / ".github" / "workflows").mkdir(parents=True)
+            (referee / ".github" / "workflows" / "bootstrap.yml").write_text("name: bootstrap\n")
+            with mock.patch.object(importer, "verify_signature"), \
+                    mock.patch.object(importer.gitio, "has_commit", return_value=True), \
+                    mock.patch.object(importer.gitio, "archive", return_value=brain_tar), \
+                    self.assertRaises(TreeError):
+                importer.run_import(result, result, "id", "py", Path(tmp), referee, None)
+            self.assertEqual((referee / ".github" / "workflows" / "bootstrap.yml").read_text(), "name: bootstrap\n")
 
     def test_the_import_refuses_a_mixed_case_operator_name(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -598,6 +750,13 @@ class RefereeTree(unittest.TestCase):
         self.assertEqual((res["status"], toy), ("ok", tree_hash(tar, "tests/fixtures/toy-repo", forbid_operator_names=False)))
         res, toy = exitchecks.referee_tree({"referee/a.py": b"x"}, tar_of({"tests/other.py": "x"}))
         self.assertEqual((res["reasons"], toy), (["toy_tree_missing"], None))
+
+    def test_the_toy_is_imported_onto_the_same_file_system(self):  # toy_case_collision_passes
+        tar = tar_of({TOY: "x", "tests/fixtures/toy-repo/App.py": "y"})
+        res, toy = exitchecks.referee_tree({"referee/a.py": b"x"}, tar)
+        self.assertEqual((res["status"], toy), ("failed", None))
+        self.assertEqual(res["reasons"], ["toy_tree:tests/fixtures/toy-repo/App.py and tests/fixtures/toy-repo/app.py "
+                                          "are one name on a case-insensitive file system"])
 
 
 # ---------------------------------------------------------------- #genellik
@@ -640,18 +799,72 @@ class Generality(unittest.TestCase):
         res = exitchecks.generality(files, targets)
         self.assertEqual((res["status"], res["reasons"]), ("failed", ["target_name_in_referee:referee/gate/b.py"]))
         self.assertIn("targets[0].identifiers[0]", res["why"])
-        named = {"referee/a.py": b"x\n", "referee/zorbalix_client.py": b"x\n"}
-        res = exitchecks.generality(named, targets)
-        digest = hashlib.sha256(b"referee/zorbalix_client.py").hexdigest()[:16]
-        self.assertEqual(res["reasons"], [f"target_name_in_referee:path-sha256:{digest}"])
-        self.assertNotIn("orbalix", json.dumps(res).casefold())  # generality_identifier_published
+        for path in ("referee/zorbalix_client.py", "referee/ZorbaLix_client.py"):  # generality_path_case_sensitive
+            res = exitchecks.generality({"referee/a.py": b"x\n", path: b"x\n"}, targets)
+            digest = hashlib.sha256(path.encode()).hexdigest()[:16]
+            self.assertEqual(res["reasons"], [f"target_name_in_referee:sha256:{digest}"], path)
+            self.assertNotIn("orbalix", json.dumps(res).casefold())  # generality_identifier_published
         self.assertEqual(exitchecks.generality({"referee/a.py": b"x\n"}, targets)["status"], "ok")
 
+    def test_a_name_is_the_same_name_in_any_unicode_spelling(self):
+        """E291: the name is compared `fold`-ed: one normal form, any case, without combining marks, ı as i; so every
+        letter Python's own ``re.IGNORECASE`` takes for another (`ıskele` matches `iskele`) is that letter here."""
+        # generality_unnormalized generality_marks_kept generality_dotless_i_apart generality_case_sensitive
+        nfc = "g\u00fcne\u015f"
+        nfd = unicodedata.normalize("NFD", nfc)
+        for name, text in ((nfc, f"T = '{nfd}'"), (nfd, f"T = '{nfc}'"), (nfc, "G\u00dcNE\u015e"), (nfc, "gunes_client"),
+                           (nfc, "\uff27\uff35\uff2e\uff25\uff33"), ("iskele", "re.compile('\u0131skele', re.I)"),
+                           ("\u0130skele", "iskele"), ("Iskele", "\u0131SKELE"), ("strasse", "Stra\u00dfe"),
+                           ("Zorbalix", "ZORBALIX")):
+            targets = self.summary(dict(TARGET, identifiers=[name])).targets
+            with self.subTest(name=name, text=text):
+                self.assertEqual(exitchecks.generality({"referee/t.py": text.encode()}, targets)["status"], "failed")
+                self.assertEqual(exitchecks.generality({f"referee/{text}.py": b"x\n"}, targets)["status"], "failed")
+        self.assertEqual(exitchecks.fold("\u0130\u0131I\u017f\u212a"), "iiisk")
+        targets = self.summary(dict(TARGET, identifiers=[nfc])).targets
+        self.assertEqual(exitchecks.generality({"referee/t.py": b"gune = 1\n"}, targets)["status"], "ok")
+
+    def test_a_file_that_is_not_text_does_not_pass_unread(self):  # generality_binary_read_with_replacement generality_nul_text_read
+        """A name in UTF-16 or ISO-8859-9 is not seen in the UTF-8 reading; such a file is not vouched for."""
+        targets = self.summary(dict(TARGET, identifiers=["suderra", "g\u00fcne\u015f"])).targets
+        for data in ("suderra\n".encode("utf-16"), "g\u00fcne\u015f\n".encode("iso8859_9"),
+                     "suderra\n".encode("utf-16-le"), b"x = 1\n\x00\n"):
+            res = exitchecks.generality({"referee/a.py": b"x\n", "referee/names.dat": data}, targets)
+            self.assertEqual((res["status"], res["reasons"]), ("failed", ["referee_file_not_text:referee/names.dat"]), data)
+        named = exitchecks.generality({"referee/suderra.bin": b"\xff\n"}, targets)
+        digest = hashlib.sha256(b"referee/suderra.bin").hexdigest()[:16]
+        self.assertEqual(named["reasons"], [f"target_name_in_referee:sha256:{digest}"])  # the name in the path first
+
     def test_without_names_to_look_for_it_stays_unchecked(self):  # generality_without_targets_passes
-        for targets in (None, (), self.summary(TARGET, dict(TARGET, id="toy", kind="toy", identifiers=[])).targets):
+        toy = dict(TARGET, id="toy", kind="toy", base_sha=None, identifiers=[])
+        for targets in (None, (), self.summary(dict(TARGET, identifiers=[]), toy).targets,
+                        self.summary(dict(toy, identifiers=["Zorbalix"])).targets,  # generality_without_a_copy_decides
+                        self.summary(dict(TARGET, identifiers=["\u0301"]), toy).targets):  # generality_empty_fold_matches_everything
             res = exitchecks.generality({"referee/a.py": b"x\n"}, targets)
             self.assertEqual(res["status"], "undecided", targets)
-            self.assertIn("E284", res["why"])
+            self.assertIn("E2", res["why"])
+        # The toy's content is the Founder's own fixture: without identifiers it has nothing to look for (E291).
+        res = exitchecks.generality({"referee/a.py": b"x\n"}, self.summary(TARGET, toy).targets)  # generality_toy_needs_identifiers
+        self.assertEqual(res["status"], "ok")
+
+    def test_no_check_publishes_a_name_in_clear(self):  # names_published_by_other_anchors why_published
+        """E290: #genellik withholds a path that carries a name; the other anchors quote the same paths, and the
+        skeptic read the name back from #agac's and #is-akisi's reasons."""
+        targets = self.summary(TARGET).targets
+        files = {LOOP: LOOP_YML, "referee/loop/__init__.py": "", TOY: "x\n",
+                 "referee/.claude/zorbalix-notes.md": "x\n", "referee/.github/workflows/Zorbalix.yml": LOOP_YML}
+        results, _toy = exitchecks.run(tar_of(files), None, None, targets)
+        self.assertNotIn("zorbalix", json.dumps(results).casefold())
+        self.assertEqual(results["agac"]["reasons"], ["agent_config_in_referee:sha256:" + hashlib.sha256(
+            b"referee/.claude/zorbalix-notes.md").hexdigest()[:16]])
+        self.assertEqual(results["is-akisi"]["reasons"], ["workflow_extra_file:sha256:" + hashlib.sha256(
+            b"Zorbalix.yml").hexdigest()[:16]])
+        loud = {"status": "failed", "reasons": ["x:zorbalix"], "why": "found in Zorbalix's client"}
+        with mock.patch.object(exitchecks, "generality", return_value=loud):
+            results, _toy = exitchecks.run(tar_of(files), None, None, targets)
+        self.assertNotIn("zorbalix", json.dumps(results["genellik"]).casefold())
+        self.assertEqual(exitchecks.withheld("sha256:0123456789abcdef", exitchecks.target_names(targets)),
+                         "sha256:0123456789abcdef")
 
 
 class GeneralityFlow(ExitFlow):
@@ -663,6 +876,18 @@ class GeneralityFlow(ExitFlow):
         self.assertEqual(meta["exit_checks"]["genellik"]["reasons"], ["target_name_in_referee:referee/ledger/chain.py"])
         result = self.finish(meta, run=self.green_run(meta), jobs=EXIT_JOBS)
         self.assertIn("target_name_in_referee:referee/ledger/chain.py", [r["ref"] for r in result["reasons"]])
+        self.assertNotIn("zorbalix", json.dumps(result).casefold())
+
+    def test_the_exits_other_reasons_withhold_a_name_too(self):  # exit_pre_reasons_published
+        self.write_summary(targets=[TARGET])
+        self.freeze_stage0()
+        self.accept({"referee/ledger/chain.py": "x = 1\n"})
+        manifest = dict(json.loads(test_flow.all_tests_manifest([1])), lockfiles=["requirements/zorbalix.lock"])
+        self.state["last_accepted_sha"] = commit(self.brain, {"snowball-tests.json": json.dumps(manifest)}, "lock gone")
+        meta = self.ask_exit()
+        digest = hashlib.sha256(b"requirements/zorbalix.lock").hexdigest()[:16]
+        self.assertIn(f"lockfile_missing:sha256:{digest}", meta["pre_reasons"])
+        result = self.finish(meta, jobs=EXIT_JOBS)
         self.assertNotIn("zorbalix", json.dumps(result).casefold())
 
     def test_without_targets_the_exit_says_whose_step_is_missing(self):

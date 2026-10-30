@@ -418,6 +418,7 @@ def _pull_classify(boot: config.Bootstrap, policy: config.Policy, summary_cfg: c
             pre.append("seed_tree_mismatch")  # the head's seed is not the one the summary names (`29b`)
 
     manifest = None
+    finished: set[int] = set()
     if kind in ("code", "exit"):
         frozen = prev["frozen_specs"].get("spec/asama-0")
         try:
@@ -450,6 +451,13 @@ def _pull_classify(boot: config.Bootstrap, policy: config.Policy, summary_cfg: c
             # Module-less red (`asama-0/14`): for the micro-features this push finishes, and at the exit for all.
             before = set() if kind == "exit" else _base_done(repo, base)
             meta["module_less"] = [k for k in manifest.done_mf if k not in before]
+        # A finished micro-feature stays finished: its vector group, and for MF17 the wiring check, run on every push
+        # after the one it entered done_mf in (`asama-0/14`, `29a`), so no push may declare fewer (E292).
+        accepted_done = _base_done(repo, base) if base_ok else set()
+        declared = set(manifest.done_mf) if manifest is not None else set()
+        finished = accepted_done | declared
+        if manifest is not None:
+            pre += [f"done_mf_withdrawn:MF{k}" for k in sorted(accepted_done - declared)]
 
     # The Founder's ledger on every push the referee judges (`00a`; `asama-0/10` #kurucu-defteri, E107, E280): a spec
     # or code push has the rows it adds checked here, before the tests and the rival; the exit, the whole file.
@@ -457,7 +465,7 @@ def _pull_classify(boot: config.Bootstrap, policy: config.Policy, summary_cfg: c
     if kind in ("spec", "code"):
         pre += ledgercheck.check(tar_file(tar_bytes, LEDGER_FILE), ledger_base, whole=False)
     # The loop workflow's wiring on every code push once its micro-feature is finished, and at the exit (`asama-0/14`).
-    if kind == "code" and manifest is not None and wiring.due(table, manifest.done_mf):
+    if kind == "code" and wiring.due(table, finished):
         pre += wiring.check(wiring.files_in(exitchecks.referee_files(tar_bytes)))
 
     if kind == "exit":
@@ -484,6 +492,9 @@ def _pull_classify(boot: config.Bootstrap, policy: config.Policy, summary_cfg: c
         # tests still run and one request hears everything that is missing.
         meta["exit_checks"], meta["toy_tree_sha256"] = exitchecks.run(
             tar_bytes, tar_file(tar_bytes, LEDGER_FILE), ledger_base, summary_cfg.targets)
+        # The exit's other reasons may quote the Founder's paths too; none says a target's name in clear (E290).
+        names = exitchecks.target_names(summary_cfg.targets)
+        pre = [exitchecks.withheld_reason(r, names) for r in pre]
 
     if kind == "spec":
         for d in spec_stage_dirs(own):

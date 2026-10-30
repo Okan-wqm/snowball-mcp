@@ -18,10 +18,13 @@ markers and directives, folded and chomped blocks, non-empty flow collections, m
 complex keys, indentation that does not nest, nesting deeper than ``MAX_DEPTH``, files over ``MAX_BYTES``. Every
 scalar is a string; ``persist-credentials: false`` is the string ``false``.
 
-**The rules** (test 46). Top-level ``permissions`` is ``{}``. No ``pull_request_target``, ``workflow_run`` or
-``issue_comment`` trigger, in the string, list or mapping form of ``on``. The jobs are `tohum/08`'s five and each has
-``if: github.ref == 'refs/heads/main'`` exactly. No ``${{ }}`` expression in a ``run:`` names the ``github`` context
-(E17: through ``env:`` it is data, not script). Every ``uses:`` is ``owner/repo[/path]@<40 hex>``. Every
+**The rules** (test 46). The directory holds ``loop.yml`` alone, in any spelling of ``.github/workflows`` (E289).
+Top-level ``permissions`` is ``{}``. No ``pull_request_target``, ``workflow_run`` or ``issue_comment`` trigger, in the
+string, list or mapping form of ``on``. The jobs are `tohum/08`'s five and each has
+``if: github.ref == 'refs/heads/main'`` exactly. No ``${{ }}`` expression in a script names the ``github`` context: a
+step's ``run:`` and ``shell:``, ``defaults.run``, a ``with.script`` (E288; expressions are delimited as GitHub's
+template reader delimits them; E17: through ``env:`` it is data, not script). Every ``uses:`` is
+``owner/repo[/path]@<40 hex>``. Every
 ``actions/checkout`` step sets ``persist-credentials: false``. "No secret-bearing job runs code" cannot be decided by
 reading the file (E283); the decidable reading is `tohum/08` and `01a`'s table of which job does what: the jobs that
 run code (`getir`, `koş`) have ``permissions: {}`` and no secret; secrets, ``id-token`` and write scopes appear only in
@@ -40,6 +43,7 @@ from typing import Any
 from . import stages
 
 WORKFLOW_DIR = "referee/.github/workflows"
+WORKFLOW_PARTS = tuple(WORKFLOW_DIR.split("/"))  # all lower case: a path's own parts are compared case-folded
 WORKFLOW_FILE = "loop.yml"
 MODULE = ".github/workflows/loop.yml"  # the module of the stage table's loop workflow micro-feature (MF17)
 JOBS = ("cek", "getir", "kos", "cagir", "yaz")
@@ -53,7 +57,8 @@ MAX_REASONS = 40
 
 KEY_RE = re.compile(r"([A-Za-z_][A-Za-z0-9_-]*):(?: +|\Z)")
 PINNED_RE = re.compile(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_./-]+)?@[0-9a-f]{40}\Z")
-EXPRESSION_RE = re.compile(r"\$\{\{(.*?)(?:\}\}|\Z)", re.S)
+OPEN_EXPRESSION = "${{"
+SCRIPT_KEYS = ("run", "shell")  # what the runner executes: the script, and the shell command line that runs it
 INDICATORS = set("&*!|>%@`,?#[]{}")
 LINE_BREAKS = (chr(0x85), chr(0x2028), chr(0x2029))  # line breaks to YAML 1.1, ordinary text to YAML 1.2
 BOM = chr(0xFEFF)
@@ -258,7 +263,26 @@ def parse(data: bytes) -> Any:
 
 
 def _expressions(text: str) -> list[str]:
-    return [m.group(1) for m in EXPRESSION_RE.finditer(text)]
+    """The ``${{ }}`` expressions in a value, delimited as GitHub's template reader delimits them (actions/runner,
+    ObjectTemplating ``TemplateReader.ParseScalar``; E288): an expression ends at the first ``}}`` outside a
+    single-quoted literal (``''`` inside one toggles twice), so ``${{ '}}' && secrets.X }}`` is one expression. One
+    left open runs to the end of the value (GitHub refuses the file; here all of it is read, nothing overlooked)."""
+    found: list[str] = []
+    start = text.find(OPEN_EXPRESSION)
+    while start >= 0:
+        in_string, end = False, -1
+        for i in range(start + len(OPEN_EXPRESSION), len(text)):
+            if text[i] == "'":
+                in_string = not in_string
+            elif not in_string and text[i] == "}" and text[i - 1] == "}":
+                end = i
+                break
+        if end < 0:
+            found.append(text[start + len(OPEN_EXPRESSION):])
+            break
+        found.append(text[start + len(OPEN_EXPRESSION):end - 1])
+        start = text.find(OPEN_EXPRESSION, end + 1)
+    return found
 
 
 def _names(expression: str, context: str) -> list[re.Match[str]]:
@@ -283,6 +307,28 @@ def _expressions_in(node: Any) -> list[str]:
         if key == "if":
             found.append(text)
     return found
+
+
+def _github_in_script(node: dict[str, Any]) -> bool:
+    """Whether code the runner executes names the ``github`` context (test 46; E288): a step's ``run`` and ``shell``
+    (also ``defaults.run``'s), and a ``with.script`` (actions/github-script runs it as JavaScript). A value that is
+    not a string is refused alike: it is no script the seed can read."""
+    fields = [node.get(key) for key in SCRIPT_KEYS]
+    options = node.get("with")
+    if isinstance(options, dict):
+        fields.append(options.get("script"))
+    return any(field is not None
+               and (not isinstance(field, str) or any(_names(e, "github") for e in _expressions(field)))
+               for field in fields)
+
+
+def _defaults_github(node: dict[str, Any]) -> bool:
+    """``defaults.run`` (the workflow's or a job's) names the ``github`` context where a script would."""
+    defaults = node.get("defaults")
+    if defaults is None:
+        return False
+    run = defaults.get("run") if isinstance(defaults, dict) else ""
+    return run is not None and (not isinstance(run, dict) or _github_in_script(run))
 
 
 def _uses_secrets(node: Any) -> bool:
@@ -332,6 +378,8 @@ def _rules(doc: dict[str, Any]) -> list[str]:
         reasons.append("workflow_secret_job:workflow")  # the top-level env reaches every job, code jobs too
     if _enumerates_secrets(outside):
         reasons.append("workflow_secrets_enumerated:workflow")
+    if _defaults_github(doc):
+        reasons.append("workflow_github_in_run:workflow:defaults")
     jobs = doc.get("jobs")
     if not isinstance(jobs, dict):
         return reasons + ["workflow_shape:jobs"]
@@ -345,6 +393,8 @@ def _rules(doc: dict[str, Any]) -> list[str]:
             reasons.append(f"workflow_job_not_main_only:{name}")
         if "uses" in job and not (isinstance(job["uses"], str) and PINNED_RE.match(job["uses"])):
             reasons.append(f"workflow_action_not_pinned:{name}:job")
+        if _defaults_github(job):
+            reasons.append(f"workflow_github_in_run:{name}:defaults")
         steps = job.get("steps", [])
         if not isinstance(steps, list):
             reasons.append(f"workflow_shape:{name}")
@@ -353,8 +403,7 @@ def _rules(doc: dict[str, Any]) -> list[str]:
             if not isinstance(step, dict):
                 reasons.append(f"workflow_shape:{name}:{number}")
                 continue
-            run = step.get("run")
-            if run is not None and (not isinstance(run, str) or any(_names(e, "github") for e in _expressions(run))):
+            if _github_in_script(step):
                 reasons.append(f"workflow_github_in_run:{name}:{number}")
             uses = step.get("uses")
             if uses is None:
@@ -393,11 +442,20 @@ def check(files: dict[str, bytes]) -> list[str]:
 
 
 def files_in(referee: dict[str, bytes]) -> dict[str, bytes]:
-    """The workflow directory's files among ``referee/``'s, keyed by their path inside the directory."""
-    prefix = WORKFLOW_DIR + "/"
-    return {path[len(prefix):]: content for path, content in referee.items() if path.startswith(prefix)}
+    """The workflow directory's files among ``referee/``'s: keyed by their path inside it when the directory is spelt
+    exactly, and by their path inside `referee/` when ``.github`` or ``workflows`` is spelt in other letters. The
+    operator imports on a case-insensitive file system, where `.GITHUB/workflows/` is that same directory (E289): a file
+    there is an extra file (its key holds a ``/``, so it is never ``loop.yml``), not one the check never sees."""
+    found: dict[str, bytes] = {}
+    for path, content in referee.items():
+        parts = path.split("/")
+        head = parts[:len(WORKFLOW_PARTS)]
+        if len(parts) > len(WORKFLOW_PARTS) and [p.casefold() for p in head] == list(WORKFLOW_PARTS):
+            found["/".join(parts[len(WORKFLOW_PARTS):] if head == list(WORKFLOW_PARTS) else parts[1:])] = content
+    return found
 
 
-def due(table: stages.StageTable, done: tuple[int, ...] | list[int]) -> bool:
-    """Whether a code push is held to the rules: the micro-feature whose module is the loop workflow is finished."""
+def due(table: stages.StageTable, done: set[int] | tuple[int, ...] | list[int]) -> bool:
+    """Whether a code push is held to the rules: the micro-feature whose module is the loop workflow is finished (by
+    the head's declaration or the last accepted commit's: one cannot be undeclared, E292)."""
     return any(f.module == MODULE and f.mf in set(done) for f in table.mfs)

@@ -385,7 +385,7 @@ class KindsAndExit(unittest.TestCase):
                            'reasons.append(f"workflow_job_not_main_only:{name}")',
                            'reasons.append(f"workflow_secret_in_code_job:{name}")']},
             ("agac",): {"cli": ['meta["referee_tree_sha256"] = tree_hash(tar_bytes, "referee")'],
-                        "treehash": ["rel.parts[0].casefold() in RESERVED_TOP"],
+                        "treehash": ["rel.parts[0].casefold() in RESERVED_TOP", "raise CaseCollision("],
                         "exitchecks": ['reasons = [f"agent_config_in_referee:{path}"', 'reasons.append("toy_tree_missing")'],
                         "decide": ['exit_block["toy_tree_sha256"] = meta["toy_tree_sha256"]']},
             ("genellik",): {"exitchecks": ['reasons.append(f"target_name_in_referee:{shown}")'],
