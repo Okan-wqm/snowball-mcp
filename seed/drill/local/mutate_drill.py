@@ -159,6 +159,13 @@ MUTANTS = [
     ("unequal_arms_tolerated", "if unequal:", "if False:", "the given arm may run with more effort"),
     ("run_settings_unread", 'canonical({f: a["run"].get(f) for f in RUN_FIELDS})', "canonical({})",
      "arms of one lesson are equal whatever they ran with"),
+    ("effect_unequal_arms_tolerated",
+     "if len({canonical({f: arm.get(f) for f in RUN_FIELDS}) for arm in arms}) > 1:", "if False:",
+     "the effect's lesson arm may run with more effort or turns, which inflates the McNemar effect"),
+    ("effect_run_settings_unread", "canonical({f: arm.get(f) for f in RUN_FIELDS})", "canonical({})",
+     "the effect's arms are equal whatever they ran with"),
+    ("effect_lesson_arm_alone_compared", 'for arm in (p["run"]["with"], p["run"]["without"])',
+     'for arm in (p["run"]["with"],)', "the lesson's arms are compared with each other, never with the lessonless arm"),
     # Headline.
     ("unmeasurable_outranks_fail",
      "overall = FAIL if FAIL in values else UNMEASURABLE if UNMEASURABLE in values else PASS",

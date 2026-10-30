@@ -75,11 +75,15 @@ bir kısayol görülmedi.
 
 ## Ölçüm
 
-Ölçümün tek kaynağı karnedir: [`docs/karne.md`](karne.md), hakemin imzalı sonuçlarından ve Kurucu'nun zincirli
-defterinden `seed/founder/scorecard.py` ile üretilir, elle yazılmaz (E310). Burada 2026-10-30'a kadar elle tutulan
-tablo (döngü 0–16) git geçmişindedir (`2c4fe72`); sayıları karnede hakemin kuralıyla yeniden sayılmıştır. Başlatıcının
-`pilot-metrics.jsonl`'u (döngü 9'dan beri: push, karar, nedenler ve sahipleri, süre, maliyet) yalnız operatörün özel
-karnesine girer.
+Ölçümün tek kaynağı karnedir: [`docs/karne.md`](karne.md), hakemin sonuçlarından ve Kurucu'nun zincirli defterinden
+`seed/founder/scorecard.py` ile üretilir, elle yazılmaz (E310); bu günlük karnenin sayılarını kopyalamaz. Burada
+2026-10-30'a kadar elle tutulan tablo (döngü 0–16) git geçmişindedir (`2c4fe72`). Satırlarından kabuller, ilk
+denemede kabul, rakibin çürüttüğü artefaktlar, geri gelen çürütme ve modülsüz kırmızı karnede hakemin kuralıyla
+yeniden sayılır. Üçü karneye girmedi: Kurucu'nun bildirimlerinden operatörün bilmedikleri ve pilotun açtığı sistem
+kusurları operatörün yargısıdır, hakemin sonucunda yoktur (karne bildirimlerin yalnız defter türünü sayar; kusurlar
+`eksik-kaydi`'ndadır); Kurucu'nun düzeltemeyeceği bir nedenle kaybedilen döngü başlatıcının döngüsüdür, hakem onu
+görmez (karne yalnız hakemin değerlendirmediği koşuyu sayar). Başlatıcının `pilot-metrics.jsonl`'u (döngü 9'dan beri:
+push, karar, nedenler ve sahipleri, süre, maliyet) yalnız operatörün özel karnesine girer.
 
 ## Gerçek değer: kabul edilmiş aletler hedefte (döngü 10–16)
 
@@ -164,15 +168,15 @@ Kalan, tohum tarafındadır: MF14–MF18'in vektör grupları (`revert_drill`, `
 ## Karne ve sınav (2026-10-30)
 
 Sahip iki öneriyi uzmanlar doğrularsa onayladı: kendini geliştirmenin karnesi (P1) ve ders provasının MVP sınavı
-olarak öne alınması (P2). Ölçüm uzmanı, prova uzmanı ve şüpheci kanıtla tartıştı (E310–E319). Karar: karne var ama
-kanıt değildir; canlı pilotta sabit ölçüt, karşı-olgu ve önceden yazılmış karar kuralı yok. İlk karne (47 imzalı
-sonuç, 265 defter satırı): ilk denemede kabul hakemin kuralıyla 14/18, düzeltilmiş 14/17; dönem 0'da 4/6, sonraki
-dönemlerde 10/12 (düzeltilmiş 3/5 ve 11/12), ama dönemler yeni vektörlerle ve rakip kurallarıyla çakışır; 24 modülsüz
-kırmızı denetiminin hiçbiri yeşil kalmadı; 21 eski çürütme yeniden koşusundan yalnız kesintideki kör push'ta biri
-yeniden üretildi (E248). Rakibin bulma gücü ölçülmediği için "hayatta kaldı" zayıf kanıttır (E311). Prova Aşama 0
-çıkışında koşamaz: ders organı yok, organları söylemek Kurucu'ya çözümü vermek olur. Tohum tarafı şimdi düzeldi
-(gizli taahhütlü havuz, kör kapsam E64, hakemin çekilişi E65, doğru ders E318, kalibrasyon E319); gerçek beyinde
-sınav dar bir ders partisi olarak sahibin kararını bekler (E317).
+olarak öne alınması (P2). Ölçüm uzmanı, prova uzmanı ve şüpheci kanıtla tartıştı (E310–E320). Karar: karne var ama
+kanıt değildir; canlı pilotta sabit ölçüt, karşı-olgu ve önceden yazılmış karar kuralı yok. Sayılar yalnız
+karnededir ([`docs/karne.md`](karne.md)). Okurken: ilk denemede kabulün dönemleri yeni vektörlerle ve rakip
+kurallarıyla çakışır; rakibin kanıtladığı kusur yalnız kapanana, yani onu göstermeyen ilk kabul başına kadar izlenir,
+kabulden sonra geri dönüp dönmediği ölçülmez (E320); rakibin bulma gücü ölçülmediği için "hayatta kaldı" zayıf
+kanıttır (E311). Prova Aşama 0 çıkışında koşamaz: ders organı yok; onu öne almak aşama planını (`03`,
+`asama-1/13`) değiştirmektir, `asama-1/13` tohum dönemiyle değişmez (E180); karar sahibindir. Tohum tarafı şimdi
+düzeldi (gizli taahhütlü havuz, kör kapsam E64, hakemin çekilişi ve etkide de plaseboda da eşit kollar E65, doğru
+ders E318, kalibrasyon E319); gerçek beyinde sınav dar bir ders partisi olarak sahibin kararını bekler (E317).
 
 ## Pilotun tetiklediği düzeltmeler
 

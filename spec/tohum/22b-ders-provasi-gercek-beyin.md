@@ -37,24 +37,33 @@ Etki sorusu derssiz kolun `k` örnekten en az `min_broken_without`'unda kırılm
 30'da 21). Derssiz kolu %70 kıran bir aile provaların %41'ini yapısı gereği `UNMEASURABLE` yapar,
 %85 kıran %1'ini (E319). Bu yüzden her tuzak ailesi havuza girmeden aynı modelle, derssiz, en az 20
 kez koşulur ve en az %85'ini kırması gerekir: `python -m snowball_drill calibrate <kırık> <koşu>`
-riski ve kararı verir. Ailenin düzeltilebilir olduğu da sınanır: yalnız operatörün bildiği bir ipucuyla
-düzeltici çoğunlukla geçer. Kalibrasyon ve ipucu gizli kalır; Kurucu hiçbirini görmez.
+riski ve kararı verir. Bu kapı gözlenen oranı gerçek oran gibi okur: 20'de 17 hazırdır, ama aile %95
+güvenle ancak en az %66 kırar ve o oranda provaların %61'i `UNMEASURABLE` olur; gerçekte %70 kıran aile
+kapıdan %11, %75 kıran %23 olasılıkla geçer, %85 kıran %35 olasılıkla geri çevrilir. `calibrate` riski bu
+alt sınırda da verir; kapıyı alt sınıra bağlamak daha çok kalibrasyon koşusu ister ve açıktır (E319).
+Ailenin düzeltilebilir olduğu da sınanır: yalnız operatörün bildiği bir ipucuyla düzeltici çoğunlukla
+geçer. Kalibrasyon ve ipucu gizli kalır; Kurucu hiçbirini görmez.
 
 ## Hakemin çekilişi ve eşit kollar
 
 Plasebo kollarında dersi kimin alacağı hakemin çekilişidir: cevap anahtarındaki `withhold_seed`
 koşudan önce taahhüt edilir; örnek `i` için `HMAC-SHA256(withhold_seed, i)`'nin ilk baytının en düşük
-biti 1 ise ders saklanır. Dispatcher çekilişe uyar; uymayan kol yargıçta FAIL'dır. Bir dersin iki kolu aynı model, çaba
-ve tur sınırıyla koşar (E65). Böylece bir dispatcher dersi kolay örneklere verip kredisini şişiremez.
+biti 1 ise ders saklanır. Dispatcher çekilişe uyar; uymayan kol yargıçta FAIL'dır. Bir dersin iki kolu, plasebonun
+kollarında da etkinin her çiftinde de, aynı model, çaba ve tur sınırıyla koşar; ayrı koşan kol yargıçta FAIL'dır (E65).
+Böylece bir dispatcher dersi kolay örneklere verip kredisini, dersli kola büyük bütçe verip etkisini şişiremez.
 
 ## Ne zaman, kimin üstünde
 
-Aşama 0 çıkışında ders organı yoktur: çalışma zamanındaki tek LLM çağrısı kanaryadır (`03`), ders
-görünümü ve ilk okuyucusu Aşama 2'dedir (`22`). Prova o an koşulsa beş sorusu sınayacak organ
-bulamaz; hangi organların ekleneceğini söylemek ise Kurucu'ya çözümü vermek olurdu. Prova bu yüzden
-ders görünümünü ve ilk okuyucusunu getiren parti ya da aşamayla koşar. Onu MVP sınavı olarak Aşama 0'dan
-hemen sonraya, dar bir **ders partisine** almak sahibin kararıdır (E317); ön koşulları Aşama 0 PASS,
-E276'nın kapanması ve kayıttaki öbür partinin birleşmesidir.
+Aşama 0 çıkışında ders organı yoktur: aşama planında çalışma zamanındaki tek LLM çağrısı kanaryadır,
+ders görünümü ve ilk okuyucusu Aşama 2'dedir (`03` aşama tablosu, `22`), ders provası yargıcı
+`harness.drill` de Aşama 2 partisiyle, ders görünümünden önce gelir (`asama-1/13`). Prova o an koşulsa
+sorularının sınayacağı organı bulamaz; FAIL ya da `UNMEASURABLE` verir. Prova bu yüzden ders görünümünü
+ve ilk okuyucusunu getiren parti ya da aşamayla koşar. Onu MVP sınavı olarak Aşama 0'dan hemen sonraya,
+dar bir **ders partisine** almak aşama planını değiştirmektir ve `asama-1/13` tohum dönemiyle değişmez
+(dönem yalnız `spec/tohum` ve `seed/` taşır: `25` 10b, E180); bu yüzden sahibin kararıdır (E317). Ön
+koşulları Aşama 0 PASS, E276'nın kapanması ve kayıttaki öbür partinin birleşmesidir. Organların adı
+bir çözüm değildir: `22` ve `22a` ders kaydını, görünümü, dispatcher'ı, `lessons_injected`'ı ve
+`superseded_at`'i zaten adlandırır; prova adları değil, organların ölçülen davranışını sınar.
 
 Öğrenen beynin kendi organlarıdır (ders kaydı, görünüm, dispatcher, okuyan koltuk), model `llm.call`
 üzerinden gerçek modeldir. Kurucu'nun kendisini öğrenen sayıp defterin bir ön ekiyle "derssiz kol"

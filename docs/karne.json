@@ -1,6 +1,5 @@
 {
   "as_of": {
-    "brain_sha": "3f605a131cc543341634f3a01966cdfd956509ce",
     "last_run": {
       "created_at": "2026-10-30T20:28:45Z",
       "head": "3f605a131cc543341634f3a01966cdfd956509ce",
@@ -20,7 +19,7 @@
     "unevaluated_runs": 1,
     "waived_refutations": 1
   },
-  "definitions_sha256": "ab9ce7baf4db8f2eb7151e22800a022fccd871a366e78da068ebb8ca55564a3e",
+  "definitions_sha256": "2f2be8e46d02132ddeba2dd059f88a97d35cb2f28c5c8e4537e65dee57af1c33",
   "exam": {
     "register": "E317",
     "status": "not_run"
@@ -410,6 +409,18 @@
     "session_end": 44,
     "session_start": 43
   },
+  "module_less": {
+    "green": 0,
+    "mfs": 16,
+    "runs": 24
+  },
+  "proven_defects": {
+    "defects": 9,
+    "reproduced_again": 1,
+    "reproduced_again_adjusted": 0,
+    "reruns": 21,
+    "retention": "UNMEASURABLE"
+  },
   "pushes": {
     "by_kind": {
       "code": 42,
@@ -441,13 +452,6 @@
     "events_adjusted": 0,
     "not_learning_runs": 0
   },
-  "retention": {
-    "module_less": 24,
-    "module_less_green": 0,
-    "reruns": 21,
-    "still_reproducing": 1,
-    "still_reproducing_adjusted": 0
-  },
   "rival": {
     "open_claims": 2,
     "open_refutations": 0,
@@ -455,7 +459,7 @@
     "refuted": 10,
     "survived": 31
   },
-  "schema": "snowball-karne/1",
+  "schema": "snowball-karne/2",
   "units": [
     {
       "accepted": true,

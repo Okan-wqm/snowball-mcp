@@ -28,7 +28,7 @@ QUESTIONS = ("commitment", "birth", "use", "effect", "wrong_lesson", "right_less
 LESSON_ROLES = ("planner", "fixer")
 BLIND_ROLES = ("test_writer", "oracle")
 SCOPE_FIELDS = ("class_level", "property", "path_glob", "conditions")  # a lesson's scope, all public (`26b`)
-RUN_FIELDS = ("model", "effort", "max_turns")  # what both arms of a lesson must share (E65)
+RUN_FIELDS = ("model", "effort", "max_turns")  # what both arms of a lesson must share, effect and placebo (E65)
 PASS, FAIL, UNMEASURABLE = "PASS", "FAIL", "UNMEASURABLE"
 CREDIT_TOLERANCE = 0.0001  # reported credit is a four-decimal string
 
@@ -150,10 +150,15 @@ def _use(key: dict[str, Any], t: dict[str, Any], lesson: dict[str, Any]) -> tupl
 
 
 def _effect(key: dict[str, Any], t: dict[str, Any], params: dict[str, Any]) -> tuple[str, dict[str, Any]]:
+    """Paired McNemar on the trap family. Both arms of every pair run with the same model, effort and turns, the
+    same for every pair (E65): an effect bought with a larger budget for the lesson's arm is not the lesson's."""
     pairs = [p for p in t["effect"] if _family(key, p["instance_id"]) == key["family"]]
     ids = [p["instance_id"] for p in pairs]
     if len(set(ids)) != len(ids):
         return FAIL, {"duplicate_instances": True}
+    arms = [arm for p in pairs for arm in (p["run"]["with"], p["run"]["without"])]
+    if len({canonical({f: arm.get(f) for f in RUN_FIELDS}) for arm in arms}) > 1:
+        return FAIL, {"unequal_arms": True}
     broken_without = sum(1 for p in pairs if not p["without"])
     b = sum(1 for p in pairs if p["without"] and not p["with"])
     c = sum(1 for p in pairs if p["with"] and not p["without"])

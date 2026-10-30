@@ -60,9 +60,10 @@ LEDGER = chain([
 ])
 
 
-def result(head: str, base: str, kind: str, verdict: str, reasons=(), evaluated: bool = True, **extra) -> dict:
+def result(head: str, base: str, kind: str, verdict: str, reasons=(), evaluated: bool = True, state=None,
+           **extra) -> dict:
     state = {"last_evaluated_sha": head if evaluated else "f" * 40, "rival_artifacts": [], "open_refutations": [],
-             "open_claims": [], "stage_spend_usd_micros": 1_500_000}
+             "open_claims": [], "stage_spend_usd_micros": 1_500_000, **(state or {})}
     out = {"schema": "snowball-bootstrap-result/1", "head": head, "base": base, "kind": kind, "verdict": verdict,
            "reasons": [{"kind": k, "ref": r, "detail": f"{CLAIM} {TARGET}"} for k, r in reasons],
            "warnings": [], "waived": [], "learning": {"repeat_events": 0, "repeated": [], "not_learning": []},
@@ -75,20 +76,35 @@ def result(head: str, base: str, kind: str, verdict: str, reasons=(), evaluated:
 SEED = sha(100)
 C1, C2, C3, C4, C5, C6 = (sha(n) for n in range(1, 7))
 MANIFESTS = {C1: [1], C2: [1, 2], C3: [1, 2], C4: [1, 2], C5: [1, 2], C6: [1, 2, 3]}  # the seed commit has none
+def rerun(key: str, reproduced: bool, source: str = "refutation") -> dict:
+    """A reproducer the signed state kept, run again on a later head (`state_reproducers`)."""
+    return {"key": key, "source": source, "reproduced": reproduced}
+
+
 RESULTS = [  # in the order the referee signed them
     result(sha(99), SEED, "spec", "frozen"),
-    result(C1, SEED, "code", "accepted", module_less=[{"mf": 1, "stayed_green": False}]),
-    result(C2, C1, "code", "rejected", [("test_failed", "x")]),
-    result(C3, C1, "code", "rejected", [("rival_missing", "")]),  # the rival's failure, not the Founder's
-    result(C4, C1, "code", "accepted", module_less=[{"mf": 2, "stayed_green": False}],
-           state_reproducers=[{"source": "refutation", "reproduced": False}]),
+    result(C1, SEED, "code", "accepted", module_less=[{"mf": 1, "test_id": "T1", "stayed_green": False}]),
+    # Proven defect j (proven before this record) still shows here, beside a failing test: one push, one rejection.
+    result(C2, C1, "code", "rejected", [("test_failed", "x"), ("refutation_still_reproduces", "repro:j")],
+           state_reproducers=[rerun("j", True)]),
+    result(C3, C1, "code", "rejected", [("rival_missing", "")],  # the rival's failure, not the Founder's
+           state_reproducers=[rerun("j", False)]),
+    result(C4, C1, "code", "accepted", module_less=[{"mf": 2, "test_id": "T2", "stayed_green": False},
+                                                    {"mf": 2, "test_id": "T3", "stayed_green": False}],
+           state_reproducers=[rerun("j", False)]),  # accepted where j no longer shows: j is closed, never run again
     result(sha(98), C4, "seed_update", "noop"),
-    result(C5, C4, "code", "rejected", [("refutation_still_reproduces", "repro:k")],  # a work push, flagged below
-           state_reproducers=[{"source": "refutation", "reproduced": True}],
+    # A work push, flagged below: proven defect k still shows; an open claim's reproducer proves nothing (E260).
+    result(C5, C4, "code", "rejected", [("refutation_still_reproduces", "repro:k")],
+           state_reproducers=[rerun("k", True), rerun("c1", True, source="claim")],
            learning={"repeat_events": 1, "repeated": ["refutation:k"], "not_learning": []}),
-    result(C6, C4, "code", "rejected", [("infra", "kos:docker")], evaluated=False),  # an outage: not judged
-    result(C6, C4, "code", "accepted", module_less=[{"mf": 3, "stayed_green": True}],
-           learning={"repeat_events": 1, "repeated": [], "not_learning": []}),
+    result(C6, C4, "code", "rejected", [("infra", "kos:docker")], evaluated=False,  # an outage: not judged
+           state_reproducers=[rerun("k", True)]),
+    result(C6, C4, "code", "accepted", module_less=[{"mf": 3, "test_id": "T4", "stayed_green": True}],
+           state_reproducers=[rerun("k", False)],
+           learning={"repeat_events": 1, "repeated": [], "not_learning": []},
+           state={"stage_spend_usd_micros": 2_750_000, "open_claims": [{"id": "c1"}],  # the latest state
+                  "rival_artifacts": [{"sha": C1, "outcome": "survived"}, {"sha": C2, "outcome": "refuted"},
+                                      {"sha": C6, "outcome": "survived"}]}),
 ]
 EXCLUSIONS = {"entries": [{"id": "E901", "head": C5}, {"id": "E902", "unit": "MF1"}]}
 METRICS = [{"stamp": "20261030T000000Z", "cost_usd": 2.5, "minutes": 10.0, "reports_new": [f"{CLAIM} {TARGET}"]},
@@ -106,12 +122,18 @@ def zipped(res: dict) -> bytes:
     return buf.getvalue()
 
 
+MAIN = sha(77)  # the brain's main has moved past every judged head: one more row in its ledger
+LATER_LEDGER = chain([json.loads(line) for line in LEDGER.splitlines()]
+                     + [{"ts": "2026-10-31T00:00:00Z", "part": "founder", "kind": "decision", "payload": {}}])
+
+
 class FakeGitHub:
-    """The referee's artifacts and the brain's files, served the way `gh api` serves them; every path is recorded."""
+    """The referee's artifacts and the brain's files, served the way `gh api` serves them; every path is recorded.
+    The ledger is served at the last result's head and, one row longer, at the brain's main."""
 
     def __init__(self, sc, results=RESULTS, ledger=LEDGER):
         self.sc, self.calls = sc, []
-        self.ledger = ledger
+        self.ledger, self.last_head = ledger, results[-1]["head"]
         self.zips = {1000 + i: zipped(r) for i, r in enumerate(results)}
         self.arts = [{"id": 1000 + i, "digest": "sha256:" + hashlib.sha256(self.zips[1000 + i]).hexdigest(),
                       "created_at": f"2026-10-30T{i:02d}:00:00Z", "expired": False,
@@ -126,21 +148,27 @@ class FakeGitHub:
         if m:
             return self.zips[int(m.group(1))]
         if path == f"repos/{BRAIN}/commits/main":
-            return json.dumps({"sha": sha(77)}).encode()
-        if path == f"repos/{BRAIN}/contents/founder-ledger.jsonl?ref={sha(77)}":
+            return json.dumps({"sha": MAIN}).encode()
+        if path == f"repos/{BRAIN}/contents/founder-ledger.jsonl?ref={self.last_head}":
             return self.ledger.encode()
+        if path == f"repos/{BRAIN}/contents/founder-ledger.jsonl?ref={MAIN}":
+            return LATER_LEDGER.encode()
         m = re.fullmatch(rf"repos/{BRAIN}/contents/snowball-tests.json\?ref=([0-9a-f]{{40}})", path)
         if m and m.group(1) in MANIFESTS:
             return json.dumps({"tests": [], "done_mf": MANIFESTS[m.group(1)], "lockfiles": []}).encode()
         raise self.sc.NotFound(path)
 
 
+def signed(results: list[dict]) -> list[dict]:
+    """Results as the cache hands them to `build`, in the order given."""
+    return [{"artifact": {"artifact_id": 1000 + i, "digest": f"sha256:{i:064x}", "created_at": f"2026-10-30T{i:02d}:00Z",
+                          "run_id": 500 + i, "files": {"result.json": f"{i:064x}"}}, "result": r}
+            for i, r in enumerate(results)]
+
+
 def inputs(**changes) -> dict:
-    base = {"results": [{"artifact": {"artifact_id": 1000 + i, "digest": None, "created_at": f"2026-10-30T{i:02d}:00Z",
-                                      "run_id": 500 + i, "files": {"result.json": f"{i:064x}"}}, "result": r}
-                        for i, r in enumerate(RESULTS)],
-            "brain_sha": sha(77), "ledger": LEDGER, "manifests": dict(MANIFESTS, **{SEED: []}), "metrics": METRICS,
-            "ideas": IDEAS, "exclusions": EXCLUSIONS, "gaps": []}
+    base = {"results": signed(RESULTS), "ledger_at": C6, "ledger": LEDGER, "manifests": dict(MANIFESTS, **{SEED: []}),
+            "metrics": METRICS, "ideas": IDEAS, "exclusions": EXCLUSIONS, "gaps": []}
     base.update(changes)
     return base
 
@@ -191,9 +219,31 @@ class BuildTest(unittest.TestCase):
         self.assertEqual((fr["referee"]["x"], fr["referee"]["n"], fr["adjusted"]["x"], fr["adjusted"]["n"]),
                          (2, 6, 1, 5))
         self.assertEqual(public["repeat"], {"events": 1, "events_adjusted": 0, "not_learning_runs": 0})
-        self.assertEqual(public["retention"], {"reruns": 2, "still_reproducing": 1, "still_reproducing_adjusted": 0,
-                                               "module_less": 3, "module_less_green": 1})
         self.assertEqual(public["inputs"]["exclusions"], [{"id": "E901", "on": C5}, {"id": "E902", "on": "MF1"}])
+
+    def test_proven_defects_are_counted_as_defects_until_they_close(self):
+        # j still shows on C2, k only on the flagged C5; the claim's reproducer and the outage's run are not counted.
+        self.assertEqual(self.model["public"]["proven_defects"],
+                         {"defects": 2, "reruns": 5, "reproduced_again": 2, "reproduced_again_adjusted": 1,
+                          "retention": "UNMEASURABLE"})
+        self.assertEqual(self.model["public"]["module_less"], {"runs": 4, "mfs": 3, "green": 1})  # MF2 has two tests
+        text = self.sc.render_public(self.model["public"])
+        self.assertIn("| Kalıcılık: kabul edilmiş işte kapanmış kusurun geri dönmesi | ölçülemez", text)
+        self.assertNotIn("kalıcılık, tekrar", text)  # nothing on the card is called retention but the gap itself
+        verbs = {line.split(" | ")[0]: line for line in text.splitlines() if line.startswith("| ")}
+        self.assertTrue(verbs["| yanlışı yanlış bilir"].endswith("| ölçülemez |"), verbs["| yanlışı yanlış bilir"])
+
+    def test_the_latest_state_gives_the_rival_counts_and_spend(self):
+        self.assertEqual(self.model["public"]["rival"], {"survived": 2, "refuted": 1, "open_refutations": 0,
+                                                         "open_claims": 1, "recall": "UNMEASURABLE"})
+        self.assertEqual(self.model["private"]["cost"]["rival_usd"], "2.75")
+
+    def test_the_ledger_must_be_read_at_the_last_results_head(self):
+        for at in (MAIN, C5):
+            with self.assertRaises(self.sc.ScorecardError) as caught:
+                self.sc.build(inputs(ledger_at=at))
+            self.assertIn("two record points", str(caught.exception))
+        self.assertEqual(self.model["public"]["as_of"]["last_run"]["head"], C6)
 
     def test_missing_data_is_a_gap_never_zero(self):
         private = self.sc.build(inputs(metrics=None, ideas=None))["private"]
@@ -219,8 +269,8 @@ class BuildTest(unittest.TestCase):
         shuffled = inputs()
         random.Random(4).shuffle(shuffled["results"])
         self.assertEqual(self.sc.build(shuffled), self.model)
-        late = inputs()  # the same results signed in another order: MF2's rival failure after its acceptance
-        late["results"][3]["artifact"]["created_at"] = "2026-10-30T23:00Z"
+        late = inputs(ledger_at=C3)  # the same results signed in another order: MF2's rival failure after its
+        late["results"][3]["artifact"]["created_at"] = "2026-10-30T23:00Z"  # acceptance, and last
         self.assertEqual(self.sc.build(late)["public"]["units"][1]["attempts"], 2)
 
     def test_the_same_inputs_give_the_same_bytes(self):
@@ -238,6 +288,43 @@ class BuildTest(unittest.TestCase):
         self.assertEqual(public["ledger_kinds"], {"decision": 1, "diğer": 1, "session_start": 1})
         self.assertNotIn("cost", json.dumps(public))
         self.assertEqual(public["exam"], {"status": "not_run", "register": "E317"})
+
+
+class FlaggedFirstAttemptTest(unittest.TestCase):
+    """A flagged push that is a unit's first attempt: the referee column counts it, the adjusted column reads the
+    unit at its first unflagged attempt, and the unit stays in the segment of its first attempt (the live card's MF16:
+    first attempt the blind push d0dc433, E248)."""
+
+    D1, D2, D3, D4 = (sha(n) for n in range(11, 15))
+
+    def setUp(self):
+        self.sc = load("scorecard")
+        d1, d2, d3, d4 = self.D1, self.D2, self.D3, self.D4
+        results = [result(d1, SEED, "code", "accepted"),
+                   result(d2, d1, "code", "rejected", [("test_failed", "x")]),  # flagged: MF2's first attempt
+                   result(sha(97), d1, "seed_update", "noop"),
+                   result(d3, d1, "code", "accepted"),  # MF2 accepted, in the next segment
+                   result(d4, d3, "code", "rejected", [("test_failed", "y")])]  # flagged: MF3's only attempt
+        model = self.sc.build(inputs(results=signed(results), ledger_at=d4,
+                                     manifests={SEED: [], d1: [1], d2: [1, 2], d3: [1, 2], d4: [1, 2, 3]},
+                                     exclusions={"entries": [{"id": "E903", "head": d2}, {"id": "E904", "head": d4}]}))
+        self.public = model["public"]
+        self.units = {u["mf"]: u for u in self.public["units"]}
+
+    def test_the_adjusted_column_reads_the_first_unflagged_attempt(self):
+        mf2 = self.units[2]
+        self.assertEqual((mf2["first"], mf2["first_adjusted"], mf2["flags"], mf2["attempts"]),
+                         (False, True, ["E903"], 2))
+        self.assertEqual((self.units[3]["first"], self.units[3]["first_adjusted"]), (False, None))  # no unflagged try
+        fa = self.public["first_attempt"]["all"]
+        self.assertEqual((fa["referee"]["x"], fa["referee"]["n"], fa["adjusted"]["x"], fa["adjusted"]["n"]),
+                         (1, 3, 2, 2))
+
+    def test_a_unit_belongs_to_the_segment_of_its_first_attempt(self):
+        self.assertEqual({mf: u["segment"] for mf, u in self.units.items()}, {1: 0, 2: 0, 3: 1})
+        segments = {s["segment"]: (s["referee"]["x"], s["referee"]["n"], s["adjusted"]["x"], s["adjusted"]["n"])
+                    for s in self.public["first_attempt"]["segments"]}
+        self.assertEqual(segments, {0: (1, 2, 2, 2), 1: (0, 1, 0, 0)})
 
 
 class FetchTest(unittest.TestCase):
@@ -288,6 +375,34 @@ class FetchTest(unittest.TestCase):
         with self.assertRaises(self.sc.ScorecardError) as caught:
             self.sc.update(self.work, BRAIN, REFEREE, get=self.github)
         self.assertIn("digest", str(caught.exception))
+
+    def test_an_artifact_without_a_digest_is_refused_not_cached_unchecked(self):
+        self.github.arts[2]["digest"] = None
+        with self.assertRaises(self.sc.ScorecardError) as caught:
+            self.sc.update(self.work, BRAIN, REFEREE, get=self.github)
+        self.assertIn("none given", str(caught.exception))
+        self.assertFalse((self.work / "scorecard" / "results" / "1002").exists())
+
+    def test_only_main_artifacts_are_read_and_an_expired_one_is_a_gap(self):
+        other = {"id": 2000, "digest": "sha256:" + hashlib.sha256(self.github.zips[1001]).hexdigest(),
+                 "created_at": "2026-10-30T23:00:00Z", "expired": False,
+                 "workflow_run": {"id": 900, "head_sha": C1, "head_branch": "feature"}}  # a branch run's state
+        self.github.zips[2000] = self.github.zips[1001]
+        expired = {"id": 2001, "digest": None, "created_at": "2026-10-30T23:30:00Z", "expired": True,
+                   "workflow_run": {"id": 901, "head_sha": C6, "head_branch": "main"}}
+        self.github.arts += [other, expired]
+        model = self.sc.update(self.work, BRAIN, REFEREE, public=self.work / "pub" / "karne", get=self.github)
+        self.assertEqual([c for c in self.github.calls if c.endswith(("/2000/zip", "/2001/zip"))], [])
+        self.assertEqual(model["public"]["as_of"]["results"], len(RESULTS))
+        self.assertEqual(model["public"]["gaps"][0], "artefakt 2001 önbelleğe alınmadan süresi doldu")
+        self.assertIn("artefakt 2001 önbelleğe alınmadan", (self.work / "pub" / "karne.md").read_text(encoding="utf-8"))
+
+    def test_the_ledger_is_read_at_the_head_of_the_last_result(self):
+        model = self.sc.update(self.work, BRAIN, REFEREE, get=self.github)
+        self.assertIn(f"repos/{BRAIN}/contents/founder-ledger.jsonl?ref={C6}", self.github.calls)
+        self.assertNotIn(f"repos/{BRAIN}/commits/main", self.github.calls)  # main has one more row (LATER_LEDGER)
+        as_of = model["public"]["as_of"]
+        self.assertEqual((as_of["ledger_rows"], as_of["last_run"]["head"]), (3, C6))
 
     def test_the_live_shape_round_trips(self):
         model = self.sc.update(self.work, BRAIN, REFEREE, public=self.work / "pub" / "karne", get=self.github)

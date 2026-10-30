@@ -4,12 +4,13 @@ pilot's records and never written by hand. Stdlib only. It runs on its own, neve
     python seed/founder/scorecard.py [--work F:\\snowball-work] [--public docs/karne]
 
 What it reads, every call a GET through the operator's `gh` login:
-  - the referee's signed results: every `bootstrap-state` artifact of the referee repository's main branch, its zip
-    checked against the digest GitHub gives for it and kept in an append-only cache, <work>/scorecard/results/
-    (artifacts expire after 90 days; the cache keeps the card reproducible after that; a cached file that changed
-    refuses the card);
-  - the brain's ledger at the brain's main, its hash chain verified with the seed's own `canon.row_hash`: a broken
-    link or hash refuses the card;
+  - the referee's results: every `bootstrap-state` artifact of the referee repository's main branch, its zip
+    checked against the digest GitHub gives for it (an artifact without one refuses the card) and kept in an
+    append-only cache, <work>/scorecard/results/ (artifacts expire after 90 days; the cache keeps the card
+    reproducible after that; a cached file that changed refuses the card). The referee signs each result with
+    Sigstore; the card keeps the bundle but does not verify it (stdlib only): `python -m sigstore verify` does;
+  - the brain's ledger at the head of the referee's last result, so the card has one record point; its hash chain
+    verified with the seed's own `canon.row_hash`: a broken link or hash refuses the card;
   - `snowball-tests.json` at each judged head and base: the micro-features each push declared done;
   - <work>/pilot-metrics.jsonl and <work>/fikir-olcutu.md, opened read-only, for the private card only.
 
@@ -56,32 +57,46 @@ MIN_N = 5  # below this many units an interval is not drawn: UNMEASURABLE (`tohu
 JUDGED_KINDS = ("spec", "code", "exit")
 
 # Every measure on the card and its grade, frozen with the card: a change here changes `definitions_sha256`, which
-# the card prints and a seed test holds to the committed card. Grades: mechanical (from signed or hashed records),
-# observational (mechanical, but confounded: the specs, vectors, rival and operator changed along the way),
-# operator-judged (the operator's private notes), controlled (an exam with a fixed key; none has run).
+# the card prints and a seed test holds to the committed card. Grades: mechanical (from the referee's digest-checked
+# results or hashed records), observational (mechanical, but confounded: the specs, vectors, rival and operator
+# changed along the way), operator-judged (the operator's private notes), controlled (an exam with a fixed key; none
+# has run).
 DEFINITIONS = {
     "unit": "A micro-feature (MF). The MFs a judged push adds are done_mf at its head minus done_mf at its base (the "
             "last accepted commit), from snowball-tests.json; a push that adds none is a work push.",
-    "judged_push": "A spec, code or exit push whose signed result says it was evaluated (state.last_evaluated_sha is "
-                   "its head) with verdict accepted, frozen or rejected; outages and rival-side retries are not judged.",
+    "judged_push": "A spec, code or exit push whose result says it was evaluated (state.last_evaluated_sha is its "
+                   "head) with verdict accepted, frozen or rejected; outages and rival-side retries are not judged.",
     "founder_owned": "A rejection reason the referee's own rule (decide.counts_against_founder) holds against the "
                      "Founder; a push is a Founder-owned rejection when at least one of its reasons is.",
     "first_attempt": "Observational. A unit is accepted at the first attempt when the first judged push that adds it "
                      "is accepted. Referee column: every judged push; adjusted column: without the pushes and units "
-                     "the exclusions file names, each with its register row.",
-    "segment": "Seed epochs: a signed seed_update result opens a new segment; a unit belongs to the segment of its "
-               "first attempt. Segments coincide with new vectors and rival rules, so a difference between them is "
-               "not attributable to learning.",
+                     "the exclusions file names, each with its register row, so a unit whose first attempt is a "
+                     "flagged push is read at its first unflagged attempt.",
+    "segment": "Seed epochs: a seed_update result opens a new segment; a unit belongs to the segment of its first "
+               "attempt. Segments coincide with new vectors and rival rules, so a difference between them is not "
+               "attributable to learning.",
     "interval": "Exact two-sided 95% Clopper-Pearson interval; below 5 units: UNMEASURABLE (tohum/19).",
-    "retention": "Mechanical. Proven defects the referee re-ran on later code heads (state_reproducers of source "
-                 "refutation) and how many still reproduced; module-less checks and how many stayed green.",
+    "proven_defects": "Mechanical. A defect the rival proved stays open, and the referee re-runs its reproducer on "
+                      "every later code head until an accepted head no longer shows it; then it is closed and never "
+                      "run again (state.py, E08). Counted: distinct defects re-run, re-runs, and defects that still "
+                      "reproduced on a later head (refutation_still_reproduces). An open claim's reproducer proves "
+                      "nothing on a later head (E260) and is not counted.",
+    "retention": "UNMEASURABLE: no defect is re-run after the head that closed it, so a defect coming back in "
+                 "accepted work has no record (E320).",
+    "module_less": "Mechanical. Each judged push runs the tests of the MFs it adds without their module, again on "
+                   "every attempt; counted: test runs, distinct MFs, runs that stayed green.",
     "repeat": "Mechanical, the referee's own count: learning.repeat_events, a rejection signature repeated on the next "
               "evaluated push. Cross-push recurrence of an error class is UNMEASURABLE: no frozen class identity.",
     "rival": "Mechanical. Rival artifacts that survived or were refuted. How much the rival finds (recall) is "
              "UNMEASURABLE until planted canaries exist (E311), so 'survived' is weak evidence.",
-    "autonomy": "Mechanical. Human touches the signed results show: seed epochs (seed_update results), waived "
+    "autonomy": "Mechanical. Human touches the referee's results show: seed epochs (seed_update results), waived "
                 "refutations (distinct keys), unevaluated runs (outages and retries). Operator restarts and prompt "
                 "changes have no record: a gap.",
+    "record_point": "One moment: the referee's last result in signing order; the ledger is read at that result's "
+                    "head, never at a later commit.",
+    "provenance": "The referee signs each result with Sigstore; the card does not verify the signature (stdlib only; "
+                  "the bundle is cached for `python -m sigstore verify`). It checks each artifact's zip against the "
+                  "digest GitHub gives through the operator's gh login and refuses an artifact without one.",
     "cost": "Private. Founder USD, minutes and turns per session from pilot-metrics.jsonl (read-only); missing data is "
             "a gap, never 0. The rival's spend from the latest signed state.",
     "discovery": "Private, operator-judged. In fikir-olcutu.md: held gaps whose status cell starts with **evet** "
@@ -93,7 +108,8 @@ DEFINITIONS_SHA256 = canon.sha256_hex(canon.canonical(DEFINITIONS))
 
 
 class ScorecardError(RuntimeError):
-    """The card is refused: a broken chain, a cache file that changed, a digest that does not match, a failed read."""
+    """The card is refused: a broken chain, a cache file that changed, a digest missing or not matching, a ledger read
+    at another head than the last result's, a failed read."""
 
 
 class NotFound(ScorecardError):
@@ -170,9 +186,10 @@ class Cache:
         return out
 
     def add(self, art: dict[str, Any], blob: bytes) -> dict[str, Any]:
-        digest = art.get("digest")
-        if digest and digest != "sha256:" + hashlib.sha256(blob).hexdigest():
-            raise ScorecardError(f"artifact {art['id']}: the zip does not match the digest GitHub gives for it")
+        digest = art.get("digest")  # no digest is no check: refused like a wrong one, never cached unchecked
+        if digest != "sha256:" + hashlib.sha256(blob).hexdigest():
+            raise ScorecardError(f"artifact {art['id']}: the zip does not match the digest GitHub gives for it "
+                                 f"({digest or 'none given'})")
         folder = self.results / str(art["id"])
         folder.mkdir(parents=True, exist_ok=True)
         files = {}
@@ -196,6 +213,13 @@ class Cache:
     def add_manifest(self, sha: str, done: list[int]) -> None:
         with self.manifests.open("a", encoding="utf-8", newline="\n") as fh:
             fh.write(json.dumps({"sha": sha, "done_mf": done}, sort_keys=True) + "\n")
+
+
+def _signed_order(item: dict[str, Any]) -> tuple[str, int, int]:
+    """The referee's order: its artifacts' creation time, then run and artifact id (never ledger or commit times,
+    which the Founder's capsule writes, E316)."""
+    art = item["artifact"]
+    return art["created_at"], int(art["run_id"] or 0), art["artifact_id"]
 
 
 def _artifacts(referee: str, get: Get) -> list[dict[str, Any]]:
@@ -252,8 +276,12 @@ def fetch(work: Path, brain: str, referee: str, get: Get = gh_get) -> dict[str, 
             continue
         result = json.loads((cache.results / str(aid) / "result.json").read_text(encoding="utf-8"))
         results.append({"artifact": entry, "result": result})
-    brain_sha = json.loads(get(f"repos/{brain}/commits/main", False))["sha"]
-    ledger = get(f"repos/{brain}/contents/{LEDGER}?ref={brain_sha}", True).decode("utf-8")
+    if not results:
+        raise ScorecardError("the referee has no result yet: nothing to count")
+    # One record point: the ledger as it was at the head of the referee's last result, not at the brain's main,
+    # which may have moved past every judged head.
+    ledger_at = str(max(results, key=_signed_order)["result"].get("head"))
+    ledger = get(f"repos/{brain}/contents/{LEDGER}?ref={ledger_at}", True).decode("utf-8")
     known = cache.manifest_cache()
     for item in results:
         r = item["result"]
@@ -273,7 +301,7 @@ def fetch(work: Path, brain: str, referee: str, get: Get = gh_get) -> dict[str, 
     if ideas_path.is_file():
         with ideas_path.open("r", encoding="utf-8") as fh:
             ideas = fh.read()
-    return {"results": results, "brain_sha": brain_sha, "ledger": ledger, "manifests": known,
+    return {"results": results, "ledger_at": ledger_at, "ledger": ledger, "manifests": known,
             "metrics": metrics, "ideas": ideas, "exclusions": json.loads(EXCLUSIONS.read_text(encoding="utf-8")),
             "gaps": gaps}
 
@@ -322,14 +350,17 @@ def build(inputs: dict[str, Any]) -> dict[str, Any]:
     excl = inputs["exclusions"]["entries"]
     excluded_heads = {e["head"]: e["id"] for e in excl if "head" in e}
     excluded_units = {e["unit"]: e["id"] for e in excl if "unit" in e}
-    items = sorted(inputs["results"], key=lambda i: (i["artifact"]["created_at"], int(i["artifact"]["run_id"] or 0),
-                                                     i["artifact"]["artifact_id"]))
+    items = sorted(inputs["results"], key=_signed_order)
+    if not items or inputs["ledger_at"] != items[-1]["result"].get("head"):
+        raise ScorecardError("the ledger was not read at the head of the referee's last result: two record points")
     segment, repeats_prev = 0, 0
     pushes: list[dict[str, Any]] = []
     unevaluated = seed_epochs = rival_retries = 0
     waived: set[str] = set()
-    retention = {"reruns": 0, "still_reproducing": 0, "still_reproducing_adjusted": 0, "module_less": 0,
-                 "module_less_green": 0}
+    defects: set[str] = set()  # proven defects the referee re-ran, by key
+    again: dict[str, bool] = {}  # defects that still reproduced on a later head -> on an unflagged one too
+    reruns = module_runs = module_green = 0
+    module_mfs: set[int] = set()
     repeat = {"events": 0, "events_adjusted": 0, "not_learning_runs": 0}
     for item in items:
         r = item["result"]
@@ -352,12 +383,17 @@ def build(inputs: dict[str, Any]) -> dict[str, Any]:
         repeat["events_adjusted"] += 0 if flag else reps - repeats_prev
         repeats_prev = reps
         repeat["not_learning_runs"] += bool((r.get("learning") or {}).get("not_learning"))
-        still = sum(1 for x in r.get("reasons") or [] if x.get("kind") == "refutation_still_reproduces")
-        retention["reruns"] += sum(1 for s in r.get("state_reproducers") or [] if s.get("source") == "refutation")
-        retention["still_reproducing"] += still
-        retention["still_reproducing_adjusted"] += 0 if flag else still
-        retention["module_less"] += len(r.get("module_less") or [])
-        retention["module_less_green"] += sum(1 for m in r.get("module_less") or [] if m.get("stayed_green"))
+        # An open claim's reproducer (source claim) proves nothing on a later head (E260): only proven defects count.
+        rerun = [str(s.get("key")) for s in r.get("state_reproducers") or [] if s.get("source") == "refutation"]
+        reruns += len(rerun)
+        defects.update(rerun)
+        for x in r.get("reasons") or []:
+            if x.get("kind") == "refutation_still_reproduces":
+                again[str(x.get("ref"))] = again.get(str(x.get("ref")), False) or not flag
+        checks = r.get("module_less") or []
+        module_runs += len(checks)
+        module_mfs.update(int(m["mf"]) for m in checks if isinstance(m.get("mf"), int))
+        module_green += sum(1 for m in checks if m.get("stayed_green"))
         new = sorted(set(manifests.get(head, [])) - set(manifests.get(r.get("base"), []))) if kind != "spec" else []
         pushes.append({"head": head, "kind": kind, "segment": segment,
                        "verdict": r.get("verdict"), "founder_owned": _founder_owned(r.get("reasons") or []),
@@ -388,18 +424,19 @@ def build(inputs: dict[str, Any]) -> dict[str, Any]:
 
     segments = sorted({u["segment"] for u in unit_rows})
     code = [p for p in pushes if p["kind"] != "spec"]
-    latest = (items[-1]["result"].get("state") or {}) if items else {}
+    latest = items[-1]["result"].get("state") or {}
     rival_arts = latest.get("rival_artifacts") or []
     public = {
-        "schema": "snowball-karne/1",
+        "schema": "snowball-karne/2",
         "definitions_sha256": DEFINITIONS_SHA256,
-        "as_of": {"brain_sha": inputs["brain_sha"], "ledger_rows": len(rows),
+        "as_of": {"results": len(items),
+                  "last_run": {"run_id": str(items[-1]["artifact"]["run_id"]),
+                               "created_at": items[-1]["artifact"]["created_at"],
+                               "head": items[-1]["result"].get("head")},
+                  # the ledger as it was at last_run.head (record_point)
+                  "ledger_rows": len(rows),
                   "ledger_tip": {"row_id": rows[-1]["row_id"], "row_hash": rows[-1]["row_hash"]} if rows else None,
-                  "ledger_sha256": canon.sha256_hex(inputs["ledger"].encode("utf-8")),
-                  "results": len(items),
-                  "last_run": {"run_id": str(items[-1]["artifact"]["run_id"]), "created_at":
-                               items[-1]["artifact"]["created_at"], "head": items[-1]["result"].get("head")}
-                  if items else None},
+                  "ledger_sha256": canon.sha256_hex(inputs["ledger"].encode("utf-8"))},
         "inputs": {"artifacts": [{"artifact_id": i["artifact"]["artifact_id"], "digest": i["artifact"]["digest"],
                                   "run_id": str(i["artifact"]["run_id"]),
                                   "result_sha256": i["artifact"]["files"]["result.json"]} for i in items],
@@ -422,7 +459,9 @@ def build(inputs: dict[str, Any]) -> dict[str, Any]:
                                         "adjusted": share(sum(p["founder_owned"] and p["verdict"] == "rejected"
                                                               for p in code if not p["flag"]),
                                                           sum(1 for p in code if not p["flag"]))}},
-        "retention": retention,
+        "proven_defects": {"defects": len(defects), "reruns": reruns, "reproduced_again": len(again),
+                           "reproduced_again_adjusted": sum(again.values()), "retention": "UNMEASURABLE"},
+        "module_less": {"runs": module_runs, "mfs": len(module_mfs), "green": module_green},
         "repeat": repeat,
         "rival": {"survived": sum(1 for a in rival_arts if a.get("outcome") == "survived"),
                   "refuted": sum(1 for a in rival_arts if a.get("outcome") == "refuted"),
@@ -473,28 +512,28 @@ def _share_text(s: dict[str, Any]) -> str:
 
 def _verbs(m: dict[str, Any]) -> tuple[tuple[str, str, str], ...]:
     """The owner's MVP sentence verb by verb: what the pilot shows, and its grade; only the exam can say more."""
-    fa, rt, rp = m["first_attempt"]["all"], m["retention"], m["repeat"]
+    fa, pd, ml, rp = m["first_attempt"]["all"], m["proven_defects"], m["module_less"], m["repeat"]
     return (
         ("öğrenir", f"aynı ret imzasının art arda tekrarı (`repeat_events`) {rp['events']}, düzeltilmiş "
-                    f"{rp['events_adjusted']}", "mekanik"),
+                    f"{rp['events_adjusted']}; rakibin kanıtladığı {pd['defects']} ayrı kusurdan sonraki bir başta "
+                    f"yeniden üretilen {pd['reproduced_again']}, düzeltilmiş {pd['reproduced_again_adjusted']} "
+                    "(kusur yalnız kapanana kadar izlenir)", "mekanik"),
         ("öğrendiğini uygular", f"ilk denemede kabul {_share_text(fa['referee'])}, düzeltilmiş "
                                 f"{_share_text(fa['adjusted'])}; dönemlere göre aşağıda", "gözlemsel"),
-        ("yanlışı yanlış bilir", f"kanıtlanmış kusurun sonraki başlarda yeniden koşusu {rt['reruns']}, hâlâ üretilen "
-                                 f"{rt['still_reproducing']}, düzeltilmiş {rt['still_reproducing_adjusted']}",
-         "mekanik"),
+        ("yanlışı yanlış bilir", "kendi hatasını kendisinin bulduğunun doğrulanmış kaydı yok (E315)", "ölçülemez"),
         ("doğruyu doğru bilir", "yanlış kararda doğru kodu korumak: mekanik kaydı yok", "ölçülemez"),
         ("tartar", "derslerin kredisi ve sıralaması: Aşama 0'da ders organı yok", "ölçülemez"),
-        ("test eder ve uygular", f"modülsüz kırmızı denetimi {rt['module_less']}, yeşil kalan "
-                                 f"{rt['module_less_green']}", "mekanik"),
+        ("test eder ve uygular", f"{ml['mfs']} MF'nin testleri modülü olmadan koşuldu: {ml['runs']} test koşusu "
+                                 f"(her denemede yeniden), yeşil kalan {ml['green']}", "mekanik"),
     )
 
 
 def render_public(m: dict[str, Any]) -> str:
     a = m["as_of"]
-    fa, pu, rt, rp, rv, au = (m["first_attempt"], m["pushes"], m["retention"], m["repeat"], m["rival"],
-                              m["autonomy"])
+    fa, pu, pd, ml, rp, rv, au = (m["first_attempt"], m["pushes"], m["proven_defects"], m["module_less"],
+                                  m["repeat"], m["rival"], m["autonomy"])
     tip = a["ledger_tip"] or {"row_id": "—", "row_hash": "—"}
-    last = a["last_run"] or {"run_id": "—", "created_at": "—", "head": "—"}
+    last = a["last_run"]
     proved = "evet" if m["exam"]["status"] == "pass" else "hayır"
     out = [
         "# Karne: Kendini Geliştirmenin Ölçüsü",
@@ -509,13 +548,15 @@ def render_public(m: dict[str, Any]) -> str:
         "",
         "## Kayıt noktası",
         "",
+        "Tek an: hakemin son sonucu. Defter o sonucun başında okunur, beynin sonraki commit'lerinde değil.",
+        "",
         "| Ne | Değer |",
         "|---|---|",
-        f"| Beyin `main` | `{a['brain_sha'][:12]}` |",
-        f"| Kurucu defteri | {a['ledger_rows']} satır, zincir doğrulandı; uç `{tip['row_id']}` "
+        f"| Hakemin son sonucu | koşu {last['run_id']}, {last['created_at']}, baş `{str(last['head'])[:12]}` |",
+        f"| Kurucu defteri, o başta | {a['ledger_rows']} satır, zincir doğrulandı; uç `{tip['row_id']}` "
         f"`{tip['row_hash'][:16]}` |",
-        f"| Hakemin imzalı sonuçları | {a['results']} (son koşu {last['run_id']}, {last['created_at']}, "
-        f"baş `{str(last['head'])[:7]}`) |",
+        f"| Hakemin sonuçları | {a['results']}; hakem her birini Sigstore'la imzalar, karne imzayı doğrulamaz: "
+        "her artefaktın zip'i GitHub'ın verdiği özetle denetlenir, özetsiz artefakt karneyi reddeder |",
         f"| Veri boşlukları | {len(m['gaps'])}: " + "; ".join(m["gaps"]) + " |",
         "",
         "## Fiil fiil",
@@ -529,8 +570,9 @@ def render_public(m: dict[str, Any]) -> str:
         "## Birimler (MF)",
         "",
         "Bir MF'nin denemeleri, onu ilk ekleyen yargılanmış push'tan kabul edilene kadarki push'lardır. Ret sahibi "
-        "hakemin kendi kuralıdır (`counts_against_founder`). İşaretli push ve birimler düzeltilmiş sütunda yoktur; "
-        "her işaret kayıttaki satırıdır.",
+        "hakemin kendi kuralıdır (`counts_against_founder`). İşaretli push ve birimler düzeltilmiş sütunda yoktur: "
+        "ilk denemesi işaretli push olan birim ilk işaretsiz denemesiyle okunur, hiç işaretsiz denemesi yoksa "
+        "sayılmaz. Her işaret kayıttaki satırıdır.",
         "",
         "| MF | Dönem | Deneme | Kurucu'nun reddi | Başka ret | İlk denemede | Düzeltilmiş | İşaret | Başlar |",
         "|---|---|---|---|---|---|---|---|---|",
@@ -557,7 +599,11 @@ def render_public(m: dict[str, Any]) -> str:
     fr = pu["founder_rejected"]
     out += [
         "",
-        "## Push'lar, kalıcılık, tekrar",
+        "## Push'lar, kanıtlanmış kusurlar, tekrar",
+        "",
+        "Rakibin kanıtladığı kusur, onu artık göstermeyen ilk kabul edilmiş başa kadar her kod başında yeniden "
+        "koşulur, sonra kapanır ve bir daha koşulmaz (E08). Kabul edilen başta kusur yeniden üretilemez (o baş "
+        "reddedilirdi); kabulden sonra geri dönüp dönmediği hiçbir kayıtta yoktur.",
         "",
         "| Ölçü | Hakemin kuralı | Düzeltilmiş |",
         "|---|---|---|",
@@ -565,9 +611,13 @@ def render_public(m: dict[str, Any]) -> str:
         f"({', '.join(f'{k} {v}' for k, v in pu['by_kind'].items())}) | |",
         f"| MF eklemeyen kod push'u | {pu['work_pushes']} | |",
         f"| Kurucu'nun reddettirdiği kod push'u | {_share_text(fr['referee'])} | {_share_text(fr['adjusted'])} |",
-        f"| Kanıtlanmış kusurun sonraki başlarda yeniden koşusu | {rt['reruns']} | |",
-        f"| ... hâlâ yeniden üretilen | {rt['still_reproducing']} | {rt['still_reproducing_adjusted']} |",
-        f"| Modülsüz kırmızı denetimi / yeşil kalan | {rt['module_less']} / {rt['module_less_green']} | |",
+        f"| Kanıtlanmış kusur, kapanana kadar yeniden koşulan: ayrı kusur / koşu | {pd['defects']} / {pd['reruns']} "
+        "| |",
+        f"| ... sonraki bir başta yeniden üretilen ayrı kusur | {pd['reproduced_again']} "
+        f"| {pd['reproduced_again_adjusted']} |",
+        "| Kalıcılık: kabul edilmiş işte kapanmış kusurun geri dönmesi | ölçülemez: kapanan kusur bir daha koşulmaz "
+        "(E320) | |",
+        f"| Modülü olmadan koşulan test: koşu / MF / yeşil kalan | {ml['runs']} / {ml['mfs']} / {ml['green']} | |",
         f"| Tekrar eden ret imzası (`repeat_events`) | {rp['events']} | {rp['events_adjusted']} |",
         f"| `not_learning` diyen koşu | {rp['not_learning_runs']} | |",
         "| Hata sınıfının push'lar arası tekrarı | ölçülemez: donmuş sınıf kimliği yok (E70) | |",
@@ -591,9 +641,9 @@ def render_public(m: dict[str, Any]) -> str:
         "",
         "## Girdiler",
         "",
-        f"{len(m['inputs']['artifacts'])} imzalı sonuç; her birinin artefakt özeti ve `result.json` hash'i "
+        f"Hakemin {len(m['inputs']['artifacts'])} sonucu; her birinin artefakt özeti ve `result.json` hash'i "
         "`docs/karne.json`'dadır, herkes aynı girdilerden aynı sayfayı üretir (artefaktlar 90 gün yaşar; operatörün "
-        "önbelleği tutar). İşaretler: " + ", ".join(f"{e['id']} (`{e['on'][:7] if len(e['on']) == 40 else e['on']}`)"
+        "önbelleği onları ve Sigstore paketlerini tutar, `python -m sigstore verify` ile doğrulanır). İşaretler: " + ", ".join(f"{e['id']} (`{e['on'][:7] if len(e['on']) == 40 else e['on']}`)"
                                                      for e in m["inputs"]["exclusions"]) + ".",
         "",
     ]
@@ -636,7 +686,7 @@ def main(argv: list[str] | None = None) -> int:
     except ScorecardError as exc:
         print(f"no card: {exc}", file=sys.stderr)
         return 1
-    print(f"card written: {model['public']['as_of']['results']} signed results, "
+    print(f"card written: {model['public']['as_of']['results']} referee results, "
           f"{model['public']['as_of']['ledger_rows']} ledger rows")
     return 0
 

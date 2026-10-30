@@ -72,7 +72,8 @@ class Traits:
     fresh_dispatch: bool = True       # the dispatcher reads the current lesson state, not a snapshot
     keeps_priors: bool = True         # an imported lesson is withdrawn on its own contradiction, not on any red
     follows_draw: bool = True         # the placebo arms are the referee's draw, not the dispatcher's choice
-    equal_arms: bool = True           # both arms of a lesson run with the same model, effort and turns
+    equal_arms: bool = True           # both arms of a lesson run with the same model, effort and turns (effect and
+                                      # placebo alike)
     ranks_by_difference: bool = True  # credit is the lower bound of the difference, not the raw hit rate
     ranks_by_credit: bool = True      # the ranking follows the credit
     persists: bool = True             # lesson state is written to the ledger, not kept in memory
@@ -295,13 +296,16 @@ def run_drill(traits: Traits, seed: int, params: dict[str, Any] | None = None) -
         use.append({"instance_id": job["instance_id"], "role": role, "lessons_injected": brain.inject(job, role, [])})
     t["use"] = use
 
-    # Effect: each instance twice, with the dispatcher's own choice and with every lesson withheld.
+    # Effect: each instance twice, with the dispatcher's own choice and with every lesson withheld; each arm's
+    # settings are recorded, since a larger budget for the lesson's arm would pass for the lesson's effect (E65).
     effect = []
     for _ in range(params["k"]):
         job = new(TRAP)
-        with_ok, _ = brain.fix_ok(rng.random(), TRAP, [], brain.inject(job, "fixer", []))
+        injected = brain.inject(job, "fixer", [])
+        with_ok, _ = brain.fix_ok(rng.random(), TRAP, [], injected)
         without_ok, _ = brain.fix_ok(rng.random(), TRAP, [], [])
-        effect.append({"instance_id": job["instance_id"], "with": with_ok, "without": without_ok})
+        effect.append({"instance_id": job["instance_id"], "with": with_ok, "without": without_ok,
+                       "run": {"with": brain.run_settings("L1" in injected), "without": brain.run_settings(False)}})
     t["effect"] = effect
 
     # Wrong lesson: an imported hypothesis that is harmful under one condition.

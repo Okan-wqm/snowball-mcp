@@ -374,7 +374,7 @@
           "commitment": "PASS",
           "birth": "PASS",
           "use": "PASS",
-          "effect": "PASS",
+          "effect": "FAIL",
           "wrong_lesson": "PASS",
           "right_lesson": "PASS",
           "placebo": "FAIL",

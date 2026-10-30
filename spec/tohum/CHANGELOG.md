@@ -6,9 +6,9 @@ Okunma: bir sayfanın geçmişi aranırken
 
 - 2.2 (2026-10-30, E64, E65, E317–E319; sahibin onayı, uzman tartışmasıyla daraltıldı): ders provasında aileler gizli,
   taahhüt edilmiş havuzdan gelir, donan yalnız sözleşmeleridir (`22a`, yeni `22b`); dersin kapsamı tek eşleyiciyle açık
-  gözlemlerden yargılanır, aile adı aranmaz (E64); plasebo kollarını hakemin taahhüt ettiği tohum çeker, kollar eşit koşar
-  (E65); yeni soru doğru ders (E318); k = 30, aile ≥ %85 kalibrasyonla girer (E319, `18a`, yeni `29q`). Provanın gerçek
-  beyinde MVP sınavı olarak öne alınması sahibin kararıdır (E317).
+  gözlemlerden yargılanır (E64); plasebo kollarını hakemin tohumu çeker, etki ve plasebo kolları eşit koşar (E65); yeni
+  soru doğru ders (E318); k = 30, aile ≥ %85 kalibrasyonla girer, risk alt sınırda da verilir (E319, `18a`, yeni `29q`).
+  Provayı gerçek beyinde öne almak aşama planını değiştirir, sahibin kararıdır (E317).
 - 2.2 (2026-10-30, E301; sahip): hedefin ve sistemin kendi kodunun haritası insan okunur çizim olarak da üretilir, kodla yenilenir (`15` 4).
 - 2.2 (2026-10-30, E246, E247; sahibin kararları): her zaman geri dönüş, kimsenin işi silinmez, veri katmanının beş
   korkuluğu. Y2: sistemin önerdiği her değişikliğin, en başta silmenin, geri dönüş yolu adımdan önce kanıtlanmıştır ve

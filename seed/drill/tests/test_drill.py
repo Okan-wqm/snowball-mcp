@@ -17,7 +17,7 @@ import snowball_drill.judge as judge_module
 from snowball_drill import sim
 from snowball_drill.__main__ import main
 from snowball_drill.judge import QUESTIONS, commitment, judge, mcnemar_p, newcombe_lower, scope_matches, withheld
-from snowball_drill.power import calibration, effect_power, power_table, unmeasurable_risk
+from snowball_drill.power import calibration, effect_power, power_table, ready_chance, unmeasurable_risk
 from snowball_drill.vectors import EDITED, drill_docs, write_vectors
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "local"))
@@ -41,7 +41,7 @@ CAUGHT_BY = {
     "stale_dispatcher": ("wrong_lesson", "FAIL"),
     "llm_prior_discarder": ("right_lesson", "FAIL"),  # drops any imported lesson at the first red (E318)
     "cherry_picking_dispatcher": ("placebo", "FAIL"),  # serves its own lesson against the referee's draw (E65)
-    "unequal_arms": ("placebo", "FAIL"),               # runs the given arm with more effort (E65)
+    "unequal_arms": ("placebo", "FAIL"),               # runs the lesson's arm with more effort; effect too (E65)
     "raw_rate_ranker": ("placebo", "FAIL"),
     "rank_ignores_credit": ("placebo", "FAIL"),
     "amnesic": ("persistence", "FAIL"),
@@ -368,11 +368,34 @@ class BlindScope(unittest.TestCase):
 
 class RefereeArms(unittest.TestCase):
     """E65: who gets a lesson in the placebo arms is the referee's draw from the committed seed, and both arms of a
-    lesson run alike; neither is read from the transcript's say-so."""
+    lesson run alike, in the effect's pairs as in the placebo's arms; neither is read from the transcript's say-so."""
 
     def setUp(self):
         self.doc = sim.run_drill(sim.LEARNER, 7)
         self.assertEqual(judge(self.doc)["verdicts"]["placebo"], "PASS")
+        self.assertEqual(judge(self.doc)["verdicts"]["effect"], "PASS")
+
+    def test_both_arms_of_every_effect_pair_run_alike(self):
+        # A larger budget for the lesson's arm inflates the McNemar effect, the main evidence that a lesson is used.
+        for arm in ("with", "without"):
+            for field, value in (("max_turns", 21), ("effort", "high"), ("model", "claude-opus-5-5")):
+                doc = copy.deepcopy(self.doc)
+                doc["transcript"]["effect"][3]["run"][arm][field] = value
+                result = judge(doc)
+                self.assertEqual((result["verdicts"]["effect"], result["details"]["effect"]),
+                                 ("FAIL", {"unequal_arms": True}), (arm, field))
+
+    def test_one_budget_for_every_effect_arm_is_equal(self):
+        doc = copy.deepcopy(self.doc)
+        for pair in doc["transcript"]["effect"]:
+            for arm in ("with", "without"):
+                pair["run"][arm].update(max_turns=40, started_at=pair["instance_id"])  # outside RUN_FIELDS: ignored
+        self.assertEqual(judge(doc)["verdicts"]["effect"], "PASS")
+
+    def test_the_unequal_arms_brain_fails_effect_and_placebo(self):
+        for seed in range(1, 21):
+            verdicts = judge(sim.run_drill(sim.BRAINS["unequal_arms"], seed))["verdicts"]
+            self.assertEqual((verdicts["effect"], verdicts["placebo"]), ("FAIL", "FAIL"), seed)
 
     def test_the_draw_is_an_hmac_of_the_seed(self):
         seed = "00" * 32
@@ -528,6 +551,17 @@ class Calibration(unittest.TestCase):
         self.assertEqual(calibration(14, 20)["unmeasurable_risk"], "0.4112")
         with self.assertRaises(ValueError):
             calibration(21, 20)
+
+    def test_the_gate_reads_a_point_estimate_so_the_risk_is_also_given_at_its_lower_bound(self):
+        # 17 of 20 is ready, yet with 95% confidence the family breaks only at least 66% of the time (E319).
+        ready = calibration(17, 20)
+        self.assertEqual((ready["unmeasurable_risk"], ready["rate_lower_95"], ready["unmeasurable_risk_at_lower_95"]),
+                         ("0.0097", "0.6563", "0.6148"))
+        self.assertEqual(calibration(20, 20)["rate_lower_95"], "0.8609")  # 1 - 0.05 ** (1 / 20)
+        self.assertEqual(calibration(0, 20)["rate_lower_95"], "0.0000")
+        # What the gate lets through: a family truly breaking 70% or 75%, and turns away a true 85% one.
+        chances = {p: f"{float(ready_chance(Fraction(p, 100))):.3f}" for p in (70, 75, 85)}
+        self.assertEqual(chances, {70: "0.107", 75: "0.225", 85: "0.648"})
 
     def test_effect_power_is_the_reference_question(self):
         strong = effect_power(0.9, 0.1, 200)
