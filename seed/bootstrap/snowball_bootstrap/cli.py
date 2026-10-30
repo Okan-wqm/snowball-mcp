@@ -16,8 +16,8 @@ import zipfile
 from pathlib import Path
 from typing import Any
 
-from . import canon, config, ghapi, gitio, licenses, stages, state as st
-from .classify import SEED_DIRS, classify, is_founder_record, is_seed_path, spec_stage_dirs
+from . import canon, config, exitchecks, ghapi, gitio, ledgercheck, licenses, stages, state as st, wiring
+from .classify import LEDGER_FILE, SEED_DIRS, classify, is_founder_record, is_seed_path, spec_stage_dirs
 from .container import DockerRunner
 from .controls import run_controls
 from .decide import OUTAGE_GIVE_UP_DAYS, OUTAGE_RETRY_LIMIT, decide, utc_now
@@ -312,7 +312,7 @@ def _pull_meta(head: str, base: str, prev: dict[str, Any]) -> dict[str, Any]:
             "kind": "none", "changed": [], "pre_reasons": [], "evaluate": True,
             "run_tests": False, "run_rival": False, "manifest": None, "exit_request": None, "exit_request_sha256": None,
             "referee_tree_sha256": None, "spec_dir_hashes": {}, "state_repro": [], "reuse_rival": False,
-            "waived": [], "module_less": []}
+            "waived": [], "module_less": [], "exit_checks": {}, "toy_tree_sha256": None}
 
 
 def seed_trees(tar_bytes: bytes) -> tuple[str | None, str | None]:
@@ -451,6 +451,15 @@ def _pull_classify(boot: config.Bootstrap, policy: config.Policy, summary_cfg: c
             before = set() if kind == "exit" else _base_done(repo, base)
             meta["module_less"] = [k for k in manifest.done_mf if k not in before]
 
+    # The Founder's ledger on every push the referee judges (`00a`; `asama-0/10` #kurucu-defteri, E107, E280): a spec
+    # or code push has the rows it adds checked here, before the tests and the rival; the exit, the whole file.
+    ledger_base = gitio.file_at(repo, base, LEDGER_FILE) if kind in ("spec", "code", "exit") else None
+    if kind in ("spec", "code"):
+        pre += ledgercheck.check(tar_file(tar_bytes, LEDGER_FILE), ledger_base, whole=False)
+    # The loop workflow's wiring on every code push once its micro-feature is finished, and at the exit (`asama-0/14`).
+    if kind == "code" and manifest is not None and wiring.due(table, manifest.done_mf):
+        pre += wiring.check(wiring.files_in(exitchecks.referee_files(tar_bytes)))
+
     if kind == "exit":
         meta["exit_request_sha256"] = exit_sha  # rejected, these bytes are ignored in later pushes (E97)
         try:
@@ -471,6 +480,10 @@ def _pull_classify(boot: config.Bootstrap, policy: config.Policy, summary_cfg: c
             meta["referee_tree_sha256"] = tree_hash(tar_bytes, "referee")
         except TreeError as exc:
             pre.append(f"referee_tree:{exc}")
+        # The (A) conditions read from the archive (E162's follow-up): their results go to `decide`, not here, so the
+        # tests still run and one request hears everything that is missing.
+        meta["exit_checks"], meta["toy_tree_sha256"] = exitchecks.run(
+            tar_bytes, tar_file(tar_bytes, LEDGER_FILE), ledger_base, summary_cfg.targets)
 
     if kind == "spec":
         for d in spec_stage_dirs(own):

@@ -14,6 +14,10 @@ from pathlib import Path, PurePosixPath
 
 # Operator-only names: the import never overwrites them, so the referee code may not carry them.
 OPERATOR_NAMES = frozenset({"policy.json", "control.json", "setup", "seats", "vectors", "bootstrap.json"})
+# What the top of `referee/` may not be called, in any case (`asama-0/10` #agac; E130, E285): the operator's names and
+# the bootstrap referee's own directory, which the import never touches (`asama-0/10a` #aktarim, `01a`). Compared
+# case-folded: on the operator's Windows `referee/Policy.json` is `policy.json` (and so is `ſetup` `setup`).
+RESERVED_TOP = OPERATOR_NAMES | {"bootstrap"}
 
 
 class TreeError(ValueError):
@@ -86,7 +90,7 @@ def tree_hash(tar_bytes: bytes, prefix: str, forbid_operator_names: bool = True)
             rel = path.relative_to(pre)
         except ValueError:
             continue
-        if forbid_operator_names and rel.parts and rel.parts[0] in OPERATOR_NAMES:
+        if forbid_operator_names and rel.parts and rel.parts[0].casefold() in RESERVED_TOP:
             raise TreeError(f"{prefix}/{rel.parts[0]} is an operator-only name")
         lines.append(f"{hashlib.sha256(content).hexdigest()}  {rel.as_posix()}\n")
     if not lines:

@@ -14,7 +14,7 @@ import datetime
 import hashlib
 from typing import Any
 
-from . import secretscan, stages
+from . import exitchecks, ledgercheck, secretscan, stages
 from .reproduce import reproducer_key
 from .rival import REPRODUCER_FIELDS
 from .state import MAX_OPEN_CLAIMS, MAX_OPEN_REFUTATIONS
@@ -82,11 +82,24 @@ DOCKER_ERROR = 125  # `docker run` exit code for a failure of docker itself
 # Heads with nothing of the Founder's to judge: an unchanged tree or ledger rows alone (`none`), and the operator's
 # seed delivery itself (`seed_update`, `25` 10b, E88). Noop: no streak, no rival artifact, no acceptance.
 NOTHING_TO_JUDGE = ("none", "seed_update")
-# The (A) conditions of `asama-0/10` the seed has no check for yet (E162; their rows E107, E100/E132, E130/E131, E102,
-# E79). Until a check exists each keeps the exit closed as `exit_condition` `not_checked:<anchor>`, never passes
-# silently. The Founder cannot fix them, so they are not its rejections (`29b` "Ret hafızası").
-EXIT_NOT_CHECKED = ("kurucu-defteri", "is-akisi", "agac", "genellik", "spec", "durustluk")
+# The (A) conditions of `asama-0/10` that `pull` checks on the archive (`exitchecks`, E162's follow-up): each result
+# is in meta["exit_checks"], and one that is absent, malformed or undecided keeps the exit closed as not_checked.
+EXIT_CHECKS = exitchecks.ANCHORS
+# What the seed cannot check yet, each with the open register row that says why (E162). The anchor keeps the exit
+# closed as `exit_condition` `not_checked:<anchor>`, never passes silently. A row checked in part (#is-akisi) is in
+# both lists: its checked rules are the Founder's, its unchecked one is not.
+EXIT_NOT_CHECKED = {
+    "is-akisi": "E282: every job's first step must be the seed's control command, which has no interface for the "
+                "loop yet (asama-0/01 D0, asama-1/13), so no workflow can be held to it",
+    "spec": "E286: tohum/02's mechanical items (sections, the key of a threshold) have no machine definition, and the "
+            "check belongs at the freeze, where the Founder can still fix what it finds (E180)",
+    "durustluk": "E79, E287: the honesty rehearsal's key and detection predicates have no format, the evaluated SHAs "
+                 "they run on are not kept, and the disputes need the reports' reader (E93)",
+}
 NOT_CHECKED = "not_checked:"
+# Exit conditions the Founder cannot fix (`29b` "Ret hafızası"): what the seed cannot check, and a ledger row the
+# referee accepted before it checked rows, which nothing the Founder may append changes (E280).
+NOT_THE_FOUNDERS_EXIT = (NOT_CHECKED, ledgercheck.ACCEPTED_INVALID + ":")
 
 
 def counts_against_founder(reason: dict[str, Any]) -> bool:
@@ -95,8 +108,39 @@ def counts_against_founder(reason: dict[str, Any]) -> bool:
     if reason["kind"] == "rival_unresolved":
         return str(reason["ref"]).split(":", 1)[0] in FOUNDERS_RIVAL_REASONS
     if reason["kind"] == "exit_condition":
-        return not str(reason["ref"]).startswith(NOT_CHECKED)
+        return not str(reason["ref"]).startswith(NOT_THE_FOUNDERS_EXIT)
     return True
+
+
+def _exit_conditions(found: Any, toy: Any) -> tuple[list[str], dict[str, str]]:
+    """The exit's conditions from pull's checks and from what the seed cannot check, with the detail of each: a
+    failed check's reasons are the Founder's; an absent, malformed or undecided result is not_checked, never a pass
+    (#agac's result is whole only with the toy subtree's hash the signed result carries)."""
+    found = found if isinstance(found, dict) else {}
+    missing: list[str] = []
+    detail: dict[str, str] = {}
+    for anchor in EXIT_CHECKS:
+        result = found.get(anchor)
+        status = result.get("status") if isinstance(result, dict) else None
+        if anchor == "agac" and status == "ok" and not toy:
+            status = None
+        why = result.get("why") if isinstance(result, dict) and isinstance(result.get("why"), str) else ""
+        reasons = result.get("reasons") if isinstance(result, dict) else None
+        if status == "ok" and reasons == []:
+            continue
+        if status == "failed" and isinstance(reasons, list) and reasons and all(isinstance(r, str) for r in reasons):
+            missing += [r for r in reasons if r not in missing]
+            detail.update((r, why) for r in reasons)
+            continue
+        ref = NOT_CHECKED + anchor
+        missing.append(ref)
+        detail[ref] = why or "pull gave no result for this condition"
+    for anchor, why in EXIT_NOT_CHECKED.items():
+        ref = NOT_CHECKED + anchor
+        if ref not in missing:
+            missing.append(ref)
+        detail[ref] = "; ".join(w for w in (detail.get(ref), why) if w)
+    return missing, detail
 
 
 def _learning(state: dict[str, Any], reasons: list[dict[str, Any]], limit: int) -> dict[str, Any]:
@@ -377,9 +421,11 @@ def decide(meta: dict[str, Any], run: dict[str, Any] | None, rival: dict[str, An
             missing.append(f"rival_attempts:{len(others)}<{rival_min_attempts}")
         if not meta.get("referee_tree_sha256"):
             missing.append("referee_tree_hash")
-        missing += [NOT_CHECKED + anchor for anchor in EXIT_NOT_CHECKED]  # E162: closed until the seed checks it
+        checked, detail = _exit_conditions(meta.get("exit_checks"), meta.get("toy_tree_sha256"))  # E162
+        missing += checked
         for m in missing:
-            reasons.append(_reason("exit_condition", ref=m))
+            reasons.append(_reason("exit_condition", ref=m, detail=detail.get(m, "")))
+        exit_block["checks"] = copy.deepcopy(meta.get("exit_checks") or {})
 
     accepted = not reasons and kind in ("spec", "code", "exit")
     if kind == "spec":
@@ -433,6 +479,7 @@ def decide(meta: dict[str, Any], run: dict[str, Any] | None, rival: dict[str, An
     if kind == "exit" and accepted:
         exit_block["transferable"] = True
         exit_block["referee_tree_sha256"] = meta["referee_tree_sha256"]
+        exit_block["toy_tree_sha256"] = meta["toy_tree_sha256"]  # `asama-0/10` #agac; the import's #oyuncak (`10a`)
         exit_block["brain_sha"] = head
     if kind == "exit":
         exit_block["repeat_events"] = state["repeat_events"]
