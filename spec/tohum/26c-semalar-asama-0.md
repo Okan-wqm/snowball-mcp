@@ -32,7 +32,8 @@ yalnız adlandırdığı koşudan sonra bir kez geçerlidir (`24a`).
 bootstrap_sha256}`; `targets[]` `{id, repo, kind: toy|copy, base_sha, identifiers[], excluded_paths[],
 unit_candidates[]}` (`identifiers` genellik denetiminin ad listesidir; `excluded_paths` operatör verisidir,
 hakem kodu değildir; `unit_candidates` kopyanın aday birim yolları, sırayla); `honesty_commitment`
-(`sha256(canonical(anahtar))`); ilk koşu işareti.
+(`sha256(canonical(anahtar))`); ekim kaçırıldıysa sahibin `honesty_exception` `{stage: 0, carry_to: 1, reason}`'ı
+(`02` "Sahip istisnası"; yanındaki taahhüt taşıma hedefinin ekimidir); ilk koşu işareti.
 
 **setup/imports.jsonl**: her aktarım bir satır `{ts, stage, batch?, brain_sha, referee_tree_sha256,
 result_sha256, toy_tree_sha256?}`, zincirli (`26`); insan dokunuşu sayacı. **setup/stage.json**:

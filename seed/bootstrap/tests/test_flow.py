@@ -558,7 +558,7 @@ class Flow(unittest.TestCase):
         result = self.finish(meta, run=self.green_run(meta), jobs={"getir": "success", "kos": "success"})
         self.assertEqual((result["verdict"], result["exit"]["transferable"]), ("rejected", False))
         self.assertEqual([(r["kind"], r["ref"]) for r in result["reasons"]],
-                         [("exit_condition", "not_checked:" + a) for a in ("is-akisi", "spec", "durustluk")])
+                         [("exit_condition", "not_checked:" + a) for a in ("spec", "durustluk")])
         # ... so the import is measured as it will run once those checks exist and pass.
         self.state = saved
         with mock.patch("snowball_bootstrap.decide.EXIT_NOT_CHECKED", {}):

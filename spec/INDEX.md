@@ -72,6 +72,7 @@ Okunma: sayfa ararken; görev seçmek için `tohum/00b-gorev-haritasi.md`
 | `tohum/29m-vektor-arayuzleri-mf14-18.md` | Vektör Arayüzleri: `revert_drill`, `prompt` | Aşama 0'ın MF14 ve MF15'ini yazarken; bu grupların komutu, girdisi ya da çıktısı değişirken |
 | `tohum/29n-vektor-arayuzleri-mf14-18-devam.md` | Vektör Arayüzleri, Devam: `status` | Aşama 0'ın MF16'sını yazarken; bu grubun komutu, girdisi ya da çıktısı değişirken |
 | `tohum/29o-vektor-arayuzleri-mf14-18-son.md` | Vektör Arayüzleri, Son: `genesis` | Aşama 0'ın MF18'ini yazarken; bu grubun komutu, girdisi ya da çıktısı değişirken |
+| `tohum/29p-kontrol-komutu.md` | Kontrol Komutu: Döngü İşlerinin İlk Adımı | `loop.yml` yazılırken; döngünün her işinde |
 | `tohum/30-guvenlik-katalogu.md` | Güvenlik Kataloğu: İlkeler, Zamanlama, Ortak Kader | her güvenlik işinde, her bildirimde ve yeni bir hedefe bağlanırken |
 | `tohum/30a-katalog-erisim-ve-enjeksiyon.md` | Güvenlik Kataloğu I: Erişim, Kimlik, Enjeksiyon, Web | kapsam bu sınıflara dokunduğunda; güvenlik avcısı, Kurucu ve Aşama 5'ten K6 işinde |
 | `tohum/30b-katalog-kiracilik-ve-graphql.md` | Güvenlik Kataloğu II: Çok Kiracılık, GraphQL, Kaynak Tüketimi | profil `tenancy.model` `none` değilse ya da hedef GraphQL sunuyorsa; güvenlik avcısı ve K6 işinde |
@@ -89,6 +90,7 @@ Okunma: sayfa ararken; görev seçmek için `tohum/00b-gorev-haritasi.md`
 | `tohum/31g-karar-rehberi.md` | Mimari İlkeler VII: Karar Rehberi | aşağıdaki durumlardan biri ortaya çıktığında, `decision` satırı yazılmadan önce |
 | `tohum/31h-catismalar-ve-tarama.md` | Mimari İlkeler VIII: Çatışmalar ve Tarama Sinyalleri | iki ilke aynı durumda farklı yön gösterdiğinde; bir repo ilkeler açısından taranırken; rakip bir tasarımı çürütmeye çalışırken |
 | `tohum/CHANGELOG.md` | Değişiklik Günlüğü — Tohum | bir sayfanın geçmişi aranırken |
+| `tohum/CHANGELOG-2.md` | Değişiklik Günlüğü — Tohum, 2.2'nin İlk Kaydı | bir sayfanın geçmişi aranırken |
 | `tohum/CHANGELOG-1.md` | Değişiklik Günlüğü — Tohum, 2.1 ve öncesi | bir sayfanın geçmişi aranırken |
 
 ## Aşama 0 — Yürüyen İskelet: İlk Canlı Döngü
