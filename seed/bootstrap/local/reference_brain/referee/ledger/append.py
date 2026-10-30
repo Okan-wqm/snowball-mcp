@@ -4,10 +4,11 @@
     python -m ledger.append cycle <ledger.jsonl> <previous.jsonl>   (stdin: {"rows": [row, ...]})
         -> {"ok", "row_hashes", "commits", "hard_stop"}
 
-Steps: (1) the ledger is a valid chain and extends the previous version byte for byte, else hard stop;
-(2) every new row is scanned with secrets.scan's row semantics, a match invalidates the run (no hard stop);
-(3) a row with proposed_by is stored with trust inferred; (4) rows chain in stdin order onto the last row;
-(5) one brain/state commit through the writer (a fake that counts commits here).
+Steps: (1) before the request is read, the ledger is a valid chain and extends the previous version byte for
+byte, else hard stop; a ledger that is not JSON Lines is not a valid chain (tohum/29i, E238); (2) every new row
+is scanned with secrets.scan's row semantics, a match invalidates the run (no hard stop); (3) a row with
+proposed_by is stored with trust inferred; (4) rows chain in stdin order onto the last row; (5) one brain/state
+commit through the writer (a fake that counts commits here).
 """
 
 from __future__ import annotations
@@ -43,9 +44,24 @@ def _refused(hard_stop: bool, why: str) -> NoReturn:
     _emit({"ok": False, "row_hashes": [], "commits": 0, "hard_stop": hard_stop, "reason": why}, 1)
 
 
-def cycle(ledger_bytes: bytes, previous_bytes: bytes, stdin: bytes, writer: CountingWriter) -> list[str]:
-    cur_lines, cur_rows = chain.read_jsonl(ledger_bytes)
-    prev_lines, _ = chain.read_jsonl(previous_bytes)
+def _verified(ledger_bytes: bytes, previous_bytes: bytes) -> list[dict[str, Any]]:
+    """(1) The ledger is a valid chain and an append-only extension of the previous version, every previous line
+    byte-identical in place; otherwise hard stop. A line that is not a JSON object is a broken chain, not unusable
+    input; the previous version is compared as bytes only."""
+    try:
+        _, cur_rows = chain.read_jsonl(ledger_bytes)
+    except Unusable as exc:
+        _refused(True, f"ledger is not JSON Lines: {exc}")
+    broken = chain.first_broken(cur_rows)
+    if broken is not None:
+        _refused(True, f"chain broken at line {broken + 1}")
+    moved = chain.first_not_in_place(chain.split_lines(previous_bytes), chain.split_lines(ledger_bytes))
+    if moved is not None:
+        _refused(True, f"previous line {moved + 1} not in place")
+    return cur_rows
+
+
+def _request(stdin: bytes, cur_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     request = chain.loads(stdin)
     if not (isinstance(request, dict) and isinstance(request.get("rows"), list)
             and all(isinstance(row, dict) for row in request["rows"])):
@@ -61,16 +77,14 @@ def cycle(ledger_bytes: bytes, previous_bytes: bytes, stdin: bytes, writer: Coun
         ids.append(row["row_id"])
     if len(set(ids)) != len(ids):
         raise Unusable("duplicate row_id among the new rows")
-
-    # (1) valid chain, append-only extension of the previous version
-    broken = chain.first_broken(cur_rows)
-    if broken is not None:
-        _refused(True, f"chain broken at line {broken + 1}")
-    moved = chain.first_not_in_place(prev_lines, cur_lines)
-    if moved is not None:
-        _refused(True, f"previous line {moved + 1} not in place")
     if set(ids) & {r.get("row_id") for r in cur_rows}:
         raise Unusable("a new row_id is already in the ledger")
+    return rows
+
+
+def cycle(ledger_bytes: bytes, previous_bytes: bytes, stdin: bytes, writer: CountingWriter) -> list[str]:
+    cur_rows = _verified(ledger_bytes, previous_bytes)  # (1) first: tamper evidence stops hard whatever is asked
+    rows = _request(stdin, cur_rows)
 
     # (2) secrets
     if any(secrets.scan_rows(json.dumps(row)) for row in rows):  # this brain's MF2, row semantics (29f)

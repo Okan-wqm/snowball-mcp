@@ -6,6 +6,7 @@
 "GET /repos/example/toy/git/commits/994bbab6283c71cb8dddbc9db6ac8c4757c9f1a2": {"sha":"994bbab6283c71cb8dddbc9db6ac8c4757c9f1a2","tree":{"sha":"358e770e0a30ca4ba0a214691baa5476155766a7"},"parents":[{"sha":"c42b7b38e8ed4aeb1ac6ab4de05948622f914054"}]},
 "POST /repos/example/toy/git/commits": {"sha":"6bd075d4dc98936e4a06ed57a34c6fa0dc8db62a","tree":{"sha":"93f7ba6edfbbfd6a0315d53f942935bcebcfbd6a"},"parents":[{"sha":"4a479c25153b63e58db4c254f56ea8a37aad95ce"}]},
 "POST /repos/example/toy/git/refs": {"ref":"refs/heads/brain/c/7","object":{"sha":"861d9f470a5f667e62f64a8370d89591332a17bb","type":"commit"}},
+"PATCH /repos/example/toy/git/refs/heads/brain/c/7": {"ref":"refs/heads/brain/c/7","object":{"sha":"a691694a90fe467145d6fcd9b058bc6829dee0dd","type":"commit"}},
 "PATCH /repos/example/toy/git/refs/heads/brain/state": {"ref":"refs/heads/brain/state","object":{"sha":"a77191b2bd707053a5e4512e9366ace260851441","type":"commit"}},
 "PATCH /repos/example/toy/git/refs/heads/main": {"ref":"refs/heads/main","object":{"sha":"a77191b2bd707053a5e4512e9366ace260851441","type":"commit"}},
 "POST /repos/example/toy/pulls": {"number":14,"base":{"ref":"brain/integration"},"head":{"ref":"brain/c/7","sha":"861d9f470a5f667e62f64a8370d89591332a17bb"}},

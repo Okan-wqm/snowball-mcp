@@ -230,6 +230,29 @@ BREAKS = [
     ("zero_tests_green", "gate/check.py", 'if not checks["tests"]:', "if False:", ["k0map.fail_closed_controls"]),
     ("open_sentinel_ignored", "gate/check.py", 'if request["unfinished_sentinels"]:', "if False:",
      ["k0map.fail_closed_controls"]),
+    # E236: pure insertions (b = 0) and pure deletions (d = 0), and the added line's edges of the fix range
+    ("insertion_ends_at_its_line", "gate/check.py", 'else (h["a"] < line)', 'else (h["a"] <= line)',
+     ["k0map.map_insertion_point", "k0map.insertion_not_distinguished"]),
+    ("insertions_never_shift", "gate/check.py", 'else (h["a"] < line)', "else False", ["k0map.map_after_pure_hunks"]),
+    ("deleted_line_on_the_line_before_the_gap", "gate/check.py",
+     'return [h["c"], h["c"] + h["d"] - 1] if h["d"] > 0 else []',
+     'return [h["c"], h["c"] + h["d"] - 1] if h["d"] > 0 else [h["c"], h["c"]]', ["k0map.map_deleted_line"]),
+    ("deleted_line_an_inverted_range", "gate/check.py", 'return [h["c"], h["c"] + h["d"] - 1] if h["d"] > 0 else []',
+     'return [h["c"], h["c"] + h["d"] - 1]', ["k0map.map_deleted_line"]),
+    ("insertion_based_at_its_line_a", "gate/check.py", 'base = h["a"] if h["b"] > 0 else h["a"] + 1',
+     'base = h["a"]', ["k0map.insertion_past_fix"]),
+    ("added_line_two_past_the_fix", "gate/check.py", 'elif tag == "+" and not start <= base <= end + 1:',
+     'elif tag == "+" and not start <= base <= end + 2:', ["k0map.insertion_past_fix"]),
+    # E237: every koş file's hash, both run files' bytes
+    ("only_the_base_runs_hash_checked", "gate/check.py", "if data[name] is None or manifest.get(name) != hashlib",
+     'if data[name] is None or name == "base.jsonl" and manifest.get(name) != hashlib',
+     ["k0map.forged_candidate_run", "k0map.forged_checks"]),
+    ("candidate_runs_hash_unchecked", "gate/check.py", "if data[name] is None or manifest.get(name) != hashlib",
+     'if data[name] is None or name != "cand.jsonl" and manifest.get(name) != hashlib', ["k0map.forged_candidate_run"]),
+    ("checks_hash_unchecked", "gate/check.py", "if data[name] is None or manifest.get(name) != hashlib",
+     'if data[name] is None or name != "checks.json" and manifest.get(name) != hashlib', ["k0map.forged_checks"]),
+    ("base_runs_never_compared", "gate/check.py", "for runs in (base, cand):", "for runs in (cand,):",
+     ["k0map.base_nondeterministic"]),
 
     ("second_parent_tree", "target/write.py", 'first = _field(parents[0], "sha")', 'first = _field(parents[-1], "sha")',
      ["refs.revert_first_parent_tree", "refs.revert_first_parent_tree.changed_input"]),
@@ -253,6 +276,8 @@ BREAKS = [
      'if not ref_allowed("refs/heads/" + head):', ["refs.refuse_merge_into_main"]),
     ("pr_base_unchecked", "target/write.py", "if not (ref_allowed(head) and ref_allowed(base_ref)):",
      "if not ref_allowed(head):", ["refs.refuse_pr_into_main"]),
+    ("update_forces", "target/write.py", '{"sha": sha, "force": False}', '{"sha": sha, "force": True}',
+     ["refs.update_never_forces"]),  # E240
 
     ("commit_per_row", "ledger/append.py", "writer.commit(body + tail)",
      "for _row in stored:" + chr(10) + "            writer.commit(body + tail)", ["append.cycle_one_commit"]),
@@ -260,11 +285,21 @@ BREAKS = [
      ["append.cycle_one_commit"]),
     ("chained_onto_the_previous_version", "ledger/append.py",
      'prev = cur_rows[-1]["row_hash"] if cur_rows else chain.ZERO',
-     'prev = chain.loads(prev_lines[-1])["row_hash"] if prev_lines else chain.ZERO', ["append.chains_onto_current_tip"]),
+     'prev = chain.loads(chain.split_lines(previous_bytes)[-1])["row_hash"] if previous_bytes else chain.ZERO',
+     ["append.chains_onto_current_tip"]),
     ("chain_unverified", "ledger/append.py", "broken = chain.first_broken(cur_rows)", "broken = None",
      ["append.refuse_broken_tip"]),
-    ("append_only_unchecked", "ledger/append.py", "moved = chain.first_not_in_place(prev_lines, cur_lines)",
+    ("append_only_unchecked", "ledger/append.py",
+     "moved = chain.first_not_in_place(chain.split_lines(previous_bytes), chain.split_lines(ledger_bytes))",
      "moved = None", ["append.refuse_rewritten_history", "append.refuse_reserialized_row"]),
+    # E238: a ledger that is not JSON Lines is a broken chain, and step (1) comes before the request is read
+    ("unparsable_ledger_unusable_input", "ledger/append.py", '_refused(True, f"ledger is not JSON Lines: {exc}")',
+     "raise", ["append.refuse_unparsable_ledger"]),
+    ("request_read_before_the_chain", "ledger/append.py",
+     "cur_rows = _verified(ledger_bytes, previous_bytes)  # (1) first: tamper evidence stops hard whatever is asked"
+     + chr(10) + "    rows = _request(stdin, cur_rows)",
+     "rows = _request(stdin, [])" + chr(10) + "    cur_rows = _verified(ledger_bytes, previous_bytes)",
+     ["append.refuse_broken_chain_first"]),
     ("append_only_canonical", "ledger/_strict.py", "if index >= len(current) or current[index] != line:",
      "if index >= len(current) or canonical(loads(current[index])) != canonical(loads(line)):",
      ["append.refuse_reserialized_row"]),
@@ -303,6 +338,8 @@ BREAKS = [
      "red = sorted(ever)", ["flaky.red_three_reruns.changed_input", "flaky.per_test_rule"]),
     ("never_red", "gate/sentinel.py", 'verdict = "red" if red or no_results else "flaky"', 'verdict = "flaky"',
      ["flaky.red_three_reruns", "flaky.per_test_rule"]),
+    ("decided_after_two_reruns", "gate/sentinel.py", "CONSIDERED = 4", "CONSIDERED = 3",
+     ["flaky.two_reruns_rerun"]),  # E239: 3/3 is the first run plus three reruns (29j's choice)
 
     ("impact_ignored", "gate/revert.py", 'if any(test in impact for test in signals["red_tests"]):', "if False:",
      ["cause.test_regression"]),
@@ -375,7 +412,7 @@ class SeedVectorsOnReferenceImplementationsTest(unittest.TestCase):
         cases = [c["id"] for g in DATA_GROUPS for c in seed[g]["cases"]]
         data = [r for r in results if not r["id"].startswith("chain.")]
         self.assertEqual([r["id"] for r in data], [i + s for i in cases for s in ("", ".changed_input")])
-        self.assertEqual((len(data), len(results)), (180, 186))  # MF2-MF7 92, MF8-MF13 88; `chain` 6
+        self.assertEqual((len(data), len(results)), (204, 210))  # MF2-MF7 92, MF8-MF13 112; `chain` 6
         self.assertEqual([(r["id"], r["detail"]) for r in results if not r["ok"]], [])
         self.assertEqual(brain_manifest().done_mf, (1,))  # reference implementations, not declared done
 

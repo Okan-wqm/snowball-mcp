@@ -2031,7 +2031,7 @@
     "owner": "asama-0",
     "runner": "data",
     "interface": "spec/tohum/29h-vektor-arayuzleri-mf8-13.md",
-    "source": "reconciled cases; every expected value given alike by two blind independent implementations (docs/eksik-kaydi.md E161)",
+    "source": "reconciled cases, every expected value given alike by two blind independent implementations (docs/eksik-kaydi.md E161); the later cases of E236 and E237 give the same values on A and on the workflow's B, written before them (docs/eksik-kaydi.md E236-E240)",
     "cases": [
       {
         "id": "k0map.map_shift",
@@ -2083,6 +2083,81 @@
             "mapped": [
               10,
               11
+            ]
+          }
+        }
+      },
+      {
+        "id": "k0map.map_insertion_point",
+        "purpose": "Hunk @@ -5,0 +6 @@ of src/c.js inserts one line after base line 5 and has no base range (b = 0; git writes an insertion after line a as -a,0): it ends before L only when a < L, so line 5 itself does not move.",
+        "cmd": "python -m gate.check map /vec/k0map/edge.patch src/c.js 5",
+        "fixture": [
+          "k0map/edge.patch"
+        ],
+        "expect": {
+          "mapped": [
+            5,
+            5
+          ]
+        },
+        "changed": {
+          "description": "One field: base line 6, the first after the insertion, moves by its one added line.",
+          "cmd": "python -m gate.check map /vec/k0map/edge.patch src/c.js 6",
+          "fixture": [
+            "k0map/edge.patch"
+          ],
+          "expect_not": {
+            "mapped": [
+              5,
+              5
+            ]
+          }
+        }
+      },
+      {
+        "id": "k0map.map_deleted_line",
+        "purpose": "Base line 8 lies in the base range [7, 8] of the pure deletion @@ -7,2 +7,0 @@: that hunk's candidate range is empty (d = 0), so the line maps to [], neither to the candidate line before the gap nor to an inverted range.",
+        "cmd": "python -m gate.check map /vec/k0map/edge.patch src/c.js 8",
+        "fixture": [
+          "k0map/edge.patch"
+        ],
+        "expect": {
+          "mapped": []
+        },
+        "changed": {
+          "description": "One field: base line 9, the first after the deleted lines, maps to one shifted line.",
+          "cmd": "python -m gate.check map /vec/k0map/edge.patch src/c.js 9",
+          "fixture": [
+            "k0map/edge.patch"
+          ],
+          "expect_not": {
+            "mapped": []
+          }
+        }
+      },
+      {
+        "id": "k0map.map_after_pure_hunks",
+        "purpose": "Base line 9 of src/c.js follows both hunks: the insertion after line 5 adds one line and the deletion of lines 7-8 removes two, so the line moves by their net count; an insertion counts once its line a is before L.",
+        "cmd": "python -m gate.check map /vec/k0map/edge.patch src/c.js 9",
+        "fixture": [
+          "k0map/edge.patch"
+        ],
+        "expect": {
+          "mapped": [
+            8,
+            8
+          ]
+        },
+        "changed": {
+          "description": "One field: base line 4, before both hunks, does not move.",
+          "cmd": "python -m gate.check map /vec/k0map/edge.patch src/c.js 4",
+          "fixture": [
+            "k0map/edge.patch"
+          ],
+          "expect_not": {
+            "mapped": [
+              8,
+              8
             ]
           }
         }
@@ -2154,6 +2229,76 @@
         }
       },
       {
+        "id": "k0map.forged_candidate_run",
+        "purpose": "Code in ko\u015f replaced the candidate-tree runs with a clean one (the split fix's cand.jsonl); the manifest, hashed outside the container, still holds the real run's hash. The forged run is not trusted, so the half fix that left no-var on candidate line 4 does not merge; a check of base.jsonl's hash alone would merge it.",
+        "cmd": "python -m gate.check decide /vec/k0map/cand/half /vec/k0map/kos/base.jsonl /vec/k0map/kos/good /vec/k0map/kos/half.hashes.json",
+        "stdin": "{\"control\":{\"kill_switch\":false,\"merge_paused\":false},\"unfinished_sentinels\":[]}",
+        "fixture": [
+          "k0map/cand/half",
+          "k0map/kos/base.jsonl",
+          "k0map/kos/good",
+          "k0map/kos/half.hashes.json"
+        ],
+        "expect": {
+          "decision": "reject",
+          "reasons": [
+            "artefact_hash_mismatch"
+          ]
+        },
+        "changed": {
+          "description": "The real run: half's own candidate runs, whose hash the manifest holds (the not_distinguished case).",
+          "cmd": "python -m gate.check decide /vec/k0map/cand/half /vec/k0map/kos/base.jsonl /vec/k0map/kos/half /vec/k0map/kos/half.hashes.json",
+          "stdin": "{\"control\":{\"kill_switch\":false,\"merge_paused\":false},\"unfinished_sentinels\":[]}",
+          "fixture": [
+            "k0map/cand/half",
+            "k0map/kos/base.jsonl",
+            "k0map/kos/half",
+            "k0map/kos/half.hashes.json"
+          ],
+          "expect_not": {
+            "decision": "reject",
+            "reasons": [
+              "artefact_hash_mismatch"
+            ]
+          }
+        }
+      },
+      {
+        "id": "k0map.forged_checks",
+        "purpose": "Code in ko\u015f rewrote checks.json to all-pass: the manifest holds the hash of the real checks.json, in which test/rate.test.js failed (the ratchet run's). checks.json is a ko\u015f file like the runs; one whose hash does not match is not trusted either.",
+        "cmd": "python -m gate.check decide /vec/k0map/cand/split /vec/k0map/kos/base.jsonl /vec/k0map/kos/good /vec/k0map/kos/good.hashes_checks.json",
+        "stdin": "{\"control\":{\"kill_switch\":false,\"merge_paused\":false},\"unfinished_sentinels\":[]}",
+        "fixture": [
+          "k0map/cand/split",
+          "k0map/kos/base.jsonl",
+          "k0map/kos/good",
+          "k0map/kos/good.hashes_checks.json"
+        ],
+        "expect": {
+          "decision": "reject",
+          "reasons": [
+            "artefact_hash_mismatch"
+          ]
+        },
+        "changed": {
+          "description": "One field: the manifest's checks.json hash is the file's (the merge case).",
+          "cmd": "python -m gate.check decide /vec/k0map/cand/split /vec/k0map/kos/base.jsonl /vec/k0map/kos/good /vec/k0map/kos/good.hashes.json",
+          "stdin": "{\"control\":{\"kill_switch\":false,\"merge_paused\":false},\"unfinished_sentinels\":[]}",
+          "fixture": [
+            "k0map/cand/split",
+            "k0map/kos/base.jsonl",
+            "k0map/kos/good",
+            "k0map/kos/good.hashes.json"
+          ],
+          "expect_not": {
+            "decision": "reject",
+            "reasons": [
+              "artefact_hash_mismatch"
+            ]
+          }
+        }
+      },
+      {
         "id": "k0map.not_distinguished",
         "purpose": "The fix splits line 3 into const, var and a blank line (hunk @@ -2,3 +2,5 @@): no-var at candidate line 4 is inside the hunk's candidate range [2, 6], so the oracle does not distinguish; line 3 itself, line 3 shifted by the hunk's +2 (5) and line 3's position inside the hunk (3) all miss it.",
         "cmd": "python -m gate.check decide /vec/k0map/cand/half /vec/k0map/kos/base.jsonl /vec/k0map/kos/half /vec/k0map/kos/half.hashes.json",
@@ -2179,6 +2324,41 @@
             "k0map/kos/base.jsonl",
             "k0map/kos/good",
             "k0map/kos/good.hashes.json"
+          ],
+          "expect_not": {
+            "decision": "reject",
+            "reasons": [
+              "not_distinguished"
+            ]
+          }
+        }
+      },
+      {
+        "id": "k0map.insertion_not_distinguished",
+        "purpose": "The candidate only inserts a comment after base line 9 (@@ -9,0 +10 @@, b = 0) and fixes nothing: no-var stays on candidate line 9. The b = 0 hunk does not end before line 9, so line 9 maps to [9, 9] and the oracle does not distinguish; read as ending before it, line 9 would map to [10, 10] and the unfixed candidate would merge.",
+        "cmd": "python -m gate.check decide /vec/k0map/cand/note /vec/k0map/kos/base.jsonl /vec/k0map/kos/keep /vec/k0map/kos/keep.hashes.json",
+        "stdin": "{\"control\":{\"kill_switch\":false,\"merge_paused\":false},\"unfinished_sentinels\":[]}",
+        "fixture": [
+          "k0map/cand/note",
+          "k0map/kos/base.jsonl",
+          "k0map/kos/keep",
+          "k0map/kos/keep.hashes.json"
+        ],
+        "expect": {
+          "decision": "reject",
+          "reasons": [
+            "not_distinguished"
+          ]
+        },
+        "changed": {
+          "description": "The candidate also turns line 9's var into let, the comment right after it (after's diff and count's runs): no-var is gone from the mapped range [9, 10].",
+          "cmd": "python -m gate.check decide /vec/k0map/cand/after /vec/k0map/kos/base.jsonl /vec/k0map/kos/count /vec/k0map/kos/count.hashes.json",
+          "stdin": "{\"control\":{\"kill_switch\":false,\"merge_paused\":false},\"unfinished_sentinels\":[]}",
+          "fixture": [
+            "k0map/cand/after",
+            "k0map/kos/base.jsonl",
+            "k0map/kos/count",
+            "k0map/kos/count.hashes.json"
           ],
           "expect_not": {
             "decision": "reject",
@@ -2259,6 +2439,41 @@
         }
       },
       {
+        "id": "k0map.base_nondeterministic",
+        "purpose": "The third base-tree run (line 3 of base_jitter.jsonl) differs by one space byte, same JSON value: the base-tree runs are not byte-identical in three runs either; comparing only the candidate-tree runs would merge it.",
+        "cmd": "python -m gate.check decide /vec/k0map/cand/split /vec/k0map/kos/base_jitter.jsonl /vec/k0map/kos/good /vec/k0map/kos/base_jitter.hashes.json",
+        "stdin": "{\"control\":{\"kill_switch\":false,\"merge_paused\":false},\"unfinished_sentinels\":[]}",
+        "fixture": [
+          "k0map/cand/split",
+          "k0map/kos/base_jitter.jsonl",
+          "k0map/kos/good",
+          "k0map/kos/base_jitter.hashes.json"
+        ],
+        "expect": {
+          "decision": "reject",
+          "reasons": [
+            "tool_nondeterministic"
+          ]
+        },
+        "changed": {
+          "description": "One byte: the extra space is gone (base.jsonl, the merge case).",
+          "cmd": "python -m gate.check decide /vec/k0map/cand/split /vec/k0map/kos/base.jsonl /vec/k0map/kos/good /vec/k0map/kos/good.hashes.json",
+          "stdin": "{\"control\":{\"kill_switch\":false,\"merge_paused\":false},\"unfinished_sentinels\":[]}",
+          "fixture": [
+            "k0map/cand/split",
+            "k0map/kos/base.jsonl",
+            "k0map/kos/good",
+            "k0map/kos/good.hashes.json"
+          ],
+          "expect_not": {
+            "decision": "reject",
+            "reasons": [
+              "tool_nondeterministic"
+            ]
+          }
+        }
+      },
+      {
         "id": "k0map.scope_violation",
         "purpose": "The diff also rewrites base line 10, outside the tool's fix range [3, 3]; finding.json claims [3, 10], but the range comes from the referee's own base run.",
         "cmd": "python -m gate.check decide /vec/k0map/cand/scope /vec/k0map/kos/base.jsonl /vec/k0map/kos/good /vec/k0map/kos/good.hashes.json",
@@ -2284,6 +2499,41 @@
             "k0map/kos/base.jsonl",
             "k0map/kos/good",
             "k0map/kos/good.hashes.json"
+          ],
+          "expect_not": {
+            "decision": "reject",
+            "reasons": [
+              "scope_violation"
+            ]
+          }
+        }
+      },
+      {
+        "id": "k0map.insertion_past_fix",
+        "purpose": "The diff fixes line 9 and inserts a comment after base line 10 (@@ -10,0 +11 @@): a b = 0 hunk's added line sits before base line a+1, here 11, past e+1 = 10 for the fix range [9, 9], so scope_violation. Taken as base line a (10), or allowed up to e+2, it would pass.",
+        "cmd": "python -m gate.check decide /vec/k0map/cand/past /vec/k0map/kos/base.jsonl /vec/k0map/kos/count /vec/k0map/kos/count.hashes.json",
+        "stdin": "{\"control\":{\"kill_switch\":false,\"merge_paused\":false},\"unfinished_sentinels\":[]}",
+        "fixture": [
+          "k0map/cand/past",
+          "k0map/kos/base.jsonl",
+          "k0map/kos/count",
+          "k0map/kos/count.hashes.json"
+        ],
+        "expect": {
+          "decision": "reject",
+          "reasons": [
+            "scope_violation"
+          ]
+        },
+        "changed": {
+          "description": "One line moved: the comment sits right after the fixed line, inside its hunk (after's diff), at base position 10 = e+1.",
+          "cmd": "python -m gate.check decide /vec/k0map/cand/after /vec/k0map/kos/base.jsonl /vec/k0map/kos/count /vec/k0map/kos/count.hashes.json",
+          "stdin": "{\"control\":{\"kill_switch\":false,\"merge_paused\":false},\"unfinished_sentinels\":[]}",
+          "fixture": [
+            "k0map/cand/after",
+            "k0map/kos/base.jsonl",
+            "k0map/kos/count",
+            "k0map/kos/count.hashes.json"
           ],
           "expect_not": {
             "decision": "reject",
@@ -2409,8 +2659,8 @@
   "refs": {
     "owner": "asama-0",
     "runner": "data",
-    "interface": "spec/tohum/29h-vektor-arayuzleri-mf8-13.md",
-    "source": "reconciled cases; every expected value given alike by two blind independent implementations (docs/eksik-kaydi.md E161)",
+    "interface": "spec/tohum/29i-vektor-arayuzleri-mf8-13-devam.md",
+    "source": "reconciled cases, every expected value given alike by two blind independent implementations (docs/eksik-kaydi.md E161); E240's later case gives the same values on A and on the workflow's B with one added line reporting `forced` (docs/eksik-kaydi.md E236-E240)",
     "cases": [
       {
         "id": "refs.revert_first_parent_tree",
@@ -2485,6 +2735,43 @@
             "ok": false,
             "refs": [],
             "writes": []
+          }
+        }
+      },
+      {
+        "id": "refs.update_never_forces",
+        "purpose": "An update of a brain/ branch is one PATCH whose body never asks for force: a forced update rewrites the branch's history, and brain/c/* branches have no non_fast_forward ruleset (01b); no force push (07).",
+        "cmd": "python -m target.write replay /vec/refs/api.json",
+        "stdin": "{\"op\":\"update\",\"repo\":\"example/toy\",\"ref\":\"refs/heads/brain/c/7\",\"sha\":\"a691694a90fe467145d6fcd9b058bc6829dee0dd\"}",
+        "fixture": [
+          "refs/api.json"
+        ],
+        "expect": {
+          "forced": false,
+          "ok": true,
+          "refs": [
+            "refs/heads/brain/c/7"
+          ],
+          "writes": [
+            "PATCH /repos/example/toy/git/refs/heads/brain/c/7"
+          ]
+        },
+        "changed": {
+          "description": "One field: the ref is refs/heads/brain/state.",
+          "cmd": "python -m target.write replay /vec/refs/api.json",
+          "stdin": "{\"op\":\"update\",\"repo\":\"example/toy\",\"ref\":\"refs/heads/brain/state\",\"sha\":\"a691694a90fe467145d6fcd9b058bc6829dee0dd\"}",
+          "fixture": [
+            "refs/api.json"
+          ],
+          "expect_not": {
+            "forced": false,
+            "ok": true,
+            "refs": [
+              "refs/heads/brain/c/7"
+            ],
+            "writes": [
+              "PATCH /repos/example/toy/git/refs/heads/brain/c/7"
+            ]
           }
         }
       },
@@ -2602,7 +2889,7 @@
     "owner": "asama-0",
     "runner": "data",
     "interface": "spec/tohum/29i-vektor-arayuzleri-mf8-13-devam.md",
-    "source": "reconciled cases; every expected value given alike by two blind independent implementations (docs/eksik-kaydi.md E161)",
+    "source": "reconciled cases, every expected value given alike by two blind independent implementations (docs/eksik-kaydi.md E161); the later cases of E238 give the same values on A and on the workflow's B, written before them (docs/eksik-kaydi.md E236-E240)",
     "cases": [
       {
         "id": "append.cycle_one_commit",
@@ -2695,6 +2982,68 @@
           "description": "One field: r3 as it was hashed (decision reject, three.jsonl).",
           "cmd": "python -m ledger.append cycle /vec/append/three.jsonl /vec/append/good.jsonl",
           "stdin": "{\"rows\":[{\"row_id\":\"r4\",\"ts\":\"2026-10-28T00:00:03Z\",\"part\":\"cost\",\"kind\":\"run\",\"payload\":{\"usd_micros\":1500},\"derivation\":\"tool\",\"trust\":\"observed\",\"snapshot_id\":\"s0\",\"evidence_refs\":[]}]}",
+          "fixture": [
+            "append/three.jsonl",
+            "append/good.jsonl"
+          ],
+          "expect_not": {
+            "commits": 0,
+            "hard_stop": true,
+            "ok": false,
+            "row_hashes": []
+          }
+        }
+      },
+      {
+        "id": "append.refuse_unparsable_ledger",
+        "purpose": "The ledger's last line was cut off mid-write: it is not a JSON object, so the file is not a valid chain (29a). Nothing is written and the referee stops hard: tamper evidence, not unusable input.",
+        "cmd": "python -m ledger.append cycle /vec/append/garbled.jsonl /vec/append/good.jsonl",
+        "stdin": "{\"rows\":[{\"row_id\":\"r3\",\"ts\":\"2026-10-28T00:00:02Z\",\"part\":\"events\",\"kind\":\"decision\",\"payload\":{\"decision\":\"merge\",\"pr\":12},\"derivation\":\"tool\",\"trust\":\"verified\",\"snapshot_id\":\"s0\",\"evidence_refs\":[]}]}",
+        "fixture": [
+          "append/garbled.jsonl",
+          "append/good.jsonl"
+        ],
+        "expect": {
+          "commits": 0,
+          "hard_stop": true,
+          "ok": false,
+          "row_hashes": []
+        },
+        "changed": {
+          "description": "One field: the ledger is the previous version, without the cut-off line.",
+          "cmd": "python -m ledger.append cycle /vec/append/good.jsonl /vec/append/good.jsonl",
+          "stdin": "{\"rows\":[{\"row_id\":\"r3\",\"ts\":\"2026-10-28T00:00:02Z\",\"part\":\"events\",\"kind\":\"decision\",\"payload\":{\"decision\":\"merge\",\"pr\":12},\"derivation\":\"tool\",\"trust\":\"verified\",\"snapshot_id\":\"s0\",\"evidence_refs\":[]}]}",
+          "fixture": [
+            "append/good.jsonl",
+            "append/good.jsonl"
+          ],
+          "expect_not": {
+            "commits": 0,
+            "hard_stop": true,
+            "ok": false,
+            "row_hashes": []
+          }
+        }
+      },
+      {
+        "id": "append.refuse_broken_chain_first",
+        "purpose": "The ledger's last row was edited after hashing (tampered.jsonl) and the request is unusable (a new row already carries prev_hash): step (1) comes before the request is read, so the referee stops hard; reading the request first would answer unusable input and miss the tamper.",
+        "cmd": "python -m ledger.append cycle /vec/append/tampered.jsonl /vec/append/good.jsonl",
+        "stdin": "{\"rows\":[{\"row_id\":\"r4\",\"ts\":\"2026-10-28T00:00:03Z\",\"part\":\"cost\",\"kind\":\"run\",\"payload\":{\"usd_micros\":1500},\"derivation\":\"tool\",\"trust\":\"observed\",\"snapshot_id\":\"s0\",\"evidence_refs\":[],\"prev_hash\":\"0000000000000000000000000000000000000000000000000000000000000000\"}]}",
+        "fixture": [
+          "append/tampered.jsonl",
+          "append/good.jsonl"
+        ],
+        "expect": {
+          "commits": 0,
+          "hard_stop": true,
+          "ok": false,
+          "row_hashes": []
+        },
+        "changed": {
+          "description": "One field: the ledger is r3 as hashed (three.jsonl); the chain holds and only the request is unusable.",
+          "cmd": "python -m ledger.append cycle /vec/append/three.jsonl /vec/append/good.jsonl",
+          "stdin": "{\"rows\":[{\"row_id\":\"r4\",\"ts\":\"2026-10-28T00:00:03Z\",\"part\":\"cost\",\"kind\":\"run\",\"payload\":{\"usd_micros\":1500},\"derivation\":\"tool\",\"trust\":\"observed\",\"snapshot_id\":\"s0\",\"evidence_refs\":[],\"prev_hash\":\"0000000000000000000000000000000000000000000000000000000000000000\"}]}",
           "fixture": [
             "append/three.jsonl",
             "append/good.jsonl"
@@ -2886,7 +3235,7 @@
   "root": {
     "owner": "asama-0",
     "runner": "data",
-    "interface": "spec/tohum/29i-vektor-arayuzleri-mf8-13-devam.md",
+    "interface": "spec/tohum/29j-vektor-arayuzleri-mf8-13-son.md",
     "source": "reconciled cases; every expected value given alike by two blind independent implementations (docs/eksik-kaydi.md E161)",
     "cases": [
       {
@@ -3148,8 +3497,8 @@
   "flaky": {
     "owner": "asama-0",
     "runner": "data",
-    "interface": "spec/tohum/29i-vektor-arayuzleri-mf8-13-devam.md",
-    "source": "reconciled cases; every expected value given alike by two blind independent implementations (docs/eksik-kaydi.md E161)",
+    "interface": "spec/tohum/29j-vektor-arayuzleri-mf8-13-son.md",
+    "source": "reconciled cases, every expected value given alike by two blind independent implementations (docs/eksik-kaydi.md E161); E239's later case gives the same values on A and on the workflow's B, written before it (docs/eksik-kaydi.md E236-E240)",
     "cases": [
       {
         "id": "flaky.green_first_run",
@@ -3192,6 +3541,31 @@
           "description": "One field: test/rate.test.js passes in the first run.",
           "cmd": "python -m gate.sentinel decide",
           "stdin": "{\"runs\":[{\"results\":[{\"id\":\"test/rate.test.js\",\"status\":\"pass\"},{\"id\":\"test/scale.test.js\",\"status\":\"pass\"}]}]}",
+          "fixture": [],
+          "expect_not": {
+            "flaky": [],
+            "red": [],
+            "revert": false,
+            "verdict": "rerun"
+          }
+        }
+      },
+      {
+        "id": "flaky.two_reruns_rerun",
+        "purpose": "test/rate.test.js fails in the first run and in two reruns: the third rerun is not in yet, so nothing is decided, named or reverted (29j's choice: 3/3 is the first run plus three reruns).",
+        "cmd": "python -m gate.sentinel decide",
+        "stdin": "{\"runs\":[{\"results\":[{\"id\":\"test/rate.test.js\",\"status\":\"fail\"},{\"id\":\"test/scale.test.js\",\"status\":\"pass\"}]},{\"results\":[{\"id\":\"test/rate.test.js\",\"status\":\"fail\"},{\"id\":\"test/scale.test.js\",\"status\":\"pass\"}]},{\"results\":[{\"id\":\"test/rate.test.js\",\"status\":\"fail\"},{\"id\":\"test/scale.test.js\",\"status\":\"pass\"}]}]}",
+        "fixture": [],
+        "expect": {
+          "flaky": [],
+          "red": [],
+          "revert": false,
+          "verdict": "rerun"
+        },
+        "changed": {
+          "description": "One field: the third rerun is in and rate fails again (red_three_reruns).",
+          "cmd": "python -m gate.sentinel decide",
+          "stdin": "{\"runs\":[{\"results\":[{\"id\":\"test/rate.test.js\",\"status\":\"fail\"},{\"id\":\"test/scale.test.js\",\"status\":\"pass\"}]},{\"results\":[{\"id\":\"test/rate.test.js\",\"status\":\"fail\"},{\"id\":\"test/scale.test.js\",\"status\":\"pass\"}]},{\"results\":[{\"id\":\"test/rate.test.js\",\"status\":\"fail\"},{\"id\":\"test/scale.test.js\",\"status\":\"pass\"}]},{\"results\":[{\"id\":\"test/rate.test.js\",\"status\":\"fail\"},{\"id\":\"test/scale.test.js\",\"status\":\"pass\"}]}]}",
           "fixture": [],
           "expect_not": {
             "flaky": [],
@@ -3268,7 +3642,7 @@
   "cause": {
     "owner": "asama-0",
     "runner": "data",
-    "interface": "spec/tohum/29i-vektor-arayuzleri-mf8-13-devam.md",
+    "interface": "spec/tohum/29j-vektor-arayuzleri-mf8-13-son.md",
     "source": "reconciled cases; every expected value given alike by two blind independent implementations (docs/eksik-kaydi.md E161)",
     "cases": [
       {

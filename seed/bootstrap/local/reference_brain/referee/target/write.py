@@ -1,10 +1,12 @@
 """MF9 target.write: the only write path to the target, GitHub REST and Git Data API, refs/heads/brain/** only
 (asama-0/14:36, tohum/26a:27,70-71).
 
-    python -m target.write replay <api.json>   (stdin: one write request)  -> {"ok", "refs", "writes", "commit"}
+    python -m target.write replay <api.json>   (stdin: one write request)
+        -> {"ok", "refs", "writes", "commit", "forced"}
 
 <api.json> is a recorded API {"METHOD /path": body} answered in process: a recorded call gets its body, any other
-call gets 404. Outputs come from the requests sent, never from the recorded responses.
+call gets 404. Outputs come from the requests sent, never from the recorded responses; `forced` says whether a
+PATCH of a ref asked for force: true (no force push, tohum/07:16; E240).
 """
 
 from __future__ import annotations
@@ -70,11 +72,14 @@ class FakeAPI:
         self.record = record
         self.writes: list[str] = []
         self.refs: list[str] = []
+        self.forced = False
 
     def call(self, method: str, path: str, body: dict[str, Any] | None = None) -> Any:
         key = f"{method} {path}"
         if method != "GET":
             self.writes.append(key)
+        if method == "PATCH" and "/git/refs/" in path and isinstance(body, dict) and body.get("force") is True:
+            self.forced = True
         if key not in self.record:
             raise NotFound(key)
         return self.record[key]
@@ -174,7 +179,8 @@ def _emit(obj: dict[str, Any], code: int) -> NoReturn:
 
 def main(argv: list[str]) -> None:
     if len(argv) != 2 or argv[0] != "replay":
-        _emit({"ok": False, "refs": [], "writes": [], "commit": None, "error": "usage: replay <api.json>"}, 2)
+        _emit({"ok": False, "refs": [], "writes": [], "commit": None, "forced": False,
+               "error": "usage: replay <api.json>"}, 2)
     api = None
     try:
         with open(argv[1], "rb") as fh:
@@ -185,12 +191,12 @@ def main(argv: list[str]) -> None:
         api = FakeAPI(record)
         commit = run(api, req)
     except Refused as exc:
-        _emit({"ok": False, "refs": [], "writes": [], "commit": None, "refused": str(exc)}, 1)
+        _emit({"ok": False, "refs": [], "writes": [], "commit": None, "forced": False, "refused": str(exc)}, 1)
     except (OSError, Unusable, NotFound) as exc:
         done = api if api is not None else FakeAPI({})
-        _emit({"ok": False, "refs": sorted(done.refs), "writes": done.writes, "commit": None,
+        _emit({"ok": False, "refs": sorted(done.refs), "writes": done.writes, "commit": None, "forced": done.forced,
                "error": f"{type(exc).__name__}: {exc}"}, 2)
-    _emit({"ok": True, "refs": sorted(api.refs), "writes": api.writes, "commit": commit}, 0)
+    _emit({"ok": True, "refs": sorted(api.refs), "writes": api.writes, "commit": commit, "forced": api.forced}, 0)
 
 
 if __name__ == "__main__":
