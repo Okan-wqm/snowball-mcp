@@ -67,7 +67,8 @@ them in a `python:3.12-slim` container with git installed. Four more checks go b
 - `python3 local/e2e.py [--rival]`, run from `seed/bootstrap` (needs git, Python 3.12 and Docker), runs the whole
   referee against real containers. The brain it pushes is `local/reference_brain/`: a real, tested implementation of
   micro-feature 1 (the hash-chained ledger) that claims nothing else. It also carries reference implementations of
-  micro-features 2-13, on which `tests/test_reference_brain.py` shows their seed vectors green, and red on every break
+  micro-features 2-16 and 18 (17, the loop workflow, has no vectors), on which `tests/test_reference_brain.py` shows
+  their seed vectors green, and red on every break
   each case is there to catch; the brain does not declare them done. With `--rival` the real rival runs through your
   own `claude` login, so it also needs Claude Code signed in; there is no API key anywhere while this system is for
   internal use.

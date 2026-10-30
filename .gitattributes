@@ -13,3 +13,8 @@ seed/bootstrap/vectors/k0map/** -text
 seed/bootstrap/vectors/refs/** -text
 seed/bootstrap/vectors/append/** -text
 seed/bootstrap/vectors/root/** -text
+# MF14-MF18's too: their ledgers are hash chains, status.block hashes the block's bytes, genesis hashes file bytes.
+seed/bootstrap/vectors/revert_drill/** -text
+seed/bootstrap/vectors/prompt/** -text
+seed/bootstrap/vectors/status/** -text
+seed/bootstrap/vectors/genesis/** -text

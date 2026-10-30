@@ -21,7 +21,7 @@ Kural: bundan sonra çekirdek ile alana özel parçalar karıştırılmaz; her �
 
 ## Alana özel (kod)
 
-Aşama 0'ın 18 mikro özelliği (`asama-0/14`), vektör grupları ve arayüzleri (`29d`, `29f`–`29j`), sır tarayıcı,
+Aşama 0'ın 18 mikro özelliği (`asama-0/14`), vektör grupları ve arayüzleri (`29d`, `29f`–`29j`, `29m`–`29o`), sır tarayıcı,
 profil, bağımlılık ve kilit denetimi, birim tarifi, kapı kuralları (`asama-0/08`), güvenlik kataloğu (`30`–`30f`),
 mimari ilkeler kataloğu (`31`–`31h`), hedef repo.
 

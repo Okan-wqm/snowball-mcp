@@ -261,12 +261,12 @@ class StageTableMatchesTheSpecTest(unittest.TestCase):
             self.assertEqual(group["owner"] == "asama-0", name in named, name)
 
 
-VECTOR_PAGES = ("29f", "29g", "29h", "29i", "29j")
+VECTOR_PAGES = ("29f", "29g", "29h", "29i", "29j", "29m", "29n", "29o")
 
 
 class VectorInterfacePagesTest(unittest.TestCase):
-    """`29f`-`29j` are what the Founder reads of the data groups (it never sees `vectors.json`): every group's
-    command and every case's purpose are there, the expected values are not (`29a`: the vectors are a floor)."""
+    """`29f`-`29j` and `29m`-`29o` are what the Founder reads of the data groups (it never sees `vectors.json`): every
+    group's command and every case's purpose are there, the expected values are not (`29a`: the vectors are a floor)."""
 
     SEED = json.loads((BOOT / "vectors" / "vectors.json").read_text(encoding="utf-8"))
     DATA = {n: g for n, g in SEED.items() if isinstance(g, dict) and g.get("runner") == vectors.DATA_RUNNER}
@@ -287,7 +287,8 @@ class VectorInterfacePagesTest(unittest.TestCase):
 
     def test_every_data_group_its_commands_and_every_case_are_on_its_page(self):
         self.assertEqual(set(self.DATA), {"secrets", "contained", "profile", "npmlock", "recipe", "diffguard",
-                                          "k0map", "refs", "append", "root", "flaky", "cause"})
+                                          "k0map", "refs", "append", "root", "flaky", "cause", "revert_drill", "prompt",
+                                          "status", "genesis"})
         for name, group in self.DATA.items():
             page = (ROOT / group["interface"]).read_text(encoding="utf-8")
             self.assertIn(f"`{name}`", page)
