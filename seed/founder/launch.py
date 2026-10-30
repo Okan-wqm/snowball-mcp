@@ -59,8 +59,34 @@ def run(*args: str, check: bool = True, timeout: float | None = None, stdin: byt
     return subprocess.run(args, check=check, timeout=timeout, input=stdin, capture_output=True)
 
 
+class GitHubUnavailable(RuntimeError):
+    """A read from GitHub still failed after the retries: the network or GitHub is down (E245)."""
+
+
+GH_RETRY_DELAYS_S = (10, 20, 40, 60, 60)  # about three minutes before a read counts as an outage
+GH_OUTAGE_WAIT_S = 300
+
+
+def gh_read(*args: str, timeout: float = 120) -> bytes:
+    """Stdout of a read-only `gh` call, retried on a failure or a timeout: one dropped connection must not end
+    the pilot (E245). Writes (`gh workflow run`) never come through here; repeating one is not harmless."""
+    last = ""
+    for delay in (*GH_RETRY_DELAYS_S, None):
+        try:
+            proc = run("gh", *args, check=False, timeout=timeout)
+            if proc.returncode == 0:
+                return proc.stdout
+            last = proc.stderr.decode(errors="replace").strip()[-300:]
+        except subprocess.TimeoutExpired:
+            last = "timed out"
+        if delay is None:
+            break
+        time.sleep(delay)
+    raise GitHubUnavailable(f"gh {' '.join(args[:2])}: {last}")
+
+
 def gh_json(*args: str):
-    return json.loads(run("gh", *args).stdout or b"null")
+    return json.loads(gh_read(*args) or b"null")
 
 
 def say(msg: str) -> None:
@@ -198,7 +224,7 @@ class Pilot:
         if not arts:
             return None
         newest = max(arts, key=lambda a: a["created_at"])
-        blob = run("gh", "api", f"repos/{self.referee}/actions/artifacts/{newest['id']}/zip").stdout
+        blob = gh_read("api", f"repos/{self.referee}/actions/artifacts/{newest['id']}/zip")
         with zipfile.ZipFile(io.BytesIO(blob)) as zf:
             for name in zf.namelist():
                 if "/" in name or "\\" in name or name.startswith("."):
@@ -221,24 +247,28 @@ class Pilot:
         since = datetime.now(timezone.utc)
         run("gh", "workflow", "run", REFEREE_WORKFLOW, "--repo", self.referee, "--ref", "main")
         run_id = None
-        for _ in range(30):
-            time.sleep(5)
-            runs = gh_json("run", "list", "--repo", self.referee, "--workflow", REFEREE_WORKFLOW,
-                           "--event", "workflow_dispatch", "--limit", "5", "--json", "databaseId,createdAt")
-            fresh = [r for r in runs if datetime.fromisoformat(r["createdAt"].replace("Z", "+00:00")) >= since]
-            if fresh:
-                run_id = str(min(fresh, key=lambda r: r["createdAt"])["databaseId"])
-                break
-        if run_id is None:
-            return {"id": None, "conclusion": "not_started", "url": ""}
-        deadline = time.monotonic() + timeout_s
-        while time.monotonic() < deadline:
-            view = gh_json("run", "view", run_id, "--repo", self.referee, "--json", "status,conclusion,url")
-            if view["status"] == "completed":
-                return {"id": run_id, "conclusion": view["conclusion"], "url": view["url"]}
-            if self.stopped():
-                break
-            time.sleep(30)
+        try:
+            for _ in range(30):
+                time.sleep(5)
+                runs = gh_json("run", "list", "--repo", self.referee, "--workflow", REFEREE_WORKFLOW,
+                               "--event", "workflow_dispatch", "--limit", "5", "--json", "databaseId,createdAt")
+                fresh = [r for r in runs if datetime.fromisoformat(r["createdAt"].replace("Z", "+00:00")) >= since]
+                if fresh:
+                    run_id = str(min(fresh, key=lambda r: r["createdAt"])["databaseId"])
+                    break
+            if run_id is None:
+                return {"id": None, "conclusion": "not_started", "url": ""}
+            deadline = time.monotonic() + timeout_s
+            while time.monotonic() < deadline:
+                view = gh_json("run", "view", run_id, "--repo", self.referee, "--json", "status,conclusion,url")
+                if view["status"] == "completed":
+                    return {"id": run_id, "conclusion": view["conclusion"], "url": view["url"]}
+                if self.stopped():
+                    break
+                time.sleep(30)
+        except GitHubUnavailable as exc:  # the run goes on at GitHub; the next start judges the head (E168, E245)
+            say(f"referee run {run_id or '?'}: GitHub unreachable while waiting ({exc})")
+            return {"id": run_id, "conclusion": "github_unavailable", "url": ""}
         return {"id": run_id, "conclusion": "still_running", "url": ""}
 
     # ---- the session --------------------------------------------------------------------------------------
@@ -313,6 +343,15 @@ class Pilot:
     def evaluated(verdict: dict | None, head: str) -> bool:
         return bool(verdict) and verdict.get("head") == head and (verdict.get("state") or {}).get("last_evaluated_sha") == head
 
+    def fetched(self) -> dict | None:
+        """The newest signed result, or None while GitHub cannot be read: a verdict that cannot be fetched now is
+        judged at the next start (E168, E245)."""
+        try:
+            return self.fetch_result()
+        except GitHubUnavailable as exc:
+            say(f"the referee's result could not be fetched: {exc}")
+            return None
+
     def judge(self, n: int, head: str, timeout_s: int) -> tuple[dict, dict | None, int]:
         """Dispatch the referee for head, and again while it leaves head unevaluated (the rival failed on its own
         side, or an outage): the Founder is never asked to fix what was not its fault (E166).
@@ -321,13 +360,13 @@ class Pilot:
         did not finish (STOP while waiting, a timeout, a run that never started), and an older head's verdict
         written as this head's is a false record (E241)."""
         dispatched = self.dispatch_referee(timeout_s)
-        verdict, retries = self.fetch_result(), 0
+        verdict, retries = self.fetched(), 0
         while (retries < MAX_REFEREE_RETRIES and verdict and verdict.get("head") == head
                and not self.evaluated(verdict, head) and not self.stopped()):
             retries += 1
             say(f"cycle {n}: {head[:7]} was not evaluated ({verdict.get('warnings')}); referee again, retry {retries}")
             dispatched = self.dispatch_referee(timeout_s)
-            verdict = self.fetch_result()
+            verdict = self.fetched()
         if not verdict or verdict.get("head") != head:
             say(f"cycle {n}: no verdict for {head[:7]} yet (referee run {dispatched['conclusion']}); "
                 "the next start judges it first (E168)")
@@ -448,14 +487,25 @@ def main(argv: list[str] | None = None) -> int:
         pilot.build()
     if not pilot.report.exists():
         pilot.write("# Snowball pilot günlüğü\n\nHer döngü: Kurucu oturumu → push → hakem → karar.\n")
+    run_cycles(pilot, args)
+    return 0
+
+
+def run_cycles(pilot: Pilot, args) -> None:
     for n in range(1, args.cycles + 1):
         if pilot.stopped():
             say("STOP file found; stopping")
             break
-        if not pilot.cycle(n, args):
+        try:
+            go_on = pilot.cycle(n, args)
+        except GitHubUnavailable as exc:  # an outage is waited out, not a reason to end the pilot (E245)
+            say(f"cycle {n}: GitHub unreachable ({exc}); waiting {GH_OUTAGE_WAIT_S // 60} min, then the next cycle "
+                "judges any unjudged push first (E168)")
+            pilot.wait(GH_OUTAGE_WAIT_S)
+            go_on = not pilot.stopped()
+        if not go_on:
             say("stopping (STOP file, two sessions without a push, a timed-out session, or no vector inputs)")
             break
-    return 0
 
 
 if __name__ == "__main__":

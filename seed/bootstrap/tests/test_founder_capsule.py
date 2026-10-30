@@ -384,6 +384,53 @@ class RefereeRetryTest(unittest.TestCase):  # E166: the loop never waits on the 
         self.assertNotIn("Hakemin kararı", "".join(report))
         self.assertIn("still_running", "".join(report))
 
+    def test_a_github_read_is_retried_and_a_lasting_failure_is_an_outage(self):  # E245
+        launch = load_launch()
+        ok = mock.Mock(returncode=0, stdout=b'{"sha": "x"}', stderr=b"")
+        down = mock.Mock(returncode=1, stdout=b"", stderr=b"error connecting to api.github.com")
+        with mock.patch.object(launch, "run", side_effect=[down, down, ok]) as run, \
+                mock.patch.object(launch.time, "sleep") as sleep:
+            self.assertEqual(launch.gh_json("api", "repos/o/b/commits/main"), {"sha": "x"})
+        self.assertEqual(run.call_count, 3)
+        self.assertEqual(sleep.call_count, 2)
+        with mock.patch.object(launch, "run", return_value=down) as run, mock.patch.object(launch.time, "sleep"):
+            with self.assertRaises(launch.GitHubUnavailable):
+                launch.gh_read("run", "view", "1")
+        self.assertEqual(run.call_count, len(launch.GH_RETRY_DELAYS_S) + 1)
+
+    def test_an_outage_is_waited_out_and_the_unjudged_push_judged_next(self):  # E245
+        launch = load_launch()
+        calls, waits = [], []
+
+        class Fake:
+            def stopped(self):
+                return False
+
+            def cycle(self, n, args):
+                calls.append(n)
+                if n == 1:
+                    raise launch.GitHubUnavailable("gh api: error connecting to api.github.com")
+                return False
+
+            def wait(self, seconds):
+                waits.append(seconds)
+
+        args = type("Args", (), dict(cycles=5))
+        with mock.patch.object(launch, "say"):
+            launch.run_cycles(Fake(), args)
+        self.assertEqual((calls, waits), ([1, 2], [launch.GH_OUTAGE_WAIT_S]))
+
+        class Unreadable(launch.Pilot):
+            def dispatch_referee(self, timeout_s):
+                return {"id": "1", "conclusion": "success", "url": "u"}
+
+            def fetch_result(self):
+                raise launch.GitHubUnavailable("gh api: timed out")
+
+        pilot = Unreadable(Path(tempfile.mkdtemp()), "o/brain", "o/referee", "target")
+        with mock.patch.object(launch, "say"):
+            self.assertEqual(pilot.judge(1, "b" * 40, 1)[1], None)
+
     def test_the_usage_limit_reset_is_read_from_the_cli(self):  # E243
         wait = load_launch().usage_limit_wait
         at = datetime(2026, 10, 30, 2, 1, 20, tzinfo=timezone.utc)
