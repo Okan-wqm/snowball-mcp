@@ -7,11 +7,20 @@ by execution (a test, a tool rerun, a measured harness), not by a model's opinio
 
 ## Status
 
-This repository currently holds the **specification** (version 2.2) a single founder agent builds
-from. No brain code exists yet. Four places (the sealed store opens at Stage 4) keep the player from
+This repository holds the **seed**: the specification (version 2.2), the bootstrap referee and the Founder's
+capsule (`seed/founder/`). A live pilot has run since 2026-10-29 on the operator's machine: an autonomous Founder
+(Claude, in a Docker capsule) builds the brain in
+[`snowball-rehearsal-brain`](https://github.com/Okan-wqm/snowball-rehearsal-brain), and the bootstrap referee in
+[`snowball-rehearsal-referee`](https://github.com/Okan-wqm/snowball-rehearsal-referee) judges every push on GitHub
+Actions, a rival model attacks it, and the signed verdict goes to Rekor. On 2026-10-30 all 18 Stage 0
+micro-features were accepted; the Stage 0 exit checks are being completed. Seed changes reach the live brain only
+through seed epochs. What happened, cycle by cycle: [`docs/pilot-gunlugu.md`](docs/pilot-gunlugu.md); every gap found
+and how it closed: [`docs/eksik-kaydi.md`](docs/eksik-kaydi.md); the domain-independent core:
+[`docs/ana-taslak.md`](docs/ana-taslak.md). Four places (the sealed store opens at Stage 4) keep the player from
 grading itself:
 
-- **Brain repository** (this one): player code, plus the referee's candidate code while Stage 0 builds it.
+- **Brain repository** (`snowball-rehearsal-brain` in the pilot): player code, plus the referee's candidate code while
+  Stage 0 builds it.
 - **Referee repository** (public while the system is for internal use and only public targets connect,
   since its run logs are public too; private before the first private target, the sealed store or a sale): the
   accepted referee. Only the operator writes it; referee changes are imported by the operator
@@ -25,8 +34,8 @@ the seed under `seed/bootstrap/` (see `spec/tohum/29b-onyukleme-hakemi.md`): a G
 workflow and a standard-library Python package that pulls each founder commit, runs its tests and
 the seed vectors in network-less containers, asks a rival model to refute it, and signs the verdict
 into Sigstore's Rekor log. It polls hourly; standard runners are free in a public repository, while a private one would spend about
-720 of the free plan's Actions minutes a month (the arithmetic is in `spec/tohum/25-kurulum-gunu.md`). It has not yet run on
-GitHub Actions; setup installs it.
+720 of the free plan's Actions minutes a month (the arithmetic is in `spec/tohum/25-kurulum-gunu.md`). In the pilot it runs
+on GitHub Actions in `snowball-rehearsal-referee`, dispatched by `seed/founder/launch.py` after each Founder push.
 
 Two rules run through everything:
 
