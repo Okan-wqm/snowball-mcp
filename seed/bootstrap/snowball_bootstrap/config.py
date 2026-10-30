@@ -4,7 +4,8 @@ Files, all in the referee repository and written only by the operator (`tohum/25
 - ``bootstrap.json``: what this bootstrap watches and how it runs.
 - ``control.json``: the kill switch.
 - ``policy.json``: the constitutional policy (only the keys this bootstrap reads are checked).
-- ``setup/summary.json``: the setup summary (seed commit and seed tree hash) and the seed epochs delivered since.
+- ``setup/summary.json``: the setup summary (seed commit and seed tree hash), the seed epochs delivered since and the
+  Stage 0 targets (`26c`, every key checked).
 """
 
 from __future__ import annotations
@@ -210,10 +211,25 @@ class SeedEpoch:
 
 
 @dataclass(frozen=True)
+class Target:
+    """A Stage 0 target (`25` 10a, `26c` ``targets[]``). ``identifiers`` are the names the generality check looks for
+    in `referee/` (`asama-0/10` #genellik); ``base_sha`` is None for a target with no commit yet (the toy is empty
+    until the exit's import, `25` 10)."""
+    id: str
+    repo: str
+    kind: str
+    base_sha: str | None
+    identifiers: tuple[str, ...]
+    excluded_paths: tuple[str, ...]
+    unit_candidates: tuple[str, ...]
+
+
+@dataclass(frozen=True)
 class Summary:
     seed_commit: str
     seed_tree_sha256: str
     epochs: tuple[SeedEpoch, ...] = ()
+    targets: tuple[Target, ...] | None = None  # None: the summary has no targets[] yet (E99, E284)
 
     @property
     def epoch(self) -> SeedEpoch | None:
@@ -222,6 +238,32 @@ class Summary:
 
 
 EPOCH_KEYS = frozenset({"commit", "spec_tohum_sha256", "seed_sha256", "bootstrap_sha256"})
+TARGET_KEYS = frozenset({"id", "repo", "kind", "base_sha", "identifiers", "excluded_paths", "unit_candidates"})
+TARGET_KINDS = ("toy", "copy")
+
+
+def _texts(row: dict[str, Any], key: str, where: str) -> tuple[str, ...]:
+    value = row[key]
+    if not isinstance(value, list) or not all(isinstance(v, str) and v.strip() for v in value):
+        raise ConfigError(f"{where}.{key} must be a list of non-empty strings")
+    return tuple(value)
+
+
+def target(row: Any, where: str) -> Target:
+    """One ``targets[]`` row, read strictly: exactly `26c`'s keys, so a misspelt key stops the run instead of leaving a
+    list unread (`26c`: a missing or unknown field fails closed)."""
+    if not isinstance(row, dict) or set(row) != TARGET_KEYS:
+        raise ConfigError(f"{where} must have exactly the keys {', '.join(sorted(TARGET_KEYS))} (`26c`)")
+    if not isinstance(row["id"], str) or not row["id"].strip():
+        raise ConfigError(f"{where}.id must be a non-empty string")
+    if not isinstance(row["repo"], str) or not REPO_RE.match(row["repo"]):
+        raise ConfigError(f"{where}.repo must be owner/name")
+    if row["kind"] not in TARGET_KINDS:
+        raise ConfigError(f"{where}.kind must be one of {', '.join(TARGET_KINDS)}")
+    if row["base_sha"] is not None and not (isinstance(row["base_sha"], str) and SHA_RE.match(row["base_sha"])):
+        raise ConfigError(f"{where}.base_sha must be a 40-character commit SHA, or null for a target with no commit")
+    return Target(row["id"], row["repo"], row["kind"], row["base_sha"], _texts(row, "identifiers", where),
+                  _texts(row, "excluded_paths", where), _texts(row, "unit_candidates", where))
 
 
 def _epoch(row: Any, where: str) -> SeedEpoch:
@@ -252,4 +294,11 @@ def load_summary(root: Path) -> Summary:
         if not isinstance(rows, list) or not rows:
             raise ConfigError(f"{where}.seed_epochs must be a non-empty list of seed epochs")
         epochs = tuple(_epoch(row, f"{where}.seed_epochs[{i}]") for i, row in enumerate(rows))
-    return Summary(seed_commit=seed_commit, seed_tree_sha256=seed_tree, epochs=epochs)
+    targets: tuple[Target, ...] | None = None
+    if "targets" in data:  # absent: the operator has not named the targets yet (`25` 10a)
+        if not isinstance(data["targets"], list):
+            raise ConfigError(f"{where}.targets must be a list of targets")
+        targets = tuple(target(row, f"{where}.targets[{i}]") for i, row in enumerate(data["targets"]))
+        if len({t.id for t in targets}) != len(targets):
+            raise ConfigError(f"{where}.targets: two targets have the same id")
+    return Summary(seed_commit=seed_commit, seed_tree_sha256=seed_tree, epochs=epochs, targets=targets)
