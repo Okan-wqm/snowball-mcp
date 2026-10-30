@@ -331,8 +331,9 @@ class Pilot:
                         for r in (verdict or {}).get("reasons", [])],
             "warnings": (verdict or {}).get("warnings", []), "referee_retries": retries,
             "rival_attempts": len(((verdict or {}).get("rival") or {}).get("attempts", [])),
-            "reproduced": sum(1 for p in (verdict or {}).get("reproducers") or [] if p.get("reproduced") and not p.get("tautological")),
-            # The referee's judgement, not the raw re-runs: an open claim's re-run is an observation, never a proof (E260).
+            # The referee's judgement, not the raw runs (E260): a run whose head also shows what the reproducer calls
+            # correct proves nothing, and an open claim's re-run is an observation, never a proof.
+            "reproduced": sum(1 for r in (verdict or {}).get("reasons") or [] if r.get("kind") == "refutation_reproduced"),
             "old_refutations_still_reproducing": sum(1 for r in (verdict or {}).get("reasons") or []
                                                      if r.get("kind") == "refutation_still_reproduces"),
             "ledger_new": kinds,

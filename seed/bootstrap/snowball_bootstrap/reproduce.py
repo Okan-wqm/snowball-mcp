@@ -1,22 +1,22 @@
 """Run reproducers in the same sandbox as the tests (`tohum/29`, "Rakibin kuralları").
 
 A refutation counts only when its reproducer, run by the referee, shows the symptom the rival named (exit
-code, a substring of stdout, a substring of stderr) because of the defect. The referee sees whether a text
-shows, never whether it is the defect's or what correct code prints: that polarity is the rival's to name,
-by both sides of the reproducer (`rival.SYMPTOM`, `rival.CORRECT`). Four rules make a showing symptom
-evidence (E06, E09, E260):
+code, a substring of stdout, a substring of stderr) because of the defect. Three rules make a showing
+symptom ``reproduced`` (E06, E09):
 
 - a run that timed out never shows anything;
-- a head that also shows what the reproducer calls correct (``contradicted``) proves nothing: the symptom is
-  then no evidence the code is not correct;
-- a symptom that shows alone is run again on an empty control tree (same image, prelude and working
+- a reproducer whose symptom shows is run again on an empty control tree (same image, prelude and working
   directory, no lock file to install); if it shows there too it is ``tautological`` and does not count: a
   missing module or a bare ``true`` would show it whatever the code did;
 - what the command printed is kept, as secret-scanned tails, so the rival and the operator can see it.
 
+The referee sees whether a text shows, never whether it is the defect's or what correct code prints: that
+polarity is the rival's to name, by both sides of the reproducer (`rival.SYMPTOM`, `rival.CORRECT`, E260).
+Whether the head also shows what the reproducer calls correct is kept beside ``reproduced`` as
+``contradicted``; what it means on which head is `decide`'s rule.
+
 The rival's own reproducers (``run_reproducers``) and those the signed state keeps (``run_state_reproducers``:
-proven defects and open claims, E07 E08) run the same way; which of them is evidence on which head is
-`decide`'s rule.
+proven defects and open claims, E07 E08) run the same way.
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ from typing import Any
 
 from . import canon, secretscan
 from .container import Runner, RunResult
-from .rival import MAX_REPRODUCERS, OBSERVABLES, SYMPTOM
+from .rival import MAX_REPRODUCERS, SYMPTOM, side_holds
 
 DOCKER_ERROR = 125  # `docker run` exits with this when docker itself failed, before the command ran
 TAIL_CHARS = 2000
@@ -46,32 +46,28 @@ def _tail(data: bytes) -> str:
 
 
 def _holds(rep: dict[str, Any], side: str, res: RunResult) -> bool:
-    """Every observable the reproducer names on one side (``expect``: the symptom, ``correct``: what correct code
-    shows) holds, and the run finished on its own. A side that names nothing never holds."""
+    """One side of the reproducer (``expect``: the symptom, ``correct``: what correct code shows) holds in what the
+    command printed (`rival.side_holds`), and the run finished on its own."""
     if res.timed_out:  # whatever a killed run printed is no answer
         return False
-    seen = {"exit": res.exit_code, "stdout_contains": res.stdout.decode("utf-8", "replace"),
-            "stderr_contains": res.stderr.decode("utf-8", "replace")}
-    checks = [seen[o] == want if o == "exit" else want in seen[o]
-              for o in OBSERVABLES if (want := rep.get(f"{side}_{o}")) is not None]
-    return bool(checks) and all(checks)
+    return side_holds(rep, side, {"exit": res.exit_code, "stdout_contains": res.stdout.decode("utf-8", "replace"),
+                                  "stderr_contains": res.stderr.decode("utf-8", "replace")})
 
 
 def run_one(runner: Runner, control: Runner, rep: dict[str, Any], timeout_s: int) -> dict[str, Any]:
     res = runner.run(rep["cmd"], timeout_s=timeout_s)
     shown = _holds(rep, "expect", res)
-    contradicted = _holds(rep, "correct", res)  # the head shows what the reproducer itself calls correct (E260)
     fault = res.exit_code == DOCKER_ERROR  # the sandbox failed: nothing was shown either way
     tautological = None
-    if shown and not contradicted and not fault:  # only a symptom that showed alone needs the empty tree
+    if shown and not fault:  # only a symptom that showed needs the empty tree to tell it from the defect
         empty = control.run(rep["cmd"], timeout_s=timeout_s)
         fault = empty.exit_code == DOCKER_ERROR
         tautological = _holds(rep, "expect", empty)
     return {
         "key": reproducer_key(rep),
-        "reproduced": shown and not contradicted and not fault and tautological is False,
+        "reproduced": shown and not fault and tautological is False,
         "shown": shown,
-        "contradicted": contradicted,
+        "contradicted": _holds(rep, "correct", res),  # the head shows what the reproducer itself calls correct
         "tautological": tautological,
         "runner_fault": fault,
         "exit": res.exit_code,

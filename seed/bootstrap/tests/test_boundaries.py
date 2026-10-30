@@ -224,11 +224,12 @@ class ValidatorBoundaryGaps(unittest.TestCase):
             validate_verdict(self.attempt(reproducer={"cmd": "x" * (rival.MAX_CMD_CHARS + 1), "expect_exit": 0,
                                                       "correct_exit": 1}), self.box)
         for side in ("expect_stdout_contains", "correct_stdout_contains"):  # each side's text has the same limit
-            other = "correct_exit" if side.startswith("expect") else "expect_exit"
-            validate_verdict(self.attempt(reproducer={"cmd": "x", side: "y" * rival.MAX_EXPECT_CHARS, other: 1}), self.box)
+            other = "correct_stdout_contains" if side.startswith("expect") else "expect_stdout_contains"
+            validate_verdict(self.attempt(reproducer={"cmd": "x", side: "y" * rival.MAX_EXPECT_CHARS, other: "z"}),
+                             self.box)
             with self.assertRaises(ValueError):
-                validate_verdict(self.attempt(reproducer={"cmd": "x", side: "y" * (rival.MAX_EXPECT_CHARS + 1), other: 1}),
-                                 self.box)
+                validate_verdict(self.attempt(reproducer={"cmd": "x", side: "y" * (rival.MAX_EXPECT_CHARS + 1),
+                                                          other: "z"}), self.box)
         kept = validate_verdict(self.attempt(claim="z" * (rival.MAX_CLAIM_CHARS + 50)), self.box)["attempts"][0]["claim"]
         self.assertEqual(len(kept), rival.MAX_CLAIM_CHARS)
 

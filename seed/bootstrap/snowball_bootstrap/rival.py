@@ -51,12 +51,29 @@ MAX_REPRODUCERS = 5
 # substring or a stderr substring. `expect_*` is the symptom, what the head under review shows because of the defect;
 # `correct_*` is what the same command shows once the code is correct. The referee sees only whether a text shows, never
 # which side it belongs to: the rival names both. This is the one list of the fields; the tool schema, the validator,
-# the runner (`reproduce`), the signed state and the reproducer's key read it. A reproducer the state kept from before
-# E260 has no `correct_*` and is read with its symptom alone, as it always was.
+# the runner (`reproduce`), the signed state and the reproducer's key read it, and `side_holds` is the one rule of when
+# a side shows. A reproducer the state kept from before E260 has no `correct_*` and is read with its symptom alone, as
+# it always was.
 OBSERVABLES = ("exit", "stdout_contains", "stderr_contains")
 SYMPTOM = tuple("expect_" + o for o in OBSERVABLES)
 CORRECT = tuple("correct_" + o for o in OBSERVABLES)
 REPRODUCER_FIELDS = ("cmd",) + SYMPTOM + CORRECT
+
+
+def side_holds(rep: dict[str, Any], side: str, seen: dict[str, Any]) -> bool:
+    """Every observable a reproducer names on one side (``expect``: the symptom, ``correct``: what correct code shows)
+    holds in what a command showed (``seen``, by observable: the exit code, the stdout text, the stderr text): the same
+    exit code, a text inside the stream. A side that names nothing never holds. The runner judges a head with it and
+    the validator one side against the other (`_least_shown`), so "one side follows from the other" is this rule too."""
+    checks = [seen[o] == want if o == "exit" else want in seen[o]
+              for o in OBSERVABLES if (want := rep.get(f"{side}_{o}")) is not None]
+    return bool(checks) and all(checks)
+
+
+def _least_shown(rep: dict[str, Any], side: str) -> dict[str, Any]:
+    """The least a command can show for one side to hold: that side's own exit code and texts, nothing else. The other
+    side holds here exactly when it holds wherever this side does (E260)."""
+    return {o: rep.get(f"{side}_{o}") if o == "exit" else rep.get(f"{side}_{o}") or "" for o in OBSERVABLES}
 
 PROTOCOL = """
 
@@ -74,8 +91,11 @@ Protocol for this review (bootstrap referee):
   correct_stderr_contains are what the same command prints once the code is correct. Name at least
   one of each; every one given on a side must hold for that side. A substring is matched exactly, as
   plain text.
-- The symptom must show because of the defect: it must not show if the code were correct, and the
-  correct side must not be part of it. Never write the output you expect from correct code as the
+- The symptom must show because of the defect: it must not show if the code were correct. The correct
+  side says what correct code shows instead, so it names at least one exit code or stream the symptom
+  names, and neither side may follow from the other: the correct side must not show wherever the
+  symptom shows (the same exit code, a text inside the symptom's), nor the symptom wherever the
+  correct side shows. Never write the output you expect from correct code as the
   symptom, the way a test's expectation is written: that output shows only once the defect is fixed.
   Write the command so that it exposes the wrong behaviour (print the wrong value and expect it, or
   assert the right value and expect the assertion's message). An exit code alone is weak: a missing
@@ -83,7 +103,8 @@ Protocol for this review (bootstrap referee):
   expect_stderr_contains or end the command with 2>&1 and match stdout; never send output to /dev/null.
 - A defect is proven only on the head under review: its symptom shows there, the correct side does not,
   and the symptom does not show again on an empty tree in the same container (if it does, it is
-  tautological and does not count). A run that times out never counts.
+  tautological and does not count). A run that times out never counts. Once proven, the defect blocks
+  every later head on which its symptom still shows, whatever else that head prints.
 - Refutations without a reproducer, or whose reproducer does not prove the defect, do not block: they
   are kept as open claims and shown to the next review. At most 5 attempts may carry a reproducer.
 - Hiding a defect is a defect. A test weakened, skipped or deleted, an expectation rewritten to match wrong
@@ -100,8 +121,10 @@ Protocol for this review (bootstrap referee):
   reproducer showed on the last head it ran on (observed, with that head). A reproducer that did not
   prove its claim on the head it was written for proves nothing on a later one: if it shows there, that
   head behaves the way it expects, a regression if it expects the symptom and a fix if it expects what
-  correct code prints. You may correct the reproducer of an open claim once: send an attempt with
-  open_claim set to that id. Every attempt is judged on the head under review.
+  correct code prints. An open claim is judged on the head under review only when you send it again:
+  an attempt with open_claim set to its id, its reproducer as listed or corrected. Any open claim may
+  be sent again; rewrite_allowed says only whether a corrected reproducer is kept for later reviews,
+  which happens once per claim. Every attempt is judged on the head under review.
 - Never write a secret-shaped string anywhere in your verdict (a token or key, or a credential name such
   as password or api_key followed by = or : and a value): the referee discards a verdict that holds one
   and your whole review is lost. When a reproducer needs such a string, build it at run time from parts,
@@ -197,9 +220,10 @@ TOOLS: list[dict[str, Any]] = [
                                 "description": "expect_exit, expect_stdout_contains, expect_stderr_contains: the "
                                                "symptom, what this head shows because of the defect, never what "
                                                "correct code prints. correct_exit, correct_stdout_contains, "
-                                               "correct_stderr_contains: what the same command shows once the "
-                                               "code is correct; not part of the symptom. Give one or more of "
-                                               "each; every one given on a side must hold for that side. "
+                                               "correct_stderr_contains: what the same command shows instead once "
+                                               "the code is correct, on at least one exit code or stream the "
+                                               "symptom names; neither side may follow from the other. Give one or "
+                                               "more of each; every one given on a side must hold for that side. "
                                                "Substrings are plain text. Leave out what you do not check; "
                                                "never send an empty string for it.",
                                 "properties": {
@@ -210,8 +234,9 @@ TOOLS: list[dict[str, Any]] = [
                                 "additionalProperties": False,
                             },
                             "open_claim": {"type": "string", "pattern": "^[0-9a-f]{12}$",
-                                           "description": "The id of an open claim whose reproducer this "
-                                                          "attempt corrects (once per claim)."},
+                                           "description": "The id of an open claim this attempt sends again, to "
+                                                          "be judged on the head under review; a corrected "
+                                                          "reproducer is kept once per claim."},
                         },
                         "required": ["claim", "evidence_refs"],
                         "additionalProperties": False,
@@ -386,13 +411,18 @@ def validate_verdict(raw: Any, box: ToolBox) -> dict[str, Any]:
             if all(clean_rep[name] is None for name in CORRECT):  # E260: the polarity is the rival's to name
                 raise ValueError("reproducer needs correct_exit, correct_stdout_contains or correct_stderr_contains: "
                                  "what the same command shows once the code is correct")
-            for observable in OBSERVABLES:
-                symptom, correct = clean_rep["expect_" + observable], clean_rep["correct_" + observable]
-                if symptom is not None and correct is not None and (
-                        correct == symptom if observable == "exit" else correct in symptom):
-                    raise ValueError(f"correct_{observable} is part of the symptom expect_{observable}; on the same "
-                                     "stream what correct code shows must differ from the symptom, what this head "
-                                     "shows because of the defect")
+            if not any(clean_rep["expect_" + o] is not None and clean_rep["correct_" + o] is not None
+                       for o in OBSERVABLES):
+                raise ValueError("the correct side names none of the symptom's observables: give what the same "
+                                 "command shows instead of the symptom on an exit code or stream the symptom names")
+            if side_holds(clean_rep, "correct", _least_shown(clean_rep, "expect")):
+                raise ValueError("the correct side shows wherever the symptom shows (the same exit code, a text "
+                                 "inside the symptom's), so no head could prove the defect: name what correct code "
+                                 "shows instead of the symptom")
+            if side_holds(clean_rep, "expect", _least_shown(clean_rep, "correct")):
+                raise ValueError("the symptom shows wherever the correct side shows (the same exit code, a text "
+                                 "inside the correct side's), so it would show on correct code: name what this head "
+                                 "shows because of the defect")
             item["reproducer"] = clean_rep
         claim_id = a.get("open_claim")
         if claim_id is not None:

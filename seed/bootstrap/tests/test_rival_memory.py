@@ -93,15 +93,15 @@ def unresolved(*reasons, cost=0):
 
 def ran(i, reproduced, rep=REP, tautological=None, **kw):
     r = {"attempt_index": i, "key": key_of(rep), "reproduced": reproduced, "shown": reproduced or bool(tautological),
-         "tautological": tautological, "runner_fault": False, "exit": 1, "timed_out": False,
+         "contradicted": False, "tautological": tautological, "runner_fault": False, "exit": 1, "timed_out": False,
          "stdout_tail": "out", "stderr_tail": "err"}
     r.update(kw)
     return r
 
 
 def state_ran(key, source, reproduced, **kw):
-    r = {"key": key, "source": source, "reproduced": reproduced, "shown": reproduced, "tautological": None,
-         "runner_fault": False, "exit": 1, "timed_out": False, "stdout_tail": "o", "stderr_tail": "e"}
+    r = {"key": key, "source": source, "reproduced": reproduced, "shown": reproduced, "contradicted": False,
+         "tautological": None, "runner_fault": False, "exit": 1, "timed_out": False, "stdout_tail": "o", "stderr_tail": "e"}
     r.update(kw)
     return r
 
@@ -189,13 +189,14 @@ class E06ReproducerContract(unittest.TestCase):
             (Path(tmp) / "referee" / "a.py").write_text("x = 1\n")
             box = rival.ToolBox(Path(tmp))
             got = rival.validate_verdict({"verdict": "refuted", "attempts": [
-                {"claim": "c", "evidence_refs": REFS, "reproducer": {"cmd": "python -m x", "expect_stderr_contains":
-                                                                      "ValueError: boom", "correct_exit": 0}}]}, box)
+                {"claim": "c", "evidence_refs": REFS, "reproducer": {"cmd": "python -m x", "expect_exit": 1,
+                                                                      "expect_stderr_contains": "ValueError: boom",
+                                                                      "correct_exit": 0}}]}, box)
             self.assertEqual(got["attempts"][0]["reproducer"]["expect_stderr_contains"], "ValueError: boom")
             with self.assertRaises(ValueError):
                 rival.validate_verdict({"verdict": "refuted", "attempts": [
-                    {"claim": "c", "evidence_refs": REFS, "reproducer": {"cmd": "x", "expect_stderr_contains": "",
-                                                                         "correct_exit": 0}}]},
+                    {"claim": "c", "evidence_refs": REFS, "reproducer": {"cmd": "x", "expect_exit": 1,
+                                                                         "expect_stderr_contains": "", "correct_exit": 0}}]},
                     box)
 
     def test_a_traceback_only_on_stderr_is_reproduced_and_both_tails_are_kept(self):
@@ -935,7 +936,10 @@ class E07OpenClaims(unittest.TestCase):
         # An open claim does not close the exit, it is listed; only what the seed cannot check yet does (E162).
         self.assertTrue(res["reasons"] and all(r["ref"].startswith("not_checked:") for r in res["reasons"]),
                         res["reasons"])
-        self.assertEqual(res["exit"]["open_claims"], [{"id": claim["id"], "claim": claim["claim"], "first_head": C}])
+        listed = res["exit"]["open_claims"]
+        self.assertEqual([{k: v for k, v in c.items() if k != "observed"} for c in listed],
+                         [{"id": claim["id"], "claim": claim["claim"], "first_head": C}])
+        self.assertEqual((listed[0]["observed"]["head"], listed[0]["observed"]["shown"]), (B, False))  # E260
 
 
 # ---------------------------------------------------------------- E08 proven defects are remembered

@@ -146,13 +146,18 @@ def _claim_id(text: str) -> str:
 
 def _keep_claim(claims: list[dict[str, Any]], attempt: dict[str, Any], result: dict[str, Any] | None,
                 head: str) -> None:
-    """A refutation nobody reproduced stays open (E07); naming an open claim corrects its reproducer, once."""
+    """A refutation no reproducer proved on the head it was made for stays open (E07). Naming an open claim sends it
+    again, to be judged on the head under review: its reproducer as kept says what it showed there, a different one
+    replaces it, once (E260: sending a claim again unchanged is no rewrite)."""
     target = attempt.get("open_claim")
     existing = next((c for c in claims if c["id"] == target), None) if target else None
     if existing is not None:
-        if not existing["rewritten"] and "reproducer" in attempt:
-            existing.update(reproducer=_reproducer(attempt["reproducer"]), observed=_observed(result, head),
-                            rewritten=True)
+        if "reproducer" in attempt:
+            rep = _reproducer(attempt["reproducer"])
+            if rep == _reproducer(existing["reproducer"]):
+                existing["observed"] = _observed(result, head)
+            elif not existing["rewritten"]:
+                existing.update(reproducer=rep, observed=_observed(result, head), rewritten=True)
         return
     claim_id = _claim_id(attempt["claim"])
     if any(c["id"] == claim_id for c in claims):
@@ -325,6 +330,9 @@ def decide(meta: dict[str, Any], run: dict[str, Any] | None, rival: dict[str, An
         for s in state_results:
             if s["source"] == "refutation":
                 entry = refutations.get(s["key"])
+                # A proven defect still reproduces while its symptom shows because of the code, whatever else the head
+                # prints: by the contract the symptom never shows on correct code, and what the reproducer calls
+                # correct is no proof the code is (E08; E260 left this rule as it was).
                 if entry is not None and s["reproduced"]:
                     entry["last_head"] = head
                     reasons.append(_reason("refutation_still_reproduces", ref=f"repro:{s['key']}", detail=entry["claim"]))
@@ -340,7 +348,9 @@ def decide(meta: dict[str, Any], run: dict[str, Any] | None, rival: dict[str, An
         by_index = {r["attempt_index"]: r for r in repro or []}
         for i, attempt in enumerate(attempts):
             result = by_index.get(i)
-            if result is not None and result["reproduced"]:
+            # Proof on the head it is judged on: the symptom shows because of the code, and the head does not show what
+            # the reproducer itself calls correct (E260); a head that shows both leaves the claim open.
+            if result is not None and result["reproduced"] and not result["contradicted"]:
                 key = reproducer_key(attempt["reproducer"])
                 if key not in reported:
                     reasons.append(_reason("refutation_reproduced", ref=f"repro:{key}", detail=attempt["claim"]))
@@ -426,8 +436,10 @@ def decide(meta: dict[str, Any], run: dict[str, Any] | None, rival: dict[str, An
         exit_block["brain_sha"] = head
     if kind == "exit":
         exit_block["repeat_events"] = state["repeat_events"]
-        exit_block["open_claims"] = [{"id": c["id"], "claim": c["claim"], "first_head": c["first_head"]}
-                                     for c in state["open_claims"]]
+        # Listed, never proven here (E260): no rival runs on an exit head, so the operator, who owns the exit's (B) part,
+        # reads what each claim's reproducer showed and on which head (`asama-0/10` #rakip).
+        exit_block["open_claims"] = [{"id": c["id"], "claim": c["claim"], "first_head": c["first_head"],
+                                      "observed": c["observed"]} for c in state["open_claims"]]
         if verdict == "rejected" and evaluate and meta.get("exit_request_sha256"):
             # `asama-0/10`, `26c`: the same bytes left in place are ignored in later code pushes (E97), so a request the
             # seed cannot accept yet (E162) never turns every later code push into `exit_request_not_alone`.
