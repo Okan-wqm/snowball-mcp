@@ -75,6 +75,7 @@ def _least_shown(rep: dict[str, Any], side: str) -> dict[str, Any]:
     side holds here exactly when it holds wherever this side does (E260)."""
     return {o: rep.get(f"{side}_{o}") if o == "exit" else rep.get(f"{side}_{o}") or "" for o in OBSERVABLES}
 
+
 PROTOCOL = """
 
 Protocol for this review (bootstrap referee):
