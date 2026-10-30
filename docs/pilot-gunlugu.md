@@ -139,6 +139,21 @@ Kurucu'nun kendi bildirdiği iki eksik (seed-018 `k0map`, seed-020 `refs`) bu te
 vektörlere uymak zorunda. Teslim hazırlığında satır sonu tuzağı yakalandı (E242). Sahip kararları partisi (E194, E195,
 E200–E202) incelemede altı bulgu aldı, düzeltiliyor; E173 metni Kurucu kendisi bulana kadar tutuluyor.
 
+## Tohum dönemi 2'den sonra (2026-10-30 03:52Z'den)
+
+İlk iki oturum hesabın kullanım sınırına takıldı (kota operatörün iş akışlarıyla ortak); başlatıcı onları boşta sayıp
+durdu. Düzeltildi (E243): sınıra takılan oturum kesintidir, başlatıcı sıfırlanmayı bekler.
+
+| # | Push | Hakem | Not |
+|---|---|---|---|
+| 1 | `b5bc718` MF8 ve MF9 `29h`/`29i` arayüzlerine | **accepted**: 150 vektör koşusu yeşil (`k0map` 38, `refs` 14 dahil), eksik grup uyarısı yok | Üç yeni bildirim: seed-022 (hash'i tutmayan `koş` dosyasının kuralları), seed-023 (ESLint çıktısını çalışma kaydına kimin çevirdiği yazılı değil; kaydın taşıyamadığı altı durum), seed-024 (geri almanın ebeveyni `onto`'nun başı olmalı) |
+| 2 | `1d5f540` MF10 `ledger.append` | **accepted** ilk denemede: modülsüz kırmızı, 172 vektör yeşil | seed-025, spec-026 |
+| 3 | `8ddb44d` MF11 `rekor.anchor` | **accepted** ilk denemede: modülsüz kırmızı, 188 vektör yeşil | spec-028: `asama-0/14` ile `26a` çağrı yönünde çelişiyor |
+
+**Sistem kendi boşluklarını buldu.** seed-024 kayıttaki E235'in, spec-028 E234'ün aynısıdır: ikisini de MF8–MF13
+vektör iş akışının gözden geçireni bulup kayda açık yazmıştı, Kurucu'ya hiçbiri söylenmedi (kayıt ona kapalı). Kurucu
+ikisini kendi kodunu yazarken buldu, kanıt testini ve tohum için taslak cümleyi verdi. MF7–MF11 ilk denemede kabul edildi.
+
 ## Pilotun tetiklediği düzeltmeler
 
 E148 (defter satırları push türünü bozuyordu), E149 (`main` mutasyonu hiç koşmuyordu), E152 (CRLF, `safe.directory`),
