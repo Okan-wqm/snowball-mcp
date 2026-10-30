@@ -19,10 +19,11 @@ bağımlılığa dayanıyor. Oracle doğrulama kapsamını bu kümeyle kurar.
 
 - **Harita ilk okuyucusuyla açılır.** Aşama 1'de etki kümesi etkilenen-test komutudur; düzeltme
   aracın `fix` aralığıyla sınırlı olduğu için bu yeterliliği nöbetçi ölçer. Harita adapter'ı ilk
-  `impact_miss` sinyaliyle (`17`) ya da silme içeren ilk sınıfla (K2) doğar ve ablasyonla kalır.
-- Etki kümesinde testi olmayan bir kenar kapsama boşluğudur. Silme, veri yolu (bir tabloya ya da
-  konuya yazım ya da okuma) ya da sözleşme ucu içeren değişikliklerde K2'den, diğerlerinde K5'ten
-  itibaren böyle bir değişiklik `blocked`'dır. Veri yolunun kenarı, yolun davranışını (yetki, kiracı
+  `impact_miss` sinyaliyle (`17`) ya da K2 silmeleriyle doğar ve ablasyonla kalır.
+- Etki kümesinde testi olmayan bir kenar kapsama boşluğudur ve değişikliği `blocked` yapar: birim
+  silen (`07a`), veri yolu (bir tabloya ya da konuya yazım ya da okuma) ya da sözleşme ucu içeren
+  değişiklikte her sınıfta, ötekilerde K5'ten itibaren. Bunlardan birini içermediğini kapının
+  gösteremediği değişiklik içeriyor sayılır. Veri yolunun kenarı, yolun davranışını (yetki, kiracı
   yalıtımı, idempotency dahil) sınayan testlerle testlidir: düzeltilen davranışınki dışındakiler
   tabanda ve adayda yeşil koşar; kum havuzunda koşamayan test (servis yok) test sayılmaz.
 - Graf aracı yalnız proje düzeyinde bağ veriyorsa etki kümesi proje düzeyindedir ve "kaba" olarak
@@ -35,7 +36,8 @@ bağımlılığa dayanıyor. Oracle doğrulama kapsamını bu kümeyle kurar.
 - Kalıcı veriyi silen, üzerine yazan ya da bilgi kaybettirerek dönüştüren bir yolu ekleyen ya da
   genişleten değişiklik (koşulsuz silme ya da güncelleme, bir yazımın süzgecini kaldırmak), hangi
   dosyada olursa olsun güvenlik yoludur: K6 canlı olana kadar `blocked`'dır, sonra yalnız K6
-  kapısından ve `07a`'nın veri şartlarıyla geçer. Şema değişikliği hiçbir sınıfta geçmez (Y3, `01b`).
+  kapısından ve `07a`'nın veri şartlarıyla geçer. Böyle bir yol eklemediğini ve genişletmediğini
+  kapının gösteremediği değişiklik de böyle sayılır.
 - Bağımlılık manifesti değişikliği K6'dır ve Y3 gereği `blocked`'dır; bağımlılık eklemek
   sistemin işi değildir.
 - Derleme grafiğinin dışında kalan dizinlerdeki değişiklik, o dizin için profilde bir araç zinciri

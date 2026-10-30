@@ -19,9 +19,9 @@ beyin değişikliği geri alınır, `blocked` yazılır ve yeni bir mikro görev
 çıkarır; hakem bunu kendi koşusuyla doğrular ve deftere yazar. Keşif tabandaki ve sonradan doğan
 tüm ihlalleri bulgu sayar; mevcut borç kapsam içindedir. Mandal kuralı: hiçbir merge bir aracın
 toplam ihlal sayısını artıramaz; kapı bunu kendisi yeniden sayar. Aynı mandal veri yazarlarına
-uygulanır: hiçbir merge, yazarı olan bir tabloya ya da konuya yeni bir yazar eklemez; mevcut ikinci
-yazarlar borçtur ve sayıları yalnız düşer. Yazarları sayamayan kapı, bir tabloya ya da konuya
-yazım ekleyen adayı geçirmez.
+uygulanır (yazar, `31`'deki anlamıyla modüldür): hiçbir merge, yazarı olan bir tabloya ya da konuya
+yeni bir yazar eklemez; mevcut ikinci yazarlar borçtur ve sayıları yalnız düşer. Kapı, yeni yazar
+eklemediğini gösteremediği adayı geçirmez.
 
 **Merge'ler sıralıdır.** Kapı bir anda tek bir adayı merge eder; bir sonraki aday, öncekinin
 nöbetçi koşusu bitince sıraya girer. Böylece her kırmızının tek bir şüphelisi vardır.

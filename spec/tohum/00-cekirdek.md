@@ -30,19 +30,19 @@ baseline ile karşılaştırılır ve aday olarak yayımlanır; hakem adayı çe
 Hiçbir ajan merge etmez: hakemin kapısı Aşama 1'den itibaren `brain/integration`'a, Aşama 6'dan
 itibaren `main`'e merge eder. `<state_root>` hedef reponun `brain/state` dalında yaşar; `main`'e
 hiçbir zaman girmez. **Geri dönüş her zaman vardır:** sistemin önerdiği her değişikliğin, en başta
-silmenin, adımdan önce var olan ve kanıtlanmış bir geri dönüş yolu vardır; bunun istisnası yoktur,
-sahibin onayı da istisna açmaz (`07a`).
+silmenin, geri dönüş yolu adımdan önce kanıtlanmıştır ve hiçbir sistem adımı onu sonradan kapatmaz;
+istisnası yoktur, sahibin onayı da açmaz (`07a`).
 
-**Y3 Güvenlik.** Üretime deploy yok, sır yok, gerçek veri yok, şema değişikliği yok (migration ya
-da şemayı türeten kod), feature flag yok, bağımlılık manifesti değişikliği yok. Hedefin verisine
-yalnız `koş`ta, migration'larından kurulmuş, gerçek kayıtsız test kopyasında dokunulur; oradaki
-migration şema değişikliği sayılmaz. Kill switch (`control.json`) her işte, her yazımda, her LLM
+**Y3 Güvenlik.** Üretime deploy yok, sır yok, gerçek veri yok, migration yok, veritabanı şemasını
+değiştiren kod yok, feature flag yok, bağımlılık manifesti değişikliği yok. Hedefin verisine yalnız
+`koş`ta, migration'larından kurulmuş, gerçek kayıtsız test kopyasında dokunulur; kopyayı kuran
+migration koşusu yasağa girmez. Kill switch (`control.json`) her işte, her yazımda, her LLM
 çağrısında ve her Kurucu oturumunun başında okunur. Bütçeler serttir; aşım temiz bir duruştur.
 
-**Y4 Canlılık.** Çağıranı olmayan mekanizma, okuyucusu olmayan memory, üreticisi olmayan rol
-yoktur. Testi olan ama canlı yolda olmayan kod aynı PR'da canlı yoldan çıkar; tanımı zincirde
-kalır. Okuyucular `27` tablosundadır. Bir dosya ancak okuyucusunun bir kararı değiştirebildiği
-aşamada açılır.
+**Y4 Canlılık.** Sistemde çağıranı olmayan mekanizma, okuyucusu olmayan memory, üreticisi olmayan
+rol yoktur. Sistemin testi olan ama canlı yolda olmayan kodu aynı PR'da canlı yoldan çıkar; tanımı
+zincirde kalır. Okuyucular `27` tablosundadır. Bir dosya ancak okuyucusunun bir kararı
+değiştirebildiği aşamada açılır.
 
 **Y5 Ölçülü büyüme.** Eklenen her organ harness'te bir sayıyı anlamlı biçimde oynatmak zorundadır
 (`19`). Oynatmayan organ SHADOW'da kalır, pencere içinde oynatmazsa emekli olur. "Lazım olacak"

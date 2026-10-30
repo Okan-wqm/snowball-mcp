@@ -19,7 +19,7 @@ Aşağıdaki sezgiler cevap değil, `decision` satırında tartılacak ağırlı
 | Mikroservis ve tutarlılık | Yerel işlemler yalıtımsız sagalara dönüşür | Saga çok karmaşıksa telafi yazmadan önce sınırı sorgula |
 | `immutability`, `ledger` ve silme hakkı | Yalnız ekleyen yapı unutamaz | Hash ve başvuru sakla; kişisel veri zincirin dışında kalır |
 | Şema uyumluluğu ve değişim hızı | Uyumluluk kapısı bazı değişiklikleri engeller | Kırmak yerine genişlet-daralt; daraltma adımı kayıtlı |
-| `flags` ve davranışın SSOT'si, `kiss` | Bayrak gizli ikinci davranış yaratır | Bayrak başına sahip ve son tarih; tam yayılımda kaldır (sistem bayrak eklemez, Y3) |
+| `flags` ve davranışın SSOT'si, `kiss` | Bayrak gizli ikinci davranış yaratır | Bayrak başına sahip ve son tarih; tam yayılımda kaldır (`07a`; sistem bayrak eklemez, Y3) |
 | `registry` ve `yagni` | Az çeşitte dolaylılık | Kaydı ikinci ya da üçüncü gerçek çeşitte, ya da çekirdekte çeşit adları belirince getir |
 | Katı ayrıştırma ve hoşgörülü okuma | Hoşgörü kusuru gizler, katılık zararsız eklemede kırılır | İhtiyacın olanda katı ol; bilinmeyen alanları yalnız açık bir politikayla yok say |
 | Tek pano ve ekip özerkliği | Merkezî panolar çürür, yerel olanlar ayrışır | Ortak anlam kuralları, yerel panolar |

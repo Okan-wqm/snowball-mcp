@@ -15,7 +15,7 @@ doğruluk özelliğidir. Başlangıç kümesi alan bağımsızdır:
 |---|---|---|
 | `lint` | K0 | Aracın kural kataloğu ihlal edilmez |
 | `type` | K1 | Program derlenir ve tip denetiminden geçer |
-| `dead-code` | K2 | Üretim yolunda çağıranı olmayan kod yoktur |
+| `dead-code` | K2 | Üretim yolunda çağıranı olmayan her birim bildirilmiştir; silinmesi `tohum/07a`'ya uyar |
 | `contract-parity` | K3 | Bir sözleşmenin iki ucu aynı şeyi kabul eder |
 | `schema-placement` | K4 | Kalıcı veri, reponun şema kurallarına göre doğru yerde durur |
 | `missing-await` | K5 | Asenkron sonuç beklenmeden kullanılmaz |
