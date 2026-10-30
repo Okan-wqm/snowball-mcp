@@ -1270,9 +1270,10 @@ def run_mutant(index: int, mutant: tuple[str, str, str, str, str] | None) -> tup
         shutil.copytree(ROOT / "spec", work / "spec", ignore=ignore)
         # The security ledger's test checks that every CI job a row names still exists (`30e`).
         shutil.copytree(ROOT / ".github" / "workflows", work / ".github" / "workflows", ignore=ignore)
-        # The exit table's test holds each unchecked condition to an open row of the gap register (E162).
-        (work / "docs").mkdir()
-        shutil.copy2(ROOT / "docs" / "eksik-kaydi.md", work / "docs" / "eksik-kaydi.md")
+        # The documents the tests read: the gap register (E162's exit table), the generated system map (E301) and the
+        # README; the whole folder, so the next document a test reads cannot be missing from the copy.
+        shutil.copytree(ROOT / "docs", work / "docs", ignore=ignore)
+        shutil.copy2(ROOT / "README.md", work / "README.md")
         if mutant is not None:
             _name, rel, old, new, _why = mutant
             target = work / rel
