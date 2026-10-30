@@ -8,6 +8,7 @@ import json
 import re
 import tempfile
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest import mock
 
@@ -217,6 +218,53 @@ class RefereeRetryTest(unittest.TestCase):  # E166: the loop never waits on the 
         self.assertNotIn("Hakemin kararı", "".join(report))
         self.assertIn("still_running", "".join(report))
 
+    def test_the_usage_limit_reset_is_read_from_the_cli(self):  # E243
+        wait = load_launch().usage_limit_wait
+        at = datetime(2026, 10, 30, 2, 1, 20, tzinfo=timezone.utc)
+        hit = {"api_error": "usage_limit_reached", "api_error_status": 429}
+        self.assertEqual(wait(dict(hit, final="You've hit your session limit · resets 3:50am (UTC)"), at),
+                         (3600 + 48 * 60 + 40) + 120)
+        self.assertEqual(wait(dict(hit, final="resets 1pm (UTC)"), at), 6 * 3600)  # capped
+        self.assertEqual(wait(dict(hit, final="resets 1:00am (UTC)"), at), 6 * 3600)  # tomorrow, capped
+        self.assertEqual(wait(dict(hit, final="limit reached"), at), 30 * 60)  # no reset named: the fallback
+        self.assertIsNone(wait({"api_error": None, "api_error_status": None, "final": "pushed MF1"}, at))
+
+    def test_a_session_stopped_by_the_usage_limit_is_an_outage_not_idle(self):  # E243
+        launch = load_launch()
+        head, waits = "a" * 40, []
+
+        class Fake(launch.Pilot):
+            def fetch_result(self):
+                return {"head": head, "verdict": "accepted", "state": {"last_evaluated_sha": head}}
+
+            def brain_head(self):
+                return head  # nothing pushed: the session could not work
+
+            def ledger_rows(self, sha):
+                return []
+
+            def session(self, *a):
+                return {"exit": 0, "minutes": 0.1, "api_error": "usage_limit_reached", "api_error_status": 429,
+                        "final": "You've hit your session limit · resets 3:50am (UTC)"}
+
+            def write(self, text):
+                pass
+
+            def wait(self, seconds):
+                waits.append(seconds)
+
+        pilot = Fake(Path(tempfile.mkdtemp()), "o/brain", "o/referee", "target")
+        pilot.idle, pilot.seed = 0, "s" * 40
+        args = type("Args", (), dict(model="m", max_turns=1, budget_usd=1, session_timeout=1, referee_timeout=1))
+        with mock.patch.object(launch, "say"):
+            self.assertTrue(pilot.cycle(1, args))
+            self.assertTrue(pilot.cycle(2, args))  # two limited sessions in a row do not stop the pilot
+        self.assertEqual(pilot.idle, 0)
+        self.assertEqual(len(waits), 2)
+        self.assertTrue(all(w > 0 for w in waits))
+        rows = [json.loads(line) for line in pilot.metrics.read_text(encoding="utf-8").splitlines()]
+        self.assertEqual([r["api_error"] for r in rows], ["usage_limit_reached"] * 2)
+
     def test_a_push_the_referee_never_judged_is_judged_before_the_next_session(self):  # E168
         self.assertEqual(self.catch_up(prior_head="a" * 40), ["referee", "session"])
         self.assertEqual(self.catch_up(prior_head="b" * 40), ["session"])  # already judged: straight to work
@@ -252,7 +300,8 @@ class TranscriptTest(unittest.TestCase):
                                "result": "pushed MF1"}]
         path.write_text("\n".join(e if isinstance(e, str) else json.dumps(e) for e in events), encoding="utf-8")
         self.assertEqual(launch.Pilot.transcript_summary(path),
-                         {"turns": 7, "cost_usd": 1.5, "subtype": "success", "final": "pushed MF1"})
+                         {"turns": 7, "cost_usd": 1.5, "subtype": "success", "final": "pushed MF1",
+                          "api_error": None, "api_error_status": None})
         self.assertEqual(launch.Pilot.transcript_summary(path.with_name("missing.jsonl")), {"transcript": "missing"})
 
 
