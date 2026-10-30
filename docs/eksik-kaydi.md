@@ -1354,6 +1354,14 @@ Testler `tests/test_rival_memory.py`'de, sınıf adları kalem numarasıyla. Dur
   `correct_side_ignored_at_run_time`, `reproducer_key_includes_the_correct_side`, `state_refuses_the_correct_side`,
   `pilot_counts_claim_observations`. Çapası yenilenen 3: `protocol_without_the_contract`,
   `stderr_expectation_ignored`, `tautology_not_checked`.
+- **Doğrulama.** Windows 407 test OK (18 atlandı; aynı makinede temel 22de0c6: 398); Linux
+  (`snowball_linux_test:git`, ağsız) 425 OK (3 atlandı). `decide`, `reproduce`, `rival`, `rival_mcp` ve `state`'in
+  bütün mutantları, durum yeniden üreticilerini bağlayan `cli`, iş akışı ve `launch` mutantlarıyla: 140/140 öldü
+  (dört kapsayıcı, her birinde önce yeşil baz koşu); 12 yeninin her biri bu satırın testlerinden biriyle. Yeni
+  testler temel kodda 9'dan 8'i kırmızı; yeşil kalan, iki taraflı kanıtlanmış kusurun düzeltmede kapanmasını
+  koruyan E08 testidir.
+- **Açık kalan.** Canlı hakem bu kod aktarılana kadar eski kuralla çalışır. Kurucu'nun f97 isteği (vektör
+  fikstürleri klonda) bu satırın işi değildir.
 
 ## Doğrulanmış sağlam taraflar
 Kapsayıcı bayrakları ve kırmızı kontroller; host'ta kabuk enjeksiyonu yok; `$GITHUB_OUTPUT`'a serbest

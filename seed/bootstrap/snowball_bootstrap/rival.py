@@ -390,9 +390,9 @@ def validate_verdict(raw: Any, box: ToolBox) -> dict[str, Any]:
                 symptom, correct = clean_rep["expect_" + observable], clean_rep["correct_" + observable]
                 if symptom is not None and correct is not None and (
                         correct == symptom if observable == "exit" else correct in symptom):
-                    raise ValueError(f"correct_{observable} is part of the symptom expect_{observable}, so the "
-                                     "symptom could never show without it: the symptom is what this head shows "
-                                     "because of the defect, the correct side what it shows once the code is correct")
+                    raise ValueError(f"correct_{observable} is part of the symptom expect_{observable}; on the same "
+                                     "stream what correct code shows must differ from the symptom, what this head "
+                                     "shows because of the defect")
             item["reproducer"] = clean_rep
         claim_id = a.get("open_claim")
         if claim_id is not None:
