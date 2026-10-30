@@ -1,0 +1,10 @@
+{
+"GET /app": {"id":424242,"slug":"example-writer"},
+"GET /installation/repositories": {"total_count":2,"repositories":[{"full_name":"example/toy"},{"full_name":"example/copy"}]},
+"GET /repos/example/toy/git/ref/heads/main": {"ref":"refs/heads/main","object":{"sha":"d72aefaeae8162032c73351e0cbf115d17253724","type":"commit"}},
+"GET /repos/example/toy/rules/branches/brain/state": [{"type":"deletion"},{"type":"non_fast_forward"}],
+"GET /repos/example/toy/rules/branches/brain/integration": [{"type":"deletion"},{"type":"non_fast_forward"},{"type":"pull_request","parameters":{"required_approving_review_count":0}},{"type":"required_status_checks","parameters":{"strict_required_status_checks_policy":true,"required_status_checks":[{"context":"snowball-gate","integration_id":424242}]}}],
+"GET /repos/example/copy/rules/branches/brain/state": [{"type":"deletion"},{"type":"non_fast_forward"}],
+"GET /repos/example/copy/rules/branches/brain/integration": [{"type":"deletion"},{"type":"non_fast_forward"},{"type":"pull_request","parameters":{"required_approving_review_count":0}},{"type":"required_status_checks","parameters":{"strict_required_status_checks_policy":true,"required_status_checks":[{"context":"snowball-gate","integration_id":424242}]}}],
+"GET /repos/example/copy/actions/permissions": {"enabled":false}
+}

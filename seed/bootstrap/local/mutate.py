@@ -619,7 +619,7 @@ MUTANTS = [
      "E161: a group's later cases never run"),
     ("data_groups_have_no_judge", f"{PKG}/vectors.py",
      'elif isinstance(group, dict) and group.get("runner") == DATA_RUNNER and _delivered(group, tree):', "elif False:",
-     "E161: MF2-MF13's groups stay vector_group_missing and never run"),
+     "E161: MF2-MF18's groups stay vector_group_missing and never run"),
     ("seed_vector_expect_drifts", "seed/bootstrap/vectors/vectors.json",
      chr(10) + " " * 12 + '"limit_key_unknown:cpu_seconds"', chr(10) + " " * 12 + '"limit_key_unknown:cpu_secondz"',
      "E161: an expected value of the seed changes and nothing notices"),
@@ -755,7 +755,8 @@ MUTANTS = [
      chr(10) + " " * 12 + "22,", "E161: an expected value of MF8's group changes and nothing notices"),
     ("seed_new_fixture_drifts", "seed/bootstrap/vectors/refs/api.json", '"base":{"ref":"main"',
      '"base":{"ref":"brain/x"', "E161: a fixture of MF9's group changes under its expected values"),
-    ("seed_secret_written_plain", "seed/bootstrap/vectors/vectors.json", "gh" + chr(92) * 2 + "u0070_", "ghp_",
+    ("seed_secret_written_plain", "seed/bootstrap/vectors/vectors.json",
+     "note" + chr(92) + '":' + chr(92) + '"gh' + chr(92) * 2 + "u0070_", "note" + chr(92) + '":' + chr(92) + '"ghp_',
      "append.refuse_secret_row's fake token sits raw in vectors.json, so tools that scan raw text withhold the file"),
     ("new_vector_page_drops_a_case", "spec/tohum/29j-vektor-arayuzleri-mf8-13-son.md", "`verify_entry_missing`",
      "`verify_missing`", "E161: an MF8-MF13 case's purpose is missing from the page the Founder reads"),
@@ -787,6 +788,36 @@ MUTANTS = [
      "E240: the seed expects a forced ref update (07: no force push) and nothing notices"),
     ("new_vector_page_29j_not_indexed", "spec/INDEX.md", "| `tohum/29j-vektor-arayuzleri-mf8-13-son.md` |",
      "| `tohum/29j-vektor-arayuzleri.md` |", "the page of MF11-MF13's groups is not in the index"),
+    # E161, MF14-MF18: their seed vectors, fixtures and interface pages (`29m`, `29n`)
+    ("seed_mf16_expect_drifts", "seed/bootstrap/vectors/vectors.json", chr(10) + " " * 10 + '"base_age_s": 21600,',
+     chr(10) + " " * 10 + '"base_age_s": 21601,', "E161: an expected value of MF16's group changes and nothing notices"),
+    ("seed_mf16_fixture_drifts", "seed/bootstrap/vectors/status/status.md", "Human touches: 2",
+     "Human touches: 3", "E161: the status block MF16's ledger records changes under its expected values"),
+    ("seed_mf18_fixture_drifts", "seed/bootstrap/vectors/genesis/api.json", '"integration_id":424242}]}}],' + chr(10)
+     + '"GET /repos/example/copy/rules/branches/brain/state"', '"integration_id":424243}]}}],' + chr(10)
+     + '"GET /repos/example/copy/rules/branches/brain/state"',
+     "E161: the recorded API under MF18's toy genesis row changes and nothing notices"),
+    ("seed_prompt_secret_written_plain", "seed/bootstrap/vectors/vectors.json",
+     "token = " + chr(92) * 3 + '"gh' + chr(92) * 2 + "u0070_", "token = " + chr(92) * 3 + '"ghp_',
+     "prompt.secret_never_sent's fake token sits raw in vectors.json, so tools that scan raw text withhold the file"),
+    ("new_vector_page_29m_drops_a_case", "spec/tohum/29m-vektor-arayuzleri-mf14-18.md", "`rewritten_commitment`",
+     "`rewritten`", "E161: an MF14 case's purpose is missing from the page the Founder reads"),
+    ("new_vector_page_29n_not_indexed", "spec/INDEX.md", "| `tohum/29n-vektor-arayuzleri-mf14-18-devam.md` |",
+     "| `tohum/29n-vektor-arayuzleri.md` |", "E161: the page of MF16's and MF18's groups is not in the index"),
+    ("new_vector_page_29n_shows_a_hash", "spec/tohum/29n-vektor-arayuzleri-mf14-18-devam.md",
+     "`{istek satırı: gövde}`'sinin RFC 8785'i)",
+     "`{istek satırı: gövde}`'sinin RFC 8785'i; örnek `32ced8a5f16ad188e177842b38f878462f28760f59682d4dd37ad4dd534ad318`)",
+     "E161: the page the Founder reads gives genesis.toy_genesis_row's facts hash, so the vector is no longer a floor"),
+    ("prompt_group_without_its_page", "seed/bootstrap/vectors/vectors.json",
+     '"interface": "spec/tohum/29m-vektor-arayuzleri-mf14-18.md",' + chr(10) + " " * 4 + '"source": "reconciled cases;'
+     + " every expected value given alike by two blind independent implementations (docs/eksik-kaydi.md E161)"
+     + '",' + chr(10) + " " * 4 + '"cases": [' + chr(10) + " " * 6 + "{" + chr(10) + " " * 8
+     + '"id": "prompt.prompt_from_typed_input"',
+     '"source": "reconciled cases;'
+     + " every expected value given alike by two blind independent implementations (docs/eksik-kaydi.md E161)"
+     + '",' + chr(10) + " " * 4 + '"cases": [' + chr(10) + " " * 6 + "{" + chr(10) + " " * 8
+     + '"id": "prompt.prompt_from_typed_input"',
+     "E161 review: MF15's group names no interface page, so no Founder's seed ever delivers it: never run, exit refused"),
     # ---- E244: the vectors' inputs in the Founder's capsule (f97), never their answers
     ("capsule_inputs_not_mounted", "seed/founder/launch.py", '*bind(self.inputs, "/vec", True),', "",
      "E244: the Founder cannot run a vector's command on the inputs the referee runs it on, as f97 reported"),

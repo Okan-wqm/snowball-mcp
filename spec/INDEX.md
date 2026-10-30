@@ -68,6 +68,8 @@ Okunma: sayfa ararken; görev seçmek için `tohum/00b-gorev-haritasi.md`
 | `tohum/29h-vektor-arayuzleri-mf8-13.md` | Vektör Arayüzleri: `k0map` | Aşama 0'ın MF8'ini yazarken; bu grubun komutu, girdisi ya da çıktısı değişirken |
 | `tohum/29i-vektor-arayuzleri-mf8-13-devam.md` | Vektör Arayüzleri, Devam: `refs`, `append` | Aşama 0'ın MF9 ve MF10'unu yazarken; bu grupların komutu, girdisi ya da çıktısı değişirken |
 | `tohum/29j-vektor-arayuzleri-mf8-13-son.md` | Vektör Arayüzleri, Devam: `root`, `flaky`, `cause` | Aşama 0'ın MF11, MF12 ve MF13'ünü yazarken; bu grupların komutu, girdisi ya da çıktısı değişirken |
+| `tohum/29m-vektor-arayuzleri-mf14-18.md` | Vektör Arayüzleri: `revert_drill`, `prompt` | Aşama 0'ın MF14 ve MF15'ini yazarken; bu grupların komutu, girdisi ya da çıktısı değişirken |
+| `tohum/29n-vektor-arayuzleri-mf14-18-devam.md` | Vektör Arayüzleri, Devam: `status`, `genesis` | Aşama 0'ın MF16 ve MF18'ini yazarken; bu grupların komutu, girdisi ya da çıktısı değişirken |
 | `tohum/30-guvenlik-katalogu.md` | Güvenlik Kataloğu: İlkeler, Zamanlama, Ortak Kader | her güvenlik işinde, her bildirimde ve yeni bir hedefe bağlanırken |
 | `tohum/30a-katalog-erisim-ve-enjeksiyon.md` | Güvenlik Kataloğu I: Erişim, Kimlik, Enjeksiyon, Web | kapsam bu sınıflara dokunduğunda; güvenlik avcısı, Kurucu ve Aşama 5'ten K6 işinde |
 | `tohum/30b-katalog-kiracilik-ve-graphql.md` | Güvenlik Kataloğu II: Çok Kiracılık, GraphQL, Kaynak Tüketimi | profil `tenancy.model` `none` değilse ya da hedef GraphQL sunuyorsa; güvenlik avcısı ve K6 işinde |
