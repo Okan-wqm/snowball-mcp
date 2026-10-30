@@ -235,8 +235,12 @@ class VectorInputsTest(unittest.TestCase):
         pilot = Fake(Path(tempfile.mkdtemp()), "o/brain", "o/referee", "target")
         pilot.idle, pilot.seed = 0, "s" * 40
         args = type("Args", (), dict(model="m", max_turns=1, budget_usd=1, session_timeout=1, referee_timeout=1))
-        with mock.patch.object(launch, "say"), mock.patch.object(launch, "run", gh):
-            go_on = pilot.cycle(1, args)
+        with mock.patch.object(launch, "say"), mock.patch.object(launch, "run", gh), \
+                mock.patch.object(launch.time, "sleep"):
+            try:
+                go_on = pilot.cycle(1, args)
+            except launch.GitHubUnavailable:
+                go_on = "outage"  # run_cycles waits it out (E245)
         return calls, go_on, "".join(report), pilot.work / "vec"
 
     def test_the_inputs_are_rebuilt_before_each_session_and_a_failed_fetch_stops_the_cycle(self):
@@ -245,8 +249,11 @@ class VectorInputsTest(unittest.TestCase):
         self.assertEqual((calls, go_on), (["refresh", "session"], True))
         self.assertEqual(json.loads((vec / "cases.json").read_text(encoding="utf-8")), [])
         calls, go_on, report, vec = self.run_cycle(lambda *a, **kw: subprocess.CompletedProcess(a, 1, b"", b"HTTP 502"))
-        self.assertEqual((calls, go_on), (["refresh"], False))  # no session on stale or missing inputs
+        self.assertEqual((calls, go_on), (["refresh"], "outage"))  # no session on stale inputs; the outage is waited out
         self.assertIn("HTTP 502", report)
+        broken = lambda *a, **kw: subprocess.CompletedProcess(a, 0, b"not a tarball", b"")  # noqa: E731
+        calls, go_on, report, vec = self.run_cycle(broken)
+        self.assertEqual((calls, go_on), (["refresh"], False))  # a broken tarball is a defect: stop
 
 
 class RefereeRetryTest(unittest.TestCase):  # E166: the loop never waits on the Founder for the rival's own failure

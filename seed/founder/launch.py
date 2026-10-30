@@ -236,11 +236,9 @@ class Pilot:
     def refresh_inputs(self) -> None:
         """Rebuild <work>/vec from the `vectors/` of the referee repo's main, with the referee's own projection
         (`vectors.founder_inputs`): what the referee will run next, never an older copy. Raises when it cannot."""
-        proc = run("gh", "api", f"repos/{self.referee}/tarball/main", check=False, timeout=600)
-        if proc.returncode != 0:
-            raise OSError(f"gh api repos/{self.referee}/tarball/main: {proc.stderr.decode(errors='replace')[-300:]}")
+        tarball = gh_read("api", f"repos/{self.referee}/tarball/main", timeout=600)  # an outage is waited out (E245)
         with tempfile.TemporaryDirectory(prefix="snowball-vec-") as tmp:
-            founder_inputs(referee_vectors(proc.stdout, Path(tmp)), self.inputs)
+            founder_inputs(referee_vectors(tarball, Path(tmp)), self.inputs)
 
     def dispatch_referee(self, timeout_s: int) -> dict:
         """Dispatch the referee on main and wait for that run; returns {id, conclusion, url}."""
@@ -387,6 +385,11 @@ class Pilot:
         rows_before = self.ledger_rows(before)
         try:
             self.refresh_inputs()
+        except GitHubUnavailable as exc:  # no session on stale inputs; the outage is waited out (E244, E245)
+            say(f"cycle {n}: the vector inputs could not be fetched ({exc}); no session")
+            self.write(f"\n## Döngü {n} — {stamp}\n\n- GitHub'a ulaşılamadı, vektör girdileri yenilenemedi, oturum yok: "
+                       f"`{str(exc).replace('`', chr(39))}`\n")
+            raise
         except (OSError, ValueError, KeyError, tarfile.TarError, subprocess.SubprocessError) as exc:
             # No session on stale or missing inputs: the Founder would test against vectors the referee no longer runs.
             say(f"cycle {n}: the vector inputs could not be rebuilt ({exc}); no session, stopping")
