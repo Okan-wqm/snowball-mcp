@@ -611,7 +611,9 @@ class ImageAndEntrypointTest(unittest.TestCase):
         for phrase in ("Belge ipucudur, gerçek koddur", "her iddiayı kodla, yapılandırmayla ve testle doğrula",
                        "bayat belge", "doğrulanmış haritandan üretilir", "kod değişince yeniden üretilir",
                        "hem hedefin hem kendi kodunun (beynin)", "bir insanın okuyup anlayacağı bir harita",
-                       "bayat çizim bayat belgedir"):  # E301, owner 2026-10-30
+                       "bayat çizim bayat belgedir",  # E301, owner 2026-10-30
+                       "Defterin de belgedir", "Eski bir satıra dayanmadan önce onu bugünkü kodla, testle ve hakemin son "
+                       "kararıyla doğrula"):  # E302, owner 2026-10-30
             self.assertIn(phrase, prompt)
 
     def test_the_founder_keeps_one_source_and_chooses_its_own_architecture(self):  # E205, owner 2026-10-29

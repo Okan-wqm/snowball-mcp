@@ -2,6 +2,10 @@
 
 Tarih: 2026-10-29 · Sahibi: operatör · Kapsam: Kurucu'yu çalıştırmak ve MCP sunucusunu yazmak dışındaki her şey
 
+**Bu kayıt ipucudur, gerçek değildir (sahip, 2026-10-30).** Her satır yazıldığı anda inanılanı söyler; kod değişmiş,
+açık kapanmış ya da tahmin yanlış çıkmış olabilir. Bir satıra dayanmadan önce kodla, testle ve son hakem sonucuyla
+doğrula; tutmayan satır bir bulgudur, yeni satırla düzeltilir.
+
 Bu kayıt, Kurucu başlamadan ve sistem büyümeden önce kapatılması gereken eksiklerin tek listesidir.
 Her satır bir kanıta dayanır; her düzeltme önce kırmızı bir testle, sonra kodla, sonra bir mutantla
 kapanır ve satırın durumu commit ile güncellenir. Satır silinmez; kapanınca durumu değişir.
@@ -267,6 +271,7 @@ hepsi yazılıdır. Bulguları birleştiren ve doğrulayan: Claude Code (Opus 5.
 | E292 | `done_mf` geri alınabiliyordu: `check_stage0` her 1..k önekini kabul eder; MF17 bittikten sonra 1..16 bildiren push `wiring` denetimini ve bitmiş MF'lerin vektör gruplarını kapatıyordu | K | — | E162 devamı şüpheci turu | kapandı · `gaps/stage0-exit-checks` · son kabul edilmiş commit'in `done_mf`'inde olup başın bildirmediği her MF `done_mf_withdrawn:MF<k>` (`asama-0/14`, `29a`: grup MF'nin `done_mf`'e girdiği push'tan sonra her push'ta koşar); kabul edilen `done_mf` böylece hiç küçülmez; `wiring` başın ya da son kabul edilmiş commit'in MF17'siyle başlar; 2 mutant · açık değil ama yazılı: bir tohum dönemi aşama tablosunu küçültürse operatörün yolu yok |
 | E300 | Sahip (2026-10-30): "her değişiklik kanıtlı ve testli tamamlandıktan sonra ilgili dokümanın ilgili bölümü güncellenmeli". Kanıt: snowball-mcp README'si bir günlük canlı pilottan sonra hâlâ "henüz kod yok" ve "Actions'ta hiç koşmadı" diyordu | K | — | sahip | kapandı · README durumu düzeltildi (`2fda88a`); CI'da `doc-with-change` işi: `main`'e her push'ta `seed/` altındaki davranış değişikliği (hakem, iş akışı, vektörler, aşama tablosu, kapsül, prova) hiçbir belge (`docs/`, `spec/`, README) değiştirmiyorsa kırmızı (`local/doc_with_change.py`, `DocWithChangeTest`); hangi bölümün ilgili olduğu operatörün işidir, makine tabanı tutar |
 | E301 | Sahip (2026-10-30): hem hedef repoda hem kendini geliştirirken ilgili reponun ve kendisinin haritası, ne nereye bağlı, insanların anlayacağı biçimde çizilmeli ve çizilenler güncel tutulmalı. Tohumda repo haritası var (`13`: kanıtlı kenarlar, `stale`) ve belge doğrulanmış haritadan üretilir (`15`), ama insanın okuyacağı çizim ve sistemin kendi haritası açık yazılı değil | K | — | sahip | açık · snowball-mcp için `docs/harita.md` koddan üretilir ve tazeliği testle bağlanır; Kurucu'ya hedef olarak (mekanizma onun): hedefin ve beynin haritası doğrulanmış haritadan insan okunur çizim olarak üretilir, kod değişince yeniden üretilir, bayat çizim bayat belgedir |
+| E302 | Sahip (2026-10-30): repodaki belgeler gibi kayıtlar da ipucudur, gerçek ya da güncel olmayabilir. Kurucu her oturuma defterini okuyarak başlıyordu ve eski satırları doğrulama kuralı yoktu; bu kaydın kendisi de ajan talimatlarında kaynak gibi geçiyordu | K | — | sahip | kapandı · Kurucu'nun talimatı: defter de belgedir, eski satıra dayanmadan önce bugünkü kod, test ve son hakem kararıyla doğrula, tutmayan bulgu olarak yeni satıra (`prompt.md`, test); bu kaydın başında aynı not; operatörün ajan talimatlarında kayıt ipucu olarak geçer |
 
 **Kararlar (2026-10-29).** Operatör, "karar" sütunu `evet` olan 19 kalemin hepsinde aşağıdaki
 önerileri onayladı ve `snowball-mcp`'nin de açık olmasını istedi. E46–E48 test denetçisinden sonra
