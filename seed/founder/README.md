@@ -38,13 +38,16 @@ dönemden aynen geçer. Aşağıda `S` `snowball-mcp`'nin teslim edilen commit'i
    `"kill_switch": true` yap ve `main`'e it: dönem boyunca hiçbir hakem koşusu başlamaz.
 3. **Hakem kopyası** (`25` madde 3): `S`'deki `seed/bootstrap/` → `bootstrap/`, `seed/bootstrap/vectors/` →
    `vectors/`, `spec/tohum/29-tohum-koltuklari.md` → `seats/`, `seed/bootstrap/workflow/bootstrap.yml` →
-   `.github/workflows/bootstrap.yml`. Henüz itme.
+   `.github/workflows/bootstrap.yml`. Henüz itme. Baytlar git blob'larıyla aynı olmalı (E242): hakem ve beyin
+   klonlarını `git -c core.autocrlf=false clone` ile al, her `archive`'ı `git -c core.autocrlf=false` ile koştur
+   (`core.autocrlf=true` olan Windows'ta `git archive` LF'yi CRLF'ye çevirir); itmeden önce
+   `git diff --cached | tr -cd '\r' | wc -c` 0 olmalı.
 4. **Beyne teslim.** Beynin güncel `main`'inin taze klonunda `spec/tohum/`'u (beyinde `seed/` varsa onu da) `S`'deki
    ile birebir değiştir, silinen dosyalar dahil; başka hiçbir yola dokunma (`spec/INDEX.md` ve `spec/asama-*`
    teslimle değişemez, E180). Tek commit, `main`'e hızlı ileri:
    ```
    git rm -r -q spec/tohum
-   git -C <snowball-mcp> archive S spec/tohum | tar -x -f -
+   git -C <snowball-mcp> -c core.autocrlf=false archive S spec/tohum | tar -x -f -
    git add -A spec/tohum
    git commit -m "Tohum dönemi: snowball-mcp S" && git push origin main
    ```
