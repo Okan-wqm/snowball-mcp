@@ -4,6 +4,21 @@ Tarih: 2026-10-29 · Sürüm: 2.2
 Okunma: bir sayfanın geçmişi aranırken
 Çapa: git geçmişi ve zincirdeki spec hash satırları
 
+- 2.2 (2026-10-30, E246, E247; sahibin kararları): her zaman geri dönüş, kimsenin işi silinmez, veri katmanının beş
+  korkuluğu. Y2: sistemin önerdiği her değişikliğin, en başta silmenin, adımdan önce kanıtlanmış bir geri dönüş yolu
+  vardır; istisnası yoktur, sahibin onayı da açmaz. Y3: gerçek veri ve şema değişikliği (migration ya da şemayı türeten
+  kod) yok; hedefin verisine yalnız `koş`ta, migration'larından kurulmuş gerçek kayıtsız test kopyasında dokunulur ve
+  oradaki migration şema değişikliği sayılmaz (E77'nin kararı yasada). Yeni `07a` tek kaynaktır: kullanılmıyor olmak
+  ölü olmak değildir; yarım ya da duraklatılmış iş silinmez, yalnız bildirilir (kanıt yükü silende); gerçekten aynı işi
+  yapan parçalar yürütmeyle kanıtlanıp birleştirilir, kopya sonraki adayda silinir; eskimiş artık yalnız sahibin
+  onayladığı adayla; emin olunamıyorsa tutulur; sahibin onayı beklenmez (Y8); veriyi yok eden adım ayrı adımlar ve
+  pencere, önce arşiv ya da yumuşak silme, geri yüklemesi denenmiş yedek ve yalnız test kopyasında kuru koşu taşır, geri
+  migration geri dönüş değildir; silme adayı türüne göre (kod, API yüzeyi, şema, veri) ne taşıdığını gösterir. `01`'in
+  "ölü kod sıfır"ı, `03` K2, `18a` `gross_delete_cap`'in K2 istisnası (kalktı) ve `31e`, `31g`, `31h`'nin kaldırmaları
+  `07a`'ya bağlandı. Şemayı değiştiren aday her sınıfta ret (`01b`); veriyi yok eden yol güvenlik yoludur, veri yolu ya
+  da sözleşme ucu içeren değişiklikte testsiz kenar K2'den `blocked`, yolun testleri tabanda ve adayda yeşil (`05`);
+  sözleşme değişikliği her ucu aynı değişiklikte ve sözleşme testiyle, ayrı dağıtılan tüketiciyi kırmadan, kırıcı biçim
+  yalnız sürümle (`23`); yazar mandalı, yeni ikinci yazar yok (`07`). `00b`, `INDEX`.
 - 2.2 (2026-10-30, E260, karar bekliyor: E07 (c)'yi değiştirir): yeniden üreticinin kutbu (`29` "Rakibin kuralları").
   Yeniden üretici iki taraflıdır: belirti (`expect_*`) ve onun yerine doğru kodun gösterdiği (`correct_*`); doğru
   taraf belirtinin bir gözlenenini adlandırır, taraflardan biri ötekinden çıkamaz. Kanıt yalnız yargılandığı başta:

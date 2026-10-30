@@ -19,9 +19,11 @@ lockfile'lar, `<state_root>/**`; profildeki `banned_constructs`; `policy.json`'d
 ifadeler; tavanın üstünde brüt silme; K6 canlı olana kadar güvenlik yolları, biçimleyici dahil.
 **Yalnız düz dosya:** sembolik bağ, alt modül, `../` içeren ya da depo kökü dışına çözülen yol
 reddedilir. Doküman yolları yalnız K8 sınıfının adaylarında geçer (`03`). Hariç yollar ve hedefin
-ajan yapılandırması (`14`) her sınıfta reddedilir. Benzer liste önyükleme hakeminin kabulünde beyin
-kodu değişikliklerine uygulanır (`29b`); `referee/` altındaki iş akışı dosyaları düz dosyadır ve
-canlıya yalnız operatör aktarımıyla girer.
+ajan yapılandırması (`14`) her sınıfta reddedilir. Şemayı değiştiren aday da her sınıfta reddedilir
+(Y3): şemanın değişmediğini kanıtlayamayan kapı, şemayı tanımlayan bir yola (migration, şemayı
+türeten tanım) dokunan adayı reddeder. Benzer liste önyükleme hakeminin kabulünde beyin kodu
+değişikliklerine uygulanır (`29b`); `referee/` altındaki iş akışı dosyaları düz dosyadır ve canlıya
+yalnız operatör aktarımıyla girer.
 
 **`brain/state` kuralları.** Yazarı yalnız hakemin `yaz` işidir; döngü başına tek doğrudan commit,
 PR yok. Ruleset: `deletion`, `non_fast_forward`; bypass aktörü yok. Hakem commit'ten önce şunları

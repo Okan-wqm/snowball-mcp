@@ -56,7 +56,7 @@ uyumluluğu (`schema-registry`) ve `contract-test`. Ödünleşim: monorepoda ato
 dağıtılmış tüketiciler kendi takvimleriyle güncellenir.
 
 **Eski bir modülün değiştirilmesi.** Önce `strangler` bir `acl` arkasında, eski ile yeni arasında
-farklılık testiyle; bitiş koşulu eskinin silinmesidir (K2).
+farklılık testiyle; bitiş koşulu eskinin silinmesidir (K2, `07a`).
 
 **Bağlamlar arası klon bildirimi.** Önce `dup-kind`; üretilmiş ve fikstür yollarını ayıkla; bağlama
 (`bounded-context`) ve birlikte değişmeye bak. Varsayılan: kanıtıyla açık iddia; birlikte değişme ya da

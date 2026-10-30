@@ -23,6 +23,7 @@ Okunma: sayfa ararken; görev seçmek için `tohum/00b-gorev-haritasi.md`
 | `tohum/05-etki-kumesi-ve-baglanti.md` | Etki Kümesi ve Bağlantı Kuralı | koda dokunmadan önce ve yeni organ tasarlarken |
 | `tohum/06-maliyet-merdiveni.md` | Maliyet Merdiveni ve Bütçe | bir yetenek harness'te geçtikten sonra ve her bütçe kararında |
 | `tohum/07-entegrasyon-dali-ve-geri-alma.md` | Entegrasyon Dalı, Nöbetçi, Geri Alma, Bulgu Kimliği | her döngü başında ve her merge'de |
+| `tohum/07a-geri-donus-ve-silme.md` | Geri Dönüş ve Silme: Kimsenin İşi Kaybolmaz | koda ya da veriye dokunan her adayda; silen, birleştiren ya da veriyi yok eden adayda baştan sona |
 | `tohum/08-sandbox-ve-durust-bildirim.md` | Sandbox ve Dürüst Bildirim (Y10) | her hakem işi tasarlanırken ve her ajan dispatch'inde |
 | `tohum/09-takim-kurma.md` | Takım Kurma Kuralları | takım kurarken ve ajan önerirken |
 | `tohum/09a-bagimsizlik.md` | Bağımsızlık, Donmuş Koltuklar, Şerit Yazarı | her dispatch'te ve her koltuk değişikliğinde |

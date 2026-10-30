@@ -46,7 +46,7 @@ kontrolün sonucudur.
 | Bağlamlar arası klon eşleşmesi | `dup-kind`, `dry`, `bounded-context` | Birlikte değişme geçmişi; farklılık testi |
 | Alan imzalarında üretici SDK tipleri | `acl`, `ports-adapters` | Import kuralı: dış tipler yalnız adaptörde |
 | Uzun süredir her ortamda sabit bayraklar | `flags`, `yagni` | Bayrak envanteri; ortamlar arası sabitlik tespiti |
-| Kullanımı izlenmeyen `@deprecated` | `evolve` | Kullanım sayısı; sıfırda kaldırma |
+| Kullanımı izlenmeyen `@deprecated` | `evolve` | Kullanım sayısı; sıfırda kaldırma (`07a`) |
 | Servisler arasında tekrarlanan yetki kuralı | `policy`, `ssot` | Envanter × koruma testi; politika birim testleri |
 | Farklı anlamda aynı telemetri metriği | `observability`, `svot` | Anlam kurallarına karşı ad lint'i |
 | Dokümanın andığı env, bayrak, uç ya da varsayılan kodda yok ya da farklı | `docs-derived`, `doc-drift` | Kod envanterleriyle iddia eşleme; çapa çözümleme |
