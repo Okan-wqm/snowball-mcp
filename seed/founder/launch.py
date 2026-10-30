@@ -69,6 +69,28 @@ def reason_owner(reason: dict) -> str:
     return "rival" if item["kind"] in ("rival_unresolved", "rival_missing") else "referee"
 
 
+LIMIT_RESET_RE = re.compile(r"resets\s+(\d{1,2})(?::(\d{2}))?\s*([ap]m)\s*\(UTC\)", re.IGNORECASE)
+LIMIT_FALLBACK_S = 30 * 60
+LIMIT_MAX_WAIT_S = 6 * 3600
+
+
+def usage_limit_wait(sess: dict, at: datetime) -> int | None:
+    """Seconds to wait when the session could not work because the account's usage limit was reached (the CLI's
+    closing result: api_error_status 429, api_error usage_limit_reached), else None. Such a session is an outage,
+    not a Founder that chose not to push (E243): the wait runs to the reset the CLI names, plus two minutes."""
+    if sess.get("api_error") != "usage_limit_reached" and sess.get("api_error_status") != 429:
+        return None
+    m = LIMIT_RESET_RE.search(str(sess.get("final") or ""))
+    if not m:
+        return LIMIT_FALLBACK_S
+    hour = int(m.group(1)) % 12 + (12 if m.group(3).lower() == "pm" else 0)
+    reset = at.replace(hour=hour, minute=int(m.group(2) or 0), second=0, microsecond=0)
+    wait = (reset - at).total_seconds()
+    if wait <= 0:
+        wait += 24 * 3600
+    return int(min(wait + 120, LIMIT_MAX_WAIT_S))
+
+
 def write_build_context(ctx: Path) -> None:
     """Copy exactly the files the image needs, with LF line ends: a Windows checkout may hand over CRLF, and a CR
     after the entrypoint's shebang makes the container fail before it starts (E152)."""
@@ -245,7 +267,8 @@ class Pilot:
         if last is None:
             return {"transcript": "no result event"}
         return {"turns": last.get("num_turns"), "cost_usd": last.get("total_cost_usd"),
-                "subtype": last.get("subtype"), "final": str(last.get("result") or "")[:1500]}
+                "subtype": last.get("subtype"), "final": str(last.get("result") or "")[:1500],
+                "api_error": last.get("api_error"), "api_error_status": last.get("api_error_status")}
 
     # ---- the report ---------------------------------------------------------------------------------------
     def write(self, text: str) -> None:
@@ -262,7 +285,11 @@ class Pilot:
 
     def judge(self, n: int, head: str, timeout_s: int) -> tuple[dict, dict | None, int]:
         """Dispatch the referee for head, and again while it leaves head unevaluated (the rival failed on its own
-        side, or an outage): the Founder is never asked to fix what was not its fault (E166)."""
+        side, or an outage): the Founder is never asked to fix what was not its fault (E166).
+
+        The verdict returned is head's or None: the newest signed result belongs to another head whenever the run
+        did not finish (STOP while waiting, a timeout, a run that never started), and an older head's verdict
+        written as this head's is a false record (E241)."""
         dispatched = self.dispatch_referee(timeout_s)
         verdict, retries = self.fetch_result(), 0
         while (retries < MAX_REFEREE_RETRIES and verdict and verdict.get("head") == head
@@ -271,6 +298,10 @@ class Pilot:
             say(f"cycle {n}: {head[:7]} was not evaluated ({verdict.get('warnings')}); referee again, retry {retries}")
             dispatched = self.dispatch_referee(timeout_s)
             verdict = self.fetch_result()
+        if not verdict or verdict.get("head") != head:
+            say(f"cycle {n}: no verdict for {head[:7]} yet (referee run {dispatched['conclusion']}); "
+                "the next start judges it first (E168)")
+            return dispatched, None, retries
         return dispatched, verdict, retries
 
     def cycle(self, n: int, args) -> bool:
@@ -336,13 +367,24 @@ class Pilot:
             "reproduced": sum(1 for r in (verdict or {}).get("reasons") or [] if r.get("kind") == "refutation_reproduced"),
             "old_refutations_still_reproducing": sum(1 for r in (verdict or {}).get("reasons") or []
                                                      if r.get("kind") == "refutation_still_reproduces"),
-            "ledger_new": kinds,
+            "ledger_new": kinds, "api_error": sess.get("api_error"),
             "reports_new": [r.get("payload", {}).get("summary", "")[:120] for r in new_rows
                             if r.get("kind") in ("seed_issue", "blocked", "missing_capability")],
         })
         say(f"cycle {n}: done, verdict {(verdict or {}).get('verdict', '-')}")
+        limit_wait = usage_limit_wait(sess, datetime.now(timezone.utc))
+        if limit_wait is not None and after == before:  # it could not work: an outage, not an idle session (E243)
+            say(f"cycle {n}: the session hit the account's usage limit; waiting {limit_wait // 60} min for the reset")
+            self.wait(limit_wait)
+            return not self.stopped()
         self.idle = self.idle + 1 if after == before else 0
         return not (self.stopped() or self.idle >= 2 or sess.get("exit") == -1)
+
+    def wait(self, seconds: int) -> None:
+        """Sleep, waking each minute to honour STOP."""
+        deadline = time.monotonic() + seconds
+        while time.monotonic() < deadline and not self.stopped():
+            time.sleep(min(60, max(0.0, deadline - time.monotonic())))
 
 
 def main(argv: list[str] | None = None) -> int:
