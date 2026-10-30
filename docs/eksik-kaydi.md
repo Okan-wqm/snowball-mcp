@@ -235,6 +235,8 @@ hepsi yazılıdır. Bulguları birleştiren ve doğrulayan: Claude Code (Opus 5.
 | E243 | Başlatıcı "oturum çalışamadı" ile "Kurucu push etmedi"yi ayırmıyordu: hesabın kullanım sınırı (CLI'nin kapanış sonucu `api_error_status: 429`, `api_error: usage_limit_reached`) oturumu durdurunca push'suz oturum boşta sayıldı ve iki tanesi pilotu durdurdu. Canlıda oldu: tohum dönemi 2'den sonra döngü 1 (49 tur, iş push edilmeden kayboldu) ve döngü 2 (1 tur, 0,8 s); kota operatörün iş akışlarıyla ortak | K | — | pilot, tohum dönemi 2'den sonraki koşu | kapandı · `usage_limit_wait`: CLI'nin söylediği sıfırlanmaya kadar (+2 dk, en çok 6 sa; sıfırlanma yazılı değilse 30 dk) bekler, boşta sayacına dokunmaz, ölçüme `api_error`; iki test, mutantlar `usage_limit_counted_as_idle`, `usage_limit_reset_ignored`. Açık: kota Kurucu, rakip ve operatörün ajanları arasında ortak; operatör pilot koşarken büyük iş akışlarını sınırlar |
 | E244 | Kurucu vektörlerin girdilerini göremiyordu: `29f`–`29j` komutları `/vec/...` fikstürleriyle verir ve fikstürleri çapa sayar, ama kapsülde `/vec` yoktu. Kurucu bir vakayı hakemin koştuğu girdide koşturamıyor, sayfasıyla çelişen bir vakayı kanıtlayamıyordu; bir kez göremediği bir fikstüre uymak için açık geçen (fail-open) bir istisna yazdı | K | evet | **Kurucu raporu** f97; ajan tartışması: "girdi evet, cevap asla" | `gaps/fixtures-in-capsule`'da hazır, birleştirme bekliyor · `vectors.founder_inputs`: `fixtures`'ın dosyaları ve `cases.json` (her veri vakasının `id`, `purpose`, `cmd`, `stdin`, `fixture`, `changed.{description, cmd, stdin, fixture}`; `expect`, `expect_not` ve onlardan hesaplanan hiçbir şey yok); kendi girdisinin taşımadığı bir cevabı taşıyan fikstürde hiçbir şey yazmadan reddeder. Başlatıcı her oturumdan önce hakem reposunun `main` tarball'ından yalnız `vectors/`'ü açar (`filter="data"`), `<work>/vec`'i o fonksiyonla kurar, `/vec`'e salt okunur bağlar; alınamazsa oturum açılmaz. Prompt kuralları söyler · **sınır**: vektörler artık bir uygulamayı arama tablosundan ayırmaz; engeller rakibin taze girdili çürütmeleri ve prompt; özel durumlanmış girdiyi adlandıran çürütmeler ölçülür |
 | E245 | Başlatıcının GitHub okumaları tek denemeydi: makinenin bağlantısı kesik kesik giderken hakem koşusunu yoklayan bir `gh run view` hata verdi ve `CalledProcessError` bütün pilotu durdurdu (2026-10-30 08:45Z, döngü 7, MF15 hakemdeyken); hakem koşusu GitHub'da sürdü, başlatıcı yoktu | K | — | pilot, döngü 7 | kapandı · salt okunur `gh` çağrıları `gh_read` ile yeniden denenir (10/20/40/60/60 s), sonra `GitHubUnavailable`; yoklama bunu `github_unavailable` sonucu, sonuç indirme `None` (başın kararı sonraki başlangıçta, E168), döngü arası kesinti 5 dk beklenir; yazma (`gh workflow run`) yeniden denenmez; iki test, mutantlar `github_read_never_retried`, `github_outage_ends_the_pilot`, `unfetchable_result_crashes_the_cycle` |
+| E246 | Sahip: biri işe yaramayan bir şeye başlayıp duraklatmış olabilir, Snowball onu silmemeli; gerçekten aynı işi yapan parçalar birleştirilip kopyalar silinebilir, ama geliştirilen bir şey silinmemeli; her zaman geri dönüş imkânı olmalı. Tohum tersini planlıyordu: `01:50` "ölü kod sıfır", `03:16` K2 silmeleri, `18a:44` K2 silmelerini brüt silme tavanından muaf tutuyordu, K2'de yargıç araçtır (`10:54`) ve niyet savunması yalnız paneldedir (`04a:43-45`); `31e:24` Y4'ü hedefin koduna uyguluyordu; `asama-1/13b:18` çağıranı olmayan her kodu doğruluk ihlali sayıyordu. Hedefte yalnız testlerin import ettiği 61 dosyanın 43'ü son 90 günde değişmişti | K | evet | sahip (2026-10-30); salt okunur denetim, araştırma, şüpheci turu | onaylandı · dal `gaps/wip-and-data-guardrails` hazır, birleştirme ve tohum dönemi bekliyor · Y2: geri dönüş adımdan önce kanıtlı ve hiçbir sistem adımı onu sonradan kapatmaz, istisnasız (sahibin onayı da açmaz); Y4 sistemin kendisi içindir; `07a` tek kaynak (hedefin kodu, dokümanı ve verisi): kullanılmıyor olmak ölü olmak değildir, hangi sınıftan gelirse gelsin birim kaldırmak silmedir, yarım iş (planı ve tasarımı dahil) silinmez yalnız bildirilir (kanıt yükü silende), kopyalar yürütmeyle kanıtlanıp birleştirilir ve kaldırılan kopya için de yarım iş olmadığı kanıtlanır, eskimiş artık yalnız sahibin onayıyla, emin değilse tutulur; sahibin onayı beklenmez (Y8); veriyi yok eden adım önce arşiv ve süresiz, denenmiş yedek taşır; `01`, `02` (tohum önceliği), `03`, `10`, `15`, `18a` (istisna kalktı), `31e`, `31g`, `31h`, `asama-1/13b` `07a`'ya bağlı; ayrımın yolu sistemin |
+| E247 | Sahip: Snowball veritabanı, arka uç, ön uç ve aralarındaki iletişimde (yaratma, okuma, güncelleme, silme) nasıl davranır? Operatörün beş korkuluğu (gerçek veri yok, yıkıcı DB değişikliği sahibin onayı ve geri dönüş kanıtıyla, sözleşme iki uçta ve sürümle, CRUD davranışı önce ve sonra testle, tablo ya da konu başına ikinci yazar yok) tohumda kısmen vardı: sandbox migration ayrımı yalnız E77'de, kapı migration ve şema yollarını adlandırmıyordu, kod düzenlemesi veritabanı şemasını değiştirebiliyordu, kırıcı sözleşme yasağı danışmaydı, testsiz kenar K5'ten önce (silmede K2'den önce) engellenmiyordu, yazar kuralı danışmaydı | K | evet | sahip (2026-10-30, "önerilerini de uygula"); salt okunur denetim, şüpheci turu | onaylandı · aynı dal · (1) Y3 `00:36-40`; (2) Y3 `00:36-37` (migration yok aynen, veritabanı şemasını değiştiren kod yok), `01b:18`, `01b:22-23`, `05:36-40`, `07a:43-51`; (3) `23:50-55`, eskinin kaldırılması silmedir (`07a`); (4) `05:23-28`; (5) `07:21-24` · beşi de kapalı geçer: kapının gösteremediği, yasaklanan sayılır · mekanizma (şema farkı, yazar haritası, sözleşme testi, test veritabanının kurulması) sistemin |
 | E248 | Yakalama (E168) kararı alamayınca başlatıcı yine de oturum açıyordu: kesintide `judge` `None` döndü, Kurucu eski kararı (`a049954` kabul) okuyup MF16'yı yazdı; MF15'in reddini (`f07f215`, rakibin kanıtladığı `decimal.Overflow`) hiç görmedi ve hakem `d0dc433`'ü `refutation_still_reproduces` ile reddedip `repeated` saydı: Kurucu'nun öğrenme ölçüsüne altyapının hatası yazıldı. Aynı sınıf: hakemi tetikleyen `gh workflow run` (yazma) kesintide `CalledProcessError` ile başlatıcıyı düşürürdü | K | — | pilot, 09:08Z kesintisi | kapandı · yakalama kararsızsa `NoVerdict` (oturum yok), tetikleme hatası `GitHubUnavailable`; ikisi de `Outage`, bekleme ve yeniden deneme; iki test, mutantlar `catch_up_session_works_blind`, `dispatch_failure_crashes`. Ölçüm notu: `d0dc433`'ün `repeated`'i Kurucu'ya sayılmamalı (günlükte işaretli) |
 | E260 | Yeniden üreticinin kutbu tanımsız: hakem yalnız bir metnin görünüp görünmediğini görür, belirti mi doğru çıktı mı olduğunu göremez. Rakip beklentiyi testin beklentisi gibi (doğru çıktı) yazınca açık iddia kusurlu başta görünmedi, düzeltmede göründü; E07 (c) düzeltmeyi kanıtlanmış kusur yapıyor, E08 sonra her doğru başı `refutation_still_reproduces` ile reddediyordu (kalıcı ret döngüsü). Aynı karışıklık doğru kodda yanlış iddiayı hemen kanıtlar | K | evet | **Kurucu raporu** f102 (iddia `87c088321252`, anahtar `027465767d2d46dc`; 86cc8b4'te gösterilmedi; düzeltme f668776 koşu 40967821066'da `refutation_reproduced` ile reddedildi, rakip `not_refuted` dediği hâlde; döngüyü operatör 40969705356'da `waived_refutations` ile elle kırdı) | karar bekliyor · `gaps/reproducer-polarity` hazır, operatör onayı ve birleştirme bekliyor (E07 (c)'yi değiştirir) · kanıt yalnız yeniden üreticinin yargılandığı başta: belirti kod yüzünden görünür (boş ağaçta görünmez), doğru çıktı görünmez; açık iddianın sonraki baştaki gösterimi gözlem (baş, `shown`, `contradicted`), sonraki rakibe ve çıkışta operatöre verilir; rakip her açık iddiayı yeniden gönderebilir, incelenen başta yargılanır, aynısını göndermek yeniden yazma sayılmaz; iki taraflı sözleşme (`expect_*` belirti, `correct_*` doğru çıktı, belirtinin bir gözlenenini adlandırır, taraflardan biri ötekinden çıkamaz; tek kural `rival.side_holds`, doğrulayıcı ve koşucu ortak); E08 aynen: kanıtlanmış kusur belirtisi göründükçe engeller, baş yanında doğru çıktıyı yazsa da; alanların tek kaynağı `rival.REPRODUCER_FIELDS`; anahtar ve durum şeması 3 aynı · sınır: iki tarafı bilerek ters yazan yeniden üretici doğru kodda yine kanıtlar (anlam, mekanik değil) |
 
@@ -1593,6 +1595,139 @@ Testler `tests/test_rival_memory.py`'de, sınıf adları kalem numarasıyla. Dur
 - **Açık kalan.** Canlı pilot bu dal birleştirilip başlatıcı yeniden başlatılana (imaj prompt'la yeniden kurulana)
   kadar `/vec`'siz koşar. Hakem reposundan gerçek tarball indirmesi denenmedi (pilotun reposuna dokunulmadı); test
   GitHub biçiminde bir tarball'la koşar.
+
+### E246 (2026-10-30) · silme kuralı ve her zaman geri dönüş · dal `gaps/wip-and-data-guardrails`
+
+- **Sahibin kararları (2026-10-30, bağlayıcı; özet).** Bir kullanıcı işe yaramayan bir şeye başlayıp duraklatmış
+  olabilir, Snowball onu silmemeli; gerçekten aynı işi yapan parçaları mimari olarak birleştirip artıkları silebilir,
+  ama biri bir şey geliştiriyorsa o silinmemeli. Ve sahibin kendi sözüyle "her zaman geri dönüş imkânı olmalı":
+  önerilen her değişiklik, en başta silme, geri alınabilir olmalı; geri dönüşü olmayan bir istisna yok, sahibin
+  onayıyla da. Sahip en profesyonel uygulamayı istedi: şirket hiçbir zaman veri kaybetmemeli.
+- **Çelişki (spec, `main`'de).** `tohum/01:50` "ölü kod sıfır"; `03:16` K2 "Ölü kod, kullanılmayan export, koşmayan
+  test hedefi", oracle araç; `18a:44` `gross_delete_cap` K2 silmelerini muaf tutuyordu; `07:18-21` ve `24:27`
+  tabandaki her ihlal bulgu, mandal; `18a:22` K2 tabanı kural sayımında sıfır kaçırma; `18b:27` K2 `remove`; `10:42`,
+  `10:54` K0–K2'de yargıç araç, panel yok, niyet savunması yalnız panelde (`04a:43-45`, `10a:28`); `31e:16-17`,
+  `31e:24` ("çağıran sayısı sıfır → kaldır (Y4)"), `31g:58-59`, `31h:49` kaldırmayı sürüyordu. Y4 (`00:42-45`)
+  sistemin kendi mekanizmalarıdır ama kapsamını söylemiyordu; `31e:24` onu hedefin koduna uyguluyordu.
+  `asama-1/13b:18` (`dead-code`) "Üretim yolunda çağıranı olmayan kod yoktur" diyordu. Hiçbir kural bir K2 adayının
+  modülü kendi testleriyle birlikte silmesini engellemiyordu; 72 saatlik pencere (`18a:31`) ve kırmızı test tetiği
+  (`07:26-28`) kimsenin bakmadığı işi geri getirmez. Kopyanın `koş` ağacında `.git` yok (`24:24`): yakınlık yalnız
+  `çek`te görünür.
+- **Hedef (salt okunur, yalnız sayılar ve biçimler).** 6.621 üretim kaynağının 881'inin importeri yok (319 glob'la
+  yüklenen migration, 180 giriş noktası ya da barrel, 132 betik, 67 araç yapılandırması, 5 çerçevenin bulduğu, 178
+  diğer). Yalnız testlerin import ettiği, kurulmuş ve sınanmış ama bağlanmamış 61 dosya (27 klasör; 41 ön uç, 18 servis,
+  2 kütüphane): son commit'i 27'sinde 30 gün içinde, 16'sında 31–90, 9'unda 91–180 gün, 9'unda daha eski. Hiçbir
+  yerde anılmayan 44 kesin yetim: 4 / 7 / 9 / 24 (çoğu artık biçiminde, ama 11'i 90 gün içinde değişmiş). Bazı
+  birimler import'la değil yalnız yapılandırmadaki ya da dokümandaki yolla anılıyor (aralarında dağıtılan servisler
+  ve çalışma zamanında yüklenen ön uç modülleri): yalnız import'a bakan geçiş onları ölü okur. Bir serviste aynı
+  yeteneğin bağlanmamış 3 alternatif uygulaması var: import tek başına artığı alternatif arayışından ayıramaz.
+  Kaynak: operatörün klonu (sığ, 4 commit) ve dosya başına salt okunur GitHub API çağrıları; E78 orijinalin 90 günde
+  ~4.817 commit aldığını yazar.
+- **Araştırma (sıralı uygulama).** (1) Doğrulanmış geri yükleme: yedek, PITR, prova, RPO/RTO [Google SRE veri
+  bütünlüğü; GitLab 2017 olay raporu; AWS Well-Architected; NIST SP 800-53; CISA]. (2) Genişlet-daralt, yıkıcı adım
+  ayrı ve sonraki değişiklikte [Fowler ParallelChange ve evodb; Stripe çevrimiçi migration; GitLab; strong_migrations].
+  (3) Yumuşak silme, pencere, sonra ayrı kalıcı silme [Google AIP-164; Google Cloud silme; Meta veri kaldırma].
+  (4) Yıkıcı değişikliğin mekanik sınıflaması ve son commit'e bağlı, kalıcı kayıtlı ikinci kişi onayı [Atlas lint;
+  strong_migrations; GitHub korumalı dallar; Google SRS bölüm 5]. (5) Geri alınabilir migration ve bildirilmiş geri
+  alınamazlık [Rails `IrreversibleMigration`; Flyway undo]. (6) Üretime benzer kopyada prova [GitLab migration
+  boru hattı]. (7) Sürümleme ve kullanımdan kaldırma penceresi [AIP-180; GraphQL `@deprecated`; RFC 9745, 8594;
+  Confluent şema uyumluluğu; Pact `can-i-deploy`]. (8) Bayraklı kaldırma [Fowler feature toggles]. (9) Kod silmede
+  çalışma zamanı kanıtı ve sahibe bildirim [Google Sensenmann; Meta SCARF]. (10) Denetim izi. Ana bulgular: geri
+  migration şemayı geri getirir, kayıtları getirmez; "referans yok" terk edilmiş demek değildir. Tohuma bunların
+  yalnız kısıtı girdi (önce arşiv, denenmiş yedek, kayıtlı onay); pencereler, kullanımdan kaldırma işareti ve
+  birleştirme sırası sistemin tasarımıdır.
+- **Karar ve yer.** Geri dönüş yasası bir kez, Y2'de (`00:32-34`): sistemin önerdiği her değişikliğin, en başta
+  silmenin, geri dönüş yolu adımdan önce kanıtlanmıştır ve hiçbir sistem adımı onu sonradan kapatmaz; istisnası yok,
+  sahibin onayı da açmaz. Y4 (`00:42-45`) artık kapsamını söyler: sistemin kendisi. `07a` (yeni, 54 satır) hedefin
+  kodu, dokümanı ve verisi için tek kaynak: geri dönüşün biçimi (`07a:16-20`; kodda ve dokümanda merge'ün geri
+  alınması, geçmiş yeniden yazılmadığı için kapanmaz; veride arşiv ve yedek; geri migration geri dönüş değildir);
+  kullanılmıyor olmak ölü olmak değildir ve hangi sınıftan gelirse gelsin bir birimi kaldıran değişiklik silmedir
+  (`07a:22-25`); yarım ya da duraklatılmış iş silinmez, onu anlatan plan ve tasarım dokümanı işin parçasıdır, kanıt
+  yükü silendedir (1); gerçekten aynı işi yapan parçalar yürütmeyle kanıtlanıp birleştirilir, kaldırılan kopya için
+  1'in kanıtı da gerekir, geliştirilen bir uygulama kopya sayılmaz (2); eskimiş artık yalnız sahibin onayladığı
+  adayla (3); emin olunamıyorsa tutulur (4); silme adayı her birimin 2 ya da 3'ten hangisiyle silindiğini taşır
+  (`07a:37`). Sahibin onayı adayın son hâline bağlı, kalıcı kayıttır; onay beklenmez (Y8), aday sahibe bırakılır ve
+  döngü sürer (`07a:39-41`; `30:43`'teki "sahip düzeltir" deseni). Veriyi yok eden adım (`07a:43-51`) sahibin
+  onayını, daha önceki ayrı bir adımda arşiv ya da yumuşak silmeyi ve adımı kapsayan, geri yüklemesi denenmiş,
+  saklama süresi sınırsız yedeği taşır (sistem yedeği göremez, aday önkoşul olarak adlandırır, sahip doğrular;
+  yedeğe yalnız sahip, sistemin dışında son verebilir). Bağlananlar: `01:50`, `03:16`, `10:54` (araç bulguya, `07a`
+  silmeye karar verir), `15:56` (doküman düzeltmesi de silme kurallarına uyar), `18a:44` (K2 istisnası kalktı;
+  Y11 gereği yalnız sıkılaşma), `31e:16-18`, `31e:21`, `31e:24`, `31g:59`, `31g:68`, `31h:22`, `31h:49`. Tohum
+  mekanizma vermez: yarım işi artıktan ayırmanın, kullanımı ölçmenin ve onay kaydının yolu sistemin.
+- **Aşama spec'i.** Tohum teslimi `spec/asama-*`'yı taşımaz (E180) ve tohumla gelen Aşama 0 ve 1 spec'i Kurucu'nun
+  ilk taslağıdır (`02:11-15`). `02:14-15` artık genel kuralı söyler: aşama spec'i tohumla çelişirse tohum geçerlidir,
+  çelişki bir spec kusurudur (donmamışta Kurucu düzeltir, donmuşta bildirir). Tohumun kendi kopyası `asama-1/13b:18`
+  düzeltildi (`dead-code`: çağıranı olmayan her birim bildirilir, silinmesi `07a`'ya uyar; `asama-1/CHANGELOG`).
+  Canlı beyindeki kopya tutuldu: Kurucu'nun `02`'nin kuralıyla kendisinin bulup bulmadığı ölçülür.
+- **Açık kalan.** Canlı hakemin anayasal `policy.json`'unda `gross_delete_cap` operatörün işidir. Beyne teslim bu dal
+  birleştirildikten sonra tohum dönemiyle.
+
+### E247 (2026-10-30) · veri katmanı korkulukları · dal `gaps/wip-and-data-guardrails`
+
+- **Soru ve onay.** Sahip: Snowball veritabanı, arka uç, ön uç ve aralarındaki iletişimde (yaratma, okuma, güncelleme,
+  silme) nasıl davranır? Operatör kanıtla sınanmak üzere beş korkuluk önerdi; sahip 2026-10-30'da hepsini onayladı
+  ("önerilerini de uygula"). Tohuma kısıt girdi (ne tutmalı, kim onaylar); mekanizma sistemin.
+- **Hedef (salt okunur, yalnız sayılar ve biçimler).** Depolar: Postgres (zaman serisi eklentili), Redis, NATS, bir
+  MQTT aracısı, S3 uyumlu nesne deposu. Tek sınıf tabanlı ORM migration çerçevesi: 15 hizmet alanında 18 klasörde
+  ~465 migration sınıfı ve bir merkezî SQL klasörü; 52 `.sql`; kiracı başına şema biçimi; ~453'ü bir down adımı
+  bildirir (gerçekten geri alıp almadığı denetlenmedi); bazı yapılandırma migration'ları açılışta koşar. Bazı test
+  dışı yapılandırmalar ORM şema eşitlemesini açar: orada varlık düzenlemesi veritabanı şemasını değiştirir.
+  Kod-önce GraphQL (federasyonlu alt grafikler ve bir geçit), 115 çözücü dosyası, ~1.494 Query/Mutation/Subscription
+  süsleyicisi: çözücü ya da tip düzenlemesi API sözleşmesi düzenlemesidir, veritabanı şeması değil. REST: 111
+  denetleyici, 565 yol süsleyicisi, 146 DTO dosyası. Ön uç: 147 dosyada ~1.094 GraphQL işlem dizesi, 90 dosya
+  üretilmiş tipleri import eder. Olaylar: 140 işleyici, 124 dosyada ~137 NATS ve 96 MQTT konu dizesi, yalnız 10 olay
+  şeması. Yazarlar (sezgisel): 30 kod taşıyan servis ya da crate'in 9'u iki ya da daha çok depo türüne yazar; 23
+  tablo adı birden çok serviste varlık, 27 şema nitelikli tablo birden çok alanın migration'larında yaratılır: "sıfır
+  ikinci yazar" bugün yanlış, "yeni ikinci yazar yok" tutabilir. 11 test dosyası veritabanını migration'lardan ya da
+  kapsayıcıdan kurar: desen sistemce bulunabilir.
+- **Beşinin yeri (bu dal; satırlar bu dalın sayfalarındadır).** Beşi de kapalı geçer: kapının gösteremediği şey
+  yasaklanan sayılır.
+  1. *Gerçek veri yok, test veritabanı yalnız kum havuzunda migration'lardan.* Y3 `00:36-40`: "gerçek veri yok";
+     hedefin verisine yalnız `koş`ta, migration'larından kurulmuş, gerçek kayıtsız test kopyasında dokunulur;
+     kopyayı kuran migration koşusu yasağa girmez (E77'nin kararı artık yasada). Ağsızlık aynen: Y10 `00:71-75`,
+     `08:25-27`. Onaylayan: yasa; kimse açamaz.
+  2. *Yıkıcı DB değişikliği sahibin onayı ve geri dönüş kanıtıyla.* Y3 `00:36-37`: migration yok (`main`'deki gibi;
+     veriyi geri doldurma da dahil) ve veritabanı şemasını değiştiren kod yok; "şema" orada veritabanı şemasıdır, API
+     şeması `23`'tedir. Kapı migration'ları her sınıfta reddeder (`01b:18`), veritabanı şemasının türetildiği tanıma
+     dokunanı şemanın değişmediğini kanıtlamadıkça (`01b:22-23`). Kalıcı veriyi silen, üzerine yazan ya da bilgi
+     kaybettiren bir yolu ekleyen ya da genişleten değişiklik hangi dosyada olursa olsun güvenlik yoludur; eklemediği
+     ve genişletmediği gösterilemeyen değişiklik de: K6'ya kadar `blocked`, sonra K6 kapısı ve `07a`'nın veri
+     şartları (`05:36-40`, `07a:43-51`: sahibin kayıtlı onayı, önce arşiv ya da yumuşak silme, süresiz denenmiş
+     yedek). Onaylayan: sahip, geri dönüş kanıtıyla; onay beklenmez (Y8).
+  3. *Sözleşme iki uçta, kırıcı değişiklik sürümsüz yok.* `23:50-55`: her uç kapsam kuralıyla aynı değişiklikte
+     güncellenir ve sözleşme testiyle yeşildir; ayrı dağıtılan bir tüketiciyi kıran değişiklik yapılmaz, kırıcı biçim
+     yalnız sürümle eskinin yanına gelir; kanıtlanamayan kırıcı, tüketicisizliği kanıtlanamayan sözleşme tüketicili
+     sayılır. Eskinin kaldırılması bir silmedir (`07a`: uç bir birimdir, 1–4). Onaylayan: kapı; artık silmede sahip.
+  4. *CRUD davranışı önce ve sonra testle.* `05:23-28`: birim silen, veri yolu ya da sözleşme ucu içeren değişiklikte
+     testsiz kenar her sınıfta `blocked` (`main`'de silme K2'den, öteki her şey K5'ten); bunları içermediği
+     gösterilemeyen değişiklik içeriyor sayılır; kenarın testleri yetki, kiracı yalıtımı ve idempotency dahil,
+     düzeltilen davranışınki dışındakiler tabanda ve adayda yeşil; kum havuzunda koşamayan test test sayılmaz.
+     Dayanaklar aynen: Y8 `00:62-66`, kapının yeniden koşusu `01b:45-48`, nöbetçi `07`, `guarded` test `30d:41-43`,
+     çapraz kiracı matrisi `30b:9-16`. Onaylayan: kapı.
+  5. *Tablo ya da konu başına ikinci yazar yok.* `07:21-24`: yazar mandalı; yazar `31:60`'ın tanımıyla modüldür;
+     yazarı olan tabloya ya da konuya yeni yazar eklenmez, mevcut ikinci yazarlar borçtur ve yalnız azalır; kapı yeni
+     yazar eklemediğini gösteremediği adayı geçirmez. Amaç (`01:50` "her gerçeğin tek sahibi") ve katalog (`31a`,
+     `31g`) danışma olarak aynen; yazar taşımak göçse sahibin. Onaylayan: kapı.
+- **Şüpheci turu (2026-10-30).** Taslağı 12 kırıkla çürüttü; hepsi kökünde kapandı: (a) "şema" nitelenmemişti, API
+  şemasıyla çakışıyordu → Y3 ve `01b` "veritabanı şeması" der; (b) taslak "migration yok"u sessizce gevşetiyordu ve
+  `30:43`, `31e:11`, `31g:11-12` Y3'e bayat atıf yapıyordu → "migration yok" aynen geri geldi, atıflar yeniden doğru;
+  (c) veriyi yok eden yol yalnız yolla denetleniyordu → kapalı geçen cümle (`05:39-40`); (d) yazar mandalı açık
+  geçiyordu ve yazarın boyu tanımsızdı → kapalı geçer, yazar `31`'in modülü; (e) K0 ve K1 korkuluk 4'ten muaftı →
+  her sınıf; (f) geri dönüşün ömrü yoktu → Y2 "hiçbir sistem adımı sonradan kapatmaz", yedek süresiz; (g) hedefin
+  dokümanı silme kuralının dışındaydı → `07a` kapsamı ve `15:56`; (h) `asama-1/13b:18` çelişiyordu ve tohum
+  önceliği yazılı değildi → `02:14-15`, tohumun kopyası düzeltildi; (i) kural 2 geliştirilen bir yeniden yazımın
+  silinmesine açıktı → kaldırılan kopya için 1'in kanıtı; (j) aynı kural birden çok yerdeydi (şema yasağı `05` ve
+  `07a`'da, silme tavanı `07a`'da, Y4'ün kapsamı `07a` ve `31e`'de, geri dönüş `07a`'da) → her biri tek yerde,
+  Y4'ün kapsamı Y4'te; (k) `07a` mekanizma veriyordu (birleştirme sırası, ayrı adımlar ve pencere, tarihli işaret,
+  uyumluluk çıktısı) → çıkarıldı, sahibin istediği kısıt kaldı; (l) `31h:22` ve `31e:18` bağlanmamıştı → `07a`.
+- **Açık kalan.** Mekanizmalar sistemin: şemanın değişmediğinin kanıtı, veriyi yok eden yolun ve veri yolunun
+  tanınması, yazar haritası (harita katmanı b, `13`), sözleşme testleri ve kırıcılık denetimi, kum havuzunda
+  migration'lardan test veritabanı (servis isteyen birim sonraki partide, `08:33-34`). Bugün yürütülemeyen kural
+  `blocked` üretir (Y8); tohum bunların biçimini vermez.
+- **Doğrulama (iki satır için).** Sayfalar ≤ 80 satır (`00` 80, `07a` 54); yasaklı ifade yok; hedefe özgü ad yok.
+  Windows: `seed/bootstrap` `python -m unittest discover -s tests` 426 test OK (18 atlandı), son commit'in ağacında;
+  bu dal test ya da kod değiştirmez, spec'i okuyan testler (`test_wiring`, `test_units`, `test_seed_epoch`) yeşil.
+  Linux ve mutantlar koşulmadı (yalnız spec ve kayıt değişti).
 
 ## Doğrulanmış sağlam taraflar
 Kapsayıcı bayrakları ve kırmızı kontroller; host'ta kabuk enjeksiyonu yok; `$GITHUB_OUTPUT`'a serbest

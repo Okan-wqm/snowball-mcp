@@ -4,6 +4,26 @@ Tarih: 2026-10-29 · Sürüm: 2.2
 Okunma: bir sayfanın geçmişi aranırken
 Çapa: git geçmişi ve zincirdeki spec hash satırları
 
+- 2.2 (2026-10-30, E246, E247; sahibin kararları): her zaman geri dönüş, kimsenin işi silinmez, veri katmanının beş
+  korkuluğu. Y2: sistemin önerdiği her değişikliğin, en başta silmenin, geri dönüş yolu adımdan önce kanıtlanmıştır ve
+  hiçbir sistem adımı onu sonradan kapatmaz; istisnası yoktur, sahibin onayı da açmaz. Y3: gerçek veri yok, migration
+  yok (aynen), veritabanı şemasını değiştiren kod yok; hedefin verisine yalnız `koş`ta, migration'larından kurulmuş
+  gerçek kayıtsız test kopyasında dokunulur ve kopyayı kuran migration koşusu yasağa girmez (E77'nin kararı yasada).
+  Y4 sistemin kendisi içindir. Yeni `07a` tek kaynaktır, hedefin kodu, dokümanı ve verisi için: geri dönüşün biçimi
+  (kodda merge'ün geri alınması, veride arşiv ve yedek; geri migration geri dönüş değildir); kullanılmıyor olmak ölü
+  olmak değildir ve hangi sınıftan gelirse gelsin bir birimi kaldıran değişiklik silmedir; yarım ya da duraklatılmış
+  iş (planı ve tasarım dokümanı dahil) silinmez, yalnız bildirilir (kanıt yükü silende); gerçekten aynı işi yapan
+  parçalar yürütmeyle kanıtlanıp birleştirilir, kaldırılan kopya için de 1'in kanıtı gerekir; eskimiş artık yalnız
+  sahibin onayladığı adayla; emin olunamıyorsa tutulur; sahibin onayı beklenmez (Y8); veriyi yok eden adım sahibin
+  onayını, önce arşiv ya da yumuşak silmeyi ve geri yüklemesi denenmiş, saklama süresi sınırsız yedeği taşır. `01`'in
+  "ölü kod sıfır"ı, `03` K2, `10`, `15`, `18a` `gross_delete_cap`'in K2 istisnası (kalktı) ve `31e`, `31g`, `31h`'nin
+  kaldırmaları `07a`'ya bağlandı. Kapı migration'ları her sınıfta reddeder, veritabanı şemasının türetildiği tanıma
+  dokunanı şemanın değişmediğini kanıtlamadıkça (`01b`); veriyi yok eden yol güvenlik yoludur, eklemediği
+  gösterilemeyen değişiklik de (`05`); birim silen, veri yolu ya da sözleşme ucu içeren değişiklikte testsiz kenar her
+  sınıfta `blocked`, içermediği gösterilemeyen değişiklik içeriyor sayılır, yolun testleri tabanda ve adayda yeşil
+  (`05`); sözleşme değişikliği her ucu aynı değişiklikte ve sözleşme testiyle, ayrı dağıtılan tüketiciyi kırmadan,
+  kırıcı biçim yalnız sürümle (`23`); yazar mandalı, yazar `31`'in modülü, yeni yazar eklemediği gösterilemeyen aday
+  geçmez (`07`). Aşama spec'i tohumla çelişirse tohum geçerlidir (`02`). `00b`, `INDEX`.
 - 2.2 (2026-10-30, E260, karar bekliyor: E07 (c)'yi değiştirir): yeniden üreticinin kutbu (`29` "Rakibin kuralları").
   Yeniden üretici iki taraflıdır: belirti (`expect_*`) ve onun yerine doğru kodun gösterdiği (`correct_*`); doğru
   taraf belirtinin bir gözlenenini adlandırır, taraflardan biri ötekinden çıkamaz. Kanıt yalnız yargılandığı başta:
