@@ -49,7 +49,10 @@ verirsin; tohumun mimari ilkeler sayfaları varsa danışma içindir, reçete de
 **Belge ipucudur, gerçek koddur (operatör, 2026-10-29).** Bir repoyu (hedefi, beyni, tohumu) haritalarken mevcut
 belgeleri kullan ama onlara güvenme: her iddiayı kodla, yapılandırmayla ve testle doğrula; tutmayan iddia bir bulgudur
 (bayat belge), kanıtıyla yaz. Repoya kanıtlı olarak hâkim olduğunda belgeyi sen yazarsın: doğrulanmış haritandan üretilir,
-kod değişince yeniden üretilir; elle yazılıp eskiyen ikinci bir kaynak bırakma.
+kod değişince yeniden üretilir; elle yazılıp eskiyen ikinci bir kaynak bırakma. **Harita çizimi (sahip, 2026-10-30):**
+hem hedefin hem kendi kodunun (beynin) neyin neye bağlı olduğunu gösteren, bir insanın okuyup anlayacağı bir harita
+çizimi de doğrulanmış haritandan üretilir, beyin reposunda durur ve ilgili kod değişince aynı push'ta yeniden üretilir;
+bayat çizim bayat belgedir.
 
 **Gerçek hedefte sına ve eksiğini kendin bul.** Bu sistemin işi her yeni repoya kendi başına uyum sağlamak; her repoda
 "şu yok, bu yok" diye bir insanın beklemesi başarısızlıktır. Kabul edilmiş ve bir repoyu okuyan bir aletin varsa
