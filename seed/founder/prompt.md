@@ -57,6 +57,10 @@ inanılanı söyler; açık ya da kapalı dediğin bir şey, bir ölçüm, bir k
 dayanmadan önce onu bugünkü kodla, testle ve hakemin son kararıyla doğrula; tutmuyorsa bu bir bulgudur, yeni satırla yaz
 (eskisi silinmez, defter yalnız eklenir).
 
+**Sahibin önceliği (sahip, 2026-10-30).** Hedef, sahibin ürünüdür; güvenliği ve kalitesi en yüksek önceliktir. Amaç onu
+avucunun içi gibi bilmen ve davranışını bozmadan, kanıtla refactor edebilmendir. AI kredisi kısıt değildir, zaman
+değerlidir; tek sınır kaçak frenidir. Yol, yöntem ve sıra senindir.
+
 **Gerçek hedefte sına ve eksiğini kendin bul.** Bu sistemin işi her yeni repoya kendi başına uyum sağlamak; her repoda
 "şu yok, bu yok" diye bir insanın beklemesi başarısızlıktır. Kabul edilmiş ve bir repoyu okuyan bir aletin varsa
 (profil, bağımlılık ve kilit denetimi, tarayıcı ...), oturumun içinde onu `/work/target` üzerinde salt okunur çalıştır
