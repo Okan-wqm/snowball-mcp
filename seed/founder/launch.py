@@ -59,8 +59,16 @@ def run(*args: str, check: bool = True, timeout: float | None = None, stdin: byt
     return subprocess.run(args, check=check, timeout=timeout, input=stdin, capture_output=True)
 
 
-class GitHubUnavailable(RuntimeError):
-    """A read from GitHub still failed after the retries: the network or GitHub is down (E245)."""
+class Outage(RuntimeError):
+    """The cycle cannot go on now and is tried again after a wait: it is not a reason to end the pilot (E245)."""
+
+
+class GitHubUnavailable(Outage):
+    """A read from GitHub still failed after the retries, or a dispatch failed: the network or GitHub is down (E245)."""
+
+
+class NoVerdict(Outage):
+    """The Founder's last push has no verdict yet: no session works blind on it (E168, E248)."""
 
 
 GH_RETRY_DELAYS_S = (10, 20, 40, 60, 60)  # about three minutes before a read counts as an outage
@@ -243,7 +251,10 @@ class Pilot:
     def dispatch_referee(self, timeout_s: int) -> dict:
         """Dispatch the referee on main and wait for that run; returns {id, conclusion, url}."""
         since = datetime.now(timezone.utc)
-        run("gh", "workflow", "run", REFEREE_WORKFLOW, "--repo", self.referee, "--ref", "main")
+        proc = run("gh", "workflow", "run", REFEREE_WORKFLOW, "--repo", self.referee, "--ref", "main", check=False,
+                   timeout=120)
+        if proc.returncode != 0:  # a write is not repeated here; the cycle is tried again after the outage (E248)
+            raise GitHubUnavailable(f"gh workflow run: {proc.stderr.decode(errors='replace').strip()[-300:]}")
         run_id = None
         try:
             for _ in range(30):
@@ -380,8 +391,10 @@ class Pilot:
             # A push the referee never judged (the launcher stopped in between, an outage): judge it before the
             # Founder works on, so its next session reads the verdict on its own last push (E168).
             say(f"cycle {n}: {before[:7]} has no verdict yet; referee first")
-            _, caught_up, _ = self.judge(n, before, args.referee_timeout)
-            prior = caught_up or prior
+            dispatched, caught_up, _ = self.judge(n, before, args.referee_timeout)
+            if caught_up is None:  # a session now would read an older verdict and work blind (E168, E248)
+                raise NoVerdict(f"{before[:7]} is still unjudged (referee run {dispatched['conclusion']})")
+            prior = caught_up
         rows_before = self.ledger_rows(before)
         try:
             self.refresh_inputs()
@@ -501,9 +514,9 @@ def run_cycles(pilot: Pilot, args) -> None:
             break
         try:
             go_on = pilot.cycle(n, args)
-        except GitHubUnavailable as exc:  # an outage is waited out, not a reason to end the pilot (E245)
-            say(f"cycle {n}: GitHub unreachable ({exc}); waiting {GH_OUTAGE_WAIT_S // 60} min, then the next cycle "
-                "judges any unjudged push first (E168)")
+        except Outage as exc:  # an outage is waited out, not a reason to end the pilot (E245, E248)
+            say(f"cycle {n}: {exc}; waiting {GH_OUTAGE_WAIT_S // 60} min, then the next cycle judges any unjudged "
+                "push first (E168)")
             pilot.wait(GH_OUTAGE_WAIT_S)
             go_on = not pilot.stopped()
         if not go_on:

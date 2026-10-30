@@ -438,6 +438,50 @@ class RefereeRetryTest(unittest.TestCase):  # E166: the loop never waits on the 
         with mock.patch.object(launch, "say"):
             self.assertEqual(pilot.judge(1, "b" * 40, 1)[1], None)
 
+    def test_no_session_works_blind_on_an_unjudged_push(self):  # E168, E248: the live f07f215 -> d0dc433 case
+        launch = load_launch()
+        calls = []
+
+        class Fake(launch.Pilot):
+            def fetch_result(self):  # GitHub cannot be read: the newest result stays an older head's
+                return {"head": "a" * 40, "verdict": "accepted", "state": {"last_evaluated_sha": "a" * 40}}
+
+            def dispatch_referee(self, timeout_s):
+                calls.append("referee")
+                return {"id": "1", "conclusion": "github_unavailable", "url": ""}
+
+            def brain_head(self):
+                return "b" * 40
+
+            def ledger_rows(self, sha):
+                return []
+
+            def refresh_inputs(self):
+                calls.append("refresh")
+
+            def session(self, *a):
+                calls.append("session")
+                return {"exit": 0, "minutes": 1}
+
+            def write(self, text):
+                pass
+
+        pilot = Fake(Path(tempfile.mkdtemp()), "o/brain", "o/referee", "target")
+        pilot.idle, pilot.seed = 0, "s" * 40
+        args = type("Args", (), dict(model="m", max_turns=1, budget_usd=1, session_timeout=1, referee_timeout=1))
+        with mock.patch.object(launch, "say"), self.assertRaises(launch.NoVerdict):
+            pilot.cycle(1, args)
+        self.assertEqual(calls, ["referee"])
+
+    def test_a_dispatch_that_cannot_reach_github_is_an_outage(self):  # E248
+        launch = load_launch()
+        down = mock.Mock(returncode=1, stdout=b"", stderr=b"error connecting to api.github.com")
+        pilot = launch.Pilot(Path(tempfile.mkdtemp()), "o/brain", "o/referee", "target")
+        with mock.patch.object(launch, "run", return_value=down), mock.patch.object(launch.time, "sleep"):
+            with self.assertRaisesRegex(launch.GitHubUnavailable, "workflow run"):
+                pilot.dispatch_referee(1)
+        self.assertTrue(issubclass(launch.NoVerdict, launch.Outage) and issubclass(launch.GitHubUnavailable, launch.Outage))
+
     def test_the_usage_limit_reset_is_read_from_the_cli(self):  # E243
         wait = load_launch().usage_limit_wait
         at = datetime(2026, 10, 30, 2, 1, 20, tzinfo=timezone.utc)
