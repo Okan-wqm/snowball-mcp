@@ -102,6 +102,7 @@ a wrong digest fails the install instead of being skipped), regenerate the lock 
 
 | Read | Why |
 |---|---|
+| [`docs/harita.md`](docs/harita.md) | The system map: what connects to what (launcher, capsule, brain, referee jobs, rival, Rekor; the referee's modules), generated from the code |
 | [`spec/INDEX.md`](spec/INDEX.md) | Every page, when to read it, and the task-to-page map |
 | [`spec/tohum/00-cekirdek.md`](spec/tohum/00-cekirdek.md) | The founder agent's core and the laws |
 | [`spec/tohum/00a-sinirlar-operator-ilk-gorev.md`](spec/tohum/00a-sinirlar-operator-ilk-gorev.md) | Founder limits, the operator's role, the first task |

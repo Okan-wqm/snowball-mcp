@@ -18,6 +18,7 @@ Kural: bundan sonra çekirdek ile alana özel parçalar karıştırılmaz; her �
 | Kapsül ve başlatıcı | `seed/founder/` | Oyuncunun yalıtılmış çalışması, döngü, ölçüm (`pilot-metrics.jsonl`) |
 | İlkeler | `seed/founder/prompt.md` | Vaat kadar kanıt; kök neden, gizleme yok; tek kaynak; belge ipucudur; anlaşmazlık kanıtla; eksiğini kendin bul; kendi fikrin |
 | Ölçüm | `docs/pilot-gunlugu.md`, operatörün fikir ölçütü | Sistemin kendi bulduğu, geri gelen hata, insan yardımı |
+| Sistem haritası | [`docs/harita.md`](harita.md), `seed/bootstrap/local/system_map.py`, E301 | Ne nereye bağlı: koddan üretilen, insan okur çizim; kodla uyuşmazsa test kırmızı |
 
 ## Alana özel (kod)
 

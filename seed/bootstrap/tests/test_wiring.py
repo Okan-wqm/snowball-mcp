@@ -350,6 +350,60 @@ class DocWithChangeTest(unittest.TestCase):
         self.assertIn("python3 seed/bootstrap/local/doc_with_change.py", ci)
 
 
+class SystemMapTest(unittest.TestCase):
+    """The owner's rule E301: `docs/harita.md`, the map of what connects to what, is drawn from the code by
+    `local/system_map.py` and never by hand. A module, job, dependency or link changed without regenerating the
+    map turns this red."""
+
+    def setUp(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("system_map", BOOT / "local" / "system_map.py")
+        self.mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(self.mod)
+
+    def test_the_committed_map_is_what_the_code_draws(self):
+        drawn = self.mod.render().encode("utf-8")
+        committed = (ROOT / "docs" / "harita.md").read_bytes()
+        if committed != drawn:
+            old, new = committed.decode("utf-8", "replace").split("\n"), drawn.decode("utf-8").split("\n")
+            line = next((i for i, (a, b) in enumerate(zip(old, new)) if a != b), min(len(old), len(new)))
+            self.fail(f"docs/harita.md is stale from line {line + 1}: run `python3 local/system_map.py` "
+                      "from seed/bootstrap and commit the page")
+
+    def test_it_sees_every_module_and_every_job(self):
+        src = self.mod.Sources()
+        self.assertEqual(set(self.mod.module_graph(src)), {p.stem for p in (BOOT / "snowball_bootstrap").glob("*.py")})
+        jobs = self.mod.workflow_jobs(WORKFLOW)
+        listed = re.findall(r"^  ([A-Za-z_][A-Za-z0-9_-]*):[ \t]*$", WORKFLOW.split("\njobs:\n", 1)[1], re.M)
+        self.assertEqual(list(jobs), listed)
+        self.assertEqual(jobs["yaz"].needs, ["cek", "getir", "kos", "cagir", "yeniden"])
+        self.assertEqual(jobs["getir"].needs, ["cek"])
+        ran = {c for job in jobs.values() for c in job.commands}
+        self.assertLessEqual({argv[0] for argv in bootstrap_invocations()}, ran)
+        self.assertIn("fetch-deps", ran)  # run by the venv's python, not `python3`
+        import argparse
+        sub = next(a for a in cli.build_parser()._actions if isinstance(a, argparse._SubParsersAction))
+        self.assertEqual(set(self.mod.cli_commands(self.mod.module_graph(src)["cli"])), set(sub.choices))
+        page = self.mod.render(src)
+        for name in list(jobs) + [p.stem for p in (BOOT / "snowball_bootstrap").glob("*.py")]:
+            self.assertIn(f"`{name}`", page)
+
+    def test_a_new_job_or_dependency_shows_up_by_regeneration(self):
+        extra = "  audit:\n    needs: [yaz]\n    steps:\n      - run: python3 -m snowball_bootstrap control --root snap\n"
+        rel = self.mod.WORKFLOW
+        page = self.mod.render(self.mod.Sources(overrides={rel: WORKFLOW.rstrip("\n") + "\n\n" + extra}))
+        self.assertIn('job_audit["job audit<br/>control"]', page)
+        self.assertIn("job_yaz --> job_audit", page)
+        self.assertIn("| `audit` | `yaz` | `control` |", page)
+
+    def test_a_link_whose_evidence_is_gone_stops_the_drawing(self):
+        launcher = (ROOT / self.mod.LAUNCHER).read_text(encoding="utf-8").replace('"gh", "workflow", "run"', '"gh"')
+        with self.assertRaisesRegex(ValueError, "dispatch: gh workflow run"):
+            self.mod.render(self.mod.Sources(overrides={self.mod.LAUNCHER: launcher}))
+        with self.assertRaisesRegex(ValueError, "not a subcommand"):
+            self.mod.render(self.mod.Sources(overrides={self.mod.WORKFLOW: WORKFLOW.replace(" pack --dir", " packs --dir")}))
+
+
 class NothingStaleTest(unittest.TestCase):
     STALE = ("call.txt", "secrets.ANTHROPIC", "import anthropic", "anthropic==", "/tmp/call", "Anthropic SDK",
              "model SDK", "price_micros_per_mtok", "READER_APP", "BRAIN_TOKEN", "create-github-app-token")

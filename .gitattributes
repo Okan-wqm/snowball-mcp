@@ -18,3 +18,5 @@ seed/bootstrap/vectors/revert_drill/** -text
 seed/bootstrap/vectors/prompt/** -text
 seed/bootstrap/vectors/status/** -text
 seed/bootstrap/vectors/genesis/** -text
+# The system map is compared byte for byte with what local/system_map.py draws (E301): LF on every checkout.
+docs/harita.md text eol=lf
