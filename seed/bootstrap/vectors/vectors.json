@@ -867,7 +867,7 @@
   "profile": {
     "owner": "asama-0",
     "runner": "data",
-    "interface": "spec/tohum/29f-vektor-arayuzleri.md",
+    "interface": "spec/tohum/29k-vektor-arayuzleri-yol-kurallari.md",
     "source": "reconciled cases; every expected value given alike by two blind independent implementations (docs/eksik-kaydi.md E161)",
     "cases": [
       {
@@ -1130,6 +1130,33 @@
         }
       },
       {
+        "id": "profile.accept_widened",
+        "purpose": "A proposal that adds a file to security_paths and to excluded_paths only widens them and is accepted.",
+        "cmd": "python -m profile.derive check /vec/profile/tree_t1.tar.gz /vec/profile/operator.json /vec/profile/prop_widen.json",
+        "fixture": [
+          "profile/tree_t1.tar.gz",
+          "profile/operator.json",
+          "profile/prop_widen.json"
+        ],
+        "expect": {
+          "accepted": true,
+          "reasons": []
+        },
+        "changed": {
+          "description": "One field: the widened proposal also drops packages/web/src/tokenizer.js from security_paths.",
+          "cmd": "python -m profile.derive check /vec/profile/tree_t1.tar.gz /vec/profile/operator.json /vec/profile/prop_widen_drop_security.json",
+          "fixture": [
+            "profile/tree_t1.tar.gz",
+            "profile/operator.json",
+            "profile/prop_widen_drop_security.json"
+          ],
+          "expect_not": {
+            "accepted": true,
+            "reasons": []
+          }
+        }
+      },
+      {
         "id": "profile.reject_different_languages",
         "purpose": "A proposal whose languages differ from the derivation (adds python) is rejected.",
         "cmd": "python -m profile.derive check /vec/profile/tree_t1.tar.gz /vec/profile/operator.json /vec/profile/prop_languages.json",
@@ -1257,6 +1284,88 @@
             ],
             "artefact": null,
             "licenses": null
+          }
+        }
+      },
+      {
+        "id": "npmlock.install_script_marked_by_lock_path",
+        "purpose": "install_scripts_required may name the exact lock key: node_modules/snowball-fixture-b marks package b's postinstall, so the fetch of lock_good.json succeeds. An implementation that matches only name@version is caught.",
+        "cmd": "python -m runner.deps_npm fetch /vec/npmlock/lock_good.json /vec/npmlock/mirror",
+        "stdin": "{\"registry_egress\":[\"https://registry.npmjs.org/\"],\"install_scripts_required\":[\"node_modules/snowball-fixture-b\"]}",
+        "fixture": [
+          "npmlock/lock_good.json",
+          "npmlock/mirror"
+        ],
+        "expect": {
+          "ok": true,
+          "rejected": [],
+          "artefact": "sha256:c8b74b5a620c70bb24263efc66e4080c844934a1a78fd788c0625b0a8274ac19",
+          "licenses": [
+            {
+              "license": "MIT",
+              "name": "snowball-fixture-a",
+              "path": "node_modules/snowball-fixture-a",
+              "version": "1.0.0"
+            },
+            {
+              "license": "ISC",
+              "name": "snowball-fixture-b",
+              "path": "node_modules/snowball-fixture-b",
+              "version": "2.0.0"
+            }
+          ]
+        },
+        "changed": {
+          "description": "One field: install_scripts_required names node_modules/snowball-fixture-a, another package's lock key, which leaves b unmarked.",
+          "cmd": "python -m runner.deps_npm fetch /vec/npmlock/lock_good.json /vec/npmlock/mirror",
+          "stdin": "{\"registry_egress\":[\"https://registry.npmjs.org/\"],\"install_scripts_required\":[\"node_modules/snowball-fixture-a\"]}",
+          "fixture": [
+            "npmlock/lock_good.json",
+            "npmlock/mirror"
+          ],
+          "expect_not": {
+            "ok": true,
+            "rejected": [],
+            "artefact": "sha256:c8b74b5a620c70bb24263efc66e4080c844934a1a78fd788c0625b0a8274ac19",
+            "licenses": [
+              {
+                "license": "MIT",
+                "name": "snowball-fixture-a",
+                "path": "node_modules/snowball-fixture-a",
+                "version": "1.0.0"
+              },
+              {
+                "license": "ISC",
+                "name": "snowball-fixture-b",
+                "path": "node_modules/snowball-fixture-b",
+                "version": "2.0.0"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "npmlock.bare_name_refused",
+        "purpose": "A bare package name (snowball-fixture-a) beside a valid mark is neither a lock key nor name@version, so the request is unusable input and nothing is fetched. A reading in which a bare name marks nothing, or marks every version, fetches and is caught.",
+        "cmd": "python -m runner.deps_npm fetch /vec/npmlock/lock_good.json /vec/npmlock/mirror",
+        "stdin": "{\"registry_egress\":[\"https://registry.npmjs.org/\"],\"install_scripts_required\":[\"snowball-fixture-b@2.0.0\",\"snowball-fixture-a\"]}",
+        "fixture": [
+          "npmlock/lock_good.json",
+          "npmlock/mirror"
+        ],
+        "expect": {
+          "ok": false
+        },
+        "changed": {
+          "description": "One field: the second element names the same package as name@version (snowball-fixture-a@1.0.0, a package without an install script).",
+          "cmd": "python -m runner.deps_npm fetch /vec/npmlock/lock_good.json /vec/npmlock/mirror",
+          "stdin": "{\"registry_egress\":[\"https://registry.npmjs.org/\"],\"install_scripts_required\":[\"snowball-fixture-b@2.0.0\",\"snowball-fixture-a@1.0.0\"]}",
+          "fixture": [
+            "npmlock/lock_good.json",
+            "npmlock/mirror"
+          ],
+          "expect_not": {
+            "ok": false
           }
         }
       },
@@ -1739,7 +1848,7 @@
   "diffguard": {
     "owner": "asama-0",
     "runner": "data",
-    "interface": "spec/tohum/29g-vektor-arayuzleri-devam.md",
+    "interface": "spec/tohum/29k-vektor-arayuzleri-yol-kurallari.md",
     "source": "reconciled cases; every expected value given alike by two blind independent implementations (docs/eksik-kaydi.md E161)",
     "cases": [
       {

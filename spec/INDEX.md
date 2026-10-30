@@ -62,11 +62,12 @@ Okunma: sayfa ararken; görev seçmek için `tohum/00b-gorev-haritasi.md`
 | `tohum/29b-onyukleme-hakemi.md` | Önyükleme Hakemi: Aşama 0'ın Yargıcı | kurulumda ve Aşama 0 boyunca |
 | `tohum/29c-prova-vektorleri.md` | Prova Vektörleri: Ders Provasının Referans Yargıcı | ders provasının yargıcını (`harness.drill`) yazarken (Aşama 2 partisi) ve ders provası tasarlanırken |
 | `tohum/29d-vektor-gruplari.md` | Tohum Vektörleri, Devam: Aşama 0'ın Grupları ve Genel Koşucu | Aşama 0'ın her mikro özelliğini yazarken ve önyükleme hakeminin vektör koşucusu değişirken |
-| `tohum/29f-vektor-arayuzleri.md` | Vektör Arayüzleri: `secrets`, `contained`, `profile` | Aşama 0'ın MF2, MF3 ve MF4'ünü yazarken; bu grupların komutu, girdisi ya da çıktısı değişirken |
-| `tohum/29g-vektor-arayuzleri-devam.md` | Vektör Arayüzleri, Devam: `npmlock`, `recipe`, `diffguard` | Aşama 0'ın MF5, MF6 ve MF7'sini yazarken; bu grupların komutu, girdisi ya da çıktısı değişirken |
+| `tohum/29f-vektor-arayuzleri.md` | Vektör Arayüzleri: `secrets`, `contained` | Aşama 0'ın MF2 ve MF3'ünü yazarken; bu grupların komutu, girdisi ya da çıktısı değişirken |
+| `tohum/29g-vektor-arayuzleri-devam.md` | Vektör Arayüzleri, Devam: `npmlock`, `recipe` | Aşama 0'ın MF5 ve MF6'sını yazarken; bu grupların komutu, girdisi ya da çıktısı değişirken |
 | `tohum/29h-vektor-arayuzleri-mf8-13.md` | Vektör Arayüzleri: `k0map` | Aşama 0'ın MF8'ini yazarken; bu grubun komutu, girdisi ya da çıktısı değişirken |
 | `tohum/29i-vektor-arayuzleri-mf8-13-devam.md` | Vektör Arayüzleri, Devam: `refs`, `append` | Aşama 0'ın MF9 ve MF10'unu yazarken; bu grupların komutu, girdisi ya da çıktısı değişirken |
 | `tohum/29j-vektor-arayuzleri-mf8-13-son.md` | Vektör Arayüzleri, Devam: `root`, `flaky`, `cause` | Aşama 0'ın MF11, MF12 ve MF13'ünü yazarken; bu grupların komutu, girdisi ya da çıktısı değişirken |
+| `tohum/29k-vektor-arayuzleri-yol-kurallari.md` | Vektör Arayüzleri, Yol Kuralları: `profile`, `diffguard` | Aşama 0'ın MF4 ve MF7'sini yazarken; bu grupların komutu, girdisi ya da çıktısı değişirken |
 | `tohum/30-guvenlik-katalogu.md` | Güvenlik Kataloğu: İlkeler, Zamanlama, Ortak Kader | her güvenlik işinde, her bildirimde ve yeni bir hedefe bağlanırken |
 | `tohum/30a-katalog-erisim-ve-enjeksiyon.md` | Güvenlik Kataloğu I: Erişim, Kimlik, Enjeksiyon, Web | kapsam bu sınıflara dokunduğunda; güvenlik avcısı, Kurucu ve Aşama 5'ten K6 işinde |
 | `tohum/30b-katalog-kiracilik-ve-graphql.md` | Güvenlik Kataloğu II: Çok Kiracılık, GraphQL, Kaynak Tüketimi | profil `tenancy.model` `none` değilse ya da hedef GraphQL sunuyorsa; güvenlik avcısı ve K6 işinde |

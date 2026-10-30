@@ -59,9 +59,9 @@ yeşil koşmasıdır (`unit.verify`). Lint için yeşil: `lint_cmd` üç koşunu
 ister, ölçüt 6 yeşil). `toolchain` `node@X.Y.Z`'dir: kesin sürüm (üç ondalık bileşen; aralık ya da `lts` gibi
 takma ad değil), birimin dizininden köke doğru en yakın sürüm dosyasındaki sürüm. İmaj resmi araç zinciri
 imajıdır, etiketindeki sürüm de `X.Y.Z`'dir. `install_scripts_required[]`'in her elemanı kilitteki tam paket
-yolu (ör. `node_modules/x`) ya da tarball'ın `ad@sürüm`'üdür; çıplak ad (her sürümü işaretlerdi) işaret
-değildir, hiçbir paketi işaretlemez (`29g`). `services` Aşama 0'da boştur. Önerinin hariç yolları ya da
-güvenlik yollarını daraltması reddedilir.
+yolu (ör. `node_modules/x`) ya da tarball'ın `ad@sürüm`'üdür; başka bir eleman, ör. çıplak ad (her sürümü
+işaretlerdi), işaret değildir ve isteği kullanılamaz yapar: `deps.fetch` onu reddeder (çıkış 2, `29g`).
+`services` Aşama 0'da boştur. Önerinin hariç yolları ya da güvenlik yollarını daraltması reddedilir.
 
 **policy.json `operating{}`**: `{key: {value, band: [min, max]}}`; anahtarlar `unit_inputs_bytes`,
 `deps_bytes`, `worktree_bytes`, `container_mem_bytes`, `kos_wall_s`, `test_total_s`, `output_bytes`.
