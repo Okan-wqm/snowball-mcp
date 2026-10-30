@@ -4,17 +4,21 @@ is pinned here, so a later edit that loosens it fails a test instead of passing 
 from __future__ import annotations
 
 import importlib.util
+import io
 import json
 import re
+import subprocess
+import tarfile
 import tempfile
 import unittest
 from datetime import datetime, timezone
 from pathlib import Path
 from unittest import mock
 
-from snowball_bootstrap import rival
+from snowball_bootstrap import rival, vectors
 
 FOUNDER = Path(__file__).resolve().parents[2] / "founder"
+VECTORS = Path(__file__).resolve().parents[1] / "vectors"
 
 
 def load_launch():
@@ -54,7 +58,7 @@ class CapsuleArgvTest(unittest.TestCase):
 
     def test_secrets_referee_result_and_target_are_read_only_and_the_brain_lives_in_memory(self):
         self.assertEqual(self.mounts(), {"/run/secrets/founder.env": "readonly", "/work/referee": "readonly",
-                                         "/work/target": "readonly", "/work/logs": "rw"})
+                                         "/work/target": "readonly", "/work/logs": "rw", "/vec": "readonly"})
         self.assertIn("/work/brain:rw,exec,size=2g,mode=1777", self.argv)  # a fresh clone every session, never on disk
         for i, arg in enumerate(self.argv):
             if arg == "-e":
@@ -66,6 +70,13 @@ class CapsuleArgvTest(unittest.TestCase):
         src = Path(re.search(r"src=([^,]+)", logs[0]).group(1))
         self.assertEqual(src, self.work / "logs" / "20261029T000000Z")
         self.assertIn("BRAIN_SEED=" + "a" * 40, self.argv)
+
+    def test_the_vector_inputs_are_mounted_read_only_where_the_commands_read_them(self):  # E244
+        vec = [self.argv[i + 1] for i, a in enumerate(self.argv)
+               if a == "--mount" and "dst=/vec," in self.argv[i + 1] + ","]
+        self.assertEqual(len(vec), 1)
+        self.assertEqual(self.mounts()["/vec"], "readonly")  # the Founder reads the inputs, never rewrites them
+        self.assertEqual(Path(re.search(r"src=([^,]+)", vec[0]).group(1)), self.work / "vec")
 
     def test_every_mount_stays_inside_the_one_work_folder(self):
         for i, arg in enumerate(self.argv):
@@ -90,6 +101,152 @@ class BuildContextTest(unittest.TestCase):
         for rel in files:
             self.assertNotIn(b"\r", (ctx / rel).read_bytes(), rel)
         self.assertEqual((ctx / "founder/entrypoint.sh").read_bytes(), b"#!/bin/sh\nset -eu\n")
+
+
+def tarball(files: dict[str, bytes]) -> bytes:
+    """A repository tarball as GitHub serves it: every path under one `<owner>-<repo>-<sha>/` folder."""
+    buf = io.BytesIO()
+    with tarfile.open(fileobj=buf, mode="w:gz") as tar:
+        for name, data in files.items():
+            info = tarfile.TarInfo(name)
+            info.size = len(data)
+            tar.addfile(info, io.BytesIO(data))
+    return buf.getvalue()
+
+
+def files_under(root: Path) -> dict[str, bytes]:
+    return {p.relative_to(root).as_posix(): p.read_bytes() for p in sorted(root.rglob("*")) if p.is_file()}
+
+
+class VectorInputsTest(unittest.TestCase):
+    """E244, Founder report f97: the capsule holds the vectors' inputs at `/vec` (each case's command, stdin and
+    fixtures, as the referee runs them) and never their expected values: inputs yes, answers never."""
+
+    SEED = json.loads((VECTORS / "vectors.json").read_text(encoding="utf-8"))
+    DATA = [case for group in SEED.values() if isinstance(group, dict) and group.get("runner") == vectors.DATA_RUNNER
+            for case in group["cases"]]
+    TOP = "o-referee-1a2b3c4/"
+
+    def test_the_inputs_are_every_data_case_with_no_expected_value_at_any_depth(self):
+        def keys(value):
+            if isinstance(value, dict):
+                return set(value) | {k for v in value.values() for k in keys(v)}
+            return {k for v in value for k in keys(v)} if isinstance(value, list) else set()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            vec = vectors.founder_inputs(VECTORS, Path(tmp) / "vec")  # the real seed: no fixture carries an answer
+            given = files_under(vec)
+            referee = files_under(vectors.fixtures(VECTORS, Path(tmp) / "referee"))
+        cases = json.loads(given.pop("cases.json").decode("utf-8"))
+        self.assertEqual(given, referee)  # the files the referee's containers read, nothing more
+        self.assertNotIn("vectors.json", given)
+        self.assertEqual(len(cases), len(self.DATA))
+        self.assertFalse(keys(cases) & {"expect", "expect_not"})
+        for got, case in zip(cases, self.DATA):
+            changed = case["changed"]
+            self.assertEqual(got, {"id": case["id"], "purpose": case["purpose"], "cmd": case["cmd"],
+                                   "stdin": case.get("stdin", ""), "fixture": case["fixture"],
+                                   "changed": {"description": changed["description"], "cmd": changed["cmd"],
+                                               "stdin": changed.get("stdin", ""), "fixture": changed["fixture"]}})
+
+    @staticmethod
+    def probe_seed(root: Path, files: dict[str, str]) -> Path:
+        answer = "ab" * 32  # what the command must compute from its input
+        case = {"id": "probe.one", "purpose": "a made-up case", "cmd": "python -m probe.x root /vec/probe/a.txt",
+                "fixture": ["probe/a.txt"], "expect": {"root": answer},
+                "changed": {"description": "another row", "cmd": "python -m probe.x root /vec/probe/b.txt",
+                            "fixture": ["probe/b.txt"], "expect_not": {"root": answer}}}
+        (root / "probe").mkdir(parents=True)
+        (root / "vectors.json").write_text(json.dumps({"probe": {"owner": "asama-0", "runner": "data",
+                                                                 "cases": [case]}}), encoding="utf-8")
+        for rel, text in {"probe/a.txt": "row 1\n", "probe/b.txt": "row 2\n", **files}.items():
+            (root / rel).write_text(text.replace("ANSWER", answer), encoding="utf-8")
+        return root
+
+    def test_a_fixture_that_carries_a_computed_answer_is_refused(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            echo = self.probe_seed(Path(tmp, "echo"), {"probe/a.txt": "row 1 ANSWER\n"})  # its own input: an echo
+            self.assertTrue((vectors.founder_inputs(echo, Path(tmp, "vec")) / "cases.json").is_file())
+            lookup = self.probe_seed(Path(tmp, "lookup"), {"probe/answers.json": '{"probe.one": "ANSWER"}'})
+            with self.assertRaisesRegex(ValueError, r"probe\.one: probe/answers\.json"):
+                vectors.founder_inputs(lookup, Path(tmp, "vec2"))
+            self.assertFalse(Path(tmp, "vec2").exists())  # refused before anything reaches the capsule's folder
+
+    def test_the_launcher_builds_them_with_the_referees_own_function(self):  # one source: no copy of the rule
+        self.assertIs(load_launch().founder_inputs, vectors.founder_inputs)
+
+    def test_only_the_referee_repos_vectors_are_unpacked(self):
+        launch = load_launch()
+        blob = tarball({self.TOP + "bootstrap/snowball_bootstrap/decide.py": b"the referee's code",
+                        self.TOP + "bootstrap/vectors/old.json": b"{}", self.TOP + "setup/summary.json": b"{}",
+                        self.TOP + "vectors/vectors.json": b"{}", self.TOP + "vectors/g/a.txt": b"input"})
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertEqual(launch.referee_vectors(blob, Path(tmp)), Path(tmp, self.TOP, "vectors"))
+            self.assertEqual(sorted(files_under(Path(tmp))), [self.TOP + "vectors/g/a.txt",
+                                                              self.TOP + "vectors/vectors.json"])
+            with self.assertRaises(tarfile.FilterError):  # filter="data": nothing lands outside the folder
+                launch.referee_vectors(tarball({self.TOP + "vectors/../../../out.txt": b"x"}), Path(tmp, "x"))
+            self.assertFalse(Path(tmp, "out.txt").exists())
+
+    def test_the_inputs_are_rebuilt_from_the_referee_repos_main(self):
+        launch = load_launch()
+        repo = {self.TOP + "vectors/" + rel: data for rel, data in files_under(VECTORS).items()}
+        repo[self.TOP + "bootstrap/snowball_bootstrap/decide.py"] = b"the referee's code"
+        calls = []
+
+        def gh(*args, **kw):
+            calls.append(args)
+            return subprocess.CompletedProcess(args, 0, tarball(repo), b"")
+
+        work = Path(tempfile.mkdtemp())
+        (work / "vec").mkdir()
+        (work / "vec" / "stale.json").write_text("{}")  # an earlier session's copy
+        with mock.patch.object(launch, "run", gh):
+            launch.Pilot(work, "o/brain", "o/referee", "target").refresh_inputs()
+        self.assertEqual(calls, [("gh", "api", "repos/o/referee/tarball/main")])
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertEqual(files_under(work / "vec"), files_under(vectors.founder_inputs(VECTORS, Path(tmp))))
+
+    def run_cycle(self, gh):
+        launch = load_launch()
+        head, calls, report = "a" * 40, [], []
+
+        class Fake(launch.Pilot):
+            def fetch_result(self):
+                return {"head": head, "verdict": "accepted", "state": {"last_evaluated_sha": head}}
+
+            def brain_head(self):
+                return head
+
+            def ledger_rows(self, sha):
+                return []
+
+            def refresh_inputs(self):
+                calls.append("refresh")
+                super().refresh_inputs()
+
+            def session(self, *a):
+                calls.append("session")
+                return {"exit": 0, "minutes": 1}
+
+            def write(self, text):
+                report.append(text)
+
+        pilot = Fake(Path(tempfile.mkdtemp()), "o/brain", "o/referee", "target")
+        pilot.idle, pilot.seed = 0, "s" * 40
+        args = type("Args", (), dict(model="m", max_turns=1, budget_usd=1, session_timeout=1, referee_timeout=1))
+        with mock.patch.object(launch, "say"), mock.patch.object(launch, "run", gh):
+            go_on = pilot.cycle(1, args)
+        return calls, go_on, "".join(report), pilot.work / "vec"
+
+    def test_the_inputs_are_rebuilt_before_each_session_and_a_failed_fetch_stops_the_cycle(self):
+        seed = tarball({self.TOP + "vectors/vectors.json": b'{"schema": "x"}'})
+        calls, go_on, _, vec = self.run_cycle(lambda *a, **kw: subprocess.CompletedProcess(a, 0, seed, b""))
+        self.assertEqual((calls, go_on), (["refresh", "session"], True))
+        self.assertEqual(json.loads((vec / "cases.json").read_text(encoding="utf-8")), [])
+        calls, go_on, report, vec = self.run_cycle(lambda *a, **kw: subprocess.CompletedProcess(a, 1, b"", b"HTTP 502"))
+        self.assertEqual((calls, go_on), (["refresh"], False))  # no session on stale or missing inputs
+        self.assertIn("HTTP 502", report)
 
 
 class RefereeRetryTest(unittest.TestCase):  # E166: the loop never waits on the Founder for the rival's own failure
@@ -119,6 +276,9 @@ class RefereeRetryTest(unittest.TestCase):  # E166: the loop never waits on the 
 
             def ledger_rows(self, sha):
                 return []
+
+            def refresh_inputs(self):  # VectorInputsTest's subject
+                pass
 
             def session(self, *a):
                 return {"exit": 0, "minutes": 1}
@@ -167,6 +327,9 @@ class RefereeRetryTest(unittest.TestCase):  # E166: the loop never waits on the 
             def ledger_rows(self, sha):
                 return []
 
+            def refresh_inputs(self):  # VectorInputsTest's subject
+                pass
+
             def session(self, *a):
                 calls.append("session")
                 return {"exit": 0, "minutes": 1}
@@ -201,6 +364,9 @@ class RefereeRetryTest(unittest.TestCase):  # E166: the loop never waits on the 
 
             def ledger_rows(self, sha):
                 return []
+
+            def refresh_inputs(self):  # VectorInputsTest's subject
+                pass
 
             def session(self, *a):
                 return {"exit": 0, "minutes": 1}
@@ -242,6 +408,9 @@ class RefereeRetryTest(unittest.TestCase):  # E166: the loop never waits on the 
 
             def ledger_rows(self, sha):
                 return []
+
+            def refresh_inputs(self):  # VectorInputsTest's subject
+                pass
 
             def session(self, *a):
                 return {"exit": 0, "minutes": 0.1, "api_error": "usage_limit_reached", "api_error_status": 429,
@@ -364,6 +533,18 @@ class ImageAndEntrypointTest(unittest.TestCase):
             self.assertIn(phrase, prompt)
         self.assertNotIn("project.json", prompt)  # the duty is general; what is missing is the Founder's to find
         self.assertNotIn("Nx", prompt)
+
+    def test_the_founder_gets_the_vector_inputs_and_reports_a_vector_that_contradicts_its_page(self):  # E244, f97
+        prompt = " ".join((FOUNDER / "prompt.md").read_text(encoding="utf-8").split())
+        for phrase in ("`/vec`'te salt okunurdur", "`/vec/cases.json`", "Beklenen değerler orada yoktur",
+                       "`stdin`'iyle, olduğu gibi", "sayfasıyla çelişiyorsa kırmızı kalır",
+                       "operatör bir tohum dönemiyle yanıt verene kadar kabulü engeller",
+                       "kanıtıyla (vaka, sayfanın satırı, çıktı) `seed_issue` yaz, etrafından dolaşma",
+                       "Bir girdiyi (bir fikstürü, bir yolu, bir vaka adını) özel durum olarak kodlamak gizlemedir",
+                       "rakip taze girdilerle çürütür", "Hakem reposunu ve `snowball-mcp`'yi okuma yasağı sürer"):
+            self.assertIn(phrase, prompt)
+        for claim in ("tartışmalı", "askıya", "disputed"):  # a seed_issue sets no vector aside: nothing implements that
+            self.assertNotIn(claim, prompt)
 
     def test_the_session_has_no_inherited_configuration_and_no_mcp(self):
         self.assertIn('--setting-sources ""', self.entry)

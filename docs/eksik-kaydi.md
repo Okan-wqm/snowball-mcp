@@ -233,6 +233,7 @@ hepsi yazılıdır. Bulguları birleştiren ve doğrulayan: Claude Code (Opus 5.
 | E241 | Başlatıcı bir sonucu ait olduğu başa bakmadan bir push'a yazıyordu: `STOP` hakemi beklerken gelince (ya da zaman aşımında, hiç başlamayan koşuda) `dispatch_referee` `still_running` döner, `fetch_result` en yeni imzalı sonucu, yani önceki başınkini indirir ve `cycle` onu yeni başın kararı diye günlüğe ve `pilot-metrics.jsonl`'a yazardı. Canlıda oldu: `d14b44a` (MF9) için hakem koşarken günlük "verdict accepted" yazdı, kabul `2be80ed`'ninkiydi | K | — | pilot, 20 döngülük koşu, döngü 6 | kapandı · `judge` yalnız başın kararını döner, değilse `None` ve "sonraki başlangıç önce onu yargılar" (E168); `test_an_unfinished_run_never_lends_an_older_heads_verdict`, mutant `launcher_lends_an_older_verdict`; yanlış ölçüm satırı düzeltildi |
 | E242 | Tohum teslim yordamının komutu (`seed/founder/README.md` 4. adım `git archive S spec/tohum \| tar -x`) `core.autocrlf=true` olan Windows makinesinde LF dosyalara CRLF ekler: `git archive` dışa aktarımda satır sonu dönüşümünü uygular. Tohum dönemi 2'de operatörün hakem kopyası 262 dosyayı (`snowball_bootstrap`'ın 23'ü dahil) baştan sona değişmiş gösterdi; itmeden önce yakalandı. Dönem 1'in teslimi temizdi (beyinde CR baytı yok, denendi) | O | — | tohum dönemi 2 | kapandı · README 3. ve 4. adım: klonlar ve `archive` `-c core.autocrlf=false` ile, itmeden önce CR sayısı 0; açık: yordam elle koşulan komutlardır, tek bir `seed-deliver` komutu olmalı (sonraki parti) |
 | E243 | Başlatıcı "oturum çalışamadı" ile "Kurucu push etmedi"yi ayırmıyordu: hesabın kullanım sınırı (CLI'nin kapanış sonucu `api_error_status: 429`, `api_error: usage_limit_reached`) oturumu durdurunca push'suz oturum boşta sayıldı ve iki tanesi pilotu durdurdu. Canlıda oldu: tohum dönemi 2'den sonra döngü 1 (49 tur, iş push edilmeden kayboldu) ve döngü 2 (1 tur, 0,8 s); kota operatörün iş akışlarıyla ortak | K | — | pilot, tohum dönemi 2'den sonraki koşu | kapandı · `usage_limit_wait`: CLI'nin söylediği sıfırlanmaya kadar (+2 dk, en çok 6 sa; sıfırlanma yazılı değilse 30 dk) bekler, boşta sayacına dokunmaz, ölçüme `api_error`; iki test, mutantlar `usage_limit_counted_as_idle`, `usage_limit_reset_ignored`. Açık: kota Kurucu, rakip ve operatörün ajanları arasında ortak; operatör pilot koşarken büyük iş akışlarını sınırlar |
+| E244 | Kurucu vektörlerin girdilerini göremiyordu: `29f`–`29j` komutları `/vec/...` fikstürleriyle verir ve fikstürleri çapa sayar, ama kapsülde `/vec` yoktu. Kurucu bir vakayı hakemin koştuğu girdide koşturamıyor, sayfasıyla çelişen bir vakayı kanıtlayamıyordu; bir kez göremediği bir fikstüre uymak için açık geçen (fail-open) bir istisna yazdı | K | evet | **Kurucu raporu** f97; ajan tartışması: "girdi evet, cevap asla" | `gaps/fixtures-in-capsule`'da hazır, birleştirme bekliyor · `vectors.founder_inputs`: `fixtures`'ın dosyaları ve `cases.json` (her veri vakasının `id`, `purpose`, `cmd`, `stdin`, `fixture`, `changed.{description, cmd, stdin, fixture}`; `expect`, `expect_not` ve onlardan hesaplanan hiçbir şey yok); kendi girdisinin taşımadığı bir cevabı taşıyan fikstürde hiçbir şey yazmadan reddeder. Başlatıcı her oturumdan önce hakem reposunun `main` tarball'ından yalnız `vectors/`'ü açar (`filter="data"`), `<work>/vec`'i o fonksiyonla kurar, `/vec`'e salt okunur bağlar; alınamazsa oturum açılmaz. Prompt kuralları söyler · **sınır**: vektörler artık bir uygulamayı arama tablosundan ayırmaz; engeller rakibin taze girdili çürütmeleri ve prompt; özel durumlanmış girdiyi adlandıran çürütmeler ölçülür |
 | E260 | Yeniden üreticinin kutbu tanımsız: hakem yalnız bir metnin görünüp görünmediğini görür, belirti mi doğru çıktı mı olduğunu göremez. Rakip beklentiyi testin beklentisi gibi (doğru çıktı) yazınca açık iddia kusurlu başta görünmedi, düzeltmede göründü; E07 (c) düzeltmeyi kanıtlanmış kusur yapıyor, E08 sonra her doğru başı `refutation_still_reproduces` ile reddediyordu (kalıcı ret döngüsü). Aynı karışıklık doğru kodda yanlış iddiayı hemen kanıtlar | K | evet | **Kurucu raporu** f102 (iddia `87c088321252`, anahtar `027465767d2d46dc`; 86cc8b4'te gösterilmedi; düzeltme f668776 koşu 40967821066'da `refutation_reproduced` ile reddedildi, rakip `not_refuted` dediği hâlde; döngüyü operatör 40969705356'da `waived_refutations` ile elle kırdı) | karar bekliyor · `gaps/reproducer-polarity` hazır, operatör onayı ve birleştirme bekliyor (E07 (c)'yi değiştirir) · kanıt yalnız yeniden üreticinin yargılandığı başta: belirti kod yüzünden görünür (boş ağaçta görünmez), doğru çıktı görünmez; açık iddianın sonraki baştaki gösterimi gözlem (baş, `shown`, `contradicted`), sonraki rakibe ve çıkışta operatöre verilir; rakip her açık iddiayı yeniden gönderebilir, incelenen başta yargılanır, aynısını göndermek yeniden yazma sayılmaz; iki taraflı sözleşme (`expect_*` belirti, `correct_*` doğru çıktı, belirtinin bir gözlenenini adlandırır, taraflardan biri ötekinden çıkamaz; tek kural `rival.side_holds`, doğrulayıcı ve koşucu ortak); E08 aynen: kanıtlanmış kusur belirtisi göründükçe engeller, baş yanında doğru çıktıyı yazsa da; alanların tek kaynağı `rival.REPRODUCER_FIELDS`; anahtar ve durum şeması 3 aynı · sınır: iki tarafı bilerek ters yazan yeniden üretici doğru kodda yine kanıtlar (anlam, mekanik değil) |
 
 **Kararlar (2026-10-29).** Operatör, "karar" sütunu `evet` olan 19 kalemin hepsinde aşağıdaki
@@ -1546,6 +1547,50 @@ Testler `tests/test_rival_memory.py`'de, sınıf adları kalem numarasıyla. Dur
   yeniden düzenlemesidir, bu satırın işi değildir. Ortak bir akışta olup kusurlu başta da görünen doğru taraf
   (`correct_stdout_contains: "done"` gibi) koşmadan ayırt edilemez: kendi başında kanıtı düşürür, sonraki rakip
   `contradicted: true` gözlemini görür. Kurucu'nun f97 isteği (vektör fikstürleri klonda) bu satırın işi değildir.
+
+### E244 (2026-10-30) · kapsülde vektör girdileri · dal `gaps/fixtures-in-capsule`
+
+- **Ne oldu.** Kurucu f97'de `29f`–`29j`'nin çapa saydığı fikstürleri göremediğini bildirdi; bir kez göremediği bir
+  fikstüre uymak için açık geçen bir istisna yazdı. Hakem fikstürleri yalnız kendi kapsayıcılarına bağlıyordu
+  (`fixtures`, `/vec`); Kurucu'nun kapsülünde `/vec` yoktu.
+- **Karar (ajan tartışması).** Girdi evet, cevap asla. `vectors.founder_inputs` (`fixtures`'ın yanında, tek kaynak):
+  `fixtures`'ın dosyaları, artı `cases.json`, her veri vakasının adlandırılmış alanları (`id`, `purpose`, `cmd`,
+  `stdin`, `fixture`, `changed.{description, cmd, stdin, fixture}`); `expect` ve `expect_not` hiçbir derinlikte yok.
+  Hakemin kapsayıcıları `fixtures`'ı değişmeden kullanır. Başlatıcı her oturumdan önce
+  `gh api repos/<hakem>/tarball/main`'i indirir, yalnız `vectors/` üyelerini `filter="data"` ile açar, `<work>/vec`'i
+  aynı fonksiyonla (kopya değil, `assertIs`) kurar ve `/vec`'e salt okunur bağlar; her vakanın `cmd`'si orada olduğu
+  gibi koşar. İndirme ya da kurma başarısızsa oturum açılmaz, başlatıcı durur. Prompt: girdiler `/vec`'te, beklenen
+  değer yok; sayfasıyla çelişen vektör kırmızı kalır ve operatör tohum dönemiyle yanıt verene kadar kabulü engeller,
+  Kurucu onu kanıtıyla `seed_issue` olarak yazar, etrafından dolaşmaz; girdiyi özel durum yapmak gizlemedir (rakip
+  çürütür); hakem reposu ve `snowball-mcp` okuma yasağı sürer. `seed_issue` bir vektörü kenara koymaz: öyle bir
+  mekanizma yok, prompt da öyle demez. `29d`'ye `/vec` beyin testleri için yol olarak eklenmedi; `vectors.json`
+  değişmedi.
+- **Fikstürde cevap.** Cevap biçimli değer `answer_atoms`'dur (içerik adresi, yola bağlı neden, git ya da sha256
+  hash'i; sayfa testi de aynı kuralı okur). Vakanın kendi girdisi (argv, stdin, fikstürleri, değişmiş girdisi dahil)
+  taşıyorsa yankıdır (tarifin imajı, defter satırının uç hash'i: tohumda 20 değer); taşımıyorsa kodun hesaplaması
+  gerekir (52 değer) ve hiçbir fikstürde olmamalıdır. Tohumda yok; olursa `founder_inputs` hiçbir şey yazmadan reddeder.
+- **Kabul edilen risk.** Kurucu artık her vakanın girdisini görür: vektörler bir uygulamayı, bu girdileri tanıyıp
+  cevabını döndüren bir arama tablosundan ayıramaz. Beklenen değerler görünmez, ama Kurucu kendi kodunu `/vec`'te
+  koşturup çıktıyı sabitleyebilir; `chain`'in hash vektörlerinin satırları da beklenen hash'leriyle
+  `chain/good.jsonl`'dadır (geçerli zincir hash'ini taşır; Kurucu'nun kodu bunu önceden de `/vec`'ten okuyabilirdi).
+  Mekanik engel yok. Engeller: rakibin taze girdilerle çürütmeleri (özel durumlanmış girdi başka girdide düşer) ve
+  prompt. Ölçü: rakibin özel durumlanmış bir girdiyi (bir `/vec` yolu, bir vaka kimliği, bir fikstürün içeriği)
+  adlandıran çürütmeleri, pilot değerlendirmesinde (`docs/pilot-gunlugu.md`) sayılır; otomatik sayaç yok.
+- **Kanıt (önce kırmızı).** Yeni ve değişen 10 test değiştirilmemiş kodda kırmızıydı: bağ yok (`0 != 1`, bağların
+  sözlüğünde `/vec` yok), `founder_inputs`, `referee_vectors`, `refresh_inputs` ve `answer_atoms` yok
+  (`AttributeError`), döngü `(['session'], True) != (['refresh', 'session'], True)`, prompt cümlesi yok.
+- **Mutantlar.** Yeni 5: `capsule_inputs_not_mounted`, `capsule_inputs_writable`, `projection_leaks_expect`,
+  `whole_referee_repo`, `fixture_answer_check_off`; `expected_values_mounted` öldürülmeye devam eder.
+- **Doğrulama.** Windows: temel (`a7f3283`) 416 test OK (18 atlandı); dal 424 OK (18 atlandı). Döngüyü koşturan
+  sahte pilotlar (`test_founder_capsule`, `test_reproducer_polarity`) `refresh_inputs`'u ezer, yoksa gerçek `gh`'ye
+  giderlerdi. Mutantlar Windows'ta (`mutate.py`'nin `MUTANTS` ve `run_mutant`'ı, Windows ortamıyla; ilgili altı test
+  modülü, önce yeşil baz): 5 yeni, `expected_values_mounted`, `run_tests_mounts_the_seed`,
+  `reproduce_mounts_the_seed`, `new_vector_page_shows_a_hash` (sayfa testi artık `answer_atoms`'u okur) ve
+  `launch.py`'nin 10 mutantı: 19/19 öldü. 284 çapanın her biri tam bir kez eşleşir. Linux ve bütün mutantlar
+  koşulmadı (CI'nin `main` işi).
+- **Açık kalan.** Canlı pilot bu dal birleştirilip başlatıcı yeniden başlatılana (imaj prompt'la yeniden kurulana)
+  kadar `/vec`'siz koşar. Hakem reposundan gerçek tarball indirmesi denenmedi (pilotun reposuna dokunulmadı); test
+  GitHub biçiminde bir tarball'la koşar.
 
 ## Doğrulanmış sağlam taraflar
 Kapsayıcı bayrakları ve kırmızı kontroller; host'ta kabuk enjeksiyonu yok; `$GITHUB_OUTPUT`'a serbest

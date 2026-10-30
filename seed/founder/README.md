@@ -11,6 +11,7 @@ evidir. Sınırlar `seed/bootstrap/tests/test_founder_capsule.py`'de sabitlidir.
 | `snowball-founder.env` | `GITHUB_TOKEN` (yalnız beyin reposu, Contents: Read and write) ve `CLAUDE_CODE_OAUTH_TOKEN` (`claude setup-token`); operatör yazar, yalnız kapsül okur |
 | `aquaculture_platform/` | hedef klonu, kapsüle salt okunur |
 | `referee/` | hakemin son imzalı sonucu (`result.json`), Kurucu okur |
+| `vec/` | vektörlerin girdileri, kapsüle `/vec` olarak salt okunur (E244): `cases.json` (her veri vakasının `id`, `purpose`, `cmd`, `stdin`, `fixture` ve `changed` alanları) ve fikstürler; beklenen değer yok. Her oturumdan önce hakem reposunun `main`'indeki `vectors/`'ten, hakemin kendi `vectors.founder_inputs`'uyla yeniden kurulur |
 | `logs/` | oturum dökümleri (`stream-json`) |
 | `pilot-log.md` | operatörün raporu: her döngüde push, hakem kararı, yeni defter satırları ve bildirimler |
 | `pilot-metrics.jsonl` | her döngünün ölçümü: push, karar, nedenler ve **sahipleri** (hakemin kendi kuralıyla: Kurucu / rakip / hakem), rakibin kanıtlanmış bulguları, eski çürütmeler, yeni bildirimler, süre, maliyet, hakemin yeniden inceleme sayısı |
@@ -22,8 +23,11 @@ evidir. Sınırlar `seed/bootstrap/tests/test_founder_capsule.py`'de sabitlidir.
 python seed/founder/launch.py --cycles 3
 ```
 
-Her döngü: hakemin son sonucunu indir → bir Kurucu oturumu → beyin değiştiyse hakemi tetikle ve bekle (zamanlayıcısı
-çalışmıyor, E32) → `pilot-log.md`'ye yaz. Push'suz iki oturumda, zaman aşımında ya da `STOP` dosyasında durur.
+Her döngü: hakemin son sonucunu indir → vektör girdilerini yenile → bir Kurucu oturumu → beyin değiştiyse hakemi
+tetikle ve bekle (zamanlayıcısı çalışmıyor, E32) → `pilot-log.md`'ye yaz. Push'suz iki oturumda, zaman aşımında,
+`STOP` dosyasında ya da girdiler yenilenemeyince (eski ya da eksik girdiyle oturum açılmaz) durur.
+Sayfasıyla çelişen bir vektör kırmızı kalır ve operatör tohum dönemiyle yanıt verene kadar kabulü engeller; Kurucu
+onu kanıtıyla `seed_issue` olarak bildirir, etrafından dolaşmaz.
 `--budget-usd` bütçe değil, kaçak frenidir. Döngülerin değerlendirmesi (ne buldu, ne kaçırdı, öğrendi mi) repoda
 `docs/pilot-gunlugu.md`'dedir; her döngüden sonra güncellenir.
 

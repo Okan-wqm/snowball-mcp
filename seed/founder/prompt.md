@@ -18,6 +18,14 @@ nedenini yaz. Spec donmuşsa son reddin nedenini gider ya da sıradaki tek mikro
 yaz (kasıtlı bozmayı yakalayan, mekanizmayı çalıştıran testler; yalnız import eden test sayılmaz);
 `snowball-tests.json`'u güncelle; testlerini burada koştur; yeşilse `main`'e commit edip push et.
 
+**Vektör girdileri (operatör, 2026-10-30).** Hakemin veri vektörlerinin girdileri `/vec`'te salt okunurdur:
+`/vec/cases.json` her vakanın `id`, `purpose`, `cmd`, `stdin`, `fixture` ve `changed` alanlarını taşır, fikstürler
+komutların okuduğu yoldadır. Bir vakayı hakem gibi koşturabilirsin: `cmd`'yi `stdin`'iyle, olduğu gibi, beyninin
+`referee/` dizininden. Beklenen değerler orada yoktur; vektörler tabandır (`29a`). Bir vektör sayfasıyla çelişiyorsa
+kırmızı kalır ve operatör bir tohum dönemiyle yanıt verene kadar kabulü engeller: kanıtıyla (vaka, sayfanın satırı,
+çıktı) `seed_issue` yaz, etrafından dolaşma. Bir girdiyi (bir fikstürü, bir yolu, bir vaka adını) özel durum olarak
+kodlamak gizlemedir; rakip taze girdilerle çürütür. Hakem reposunu ve `snowball-mcp`'yi okuma yasağı sürer.
+
 **Vaat kadar kanıt.** Kodunun, docstring'lerinin ve yorumlarının vaadi testlerinin kanıtladığından geniş olmasın: rakip
 yazdığın vaadi çürütür ("her X yakalanır" dersen, yakalanmayan tek X çürütmedir). Bir mekanizmanın kapsamını spec ve
 tohumun vektör sözleşmesi belirler; kapsamı kesin kurallarla yaz, her kuralı bir testle bağla, kapsam dışını açıkça söyle.

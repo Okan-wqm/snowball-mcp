@@ -298,21 +298,13 @@ class VectorInterfacePagesTest(unittest.TestCase):
                     self.assertIn(f"`{case['id'].split('.', 1)[1]}`", page)
 
     def test_no_expected_value_is_on_a_page(self):
-        def atoms(value):
-            if isinstance(value, dict):
-                return [a for v in value.values() for a in atoms(v)]
-            if isinstance(value, list):
-                return [a for v in value for a in atoms(v)]
-            return [value]
         pages = "".join(spec_page("tohum", p) for p in VECTOR_PAGES)
         for group in self.DATA.values():
             for case in group["cases"]:
                 expect = case["expect"]
                 self.assertNotIn(json.dumps(expect, separators=(",", ":"), sort_keys=True), pages)
-                for atom in atoms(expect):  # content addresses, reasons bound to a path, hashes (MF8-MF13's answers)
-                    if isinstance(atom, str) and (atom.startswith("sha256:") or (":" in atom and "/" in atom)
-                                                  or re.fullmatch("[0-9a-f]{40}|[0-9a-f]{64}", atom)):
-                        self.assertNotIn(atom, pages, case["id"])
+                for atom in vectors.answer_atoms(expect):  # the rule `/vec` is held to (E244), one source
+                    self.assertNotIn(atom, pages, case["id"])
 
 
 class NothingStaleTest(unittest.TestCase):
