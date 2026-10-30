@@ -5,6 +5,12 @@ repository, in any language, keeps all repository-specific state inside that rep
 grows its own adapters, judges, memories and agents from measured need. Every decision is closed
 by execution (a test, a tool rerun, a measured harness), not by a model's opinion.
 
+**Where it is heading.** The owner's goal is the best refactoring and coding system there is, used on the large repositories
+of large companies, and later a product in the way Cursor or Replit are. The difference it aims for: not a suggester a
+human must check, but an autonomous maintainer that brings its own evidence for every change (tests, a rival's failed
+refutation, a signed verdict), can always be undone, and learns from its own mistakes. The order is: prove the
+self-improving core on a real repository, then scale (many repositories, any ecosystem), then the product.
+
 ## Status
 
 This repository holds the **seed**: the specification (version 2.2), the bootstrap referee and the Founder's
