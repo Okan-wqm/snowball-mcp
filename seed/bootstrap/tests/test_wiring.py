@@ -261,11 +261,23 @@ class StageTableMatchesTheSpecTest(unittest.TestCase):
             self.assertEqual(group["owner"] == "asama-0", name in named, name)
 
 
-VECTOR_PAGES = ("29f", "29g", "29h", "29i", "29j", "29m", "29n", "29o")
+class SpecPagesTest(unittest.TestCase):
+    def test_no_page_is_over_80_lines(self):
+        """`tohum/15` 1: a page over 80 lines is split. Every page under `spec/`, the changelog too, not only the vector
+        pages (E252: the check held only `29f`-`29k`, and `29` reached 84 lines and the changelog 82 unseen);
+        `INDEX.md` is generated (`tohum/15` 5) and exempt."""
+        pages = sorted(p for p in (ROOT / "spec").rglob("*.md") if p != ROOT / "spec" / "INDEX.md")
+        self.assertGreater(len(pages), 100)
+        for page in pages:
+            with self.subTest(page=page.relative_to(ROOT).as_posix()):
+                self.assertLessEqual(len(page.read_text(encoding="utf-8").splitlines()), 80)
+
+
+VECTOR_PAGES = ("29f", "29g", "29h", "29i", "29j", "29k", "29m", "29n", "29o")
 
 
 class VectorInterfacePagesTest(unittest.TestCase):
-    """`29f`-`29j` and `29m`-`29o` are what the Founder reads of the data groups (it never sees `vectors.json`): every
+    """`29f`-`29k` and `29m`-`29o` are what the Founder reads of the data groups (it never sees `vectors.json`): every
     group's command and every case's purpose are there, the expected values are not (`29a`: the vectors are a floor)."""
 
     SEED = json.loads((BOOT / "vectors" / "vectors.json").read_text(encoding="utf-8"))
@@ -278,7 +290,6 @@ class VectorInterfacePagesTest(unittest.TestCase):
             name = next((ROOT / "spec" / "tohum").glob(f"{prefix}-*.md")).name
             lines = page.splitlines()
             with self.subTest(page=name):
-                self.assertLessEqual(len(lines), 80)  # `tohum/15` 1
                 self.assertRegex(lines[2], r"^Tarih: \d{4}-\d\d-\d\d · Sürüm: [\d.]+ · Durum: \w+ · Sahibi: operatör$")
                 self.assertTrue(lines[3].startswith("Okunma: ") and lines[4].startswith("Çapa: "))
                 self.assertIn(f"| `tohum/{name}` | {lines[0].removeprefix('# ')} | {lines[3].removeprefix('Okunma: ')} |",
@@ -320,8 +331,8 @@ class NothingStaleTest(unittest.TestCase):
                  and p.suffix in (".py", ".md", ".yml", ".json", ".txt")]
         self.assertGreater(len(files), 50)
         for path in files:
-            if path.name == "package-lock.json" or path.name == "CHANGELOG.md":
-                continue  # the changelog is history
+            if path.name == "package-lock.json" or path.name.startswith("CHANGELOG"):
+                continue  # the changelog (every page of it, `tohum/15` 1) is history
             text = path.read_text(encoding="utf-8", errors="replace")
             for term in self.STALE:
                 if path.name == "config.py" and term == "price_micros_per_mtok":

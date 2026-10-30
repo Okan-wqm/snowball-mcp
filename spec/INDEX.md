@@ -63,11 +63,12 @@ Okunma: sayfa ararken; görev seçmek için `tohum/00b-gorev-haritasi.md`
 | `tohum/29b-onyukleme-hakemi.md` | Önyükleme Hakemi: Aşama 0'ın Yargıcı | kurulumda ve Aşama 0 boyunca |
 | `tohum/29c-prova-vektorleri.md` | Prova Vektörleri: Ders Provasının Referans Yargıcı | ders provasının yargıcını (`harness.drill`) yazarken (Aşama 2 partisi) ve ders provası tasarlanırken |
 | `tohum/29d-vektor-gruplari.md` | Tohum Vektörleri, Devam: Aşama 0'ın Grupları ve Genel Koşucu | Aşama 0'ın her mikro özelliğini yazarken ve önyükleme hakeminin vektör koşucusu değişirken |
-| `tohum/29f-vektor-arayuzleri.md` | Vektör Arayüzleri: `secrets`, `contained`, `profile` | Aşama 0'ın MF2, MF3 ve MF4'ünü yazarken; bu grupların komutu, girdisi ya da çıktısı değişirken |
-| `tohum/29g-vektor-arayuzleri-devam.md` | Vektör Arayüzleri, Devam: `npmlock`, `recipe`, `diffguard` | Aşama 0'ın MF5, MF6 ve MF7'sini yazarken; bu grupların komutu, girdisi ya da çıktısı değişirken |
+| `tohum/29f-vektor-arayuzleri.md` | Vektör Arayüzleri: `secrets`, `contained` | Aşama 0'ın MF2 ve MF3'ünü yazarken; bu grupların komutu, girdisi ya da çıktısı değişirken |
+| `tohum/29g-vektor-arayuzleri-devam.md` | Vektör Arayüzleri, Devam: `npmlock`, `recipe` | Aşama 0'ın MF5 ve MF6'sını yazarken; bu grupların komutu, girdisi ya da çıktısı değişirken |
 | `tohum/29h-vektor-arayuzleri-mf8-13.md` | Vektör Arayüzleri: `k0map` | Aşama 0'ın MF8'ini yazarken; bu grubun komutu, girdisi ya da çıktısı değişirken |
 | `tohum/29i-vektor-arayuzleri-mf8-13-devam.md` | Vektör Arayüzleri, Devam: `refs`, `append` | Aşama 0'ın MF9 ve MF10'unu yazarken; bu grupların komutu, girdisi ya da çıktısı değişirken |
 | `tohum/29j-vektor-arayuzleri-mf8-13-son.md` | Vektör Arayüzleri, Devam: `root`, `flaky`, `cause` | Aşama 0'ın MF11, MF12 ve MF13'ünü yazarken; bu grupların komutu, girdisi ya da çıktısı değişirken |
+| `tohum/29k-vektor-arayuzleri-yol-kurallari.md` | Vektör Arayüzleri, Yol Kuralları: `profile`, `diffguard` | Aşama 0'ın MF4 ve MF7'sini yazarken; bu grupların komutu, girdisi ya da çıktısı değişirken |
 | `tohum/29m-vektor-arayuzleri-mf14-18.md` | Vektör Arayüzleri: `revert_drill`, `prompt` | Aşama 0'ın MF14 ve MF15'ini yazarken; bu grupların komutu, girdisi ya da çıktısı değişirken |
 | `tohum/29n-vektor-arayuzleri-mf14-18-devam.md` | Vektör Arayüzleri, Devam: `status` | Aşama 0'ın MF16'sını yazarken; bu grubun komutu, girdisi ya da çıktısı değişirken |
 | `tohum/29o-vektor-arayuzleri-mf14-18-son.md` | Vektör Arayüzleri, Son: `genesis` | Aşama 0'ın MF18'ini yazarken; bu grubun komutu, girdisi ya da çıktısı değişirken |
@@ -88,6 +89,7 @@ Okunma: sayfa ararken; görev seçmek için `tohum/00b-gorev-haritasi.md`
 | `tohum/31g-karar-rehberi.md` | Mimari İlkeler VII: Karar Rehberi | aşağıdaki durumlardan biri ortaya çıktığında, `decision` satırı yazılmadan önce |
 | `tohum/31h-catismalar-ve-tarama.md` | Mimari İlkeler VIII: Çatışmalar ve Tarama Sinyalleri | iki ilke aynı durumda farklı yön gösterdiğinde; bir repo ilkeler açısından taranırken; rakip bir tasarımı çürütmeye çalışırken |
 | `tohum/CHANGELOG.md` | Değişiklik Günlüğü — Tohum | bir sayfanın geçmişi aranırken |
+| `tohum/CHANGELOG-1.md` | Değişiklik Günlüğü — Tohum, 2.1 ve öncesi | bir sayfanın geçmişi aranırken |
 
 ## Aşama 0 — Yürüyen İskelet: İlk Canlı Döngü
 
