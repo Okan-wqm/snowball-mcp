@@ -26,6 +26,23 @@ env:
   PYTHONDONTWRITEBYTECODE: "1"
 
 jobs:
+  doc-with-change:  # owner, 2026-10-30: a change to the seed's behaviour lands with its document (spec/tohum/15)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Every pushed change to the seed's behaviour carries a document
+        env:
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+        run: |
+          if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then BEFORE="$AFTER~1"; fi
+          git diff --name-only "$BEFORE" "$AFTER" | python3 seed/bootstrap/local/doc_with_change.py
+
   unit-linux:
     runs-on: ubuntu-24.04  # its system python3 is the 3.12 the referee's own workflow runs on
     timeout-minutes: 20

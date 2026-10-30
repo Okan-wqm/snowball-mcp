@@ -319,6 +319,37 @@ class VectorInterfacePagesTest(unittest.TestCase):
                     self.assertNotIn(atom, pages, case["id"])
 
 
+class DocWithChangeTest(unittest.TestCase):
+    """The owner's rule (2026-10-30): a change to the seed's behaviour lands with its document. CI runs
+    `local/doc_with_change.py` over every push to `main`; this pins what it lets through."""
+
+    def setUp(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("doc_with_change", BOOT / "local" / "doc_with_change.py")
+        self.mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(self.mod)
+
+    def test_a_behaviour_change_without_a_document_is_named(self):
+        u = self.mod.undocumented
+        self.assertEqual(u(["seed/bootstrap/snowball_bootstrap/decide.py"]), ["seed/bootstrap/snowball_bootstrap/decide.py"])
+        self.assertEqual(u(["seed/founder/launch.py", "seed/bootstrap/tests/test_founder_capsule.py"]),
+                         ["seed/founder/launch.py"])
+        self.assertEqual(u(["seed/bootstrap/vectors/vectors.json"]), ["seed/bootstrap/vectors/vectors.json"])
+
+    def test_a_documented_or_unguarded_change_passes(self):
+        u = self.mod.undocumented
+        self.assertEqual(u(["seed/bootstrap/snowball_bootstrap/decide.py", "docs/eksik-kaydi.md"]), [])
+        self.assertEqual(u(["seed/founder/launch.py", "seed/founder/README.md"]), [])
+        self.assertEqual(u(["seed/bootstrap/snowball_bootstrap/rival.py", "spec/tohum/29-tohum-koltuklari.md"]), [])
+        self.assertEqual(u(["seed/bootstrap/local/mutate.py", "seed/bootstrap/tests/test_units.py"]), [])
+        self.assertEqual(u(["README.md"]), [])
+        self.assertEqual(u(["", "  "]), [])
+
+    def test_ci_runs_it_on_every_push_to_main(self):
+        ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+        self.assertIn("python3 seed/bootstrap/local/doc_with_change.py", ci)
+
+
 class NothingStaleTest(unittest.TestCase):
     STALE = ("call.txt", "secrets.ANTHROPIC", "import anthropic", "anthropic==", "/tmp/call", "Anthropic SDK",
              "model SDK", "price_micros_per_mtok", "READER_APP", "BRAIN_TOKEN", "create-github-app-token")
