@@ -180,6 +180,43 @@ class RefereeRetryTest(unittest.TestCase):  # E166: the loop never waits on the 
             pilot.cycle(1, args)
         return calls
 
+    def test_an_unfinished_run_never_lends_an_older_heads_verdict(self):  # E241
+        launch = load_launch()
+        before, after = "a" * 40, "b" * 40
+        report = []
+
+        class Fake(launch.Pilot):
+            heads = [before, after]
+
+            def fetch_result(self):  # the newest signed result is still the previous head's
+                return {"head": before, "verdict": "accepted", "reasons": [], "warnings": [],
+                        "state": {"last_evaluated_sha": before}}
+
+            def dispatch_referee(self, timeout_s):  # STOP arrived while waiting: the run is still going
+                return {"id": "1", "conclusion": "still_running", "url": ""}
+
+            def brain_head(self):
+                return self.heads.pop(0)
+
+            def ledger_rows(self, sha):
+                return []
+
+            def session(self, *a):
+                return {"exit": 0, "minutes": 1}
+
+            def write(self, text):
+                report.append(text)
+
+        pilot = Fake(Path(tempfile.mkdtemp()), "o/brain", "o/referee", "target")
+        pilot.idle, pilot.seed = 0, before
+        args = type("Args", (), dict(model="m", max_turns=1, budget_usd=1, session_timeout=1, referee_timeout=1))
+        with mock.patch.object(launch, "say"):
+            pilot.cycle(1, args)
+        row = json.loads(pilot.metrics.read_text(encoding="utf-8").splitlines()[-1])
+        self.assertEqual((row["brain_after"], row["verdict"], row["reasons"]), (after, None, []))
+        self.assertNotIn("Hakemin kararı", "".join(report))
+        self.assertIn("still_running", "".join(report))
+
     def test_a_push_the_referee_never_judged_is_judged_before_the_next_session(self):  # E168
         self.assertEqual(self.catch_up(prior_head="a" * 40), ["referee", "session"])
         self.assertEqual(self.catch_up(prior_head="b" * 40), ["session"])  # already judged: straight to work

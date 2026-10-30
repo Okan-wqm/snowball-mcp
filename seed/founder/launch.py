@@ -262,7 +262,11 @@ class Pilot:
 
     def judge(self, n: int, head: str, timeout_s: int) -> tuple[dict, dict | None, int]:
         """Dispatch the referee for head, and again while it leaves head unevaluated (the rival failed on its own
-        side, or an outage): the Founder is never asked to fix what was not its fault (E166)."""
+        side, or an outage): the Founder is never asked to fix what was not its fault (E166).
+
+        The verdict returned is head's or None: the newest signed result belongs to another head whenever the run
+        did not finish (STOP while waiting, a timeout, a run that never started), and an older head's verdict
+        written as this head's is a false record (E241)."""
         dispatched = self.dispatch_referee(timeout_s)
         verdict, retries = self.fetch_result(), 0
         while (retries < MAX_REFEREE_RETRIES and verdict and verdict.get("head") == head
@@ -271,6 +275,10 @@ class Pilot:
             say(f"cycle {n}: {head[:7]} was not evaluated ({verdict.get('warnings')}); referee again, retry {retries}")
             dispatched = self.dispatch_referee(timeout_s)
             verdict = self.fetch_result()
+        if not verdict or verdict.get("head") != head:
+            say(f"cycle {n}: no verdict for {head[:7]} yet (referee run {dispatched['conclusion']}); "
+                "the next start judges it first (E168)")
+            return dispatched, None, retries
         return dispatched, verdict, retries
 
     def cycle(self, n: int, args) -> bool:

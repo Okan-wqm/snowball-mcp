@@ -230,6 +230,7 @@ hepsi yazılıdır. Bulguları birleştiren ve doğrulayan: Claude Code (Opus 5.
 | E238 | `29i` JSON Lines olmayan defter için iki cevap veriyordu: (1) geçerli zincir olmayan defterde sert duruş (`01b:26-32`, `13:53-55`), çıkış listesi ise "JSON Lines olmayan dosya"yı kullanılamaz girdi (2) sayıyordu. A `hard_stop: false`, B `true` veriyordu, vaka yoktu (denendi). A ayrıca stdin'i (1)'den önce okuyordu: kurcalanmış defter kullanılamaz istekle geldiğinde de sert duruş yoktu (B'de vardı; denendi) | K | — | E161 MF8–MF13 incelemesi | kapandı · `29i`: (1) stdin okunmadan önce, JSON nesnesi olmayan satır zinciri kırar; A buna göre; `refuse_unparsable_ledger`, `refuse_broken_chain_first`; 2 kırık, 1 mutant |
 | E239 | `29i` "3/3 ilk koşu artı üç yeniden koşudur (`07`, `04a`)" diyordu; `04a:24-25` 3/3'ü üç koşuyla tanımlar, ilk koşunun sayılıp sayılmadığını söylemez: okuma spec diye sunuluyordu, E230'da seçim olarak yoktu ve vakalar onu sabitlemiyordu (`CONSIDERED = 3` 8/8 yeşil, denendi) | S | — | E161 MF8–MF13 incelemesi | kapandı · `29j` spec'in sessizliğini ve seçimi gerekçesiyle yazar, E230'a eklendi; `flaky.two_reruns_rerun`; 1 kırık, 1 mutant |
 | E240 | `29h` `update`'in `PATCH {sha, force: false}` göndermesini ister (`07:16` "Zorla itme yoktur"), ama hiçbir çıktı gövdeyi göstermiyordu: `force: true` gönderen MF9 12/12 yeşildi (denendi); `brain/c/*` dallarında `non_fast_forward` kuralı yok (`01b`), zorla güncelleme geçmişi yeniden yazar | S | — | E161 MF8–MF13 incelemesi | kapandı · `refs`'in yeni çıktısı `forced` (`29i`), `refs.update_never_forces`; 1 kırık, 1 mutant |
+| E241 | Başlatıcı bir sonucu ait olduğu başa bakmadan bir push'a yazıyordu: `STOP` hakemi beklerken gelince (ya da zaman aşımında, hiç başlamayan koşuda) `dispatch_referee` `still_running` döner, `fetch_result` en yeni imzalı sonucu, yani önceki başınkini indirir ve `cycle` onu yeni başın kararı diye günlüğe ve `pilot-metrics.jsonl`'a yazardı. Canlıda oldu: `d14b44a` (MF9) için hakem koşarken günlük "verdict accepted" yazdı, kabul `2be80ed`'ninkiydi | K | — | pilot, 20 döngülük koşu, döngü 6 | kapandı · `judge` yalnız başın kararını döner, değilse `None` ve "sonraki başlangıç önce onu yargılar" (E168); `test_an_unfinished_run_never_lends_an_older_heads_verdict`, mutant `launcher_lends_an_older_verdict`; yanlış ölçüm satırı düzeltildi |
 
 **Kararlar (2026-10-29).** Operatör, "karar" sütunu `evet` olan 19 kalemin hepsinde aşağıdaki
 önerileri onayladı ve `snowball-mcp`'nin de açık olmasını istedi. E46–E48 test denetçisinden sonra
@@ -1422,6 +1423,14 @@ Testler `tests/test_rival_memory.py`'de, sınıf adları kalem numarasıyla. Dur
   `data_groups_have_no_judge`) Linux'ta, dört kapsayıcıda, her birinde önce yeşil baz koşu: 17/17 öldü. `local/e2e.py`
   ve bütün mutantlar koşulmadı (CI'nin `main` işi).
 - **Açık kalan.** E161'in kalan 4 grubu; E230–E235 (E230'a üç seçim eklendi: `forced`, JSON Lines olmayan defter, 3/3).
+
+### E241 (2026-10-30) · başlatıcı · bir sonuç yalnız kendi başına yazılır
+
+- **Ne oldu.** Operatör tohum dönemi 2 için `STOP` koydu; döngü 6'nın hakem koşusu (`d14b44a`, MF9) sürüyordu. `dispatch_referee` `STOP`'u görünce beklemeyi bıraktı (`still_running`), `judge` en yeni `bootstrap-state` artefaktını, yani `2be80ed`'nin kabulünü indirdi; yeniden inceleme döngüsü yalnız aynı başın sonucunda döndüğü için çıktı ve `cycle` onu `d14b44a`'nın kararı diye yazdı (`pilot-log.md`, `pilot-metrics.jsonl`: `verdict: accepted`, `reasons: []`).
+- **Kök neden.** Sonuç ile başın eşleşmesi yalnız yeniden inceleme koşulunda vardı; dönüşte denetlenmiyordu. Aynı sınıf: zaman aşımı, başlamayan koşu, `STOP`.
+- **Düzeltme.** `judge` dönüşte `verdict.head == head` ister; değilse `None` döner ve nedeni (`dispatched.conclusion`) söyler; kayıt `verdict: null` olur, yargılanmamış baş sonraki başlangıçta önce yargılanır (E168). Tek kural tek yerde: `cycle` ve yakalama dalı `judge`'ın sonucunu kullanır.
+- **Kanıt.** Yeni test önceki başın kabulünü döndüren sahte hakemle döngü koşar: kayıt `verdict: null`, günlükte "Hakemin kararı" yok, `still_running` var. Kontrol satırı silinince (mutant `launcher_lends_an_older_verdict`) test kırmızı (denendi). `test_founder_capsule` 24 test OK.
+- **Kayıt düzeltmesi.** `pilot-metrics.jsonl`'daki `d14b44a` satırı `verdict: null` ve `corrected_by: E241` ile düzeltildi; gerçek karar hakemin koşusu bitince günlüğe yazıldı.
 
 ## Doğrulanmış sağlam taraflar
 Kapsayıcı bayrakları ve kırmızı kontroller; host'ta kabuk enjeksiyonu yok; `$GITHUB_OUTPUT`'a serbest
