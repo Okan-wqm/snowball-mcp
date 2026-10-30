@@ -665,6 +665,76 @@ MUTANTS = [
      "E200: no valid mark beside the bare name, so a reading in which it marks nothing also fails and passes the case"),
     ("npmlock_page_drops_the_bare_name_case", "spec/tohum/29g-vektor-arayuzleri-devam.md", "`bare_name_refused`",
      "`bare_name`", "E200: bare_name_refused's purpose is missing from 29g, the page the Founder reads"),
+    # E252: every kind of element that is not a mark refuses the request; an unmatched name@version marks nothing
+    ("reference_any_at_is_name_version", "seed/bootstrap/local/reference_brain/referee/runner/deps_npm.py",
+     "or NAME_AT_VERSION.fullmatch(mark)):", 'or "@" in mark):',
+     "E252: the reference MF5 takes a scoped package's bare name (@types/node) for name@version and nothing notices"),
+    ("reference_lock_path_shape_is_a_mark", "seed/bootstrap/local/reference_brain/referee/runner/deps_npm.py",
+     '(mark != "" and mark in lock["packages"])',
+     '(mark != "" and (mark in lock["packages"] or mark.startswith("node_modules/")))',
+     "E252: the reference MF5 takes a lock path this lock does not hold for a mark that marks nothing"),
+    ("reference_root_key_is_a_mark", "seed/bootstrap/local/reference_brain/referee/runner/deps_npm.py",
+     '(mark != "" and mark in lock["packages"])', '(mark in lock["packages"])',
+     "E252: the reference MF5 takes the lock's root key, no package's path, for a mark"),
+    ("reference_name_version_must_be_locked", "seed/bootstrap/local/reference_brain/referee/runner/deps_npm.py",
+     "or NAME_AT_VERSION.fullmatch(mark)):",
+     'or NAME_AT_VERSION.fullmatch(mark) and "node_modules/" + mark.rpartition("@")[0] in lock["packages"]):',
+     "E252: the reference MF5 refuses a name@version this lock does not hold, against 26c, and nothing notices"),
+    ("blind_b_root_key_is_a_mark", "seed/bootstrap/local/blind_b/referee/runner/deps_npm.py",
+     '(m != "" and m in lock_keys)', "(m in lock_keys)",
+     "E252: the second blind computation takes the root key for a mark and nothing notices"),
+    ("blind_b_lock_path_shape_is_a_mark", "seed/bootstrap/local/blind_b/referee/runner/deps_npm.py",
+     '(m != "" and m in lock_keys)', '(m != "" and (m in lock_keys or m.startswith("node_modules/")))',
+     "E252: the second blind computation takes a lock path outside the lock for a mark and nothing notices"),
+    ("seed_unknown_bare_name_is_locked", "seed/bootstrap/vectors/vectors.json",
+     chr(92) + '"left-pad' + chr(92) + '"]}', chr(92) + '"snowball-fixture-a' + chr(92) + '"]}',
+     "E252: the bare-name cases name only a locked package, so refusing just those passes them"),
+    ("seed_scoped_name_loses_its_at", "seed/bootstrap/vectors/vectors.json",
+     chr(92) + '"@types/node' + chr(92) + '"]}', chr(92) + '"types-node' + chr(92) + '"]}',
+     "E252: no element holds an @ without being name@version, so taking any @ for name@version passes"),
+    ("seed_root_key_stands_alone", "seed/bootstrap/vectors/vectors.json",
+     "[" + chr(92) + '"snowball-fixture-b@2.0.0' + chr(92) + '",' + chr(92) + '"' + chr(92) + '"]}',
+     "[" + chr(92) + '"' + chr(92) + '"]}',
+     "E252: no valid mark beside the root key, so a reading that takes it for a mark also fails and passes the case"),
+    ("seed_unmatched_name_version_is_locked", "seed/bootstrap/vectors/vectors.json",
+     chr(92) + '"left-pad@1.3.0' + chr(92) + '"]}', chr(92) + '"snowball-fixture-a@1.0.0' + chr(92) + '"]}',
+     "E252: the name@version case names a locked package, so refusing an unmatched name@version passes it"),
+    ("npmlock_page_drops_the_root_key_case", "spec/tohum/29g-vektor-arayuzleri-devam.md", "`root_key_refused`",
+     "`root_key`", "E252: root_key_refused's purpose is missing from 29g"),
+    # E252: unit_candidates is a list the proposal never widens; an added path need not be in the tree
+    ("reference_unit_candidates_widen", "seed/bootstrap/local/reference_brain/referee/profile/derive.py",
+     'if prop["unit_candidates"] != derived["unit_candidates"]:',
+     'if not set(derived["unit_candidates"]) <= set(prop["unit_candidates"]):',
+     "E252: the reference MF4 lets unit_candidates widen like the two path lists and nothing notices"),
+    ("reference_widening_only_with_tree_files", "seed/bootstrap/local/reference_brain/referee/profile/derive.py",
+     'reasons = check(derived, read_json_object(args[3], "proposal"))',
+     'proposal = read_json_object(args[3], "proposal"); reasons = sorted(check(derived, proposal) + ["unknown_path"] * '
+     '(not set(proposal["security_paths"] + proposal["excluded_paths"]) <= set(read_tree(args[1]))))',
+     "E252: the reference MF4 takes an added path only when the tree holds it, against 29k"),
+    ("blind_b_unit_candidates_as_a_set", "seed/bootstrap/local/blind_b/referee/profile/derive.py",
+     'if list(proposal["unit_candidates"]) != list(derived["unit_candidates"]):',
+     'if set(proposal["unit_candidates"]) != set(derived["unit_candidates"]):',
+     "E252: the second blind computation compares unit candidates as a set and nothing notices"),
+    ("seed_outside_tree_paths_in_the_tree", "seed/bootstrap/vectors/profile/prop_widen_outside_tree.json",
+     '"packages/api/src/auth/oauth.ts", "packages/api/src/session.ts", "packages/web/src/tokenizer.js"], '
+     '"excluded_paths": [".Claude/settings.json", "packages/api/Claude.md", "packages/web/dist/bundle.js"',
+     '"packages/api/src/index.ts", "packages/api/src/session.ts", "packages/web/src/tokenizer.js"], '
+     '"excluded_paths": [".Claude/settings.json", "packages/api/Claude.md", "packages/web/src/app.js"',
+     "E252: the added paths are tree files, so no case tells an added path outside the tree from one inside"),
+    ("seed_added_candidate_only_reorders", "seed/bootstrap/vectors/profile/prop_units_added.json",
+     '"unit_candidates": ["packages/web", "packages/api", "vendor"]', '"unit_candidates": ["packages/api", "packages/web"]',
+     "E252: no case adds a candidate in order, so letting unit_candidates widen in order passes"),
+    ("seed_reordered_candidates_also_add", "seed/bootstrap/vectors/profile/prop_units_reordered.json",
+     '"unit_candidates": ["packages/api", "packages/web"]', '"unit_candidates": ["packages/api", "packages/web", "vendor"]',
+     "E252: no case only reorders the candidates, so comparing them as a set passes"),
+    ("profile_page_drops_the_added_candidate_case", "spec/tohum/29k-vektor-arayuzleri-yol-kurallari.md",
+     "`reject_added_unit_candidate`", "`reject_added_candidate`",
+     "E252: reject_added_unit_candidate's purpose is missing from 29k"),
+    # E252: `tohum/15` 1 holds every spec page, not only the vector pages
+    ("seat_page_over_80_lines", "spec/tohum/29-tohum-koltuklari.md", "**Tohum test-yazıcısı.**",
+     chr(10) + chr(10) + "**Tohum test-yazıcısı.**", "E252: the seats page passes 80 lines and nothing notices"),
+    ("changelog_over_80_lines", "spec/tohum/CHANGELOG.md", "- 1.0 (2026-10-28):",
+     chr(10) * 4 + "- 1.0 (2026-10-28):", "E252: the seed's changelog passes 80 lines and nothing notices"),
     ("blind_b_disagrees", "seed/bootstrap/local/blind_b/referee/gate/secrets.py",
      "PATTERNS = (GITHUB_CLASSIC, AWS_KEY_ID)", "PATTERNS = (AWS_KEY_ID,)",
      "E161: the second blind implementation no longer gives the seed's values and nothing notices"),
@@ -831,11 +901,9 @@ def run_mutant(index: int, mutant: tuple[str, str, str, str, str] | None) -> tup
         work = Path(tmp)
         ignore = shutil.ignore_patterns("__pycache__", "node_modules", ".git")
         shutil.copytree(ROOT / "seed", work / "seed", ignore=ignore)
-        shutil.copytree(ROOT / "spec" / "tohum", work / "spec" / "tohum", ignore=ignore)
-        # The stage table's test holds `stages/stage0.json` to `asama-0/14`, `09` and `10` ("Makine kopyası").
-        shutil.copytree(ROOT / "spec" / "asama-0", work / "spec" / "asama-0", ignore=ignore)
-        # The vector interface pages' test checks their rows in the index (E161).
-        shutil.copy2(ROOT / "spec" / "INDEX.md", work / "spec" / "INDEX.md")
+        # The whole spec: the stage table's test holds `stages/stage0.json` to `asama-0/14`, `09` and `10`, the vector
+        # interface pages' test checks their rows in the index (E161), and the page-length test reads every page (E252).
+        shutil.copytree(ROOT / "spec", work / "spec", ignore=ignore)
         # The security ledger's test checks that every CI job a row names still exists (`30e`).
         shutil.copytree(ROOT / ".github" / "workflows", work / ".github" / "workflows", ignore=ignore)
         if mutant is not None:

@@ -22,16 +22,20 @@ dizgi olarak içeren, hariç olmayan dosya. Birim adayı operatörün sırasıyl
 değilse ve ağaçta bir dosyayı (hariç olsa da) kapsıyorsa. `derive`: `languages`, `security_paths`,
 `excluded_paths` (sıralı), `unit_candidates`. `check` aynı dört listeli öneriyi türetimle karşılaştırır:
 `accepted` (`reasons` boşsa doğru), sıralı `reasons`: `differs:languages` (kümeler farklı),
-`differs:unit_candidates` (listeler farklı), `narrows:security_paths`, `narrows:excluded_paths` (türetilen bir yol
-öneride yok). Öneri iki yol listesini yalnız genişletebilir (`14`): türetilmemiş bir yol eklemek neden değildir.
+`differs:unit_candidates` (listeler farklı: başka sıra da, eklenen aday da), `narrows:security_paths`,
+`narrows:excluded_paths` (türetilen bir yol öneride yok). Öneri yalnız iki yol listesini genişletebilir (`14`):
+türetilmemiş bir yol eklemek, ağaçta olmasa da, neden değildir.
 Çıkış: `derive` 0, okunamayan girdide 2; `check` 0 kabul, 1 ret, 2 kullanılamaz girdi. Vakalar:
 `agent_config_case_insensitive` ajan yapılandırması her derinlikte ve harf büyüklüğünde hariç;
 `operator_excluded_paths` operatörün hariç yolu dil eklemez, adayını düşürür; `security_keyword_substring` anahtar
 kelime yol ve dosya adlarında alt dizgi olarak aranır; `unit_candidates_order_and_filter` adaylar operatörün
 sırasını korur, olmayan, ajan yapılandırması ve hariç aday düşer; `reject_narrowed_excluded` hariç listesini
-daraltan öneri ret; `accept_widened` güvenlik ve hariç yollara birer türetilmemiş yol ekleyen, yalnız genişleten
-öneri kabul, türetilen bir güvenlik yolunu da düşüren değişmiş girdisi ret; `reject_different_languages` dilleri
-farklı öneri ret.
+daraltan öneri ret; `reject_narrowed_security` iki listeyi genişletip türetilen bir güvenlik yolunu düşüren öneri
+yalnız güvenlik yollarını daralttığı için ret; `accept_widened` güvenlik ve hariç yollara birer türetilmemiş yol
+ekleyen, yalnız genişleten öneri kabul, türetilen bir güvenlik yolunu da düşüren değişmiş girdisi ret;
+`accept_widened_outside_tree` eklenen yolun ağaçta olması gerekmez; `reject_different_languages` dilleri farklı
+öneri ret; `reject_reordered_unit_candidates` türetilen adayları başka sırayla yazan öneri ret;
+`reject_added_unit_candidate` aday ekleyen öneri ret: yalnız iki yol listesi genişler.
 
 ## `diffguard` (MF7, `gate/diffguard.py`)
 

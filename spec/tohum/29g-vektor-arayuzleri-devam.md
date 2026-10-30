@@ -35,10 +35,14 @@ Vakalar: `integrity_good_and_one_byte` her tarball kilidin bütünlüğüne uyar
 adresi ve lisans raporu üretilir; değişmiş girdide tarball'ın tek baytı (gzip başlığında) değişir, içindeki tar
 aynıdır; `install_script_unmarked` kilidin söylemediği, tarball'daki işaretsiz `postinstall` ret;
 `install_script_marked_by_lock_path` kilit yolu da işarettir, başka paketin kilit yolu onu işaretlemez;
-`bare_name_refused` geçerli bir işaretin yanındaki çıplak ad ne yok sayılır ne her sürümü işaretler, istek
-kullanılamaz; aynı paket `ad@sürüm` ile yazılınca istek geçer; `registry_not_allowed` izinli kayıt defterinin önekine
-benzeyen başka host ret; `git_dependency` ve `file_dependency` bütünlük değeri taşısa da ret; `license_from_tarball`
-lisans kilitten değil tarball'dan okunur, hedef bağımlılığın lisansı raporlanır, kapı değildir;
+`bare_name_refused`, `bare_name_not_in_lock_refused`, `scoped_bare_name_refused`, `lock_path_not_in_lock_refused` ve
+`root_key_refused` geçerli bir işaretin yanındaki işaret olmayan eleman (kilitteki ya da kilitte olmayan bir paketin
+çıplak adı, kapsamlı paketin `@` taşıyan çıplak adı, kilitte olmayan bir kilit yolu, kök `""`) ne yok sayılır ne her
+sürümü işaretler, istek kullanılamaz; yerine geçerli bir işaret yazılınca istek geçer;
+`name_version_not_in_lock_marks_nothing` kilitte eşleşeni olmayan `ad@sürüm` hiçbir şeyi işaretlemez, istek geçer;
+yerinde kilitte olmayan bir kilit yolu isteği kullanılamaz yapar; `registry_not_allowed` izinli kayıt defterinin
+önekine benzeyen başka host ret; `git_dependency` ve `file_dependency` bütünlük değeri taşısa da ret;
+`license_from_tarball` lisans kilitten değil tarball'dan okunur, hedef bağımlılığın lisansı raporlanır, kapı değildir;
 `same_lock_same_address` aynı kilit başka biçimde yazılınca (sıkışık, anahtarlar başka sırada) aynı içerik adresini
 verir.
 

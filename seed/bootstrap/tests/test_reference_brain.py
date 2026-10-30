@@ -130,13 +130,35 @@ BREAKS = [
     ("unit_candidates_sorted", "profile/derive.py", '"unit_candidates": units,', '"unit_candidates": sorted(units),',
      ["profile.unit_candidates_order_and_filter"]),
     ("narrowing_accepted", "profile/derive.py", "if not set(derived[key]) <= set(prop[key]):", "if False:",
-     ["profile.reject_narrowed_excluded", "profile.accept_widened.changed_input"]),
+     ["profile.reject_narrowed_excluded", "profile.reject_narrowed_security", "profile.accept_widened.changed_input",
+      "profile.accept_widened_outside_tree.changed_input"]),
     ("widening_rejected", "profile/derive.py", "if not set(derived[key]) <= set(prop[key]):",
-     "if set(derived[key]) != set(prop[key]):", ["profile.accept_widened"]),  # E194: `14`'s old general reading
+     "if set(derived[key]) != set(prop[key]):", ["profile.accept_widened", "profile.accept_widened_outside_tree",
+                                                 "profile.reject_narrowed_security"]),  # E194: `14`'s old reading
     ("security_narrowing_accepted", "profile/derive.py", 'for key in ("security_paths", "excluded_paths"):',
-     'for key in ("excluded_paths",):', ["profile.accept_widened.changed_input"]),
+     'for key in ("excluded_paths",):', ["profile.reject_narrowed_security", "profile.accept_widened.changed_input"]),
+    ("narrowed_security_misnamed", "profile/derive.py", 'reasons.append(f"narrows:{key}")',
+     'reasons.append("narrows:" + key.replace("security_paths", "security"))', ["profile.reject_narrowed_security"]),
+    # E252: an added path need not be in the tree (`29k`)
+    ("widening_only_with_tree_files", "profile/derive.py",
+     'reasons = check(derived, read_json_object(args[3], "proposal"))',
+     'proposal = read_json_object(args[3], "proposal"); reasons = sorted(check(derived, proposal) + ["unknown_path"] * '
+     '(not set(proposal["security_paths"] + proposal["excluded_paths"]) <= set(read_tree(args[1]))))',
+     ["profile.accept_widened_outside_tree"]),
     ("languages_unchecked", "profile/derive.py", 'if set(prop["languages"]) != set(derived["languages"]):',
      "if False:", ["profile.reject_different_languages"]),
+    # E252: unit_candidates is a list the proposal never widens (`14`, `29k`)
+    ("unit_candidates_unchecked", "profile/derive.py", 'if prop["unit_candidates"] != derived["unit_candidates"]:',
+     "if False:", ["profile.reject_reordered_unit_candidates", "profile.reject_added_unit_candidate"]),
+    ("unit_candidates_may_widen", "profile/derive.py", 'if prop["unit_candidates"] != derived["unit_candidates"]:',
+     'if not set(derived["unit_candidates"]) <= set(prop["unit_candidates"]):',
+     ["profile.reject_reordered_unit_candidates", "profile.reject_added_unit_candidate"]),
+    ("unit_candidates_as_a_set", "profile/derive.py", 'if prop["unit_candidates"] != derived["unit_candidates"]:',
+     'if set(prop["unit_candidates"]) != set(derived["unit_candidates"]):',
+     ["profile.reject_reordered_unit_candidates"]),
+    ("unit_candidates_widen_in_order", "profile/derive.py", 'if prop["unit_candidates"] != derived["unit_candidates"]:',
+     'if [c for c in prop["unit_candidates"] if c in derived["unit_candidates"]] != derived["unit_candidates"]:',
+     ["profile.reject_added_unit_candidate"]),
 
     ("integrity_unchecked", "runner/deps_npm.py", 'if digest not in _sha512_values(entry.get("integrity")):',
      "if False:", ["npmlock.integrity_good_and_one_byte.changed_input"]),
@@ -154,12 +176,29 @@ BREAKS = [
      ["npmlock.install_script_marked_by_lock_path.changed_input"]),
     ("bare_name_marks_nothing", "runner/deps_npm.py",
      'if not ((mark != "" and mark in lock["packages"]) or NAME_AT_VERSION.fullmatch(mark)):', "if False:",
-     ["npmlock.bare_name_refused"]),
+     ["npmlock.bare_name_refused", "npmlock.bare_name_not_in_lock_refused", "npmlock.scoped_bare_name_refused",
+      "npmlock.lock_path_not_in_lock_refused", "npmlock.root_key_refused",
+      "npmlock.name_version_not_in_lock_marks_nothing.changed_input"]),
     ("bare_name_of_a_locked_package_taken", "runner/deps_npm.py", "or NAME_AT_VERSION.fullmatch(mark)):",
      'or NAME_AT_VERSION.fullmatch(mark) or "node_modules/" + mark in lock["packages"]):',
      ["npmlock.bare_name_refused"]),
+    # E252: every kind of element that is not a mark, not only a locked package's bare name
+    ("bare_name_outside_the_lock_taken", "runner/deps_npm.py", "or NAME_AT_VERSION.fullmatch(mark)):",
+     'or NAME_AT_VERSION.fullmatch(mark) or (mark and "/" not in mark and "@" not in mark '
+     'and "node_modules/" + mark not in lock["packages"])):', ["npmlock.bare_name_not_in_lock_refused"]),
+    ("any_at_read_as_name_version", "runner/deps_npm.py", "or NAME_AT_VERSION.fullmatch(mark)):", 'or "@" in mark):',
+     ["npmlock.scoped_bare_name_refused"]),
+    ("lock_path_shape_taken", "runner/deps_npm.py", '(mark != "" and mark in lock["packages"])',
+     '(mark != "" and (mark in lock["packages"] or mark.startswith("node_modules/")))',
+     ["npmlock.lock_path_not_in_lock_refused", "npmlock.name_version_not_in_lock_marks_nothing.changed_input"]),
+    ("root_key_taken", "runner/deps_npm.py", '(mark != "" and mark in lock["packages"])', '(mark in lock["packages"])',
+     ["npmlock.root_key_refused"]),
+    ("name_version_must_name_a_locked_package", "runner/deps_npm.py", "or NAME_AT_VERSION.fullmatch(mark)):",
+     'or NAME_AT_VERSION.fullmatch(mark) and "node_modules/" + mark.rpartition("@")[0] in lock["packages"]):',
+     ["npmlock.name_version_not_in_lock_marks_nothing"]),
     ("name_version_not_a_mark", "runner/deps_npm.py", "or NAME_AT_VERSION.fullmatch(mark)):", "):",
-     ["npmlock.bare_name_refused.changed_input", "npmlock.install_script_unmarked.changed_input"]),
+     ["npmlock.bare_name_refused.changed_input", "npmlock.install_script_unmarked.changed_input",
+      "npmlock.name_version_not_in_lock_marks_nothing"]),
     ("registry_prefix_without_its_slash", "runner/deps_npm.py",
      "if not any(resolved.startswith(prefix) for prefix in egress):",
      'if not any(resolved.startswith(prefix.rstrip("/")) for prefix in egress):', ["npmlock.registry_not_allowed"]),
@@ -431,7 +470,7 @@ class SeedVectorsOnReferenceImplementationsTest(unittest.TestCase):
         cases = [c["id"] for g in DATA_GROUPS for c in seed[g]["cases"]]
         data = [r for r in results if not r["id"].startswith("chain.")]
         self.assertEqual([r["id"] for r in data], [i + s for i in cases for s in ("", ".changed_input")])
-        self.assertEqual((len(data), len(results)), (210, 216))  # MF2-MF7 98, MF8-MF13 112; `chain` 6
+        self.assertEqual((len(data), len(results)), (228, 234))  # MF2-MF7 116, MF8-MF13 112; `chain` 6
         self.assertEqual([(r["id"], r["detail"]) for r in results if not r["ok"]], [])
         self.assertEqual(brain_manifest().done_mf, (1,))  # reference implementations, not declared done
 
@@ -447,7 +486,7 @@ class SeedVectorsOnReferenceImplementationsTest(unittest.TestCase):
             a = BRAIN / "referee" / rel
             self.assertFalse(a.exists() and a.read_bytes() == (BLIND_B / "referee" / rel).read_bytes(), rel)
         results = vectors.run_vectors(LocalRunner(BLIND_B), VECTORS, B_MFS)
-        self.assertEqual(len(results), 98)
+        self.assertEqual(len(results), 116)
         self.assertEqual([(r["id"], r["detail"]) for r in results if not r["ok"]], [])
 
     def test_its_profile_package_does_not_shadow_the_standard_library_here(self):

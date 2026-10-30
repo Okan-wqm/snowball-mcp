@@ -57,10 +57,12 @@ ortak kütüphaneler ve kök yapılandırmalardır; yeterliliğinin kanıtı yal
 yeşil koşmasıdır (`unit.verify`). Lint için yeşil: `lint_cmd` üç koşunun her birinde 0 ya da 1 ile biter ve
 üç koşunun çıkış kodu ve stdout'u bayt bayt aynıdır (ESLint'te 1 bulunan ihlaldir; `asama-0/08` ölçüt 5 ihlal
 ister, ölçüt 6 yeşil). `toolchain` `node@X.Y.Z`'dir: kesin sürüm (üç ondalık bileşen; aralık ya da `lts` gibi
-takma ad değil), birimin dizininden köke doğru en yakın sürüm dosyasındaki sürüm. İmaj resmi araç zinciri
-imajıdır, etiketindeki sürüm de `X.Y.Z`'dir. `install_scripts_required[]`'in her elemanı kilitteki tam paket
-yolu (ör. `node_modules/x`) ya da tarball'ın `ad@sürüm`'üdür; başka bir eleman, ör. çıplak ad (her sürümü
-işaretlerdi), işaret değildir ve isteği kullanılamaz yapar: `deps.fetch` onu reddeder (çıkış 2, `29g`).
+takma ad değil), birimin en yakın sürüm dosyasındaki sürüm. İmaj resmi araç zinciri imajıdır, etiketindeki
+sürüm de `X.Y.Z`'dir. `install_scripts_required[]`'in her elemanı kilitteki tam paket yolu (kök `""` dışında
+bir `packages` anahtarı, ör. `node_modules/x`) ya da `ad@sürüm`'dür; `ad@sürüm` tarball'ının adı ve sürümü
+eşleşen paketi işaretler, kilitte eşleşeni yoksa hiçbir şeyi. Başka bir eleman, ör. çıplak ad (her sürümü
+işaretlerdi) ya da kilitte olmayan bir yol, işaret değildir ve isteği kullanılamaz yapar: `deps.fetch` onu
+reddeder (çıkış 2, `29g`).
 `services` Aşama 0'da boştur. Önerinin hariç yolları ya da güvenlik yollarını daraltması reddedilir.
 
 **policy.json `operating{}`**: `{key: {value, band: [min, max]}}`; anahtarlar `unit_inputs_bytes`,

@@ -261,6 +261,18 @@ class StageTableMatchesTheSpecTest(unittest.TestCase):
             self.assertEqual(group["owner"] == "asama-0", name in named, name)
 
 
+class SpecPagesTest(unittest.TestCase):
+    def test_no_page_is_over_80_lines(self):
+        """`tohum/15` 1: a page over 80 lines is split. Every page under `spec/`, the changelog too, not only the vector
+        pages (E252: the check held only `29f`-`29k`, and `29` reached 84 lines and the changelog 82 unseen);
+        `INDEX.md` is generated (`tohum/15` 5) and exempt."""
+        pages = sorted(p for p in (ROOT / "spec").rglob("*.md") if p != ROOT / "spec" / "INDEX.md")
+        self.assertGreater(len(pages), 100)
+        for page in pages:
+            with self.subTest(page=page.relative_to(ROOT).as_posix()):
+                self.assertLessEqual(len(page.read_text(encoding="utf-8").splitlines()), 80)
+
+
 VECTOR_PAGES = ("29f", "29g", "29h", "29i", "29j", "29k")
 
 
@@ -278,7 +290,6 @@ class VectorInterfacePagesTest(unittest.TestCase):
             name = next((ROOT / "spec" / "tohum").glob(f"{prefix}-*.md")).name
             lines = page.splitlines()
             with self.subTest(page=name):
-                self.assertLessEqual(len(lines), 80)  # `tohum/15` 1
                 self.assertRegex(lines[2], r"^Tarih: \d{4}-\d\d-\d\d · Sürüm: [\d.]+ · Durum: \w+ · Sahibi: operatör$")
                 self.assertTrue(lines[3].startswith("Okunma: ") and lines[4].startswith("Çapa: "))
                 self.assertIn(f"| `tohum/{name}` | {lines[0].removeprefix('# ')} | {lines[3].removeprefix('Okunma: ')} |",
