@@ -181,7 +181,7 @@ hepsi yazılıdır. Bulguları birleştiren ve doğrulayan: Claude Code (Opus 5.
 | E158 | Defter ve rapor tür kümeleri kapalı (`26`, `26c`) ama operatör talimatı `missing_capability` istiyor; Kurucu bunları `seed_issue` olarak yazıyor | B | — | **Kurucu raporu** seed-006 (döngü 1) | açık · bildirim kanalı (E93/E53) ile |
 | E159 | `29a` zincir CLI'sinin kırık zincirde çıkış kodunu ve `row_id`'siz satırın `broken_row` değerini söylemiyor; hakem çıkış koduna değil stdout JSON'una baktığı için zararsız ama yazılı değil | S | — | **Kurucu raporu** seed-007 (döngü 2) | açık · 29/29b düzenlemesiyle |
 | E160 | `test_an_interrupted_run_takes_the_cli_and_its_children_with_it` init'siz konteynerde kararsız: öldürülen ama biçilmemiş (zombi) süreci `kill(pid, 0)` canlı sayıyor; mutasyon temel koşusunu rastgele durduruyordu | S | — | pilot hazırlığı (6 temel koşudan 6'sı düştü, tam takım geçti) | kapandı · test projenin `helpers.process_alive`'ını kullanıyor (zombi = ölü) |
-| E161 | Aşama 0'ın `chain` dışındaki 16 vektör grubu (`secrets` … `genesis`, `29d`) ve genel veri koşucusu (`{cmd, stdin?, fixture, expect, changed}`) tohumda yok; MF2'den itibaren bitmiş MF'nin tabanı eksik | K | — | E151 kod partisi | kısmen kapandı · genel veri koşucusu ve MF2–MF7'nin altı grubu (`secrets`, `contained`, `profile`, `npmlock`, `recipe`, `diffguard`; 46 vaka, her beklenen değer iki kör bağımsız uygulamada aynı: A `local/reference_brain`, B `local/blind_b`, ikisi de her test koşusunda yeniden hesaplanır) tohumda, arayüzleri `29f` ve `29g`'de; ayrıntı Kapanışlar "E161, kısmi" · kalan 10 grup (`k0map` … `genesis`) açık: onlar için kod push'unda `vector_group_missing:<grup>` uyarısı, çıkışta ret (E151) sürüyor |
+| E161 | Aşama 0'ın `chain` dışındaki 16 vektör grubu (`secrets` … `genesis`, `29d`) ve genel veri koşucusu (`{cmd, stdin?, fixture, expect, changed}`) tohumda yok; MF2'den itibaren bitmiş MF'nin tabanı eksik | K | — | E151 kod partisi | kısmen kapandı · genel veri koşucusu ve MF2–MF7'nin altı grubu (`secrets`, `contained`, `profile`, `npmlock`, `recipe`, `diffguard`; 46 vaka, her beklenen değer iki kör bağımsız uygulamada aynı: A `local/reference_brain`, B `local/blind_b`, ikisi de her test koşusunda yeniden hesaplanır) tohumda, arayüzleri `29f` ve `29g`'de; ayrıntı Kapanışlar "E161, kısmi" · MF8–MF13'ün altı grubu (`k0map`, `refs`, `append`, `root`, `flaky`, `cause`; 56 vaka: uzlaşılmış 44'ünde her beklenen değer iki kör bağımsız uygulamada aynı, E236–E240'ın 12 vakası A'da ve onlardan önce yazılmış B'de aynı (birinde B'ye `forced`'ı bildiren tek satır eklenerek); A `local/reference_brain`'de her test koşusunda yeniden hesaplanır, B repoda değil: E233) tohumda, arayüzleri `29h`, `29i` ve `29j`'de; ayrıntı Kapanışlar "E161, MF8–MF13" ve "E236–E240" · kalan 4 grup (`revert_drill`, `prompt`, `status`, `genesis`) açık: onlar için kod push'unda `vector_group_missing:<grup>` uyarısı, çıkışta ret (E151) sürüyor |
 | E162 | Çıkış isteği kodda olmayan (A) koşullarında kapalıya düşmüyor: #kurucu-defteri, #is-akisi (MF17'nin `wiring` denetimi dahil; her push'ta da yok), #agac (yalnız büyük-küçük harf duyarlı operatör adı var), #genellik, #spec, #durustluk denetlenmeden `transferable` olabilir | K | — | E151 kod partisi | kapandı · `decide.EXIT_NOT_CHECKED`: altı koşulun her biri `exit_condition` `not_checked:<koşul>` ile çıkışı kapalı tutar, Kurucu'ya sayılmaz (`29b` Ret hafızası); `asama-0/10` tablosunun her satırı ya kodda denetlenir ya listededir (test); 3 mutant; denetimlerin kendisi E107, E132, E130/E131, E102, E79'da açık · inceleme: her çıkış artık reddedildiği için bırakılan istek her kod push'unu `exit_request_not_alone` yapıyordu (E97, kapandı); tablo testi denetlenen satırı koda bağlamıyordu (E185, kapandı) |
 | E163 | `asama-0/14` modülsüz kırmızıda iki okumaya açık: "testlerini … yeşil kalırsa" hepsi mi, biri mi (`calls`'taki "17 ve 18 hepsini çağırır" E157'dir) | S | — | E151 kod partisi | açık · kod test başına okur (`tohum/04` 1: biri yeşil kalırsa ret); metin 29/29b partisinde netleşir |
 | E164 | Rakibe gidecek istekte sır biçimli bir dize bulununca hakem yalnız desenin adını söylüyor (`secret_in_prompt:generic_assignment`), hangi dosyada olduğunu söylemiyor; MF2'nin kendi testleri sahte sır taşıdığı için rakip hiç koşmadı ve Kurucu nereye bakacağını bilmeden reddedildi | B | — | pilot döngü 3 (MF2 `9f229b0`) | kapandı · `rival.secret_paths`: diff'in sırrı taşıyan dosyaları (değer asla), istek metnindeyse `(request text)`, sır biçimli yol adlandırılmaz; `result.rival.secret_paths`; test ve 3 mutant |
@@ -219,6 +219,17 @@ hepsi yazılıdır. Bulguları birleştiren ve doğrulayan: Claude Code (Opus 5.
 | E206 | Sahip: repoya tam hâkim olunca sistem belge yazmaya başlamalı; var olan belgelere güvenmemeli, kullanmalı ama doğrulamalı (eski olabilir). Kurucu talimatında belge-kod ilişkisi yoktu | B | evet | sahip (2026-10-29) | kısmen kapandı · Kurucu: belge ipucudur, iddiası kod/yapılandırma/testle doğrulanır, tutmayan iddia "bayat belge" bulgusudur; hâkimiyetten sonra belge doğrulanmış haritadan üretilir ve kodla yeniden üretilir; test · açık: hedefte belge-kod sapmasını mekanik ölçen alet (Aşama 1+, `tohum/15` doküman üreticisinin hedefe genişlemesi) ve danışma kataloğunda "yaşayan belgeleme" |
 | E207 | Repolar arası öğrenme ne kuruldu ne test edildi | K | evet | sahip (2026-10-29) | açık · **sahip: fikirleri sistem bulmalı** — sahibin ve operatörün bu konudaki fikirleri Kurucu'ya, tohuma ve herkese açık repolara yazılmaz; operatörün gizli fikir ölçütünde durur, sistem her birini kendi başına önerdiğinde tarih ve kanıtla işaretlenir (ölçü: kaç fikir, kaç döngüde); Kurucu talimatı yalnız kendi fikrini istemeyi taşır (kapanış adımı), test hiçbir fikrin yazılmadığını denetler; deney Aşama 1 sonrası |
 | E208 | Sahip: sistemin ajanları ve becerileri (kendi yazacakları dahil) uzmanlıkta kesişip farklı sonuca varabilir; o zaman aralarında kanıt göstererek, dürüstçe çalışıp sonuç getirmeliler; her şey kanıt ve gerçek testle yürümeli. Kurucu talimatında ajanlar arası anlaşmazlık kuralı yoktu (Kurucu döngü 17'de kendi alt ajanlarını kullanmaya başladı) | K | evet | sahip (2026-10-29) | kısmen kapandı · talimat: oy, otorite, sıra değil; kanıt (test, yeniden üretici, ölçüm) karşılaştırılır, yetmezse ayırıcı deney; anlaşmazlık, kanıt ve sonuç deftere; test · açık: Kurucu'nun yazacağı ajanlar ve beceriler için bu kuralın hakem tarafında denetimi (Aşama 1+, ajan ve beceri organları) |
+| E230 | MF8–MF13 sözleşmelerinin spec sessiz olduğu için bilerek sabitlemediği kurallar: `k0map` `asama-0/08` 1'in "diff `brain/integration` başına uygulanır" denetimi (E195 kararıyla MF8'in) saf karara nasıl girdiği yazılı değil; `fix` aralığının biçimi (`26c:48` vermez) ve lint çıktısını ayrıştıran MF yok (E201), koşu satırı normalleştirilmiş kayıt; `secret_in_diff` ve `refs`'in `check` işlemi vakasız; kök kaydının (`root.jsonl`) şeması yok (`26:14` zincirli der, `13:48-50`'nin öbür bağları şemasız), `verify` yalnız `root` ve `rekor_uuid`'i okur; neden adlarının çoğu (`k0map`'te 12'den 10'u, `root`'un dördü, `flaky`'nin kararları) spec'te yok, seçimdir; `refs`'in `forced` çıktısı da (E240). Vakayla sabitlenmiş iki okuma: `04a:24`'ün 3/3'üne ilk koşunun girip girmediğini spec söylemez, `flaky` ilk koşu artı üç yeniden koşu sayar (`07:27` doğrulamayı kırmızıdan sonraya koyar; E239); JSON Lines olmayan defteri `append` zincir kırığı sayar (`13:35` defter JSONL'dir, `01b:26-28` tutmayan denetim yazmaz ve sert durur; E238) | S | evet | E161 MF8–MF13 partisi | sınır · seçimler `29h`, `29i` ve `29j`'de yazılı; her biri spec yazılınca sonraki tohum döneminde vakaya döner; Kurucu fazlasını yapabilir, vektör tabandır (`29a`) |
+| E231 | Nöbetçi yalnız testlere bakar (`tohum/07:26-27`, `asama-0/14:39`), ama geri alma provası `lint_regression` merge'ünü geri almak ister (`asama-0/10a:26`) ve `cause` `build_break`'i sayar; spec ne nöbetçinin `koş`unun lint toplamlarını ne `build_ok`'un üreticisini adlandırır (Aşama 0 tarifinde derleme komutu yok, `26c:54-55`) | B | evet | E161 MF8–MF13 partisi | açık · `cause` grubu ikisini normalleştirilmiş girdi olarak alır (`29i`); üreticileri MF14'ten önce bir tohum dönemi yazmalı |
+| E232 | `01b:32` önceki satırların bayt bayt aynı kalmasını ister; `29a:71` `verify --previous`'ın neyi karşılaştırdığını söylemez, referans beynin MF1'i (`ledger/chain.py:211-217`) kanonik biçimleri karşılaştırır ve anahtarları yeniden sıralanmış satırı geçirir; `chain` grubunun vektörleri bunu sabitlemez | B | evet | E161 MF8–MF13 partisi | açık · MF10 baytları kendisi denetler (`append.refuse_reserialized_row`, kırık `append_only_canonical`); karar: `verify --previous` bayt mı kanonik mi, `29a` ve referans MF1 buna göre |
+| E233 | MF8–MF13'ün ikinci kör uygulaması (B) repoda değil: 44 vakanın ikinci hesabı iş akışının kaydıdır (A ve B her vakada karşılaştırılan alanlarda aynı, her değişmiş girdide farklı), MF2–MF7'ninki gibi her tohum değişikliğinde yeniden koşmaz (E161 incelemesi) | B | — | E161 MF8–MF13 partisi | açık · B `local/blind_b/referee/`'ye eklenecek; onun da `gate/secrets.py`'si ve `ledger/chain.py`'si var, A'nınki gibi çakışma çözülerek. E236–E240'ın 12 vakası da B'de yalnız bu oturumda koşuldu (Kapanışlar "E236–E240"); `refs.update_never_forces` için B'ye `forced`'ı bildiren tek satır eklenmeli |
+| E234 | `asama-0/14:47` (`stage0.json:14`) MF11'in MF10'u çağırdığını söyler (`10 → 11`); `26a:29` `rekor.anchor`'ın çağıranını `ledger.append` yazar, yani MF10 MF11'i çağırır; sıra kuralı (`asama-0/14:20`) ilkine göredir | S | evet | E161 MF8–MF13 partisi | açık · `root`'un fiilleri saftır, ikisine de bağlı değil; `asama-0` donmuş, düzeltme `26a`'da bir tohum dönemiyle |
+| E235 | `refs.revert_first_parent_tree`'nin amacı geri alma commit'inin ebeveyninin `onto`'nun başı olduğunu söyler, ama fikstürde `brain/integration`'ın başı geri alınan merge'ün kendisidir: ebeveyni `merge_sha`'dan alan uygulama vakada ve değişmiş girdisinde yeşil kalır (A'da `"parents": [head]` → `[merge_sha]`, denendi); sözleşme merge_sha'nın baş olup olmadığını bilerek denetlemez (`07:23-24`, merge'ler sıralı) | S | — | E161 MF8–MF13 partisi | açık · sonraki tohum döneminde başı merge'den farklı bir `onto` vakası; bu partide vakalar ve beklenen değerler değiştirilmedi |
+| E236 | `k0map`'in vakaları eşlenmiş satır tanımını (`asama-0/08:29-30`: "tanım tohumun `k0map` vektörleriyle sabittir") yalnız hem silen hem ekleyen hunk'lar için sabitliyordu: hiçbir fikstürde saf ekleme (`b = 0`) ya da saf silme (`d = 0`) hunk'ı yoktu. A'da `b = 0` hunk'ını `a ≤ L`'de bitmiş sayan, `d = 0`'ı `[c, c]`'ye ya da `[c, c-1]`'e eşleyen, ekleme hunk'larını kaydırmayan, `b = 0` hunk'ında eklenen satırın taban konumunu `a` sayan ve eklenen satıra `e+2`'ye kadar izin veren altı kırık 22/22 yeşildi (denendi); ilki hiçbir şey düzeltmeyip hedef satırın ardına yorum ekleyen adayı merge ederdi. `29h` `b = 0` hunk'ında `p`'yi `a+b`, yani `a` diye yazıyordu | K | — | E161 MF8–MF13 incelemesi | kapandı · `edge.patch` (git `-U0` çıktısı) ve üç `map` vakası, iki `decide` vakası (`insertion_not_distinguished`, `insertion_past_fix`); `29h` `b = 0` hunk'ını ve `p = a+1`'i açık yazar; 6 kırık, 1 mutant |
+| E237 | `k0map.artefact_hash_mismatch` yalnız `base.jsonl`'ın manifesto hanesini, `k0map.tool_nondeterministic` yalnız `cand.jsonl`'ı değiştiriyordu; `29h` ikisini de her `koş` dosyasına uygular. Hash'i yalnız `base.jsonl` için ya da `checks.json` dışında denetleyen ve baytları yalnız aday koşularında karşılaştıran üç kırık 22/22 yeşildi; `koş`ta temiz koşuyla değiştirilmiş `cand.jsonl` (test 35'in artefakt hash reddinin durdurmak için olduğu şey) ilkiyle merge olurdu (denendi) | K | — | E161 MF8–MF13 incelemesi | kapandı · `forged_candidate_run`, `forged_checks`, `base_nondeterministic`; 4 kırık, 1 mutant |
+| E238 | `29i` JSON Lines olmayan defter için iki cevap veriyordu: (1) geçerli zincir olmayan defterde sert duruş (`01b:26-32`, `13:53-55`), çıkış listesi ise "JSON Lines olmayan dosya"yı kullanılamaz girdi (2) sayıyordu. A `hard_stop: false`, B `true` veriyordu, vaka yoktu (denendi). A ayrıca stdin'i (1)'den önce okuyordu: kurcalanmış defter kullanılamaz istekle geldiğinde de sert duruş yoktu (B'de vardı; denendi) | K | — | E161 MF8–MF13 incelemesi | kapandı · `29i`: (1) stdin okunmadan önce, JSON nesnesi olmayan satır zinciri kırar; A buna göre; `refuse_unparsable_ledger`, `refuse_broken_chain_first`; 2 kırık, 1 mutant |
+| E239 | `29i` "3/3 ilk koşu artı üç yeniden koşudur (`07`, `04a`)" diyordu; `04a:24-25` 3/3'ü üç koşuyla tanımlar, ilk koşunun sayılıp sayılmadığını söylemez: okuma spec diye sunuluyordu, E230'da seçim olarak yoktu ve vakalar onu sabitlemiyordu (`CONSIDERED = 3` 8/8 yeşil, denendi) | S | — | E161 MF8–MF13 incelemesi | kapandı · `29j` spec'in sessizliğini ve seçimi gerekçesiyle yazar, E230'a eklendi; `flaky.two_reruns_rerun`; 1 kırık, 1 mutant |
+| E240 | `29h` `update`'in `PATCH {sha, force: false}` göndermesini ister (`07:16` "Zorla itme yoktur"), ama hiçbir çıktı gövdeyi göstermiyordu: `force: true` gönderen MF9 12/12 yeşildi (denendi); `brain/c/*` dallarında `non_fast_forward` kuralı yok (`01b`), zorla güncelleme geçmişi yeniden yazar | S | — | E161 MF8–MF13 incelemesi | kapandı · `refs`'in yeni çıktısı `forced` (`29i`), `refs.update_never_forces`; 1 kırık, 1 mutant |
 
 **Kararlar (2026-10-29).** Operatör, "karar" sütunu `evet` olan 19 kalemin hepsinde aşağıdaki
 önerileri onayladı ve `snowball-mcp`'nin de açık olmasını istedi. E46–E48 test denetçisinden sonra
@@ -1302,6 +1313,115 @@ Testler `tests/test_rival_memory.py`'de, sınıf adları kalem numarasıyla. Dur
   `reproduce` testinin referee'sine `vectors/` kondu (`reproduce` artık onu kopyalar; üretimde dizin hep var).
 - **Açık kalan.** E194 ve E195 operatör kararı; E161'in kalan 10 grubu; E18 (testlerin ve yeniden üreticilerin
   toplam süresi).
+
+### E161, MF8–MF13 (2026-10-30) · `k0map`, `refs`, `append`, `root`, `flaky`, `cause` · E230–E235 açıldı
+- **Veri.** `vectors.json`'a altı veri grubu, 44 vaka (88 sonuç), iş akışının uzlaştırdığı vakalar olduğu gibi: komut,
+  stdin ve beklenen değerler değiştirilmedi, düşen vaka yok. Aktarılan metinden tek fark `append.refuse_secret_row`'dadır:
+  sahte belirtecin `p`'si stdin'de JSON kaçışı `\u0070` olarak yazılır (vakanın amacı bunu ister; ham `vectors.json`
+  sır biçimi taşımaz, `test_secret_shaped_text_stays_in_the_secrets_fixtures`). 46 fikstür dosyası `vectors/<grup>/`
+  altında, satır sonu dönüşümsüz (`.gitattributes`: `k0map`'in manifestoları koşu dosyalarının sha256'sıdır, `append`
+  defter satırlarını bayt bayt karşılaştırır). Her grup arayüz sayfasını (`interface`) adlandırır; sayfa Kurucu'nun
+  tohumunda yoksa grup koşmaz ve `vector_group_missing`'te kalır (`test_run_tests_names_the_vector_groups_the_seed_still_lacks`,
+  `29h` ile). Tablo güdümlü zamanlama aynen; MF8–MF13 artık uyarmaz. İkinci okuma (iş akışının betiği): her vakanın
+  amacı, değişmiş girdi açıklaması ve beklenen değeri aktarılan metinle, komutu ve stdin'i A'nın ve B'nin makine
+  dökümüyle, her fikstür baytı iki dökümle, `k0map` manifestoları dosyalarıyla aynı (`good.hashes_bad.json` bir
+  hanesiyle farklı); A'nın ve B'nin kayıtlı çıktıları her beklenen değeri verir, hiçbir değişmiş girdide vermez: 44/44.
+- **Arayüz.** `29h` (`k0map`, `refs`) ve `29i` (`append`, `root`, `flaky`, `cause`); 80 satır sınırı (`tohum/15` 1)
+  ikiye böldü. Komutlar, girdi biçimi, taklitler (kaydedilmiş GitHub API'si, commit sayan yazar, taklit imzalayıcı,
+  kaydedilmiş Rekor), karşılaştırılan alanlar, çıkış kodları, her vakanın amacı ve spec'in sessiz kaldığı yerdeki
+  seçimler; beklenen değer yok. `29f` ve `29g`'ye dokunulmadı; `29d`'de yalnız altı grubun satırı sayfasını gösterir;
+  `INDEX.md`'ye iki satır, `00b`'ye iki sayfa. `VectorInterfacePagesTest` dört sayfayı denetler; beklenen değer
+  denetimi 40 ve 64 haneli onaltılık hash'leri de arar (yeni grupların cevapları çoğunlukla hash'tir).
+- **Kanıt.** A'nın modülleri (`gate/check.py`, `target/write.py`, `ledger/append.py`, `ledger/anchor.py`,
+  `gate/sentinel.py`, `gate/revert.py`, ortak `gate/_strict.py`) `local/reference_brain/referee/` altında; beyin
+  onları bitmiş bildirmez (`done_mf` [1]). İki uyarlama, ikisi de dosyasında yazılı: A'nın kendi `gate/secrets.py`'si
+  yerine bu beynin MF2'si çağrılır (`scan_text`, satır anlamıyla `scan_rows`); A'nın `ledger/chain.py`'si komut
+  satırı olmadan `ledger/_strict.py`'dir, beynin MF1'i (`ledger/chain.py`) değişmedi. `SeedVectorsOnReferenceImplementationsTest`:
+  on iki veri grubu A'da 180/180 yeşil (MF8–MF13 88/88), MF10'un da sahiplendiği `chain` 6/6. 54 yeni kırık (`k0map`
+  17, `refs` 8, `append` 10, `root` 9, `flaky` 4, `cause` 6), her biri bir vakanın yakalamak için orada olduğu hata:
+  her hunk'ı ya da başka yolun hunk'ını saymak, hunk içindeki satırı kaydırmak ya da konumuna eşlemek, manifestoya
+  bakmamak, kural başına mandal, satırına bakılmayan hedef, JSON olarak karşılaştırılan koşular, adayın `fix_range`'i,
+  yalnız ilk neden, eksik `merge_paused` = `false`; ikinci ebeveynin ya da merge'ün kendi ağacı, kayıttaki yanıttan
+  ref, sonunda `/` olmayan `brain` öneki, `..`, PR'nin base'i; satır başına commit, önceki sürüme zincirleme, kanonik
+  yalnız-ekleme, ham satır taraması, `proposed_by`'ın güveni, MF1'in `--previous`'ı; bölümün ilk satırı, kanonik
+  olmayan kök, sabit imza; tek kırmızı koşuda geri alma, araçlar üzerinden toplanan lint … Her kırık hedeflediği her
+  sonucu kırmızıya çevirir, çökerek değil yanlış cevap vererek; 44 vakanın her biri en az bir kırığın hedefi.
+  `mutate.py`: 6 yeni mutant (MF8'in beklenen değeri ve MF9'un fikstürü kayar, sır düz yazılır, sayfadan vaka düşer,
+  sayfa dizinde yok, sayfa bir hash gösterir), açıklaması güncellenen 1 (`data_groups_have_no_judge`).
+- **Bütçe (E199 b).** Bütün MF'ler bitince push başına 186 vektör çağrısı (veri 180, `chain` 6). Sabit imajlı gerçek
+  kapsayıcıda bir `k0map` çağrısı 2,0–5,0 s (ortalama 3,2 s; beş çağrı, Windows Docker Desktop, test takımı yanında):
+  yaklaşık 590 s, `BUDGET_S`'nin 1200 s'si içinde; değer değişmedi.
+- **Bulgular.** E230 sözleşmenin spec sessizken yaptığı seçimler (sınır); E231 `cause`'un `build_ok` ve lint toplamı
+  girdilerinin üreticisi yok; E232 `01b` bayt ister, MF1'in `--previous`'ı kanonik karşılaştırır; E233 MF8–MF13'ün B'si
+  repoda değil; E234 `stage0.json:14` ile `26a:29` MF10–MF11 çağrı yönünde çelişir; E235 `refs.revert_first_parent_tree`
+  ebeveynin `onto`'nun başı olduğunu sabitlemez (denendi).
+- **Doğrulama.** Windows 399 test OK (18 atlandı); Linux (`snowball_linux_test:git`) 417 OK
+  (3 atlandı). 6 yeni, açıklaması güncellenen 1 ve `vectors.json`'a bağlı 3 eski mutant
+  (`seed_group_owner_drifts`, `seed_vector_expect_drifts`, `seed_data_group_owner_drifts`) Linux'ta, üç kapsayıcıda,
+  her birinde önce yeşil baz koşu: 10/10 öldü. `local/e2e.py` ve bütün mutantlar koşulmadı (CI'nin `main` işi).
+- **Açık kalan.** E161'in kalan 4 grubu (`revert_drill`, `prompt`, `status`, `genesis`); E230–E235.
+
+### E236–E240 (2026-10-30) · MF8–MF13 incelemesinin beş bulgusu · `29j`
+- **Yeniden üretme.** Her bulgu önce düzeltilmemiş ağaçta (`a75a4e8`) gerçek veri koşucusuyla gösterildi
+  (`vectors.run_vectors`, yerel koşucu, A'nın kopyasında tek metin değişikliği). `gate/check.py`'de altı kırık (E236:
+  `b = 0` hunk'ı `a ≤ L`'de biter; ekleme hunk'ları hiç kaydırmaz; `d = 0` → `[c, c]`; `d = 0` → `[c, c−1]`; `b = 0`
+  hunk'ında `p = a`; eklenen satır `e+2`'ye kadar) ve üç kırık (E237: hash yalnız `base.jsonl`'da; `checks.json`'ın hash'i
+  denetlenmez; baytlar yalnız aday koşularında karşılaştırılır) `k0map`'te 22/22 yeşil kaldı; `gate/sentinel.py`'de
+  `CONSIDERED = 3` `flaky`'de 8/8 (E239); `target/write.py`'de `"force": True` `refs`'te 12/12 (E240). E238: `good.jsonl`'a
+  `not json` satırı eklenmiş defterde A `{"hard_stop": false}` (çıkış 2), B `{"hard_stop": true}` (çıkış 2), bu beynin
+  MF1'i (`ledger.chain verify --previous`) `{"valid": false, "broken_row": "line:3"}`; `tampered.jsonl` ve `{rows}`
+  olmayan stdin'de A `hard_stop: false`, B `true`. Yeni vakalar düzeltilmemiş A'da kırmızıdır:
+  `append.refuse_unparsable_ledger` ve `append.refuse_broken_chain_first` `hard_stop: false` verir,
+  `refs.update_never_forces`'ta `forced` yok.
+- **E236.** `k0map/edge.patch` git'in kendi `-U0` çıktısıdır, bölüm başlıkları atılmış: saf ekleme `@@ -5,0 +6 @@`, saf
+  silme `@@ -7,2 +7,0 @@` (`git diff --no-index -U0`, denendi; git `a`'dan sonraki eklemeyi `-a,0` yazar, `rate.js`'te
+  9. satırdan sonraki yorum için de `@@ -9,0 +10 @@`). Vakalar `map_insertion_point` (5. satır kaymaz),
+  `map_deleted_line` (silinen satır `[]`), `map_after_pure_hunks` (iki saf hunk'ın net kayması); karar düzeyinde
+  `insertion_not_distinguished` (`cand/note`: yalnız yorum ekleyen aday; `kos/keep`: koşusu tabanınkiyle aynı) ve
+  `insertion_past_fix` (`cand/past`: 9. satırı düzeltip 10. satırdan sonra ekler; değişmişi `cand/after`, `e+1`'de).
+  Aday dosyası bilinen satırlarıyla (2, 3, 4, 9, 10) yeniden kuruldu, diff'ler ondan üretildi. `29h` `b = 0` hunk'ını ve
+  `p = a+1`'i açık yazar; eski `a+b` formülü `b = 0`'da `a` verirdi.
+- **E237.** `forged_candidate_run`: yarım düzeltme (`cand/half`) temiz aday koşusu (`kos/good`) ve gerçek koşunun
+  manifestosuyla (`half.hashes.json`), yeni fikstür yok; değişmişi gerçek koşu (`not_distinguished` vakası).
+  `forged_checks`: manifesto `rate` testi düşmüş `checks.json`'ın hash'ini (`ratchet/checks.json`'ınki) tutar, dizindeki
+  hepsi geçer. `base_nondeterministic`: `base.jsonl`'ın üçüncü satırında bir boşluk baytı (`kos/base_jitter.jsonl`). Her
+  `koş` dosyasının hash'i ve iki koşu dosyasının baytları birer vakayla sabit.
+- **E238.** Spec "JSON Lines olmayan" defteri adlandırmaz; `13:35` defteri JSONL tanımlar, `01b:26-28` tutmayan denetimde
+  yazmaz ve sert durur, `13:53-55` zincir kırığını sert duruş sayar: en dar tutarlı okuma, JSON nesnesi olmayan satırın
+  zinciri kırmasıdır (E230'a seçim olarak eklendi). `29i` (1)'i stdin okunmadan önce koyar; çıkış 2 okunamayan dosya ve
+  (1) tuttuktan sonraki istek içindir; önceki sürüm yalnız bayt olarak karşılaştırılır. A buna göre (`_verified` önce,
+  `_request` sonra). Vakalar `refuse_unparsable_ledger` (`append/garbled.jsonl`: yazılırken kesilmiş son satır) ve
+  `refuse_broken_chain_first` (yeni satırı `prev_hash` taşıyan istek). B ikisinde de `hard_stop: true` verir; JSON Lines
+  olmayan defterde çıkışı 2'dir, çıkış kodu karşılaştırılmaz (`29d`).
+- **E239.** `29j` spec'in sessizliğini (`04a:24` üç koşu der, ilk koşuyu saymayı söylemez) ve seçimi gerekçesiyle yazar
+  (ilk koşu artı üç yeniden koşu: `07:27` 3/3 doğrulamasını kırmızı koşudan sonraya koyar); E230'a eklendi.
+  `flaky.two_reruns_rerun` ilk koşu ve iki yeniden koşuda düşen testte `rerun` ister; değişmiş girdisi
+  `red_three_reruns`'ınkidir.
+- **E240.** `refs`'in yeni çıktısı `forced` (bir `PATCH git/refs` gövdesi `force: true` taşıdı mı); `api.json`'a
+  `brain/c/7`'nin `PATCH` kaydı; `refs.update_never_forces`, değişmişi `brain/state`. `brain/state` ve `brain/integration`
+  dışındaki dallarda ruleset yok (`01b:27,38`, `25a:17`).
+- **Sayfalar.** `29h` 80, `29i` 79 satırdı; eklemeler sığmadı (`tohum/15` 1). MF sırasıyla üç sayfa: `29h` `k0map`;
+  `29i` `refs`, `append`; yeni `29j` `root`, `flaky`, `cause`. Taşınan bölümlerin metni değişmedi, E238 ve E239'un
+  cümleleri ve yeni vakalar dışında. `vectors.json`'da dört grubun `interface`'i ve dört grubun `source`'u, `29d`'nin dört
+  satırı, `INDEX.md`, `00b`, `docs/ana-taslak.md`; `29f`, `29g` ve `asama-*`'ya dokunulmadı.
+- **Kanıt.** 12 yeni vaka: MF8–MF13 56 vaka, 112 sonuç; A 204/204 veri sonucu ve `chain` 6/6 yeşil. B (iş akışının kör
+  B'si, oturumun `wf4/B/_src`'si; repoda değil, E233) yeni vakalardan önce yazıldı ve değiştirilmeden 112 sonucun 110'unu
+  verir; kalan ikisi `refs.update_never_forces`'ındır, B'de `forced` alanı yok. B'ye kendi çağrı kayıtlarından `forced`'ı
+  bildiren tek satır eklenince `refs` 14/14, o B'de `"force": True` ile yeni vaka kırmızı. Bu koşular oturumun kaydıdır,
+  repo onları yeniden koşmaz. 14 yeni kırık (E236 6, E237 4, E238 2, E239 1, E240 1), her biri hedeflediği sonucu yanlış
+  cevapla kırmızıya çevirir; çapası taşınan 2 (`chained_onto_the_previous_version`, `append_only_unchecked`).
+  `mutate.py`: 6 yeni mutant, sayfası `29j`'ye taşınan 2, açıklaması değişen 1.
+- **Bütçe (E199 b).** Bütün MF'ler bitince push başına 210 vektör çağrısı (veri 204, `chain` 6). E161'in ölçümüyle (çağrı
+  başına 2,0–5,0 s, ortalama 3,2 s) yaklaşık 670 s, en kötü 1050 s: `BUDGET_S`'nin 1200 s'si içinde, değer değişmedi.
+  E161'in kalan dört grubu gelince sınır yeniden ölçülmeli.
+- **Doğrulama.** Windows 399 test OK (18 atlandı); Linux (`snowball_linux_test:git`) 417 OK (3 atlandı); test sayısı
+  değişmedi, yeni kırıklar `test_every_case_turns_red_on_an_implementation_broken_the_way_it_targets`'in alt
+  testleridir. 6 yeni mutant, sayfası ya da açıklaması değişen 3, değişen dosyalara bağlı 6
+  (`seed_group_owner_drifts`, `seed_vector_expect_drifts`, `seed_data_group_owner_drifts`, `seed_new_expect_drifts`,
+  `seed_new_fixture_drifts`, `seed_secret_written_plain`) ve sayfa ile veri yargıcının 2'si (`interface_page_unchecked`,
+  `data_groups_have_no_judge`) Linux'ta, dört kapsayıcıda, her birinde önce yeşil baz koşu: 17/17 öldü. `local/e2e.py`
+  ve bütün mutantlar koşulmadı (CI'nin `main` işi).
+- **Açık kalan.** E161'in kalan 4 grubu; E230–E235 (E230'a üç seçim eklendi: `forced`, JSON Lines olmayan defter, 3/3).
 
 ## Doğrulanmış sağlam taraflar
 Kapsayıcı bayrakları ve kırmızı kontroller; host'ta kabuk enjeksiyonu yok; `$GITHUB_OUTPUT`'a serbest

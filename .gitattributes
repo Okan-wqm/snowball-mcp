@@ -8,3 +8,8 @@ seed/bootstrap/vectors/profile/** -text
 seed/bootstrap/vectors/npmlock/** -text
 seed/bootstrap/vectors/recipe/** -text
 seed/bootstrap/vectors/diffguard/** -text
+# MF8-MF11's too: k0map's manifests hash its run files, append's append-only check compares ledger lines byte for byte.
+seed/bootstrap/vectors/k0map/** -text
+seed/bootstrap/vectors/refs/** -text
+seed/bootstrap/vectors/append/** -text
+seed/bootstrap/vectors/root/** -text
