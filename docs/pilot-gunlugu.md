@@ -154,6 +154,22 @@ durdu. Düzeltildi (E243): sınıra takılan oturum kesintidir, başlatıcı sı
 vektör iş akışının gözden geçireni bulup kayda açık yazmıştı, Kurucu'ya hiçbiri söylenmedi (kayıt ona kapalı). Kurucu
 ikisini kendi kodunu yazarken buldu, kanıt testini ve tohum için taslak cümleyi verdi. MF7–MF11 ilk denemede kabul edildi.
 
+## Aşama 0'ın kodu tamam (2026-10-30 11:59Z)
+
+| Push | MF | Hakem | Not |
+|---|---|---|---|
+| `e02b5f9` | MF12 `sentinel.run` | accepted | |
+| `b23f497` | MF13 `gate.revert` | accepted ilk denemede, 210 vektör | |
+| `a049954` | MF14 `exit.drill` | accepted | `revert_drill` arayüzünün eksikliğini bildirdi (seed-031) |
+| `f07f215` | MF15 `llm.call` | **rejected**: rakip kanıtladı (çok büyük üslü maliyet `decimal.Overflow`, başlamış süreç maliyet satırısız) | Ağ kesintisi yüzünden ret Kurucu'ya bir döngü geç ulaştı (E245, E248) |
+| `d0dc433` | MF16 `status.block` | rejected (MF15'in açığı hâlâ yeniden üretiliyor) | `repeated` altyapının hatasıdır, Kurucu'ya sayılmaz (E248) |
+| `aa70be0` | MF15 düzeltmesi | **accepted**: MF15 ve MF16 | Maliyet JSON metninden tam okunur, çökme yok; rakibin iki yeniden üreticisi testte |
+| `6f8cef2` | MF17 `loop.yml` | accepted | |
+| `ebc999f` | MF18 `activate` | **accepted**: modülsüz kırmızı, 210 vektör, rakip çürütemedi | Kendi MF2'sinin bu push'taki yanlış alarmlarını kendiliğinden kaydetti |
+
+Kalan, tohum tarafındadır: MF14–MF18'in vektör grupları (`revert_drill`, `prompt`, `status`, `genesis`; iş akışında) ve
+çıkışın altı denetimi (E162); ikisi gelmeden çıkış kapalı kalır.
+
 ## Pilotun tetiklediği düzeltmeler
 
 E148 (defter satırları push türünü bozuyordu), E149 (`main` mutasyonu hiç koşmuyordu), E152 (CRLF, `safe.directory`),
