@@ -6,7 +6,7 @@ Okunma: Aşama 0'ın MF14 ve MF15'ini yazarken; bu grupların komutu, girdisi ya
 
 ---
 
-`29j`'nin devamıdır (`status`, `genesis`: `29n`); kuralları `29f` ve `29g`'ninkidir, beklenen değerler burada yok
+`29j`'nin devamıdır (`status`: `29n`, `genesis`: `29o`); kuralları `29f` ve `29g`'ninkidir, beklenen değerler burada yok
 (`29a`). Üretimde dış dünyaya dokunan mekanizma vektörde fikstür bir taklit ya da yalnız bir plandır (`asama-0/14` Kum);
 spec'in sessiz kaldığı kural "seçim" diye yazılıdır.
 
@@ -41,15 +41,15 @@ sıralı, tekil `reasons`. Çıkış: `commit`, `reveal` 0; 2 okunamayan ya da b
 tekrarlanan kimlik, rakam dizgisi olmayan `cycle_id` (satır `{"commitment_sha256": null}`, `{"key": null,
 "revealed_sha256": null}`); `judge` 0 PASS, 1 FAIL, 2 okunamayan dosya ya da dört dizgi alanı olmayan anahtar
 (satır `{"verdict": "FAIL"}`).
-Vakalar: `commit_hmac_selection` taahhüdün seçimi; bu `cycle_id`'de dosya sırası, seçimin ilk ya da son baytı, ilk ya
-da son 32 biti, ilk 64 biti ve yer değiştirmiş anahtar ile ileti başka örnek seçer; `reveal_selects_by_hmac` prova
-tohumu HMAC anahtarı, `cycle_id` ileti, açılımın hash'i taahhüde eşit; `judge_pass` geçerli zincirde taahhüt ekmeden
-önce, anahtarın örneği ondan sonra anahtarın nedeniyle geri alınmış; `tampered_key` neden yanlıştı, anahtar koşudan
-sonra ona uydurulmuş: taahhütte düşer, neden artık tutar; `commitment_after_plant` (3)–(5)'ten birer neden: ekmeden
-sonra yazılmış taahhüt (anahtarla karşılaştırılmaz), başka örnek ekilmiş, yanlış neden, üçü de yazılır;
-`other_merge_reverted` anahtarın nedeniyle başka merge geri alınmış, ekilen değil; `rewritten_commitment` taahhüt
-satırı düzenlenmiş anahtara göre yeniden yazılmış: zincir kırılır, başka hiçbir şey yargılanmaz. `not_planted`
-vakasızdır; her fikstürde tek ekme satırı var.
+Vakalar: `commit_hmac_selection` taahhüdün seçimi; bu `cycle_id`'de dosya sırası, seçimin ilk ya da son baytı, ilk ya da
+son 32 biti, ilk 64 biti ve yer değiştirmiş anahtar ile ileti başka örnek seçer; `reveal_selects_by_hmac` prova tohumu
+HMAC anahtarı, `cycle_id` ileti, açılımın hash'i taahhüde eşit; `judge_pass` geçerli zincirde taahhüt ekmeden önce,
+anahtarın örneği ondan sonra anahtarın nedeniyle geri alınmış; `tampered_key` neden yanlıştı, anahtar koşudan sonra ona
+uydurulmuş: taahhütte düşer, neden artık tutar; `commitment_after_plant` (3)–(5)'ten birer neden: ekmeden sonra yazılmış
+taahhüt (anahtarla karşılaştırılmaz), başka örnek ekilmiş, yanlış neden, üçü de yazılır; `other_merge_reverted`
+anahtarın nedeniyle başka merge geri alınmış, ekilen değil; `rewritten_commitment` taahhüt satırı düzenlenmiş anahtara
+göre yeniden yazılmış: zincir kırılır, başka hiçbir şey yargılanmaz; `last_of_several_drills` iki prova (#geri-alma üç
+ister): P son ekme, C ondan önceki son taahhüt, ilk prova tarih. `not_planted` vakasızdır.
 
 ## `prompt` (MF15, `dispatcher/llm_call.py`)
 

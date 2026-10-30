@@ -355,7 +355,7 @@ BREAKS = [
      ["cause.lint_per_tool"]),
     ("no_unknown", "gate/revert.py", 'return "unknown"', 'return "impact_miss"', ["cause.unknown"]),
 
-    # MF14-MF18 (`29m`, `29n`)
+    # MF14-MF18 (`29m`, `29n`, `29o`)
     ("selection_in_file_order", "harness/revert_drill.py", "pairs.sort(key=lambda p: p[0])",
      "pairs.sort(key=lambda p: 0)", ["revert_drill.commit_hmac_selection", "revert_drill.reveal_selects_by_hmac"]),
     ("hmac_key_and_message_swapped", "harness/revert_drill.py",
@@ -394,6 +394,12 @@ BREAKS = [
      ["revert_drill.other_merge_reverted"]),
     ("drill_chain_unverified", "harness/revert_drill.py", "valid, rows = verify(data)",
      "valid, rows = True, [json.loads(line) for line in data.splitlines()]", ["revert_drill.rewritten_commitment"]),
+    ("commitment_of_the_first_commit_row", "harness/revert_drill.py",  # review 6: one drill per fixture hid it
+     'elif _payload(rows[commits[-1]]).get("commitment_sha256") != key_sha256(key):',
+     'elif _payload(rows[commits[0]]).get("commitment_sha256") != key_sha256(key):',
+     ["revert_drill.last_of_several_drills"]),
+    ("plant_of_the_first_plant_row", "harness/revert_drill.py", "p_idx = plants[-1]", "p_idx = plants[0]",
+     ["revert_drill.last_of_several_drills"]),
     ("row_hash_not_recomputed", "ledger/_common.py", "if row_hash(row) != stored:", "if False:",
      ["revert_drill.rewritten_commitment", "genesis.security_ledger_broken"]),
 
@@ -459,6 +465,11 @@ BREAKS = [
      "edited = found is not None and found != recorded", ["status.deleted_block_is_edit"]),
     ("brake_engaged_only_past_the_cap", "status/block.py", '"engaged": spent >= cap', '"engaged": spent > cap',
      ["status.brake_engaged"]),
+    ("recorded_from_the_first_status_row", "status/block.py", '_payload(statuses[-1]).get("block_sha256")',
+     '_payload(statuses[0]).get("block_sha256")', ["status.last_status_row", "status.last_status_row.changed_input"]),
+    ("human_touches_of_transfers_only", "status/block.py", '"human_touches": len(imports),',
+     '"human_touches": len([r for r in imports if "referee_tree_sha256" in r]),',
+     ["status.fields_from_ledger.changed_input"]),
 
     ("toy_base_from_the_summary", "activate.py", 'base_sha = obj["sha"]', 'base_sha = target.get("base_sha")',
      ["genesis.toy_genesis_row", "genesis.recipe_canonical"]),
@@ -481,11 +492,47 @@ BREAKS = [
     ("summary_hash_canonical", "activate.py", '"summary_sha256": _sha(summary_bytes),',
      '"summary_sha256": _sha(canonical_bytes(summary)),',
      ["genesis.toy_genesis_row", "genesis.copy_genesis_row", "genesis.recipe_canonical"]),
-    ("import_line_with_its_lf", "activate.py", '"import_line_sha256": _sha(import_lines[-1]),',
-     '"import_line_sha256": _sha(import_lines[-1] + b"' + BS + 'n"),',
+    ("import_line_with_its_lf", "activate.py", '"import_line_sha256": _sha(import_lines[last_transfer]),',
+     '"import_line_sha256": _sha(import_lines[last_transfer] + b"' + BS + 'n"),',
      ["genesis.toy_genesis_row", "genesis.copy_genesis_row", "genesis.recipe_canonical"]),
-    ("first_import_row", "activate.py", "last_import = import_rows[-1]", "last_import = import_rows[0]",
+    ("first_import_row", "activate.py", "last_transfer = transfers[-1]", "last_transfer = transfers[0]",
      ["genesis.toy_genesis_row", "genesis.copy_genesis_row", "genesis.recipe_canonical"]),
+    ("genesis_binds_the_last_imports_row", "activate.py", "last_transfer = transfers[-1]",  # review 6: 27:19's touches
+     "last_transfer = len(import_rows) - 1",
+     ["genesis.toy_genesis_row", "genesis.copy_genesis_row", "genesis.recipe_canonical", "genesis.copy_actions_enabled",
+      "genesis.every_fault_named", "genesis.bypass_named", "genesis.security_ledger_broken"]),
+    ("import_line_of_the_last_row", "activate.py", '"import_line_sha256": _sha(import_lines[last_transfer]),',
+     '"import_line_sha256": _sha(import_lines[-1]),',
+     ["genesis.toy_genesis_row", "genesis.copy_genesis_row", "genesis.recipe_canonical"]),
+    ("main_rules_outside_the_facts", "activate.py", 'main_body = api.get("/repos/%s/rules/branches/main" % repo)',
+     'main_body = api.recorded.get("GET /repos/%s/rules/branches/main" % repo)',
+     ["genesis.toy_genesis_row", "genesis.copy_genesis_row", "genesis.recipe_canonical"]),
+    ("rulesets_outside_the_facts", "activate.py", 'ruleset = api.get("/repos/%s/rulesets/%d" % (repo, ruleset_id))',
+     'ruleset = api.recorded.get("GET /repos/%s/rulesets/%d" % (repo, ruleset_id))',
+     ["genesis.toy_genesis_row", "genesis.copy_genesis_row", "genesis.recipe_canonical"]),
+    ("toy_workflows_outside_the_facts", "activate.py", 'listed = api.get("/repos/%s/actions/workflows" % repo)',
+     'listed = api.recorded.get("GET /repos/%s/actions/workflows" % repo)',
+     ["genesis.toy_genesis_row", "genesis.recipe_canonical"]),
+    ("brain_bypass_unchecked", "activate.py", 'if any(bypass[r["ruleset_id"]] for r in state_body + integration_body):',
+     "if False:", ["genesis.bypass_named"]),
+    ("bypass_only_when_always", "activate.py", 'bypass[ruleset_id] = ruleset["current_user_can_bypass"] != "never"',
+     'bypass[ruleset_id] = ruleset["current_user_can_bypass"] == "always"', ["genesis.bypass_named"]),
+    ("main_bypass_unchecked", "activate.py",
+     'if any(bypass[r["ruleset_id"]] for r in main_body) or not any(_restricts_main(r) for r in main_body):',
+     "if not any(_restricts_main(r) for r in main_body):", ["genesis.bypass_named"]),
+    ("main_restriction_unchecked", "activate.py",
+     'if any(bypass[r["ruleset_id"]] for r in main_body) or not any(_restricts_main(r) for r in main_body):',
+     'if any(bypass[r["ruleset_id"]] for r in main_body):', ["genesis.every_fault_named"]),
+    ("main_review_without_approvals_counts", "activate.py",
+     'return rule["type"] == "pull_request" and _is_int(count) and count >= 1', 'return rule["type"] == "pull_request"',
+     ["genesis.every_fault_named"]),
+    ("main_update_rule_not_a_restriction", "activate.py", 'if rule["type"] == "update":', "if False:",
+     ["genesis.copy_genesis_row", "genesis.copy_actions_enabled"]),
+    ("main_review_not_a_restriction", "activate.py",
+     'return rule["type"] == "pull_request" and _is_int(count) and count >= 1', "return False",
+     ["genesis.toy_genesis_row", "genesis.recipe_canonical", "genesis.security_ledger_broken"]),
+    ("toy_workflows_unchecked", "activate.py", 'if kind == "toy" and workflows:', "if False:",
+     ["genesis.every_fault_named"]),
     ("first_seed_epoch", "activate.py", '"seed_epoch": epochs[-1],', '"seed_epoch": epochs[0],',
      ["genesis.toy_genesis_row", "genesis.copy_genesis_row", "genesis.recipe_canonical"]),
     ("security_tip_of_the_first_row", "activate.py", 'security_rows[-1]["row_hash"]', 'security_rows[0]["row_hash"]',
@@ -569,7 +616,7 @@ class SeedVectorsOnReferenceImplementationsTest(unittest.TestCase):
         cases = [c["id"] for g in DATA_GROUPS for c in seed[g]["cases"]]
         data = [r for r in results if not r["id"].startswith("chain.")]
         self.assertEqual([r["id"] for r in data], [i + s for i in cases for s in ("", ".changed_input")])
-        self.assertEqual((len(data), len(results)), (252, 258))  # MF2-MF7 92, MF8-MF13 112, MF14-MF18 48; `chain` 6
+        self.assertEqual((len(data), len(results)), (258, 264))  # MF2-MF7 92, MF8-MF13 112, MF14-MF18 54; `chain` 6
         self.assertEqual([(r["id"], r["detail"]) for r in results if not r["ok"]], [])
         self.assertEqual(brain_manifest().done_mf, (1,))  # reference implementations, not declared done
 

@@ -261,11 +261,11 @@ class StageTableMatchesTheSpecTest(unittest.TestCase):
             self.assertEqual(group["owner"] == "asama-0", name in named, name)
 
 
-VECTOR_PAGES = ("29f", "29g", "29h", "29i", "29j", "29m", "29n")
+VECTOR_PAGES = ("29f", "29g", "29h", "29i", "29j", "29m", "29n", "29o")
 
 
 class VectorInterfacePagesTest(unittest.TestCase):
-    """`29f`-`29j`, `29m` and `29n` are what the Founder reads of the data groups (it never sees `vectors.json`): every
+    """`29f`-`29j` and `29m`-`29o` are what the Founder reads of the data groups (it never sees `vectors.json`): every
     group's command and every case's purpose are there, the expected values are not (`29a`: the vectors are a floor)."""
 
     SEED = json.loads((BOOT / "vectors" / "vectors.json").read_text(encoding="utf-8"))

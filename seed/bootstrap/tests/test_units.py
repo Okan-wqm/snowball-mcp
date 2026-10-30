@@ -30,6 +30,7 @@ STAGE0_SEEDED = ("chain", "secrets", "contained", "profile", "npmlock", "recipe"
 DATA_GROUPS = STAGE0_SEEDED[1:]
 POLICY_DEFAULTS = BOOTSTRAP.parents[1] / "spec" / "tohum" / "18a-politika-baslangic-degerleri.md"
 Z = "0" * 64
+WORST_CALL_S = 5.0  # the slowest vector call measured in the real sandbox (docs/eksik-kaydi.md, E161 MF8-MF13; E273)
 
 
 class CanonTest(unittest.TestCase):
@@ -180,7 +181,7 @@ class VectorsTest(unittest.TestCase):
 
     def test_mf14_to_mf18_groups_wait_for_their_pages(self):
         """E161 review (E199 a): a data group runs only on a Founder whose seed has its page; `29m` brings
-        `revert_drill` and `prompt`, `29n` brings `status` and `genesis`."""
+        `revert_drill` and `prompt`, `29n` brings `status`, `29o` brings `genesis` (review 6 split it off)."""
         done = (1, 14, 15, 16, 17, 18)
         with tempfile.TemporaryDirectory() as tmp:
             tree, pages = Path(tmp), Path(tmp, "spec", "tohum")
@@ -190,6 +191,8 @@ class VectorsTest(unittest.TestCase):
             (pages / "29m-vektor-arayuzleri-mf14-18.md").write_text("page", encoding="utf-8")
             self.assertEqual(missing_groups(VECTORS, done, stages.load(0), tree=tree), ["status", "genesis"])
             (pages / "29n-vektor-arayuzleri-mf14-18-devam.md").write_text("page", encoding="utf-8")
+            self.assertEqual(missing_groups(VECTORS, done, stages.load(0), tree=tree), ["genesis"])
+            (pages / "29o-vektor-arayuzleri-mf14-18-son.md").write_text("page", encoding="utf-8")
             self.assertEqual(missing_groups(VECTORS, done, stages.load(0), tree=tree), [])
 
     def test_wrong_implementations_fail(self):
@@ -343,6 +346,41 @@ class DataRunnerTest(unittest.TestCase):
         self.assertIn("not_run:time_budget", results[-1]["detail"])
         self.assertIsNone(results[-1]["exit"])
 
+    def test_one_push_asks_each_command_and_stdin_once(self):
+        """E273: the same command on the same stdin, over the same read-only tree and `/vec`, is the same input; a case
+        whose input another case already ran reuses that answer instead of starting a container. Every vector is still
+        on the record and judged on its own. A call that gave no answer is not remembered: the next one asks again."""
+        twin = dict(self.CASE, id="probe.two")
+        with tempfile.TemporaryDirectory() as tmp:
+            Path(tmp, "vectors.json").write_text(json.dumps(
+                {"probe": {"owner": "asama-0", "runner": "data", "cases": [self.CASE, twin]}}), encoding="utf-8")
+            runner = Scripted({(self.CASE["cmd"], b'{"n": 1}'): self.GOOD,
+                               (self.CASE["changed"]["cmd"], b'{"n": 2}'): self.OTHER})
+            results = run_vectors(runner, Path(tmp), (1,), table=self.TABLE)
+            silent = Scripted({})
+            unanswered = run_vectors(silent, Path(tmp), (1,), table=self.TABLE)
+        self.assertEqual([(r["id"], r["ok"], r["exit"]) for r in results],
+                         [("probe.one", True, 0), ("probe.one.changed_input", True, 1), ("probe.two", True, 0),
+                          ("probe.two.changed_input", True, 1)])
+        self.assertEqual(len(runner.calls), 2)
+        self.assertEqual([r["ok"] for r in unanswered], [False] * 4)
+        self.assertEqual(len(silent.calls), 4 * 2)  # each vector, each with its retry
+
+    def test_the_seed_vectors_fit_the_budget_at_the_worst_measured_call(self):
+        """E273: with every micro-feature done, one push's vector calls times the worst call measured in the real sandbox
+        (5.0 s, E161) stay within `BUDGET_S`; what the budget leaves unrun is red and the Founder's, so a seed whose
+        vectors outgrow it would charge the Founder for the referee's own cost."""
+        class Counting:
+            calls = 0
+
+            def run(self, cmd, *, cwd=".", stdin=b"", timeout_s):
+                Counting.calls += 1
+                return RunResult(0, b"{}\n", b"", 1)
+        seed = json.loads((VECTORS / "vectors.json").read_text(encoding="utf-8"))
+        results = run_vectors(Counting(), VECTORS, tuple(range(1, 19)))
+        self.assertEqual(len(results), 2 * sum(len(seed[g]["cases"]) for g in DATA_GROUPS) + 6)
+        self.assertLessEqual(Counting.calls * WORST_CALL_S, vectors.BUDGET_S, Counting.calls)
+
     def test_the_fixtures_are_mounted_without_the_expected_values(self):
         with tempfile.TemporaryDirectory() as tmp:
             vec = vectors.fixtures(VECTORS, Path(tmp) / "vec")
@@ -401,7 +439,7 @@ class SeedDataVectorsTest(unittest.TestCase):
                                                               if p.startswith("/vec/")])
                     ids.append(case["id"])
         self.assertEqual(len(ids), len(set(ids)))
-        self.assertEqual(len(ids), 126)  # MF2-MF7 46, MF8-MF13 56, MF14-MF18 24
+        self.assertEqual(len(ids), 129)  # MF2-MF7 46, MF8-MF13 56, MF14-MF18 27
 
     def test_expected_values_carry_no_floats(self):
         """`tohum/26`: hashed artefacts carry no floats; nor do the vectors' answers (the runner tells 1 from 1.0)."""

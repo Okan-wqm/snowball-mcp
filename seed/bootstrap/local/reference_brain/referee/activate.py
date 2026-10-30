@@ -1,4 +1,4 @@
-"""MF18 activation, the genesis verb (asama-0/14:45, 09:69, 10a:16-17, tohum/25a:21).
+"""MF18 activation, the genesis verb (asama-0/14:45, 09:69, 10a:16-17, tohum/25a:17-21, 01b:59-60).
 
 python -m activate genesis <api.json> <summary.json> <imports.jsonl> <policy.json> <security-ledger.jsonl>
 <recipe.json>; stdin {"target": "<targets[].id>"}. A dry run against a recorded GitHub REST file
@@ -71,9 +71,19 @@ class RecordedApi:
 
 
 def _rule_types(body):
-    if not isinstance(body, list) or not all(isinstance(r, dict) and isinstance(r.get("type"), str) for r in body):
+    if not isinstance(body, list) or not all(isinstance(r, dict) and isinstance(r.get("type"), str)
+                                             and _is_int(r.get("ruleset_id")) for r in body):
         raise Unusable("rules body")
     return {r["type"] for r in body}
+
+
+def _restricts_main(rule):
+    """25a:18: main asks an approving review, or only bypass may update it (the `update` rule)."""
+    if rule["type"] == "update":
+        return True
+    params = rule.get("parameters")
+    count = params.get("required_approving_review_count") if isinstance(params, dict) else None
+    return rule["type"] == "pull_request" and _is_int(count) and count >= 1
 
 
 def _check_not_writer(rule, app_id):
@@ -113,10 +123,13 @@ def genesis(paths, request):
         raise Unusable("seed_epochs")
 
     import_lines = split_lines(_read(imports_path))
-    if not import_lines:
-        raise Unusable("no imports row")
     import_rows = [_object(line) for line in import_lines]
-    last_import = import_rows[-1]
+    # The counter holds every human touch (27:19); a transfer's row is the one with the referee tree (26c:37).
+    transfers = [i for i, row in enumerate(import_rows) if "referee_tree_sha256" in row]
+    if not transfers:
+        raise Unusable("no transfer row")
+    last_transfer = transfers[-1]
+    last_import = import_rows[last_transfer]
     if not isinstance(last_import.get("referee_tree_sha256"), str) or not isinstance(last_import.get("result_sha256"), str):
         raise Unusable("imports row")
 
@@ -138,8 +151,17 @@ def genesis(paths, request):
         raise Unusable("installation body")
     state_body = api.get("/repos/%s/rules/branches/brain/state" % repo)
     integration_body = api.get("/repos/%s/rules/branches/brain/integration" % repo)
+    main_body = api.get("/repos/%s/rules/branches/main" % repo)  # 01b:59: brain/* and main
     state_types = _rule_types(state_body)
     integration_types = _rule_types(integration_body)
+    _rule_types(main_body)
+    bypass = {}  # 01b:60: the writer App's current_user_can_bypass, per ruleset a rule comes from
+    for ruleset_id in sorted({r["ruleset_id"] for r in state_body + integration_body + main_body}):
+        ruleset = api.get("/repos/%s/rulesets/%d" % (repo, ruleset_id))
+        if not isinstance(ruleset, dict) or not isinstance(ruleset.get("current_user_can_bypass"), str):
+            raise Unusable("ruleset body")
+        bypass[ruleset_id] = ruleset["current_user_can_bypass"] != "never"
+    workflows = None
     if kind == "toy":
         main = api.get("/repos/%s/git/ref/heads/main" % repo)
         obj = main.get("object") if isinstance(main, dict) else None
@@ -147,6 +169,10 @@ def genesis(paths, request):
             raise Unusable("main ref body")
         base_sha = obj["sha"]  # the toy is cut from main (25a:21)
         actions = None
+        listed = api.get("/repos/%s/actions/workflows" % repo)  # 25a:20: the toy has no workflow
+        workflows = listed.get("workflows") if isinstance(listed, dict) else None
+        if not isinstance(workflows, list):
+            raise Unusable("workflows body")
     else:
         actions = api.get("/repos/%s/actions/permissions" % repo)
         if not isinstance(actions, dict):
@@ -164,6 +190,12 @@ def genesis(paths, request):
         reasons.add("integration_check_not_writer")
     if kind == "copy" and actions.get("enabled") is not False:
         reasons.add("copy_actions_enabled")
+    if any(bypass[r["ruleset_id"]] for r in state_body + integration_body):
+        reasons.add("rules_bypassable")
+    if any(bypass[r["ruleset_id"]] for r in main_body) or not any(_restricts_main(r) for r in main_body):
+        reasons.add("main_writable")
+    if kind == "toy" and workflows:
+        reasons.add("toy_workflows")
     valid, security_rows = verify(security_bytes)
     if not valid or not security_rows:
         reasons.add("security_ledger_broken")
@@ -179,7 +211,7 @@ def genesis(paths, request):
         "base_sha": base_sha,
         "referee_tree_sha256": last_import["referee_tree_sha256"],
         "result_sha256": last_import["result_sha256"],
-        "import_line_sha256": _sha(import_lines[-1]),
+        "import_line_sha256": _sha(import_lines[last_transfer]),
         "seed_epoch": epochs[-1],
         "policy_sha256": _sha(policy_bytes),
         "summary_sha256": _sha(summary_bytes),

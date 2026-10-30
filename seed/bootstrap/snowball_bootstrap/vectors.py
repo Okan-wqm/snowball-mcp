@@ -148,8 +148,16 @@ class VectorRun:
         self.results: list[dict[str, Any]] = []
         self.fault = ""
         self.exit: int | None = None  # the exit code of the last try of the last call
+        # E273: one command on one stdin over the same read-only tree and `/vec` is one input. A case whose input an
+        # earlier case ran (a changed input is often another case's input) reuses that answer: a container less, the
+        # budget kept for inputs not yet asked. Only answers are kept; a call that gave none is asked again.
+        self.answers: dict[tuple[str, bytes], tuple[dict[str, Any] | None, int]] = {}
 
     def call(self, cmd: str, stdin: bytes = b"") -> dict[str, Any] | None:
+        if (cmd, stdin) in self.answers:
+            out, self.exit = self.answers[(cmd, stdin)]
+            self.fault = ""
+            return out
         res = None
         for _ in range(2):  # a container the host killed under load answers nothing: ask again before blaming the judge
             left = self.deadline - _now()
@@ -159,7 +167,8 @@ class VectorRun:
             self.exit = res.exit_code
             if not res.timed_out and res.stdout.strip():
                 self.fault = ""
-                return _last_json(res.stdout)
+                self.answers[(cmd, stdin)] = (_last_json(res.stdout), res.exit_code)
+                return self.answers[(cmd, stdin)][0]
         if res is None:  # the budget was spent before this call: it never ran
             self.exit = None
             self.fault = "not_run:time_budget"

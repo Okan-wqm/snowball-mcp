@@ -3973,6 +3973,31 @@
             "verdict": "FAIL"
           }
         }
+      },
+      {
+        "id": "revert_drill.last_of_several_drills",
+        "purpose": "The toy runs several drills (#geri-alma asks for at least three), so its ledger holds a commitment, a plant and a revert per drill: P is the last plant row and C the last commitment before it. The earlier drill's commitment, instance and revert are history; the key is the later drill's: PASS.",
+        "cmd": "python -m harness.revert_drill judge /vec/revert_drill/two_drills.jsonl /vec/revert_drill/key.json",
+        "fixture": [
+          "revert_drill/two_drills.jsonl",
+          "revert_drill/key.json"
+        ],
+        "expect": {
+          "reasons": [],
+          "verdict": "PASS"
+        },
+        "changed": {
+          "description": "One field: the later key's cause edited after the run (key_tampered.json).",
+          "cmd": "python -m harness.revert_drill judge /vec/revert_drill/two_drills.jsonl /vec/revert_drill/key_tampered.json",
+          "fixture": [
+            "revert_drill/two_drills.jsonl",
+            "revert_drill/key_tampered.json"
+          ],
+          "expect_not": {
+            "reasons": [],
+            "verdict": "PASS"
+          }
+        }
       }
     ]
   },
@@ -4184,7 +4209,7 @@
           "last_decision": "reject"
         },
         "changed": {
-          "description": "One field: imports.jsonl has a third row (imports_three.jsonl).",
+          "description": "One field: imports.jsonl has a third row, a human touch that is not a transfer (imports_three.jsonl).",
           "cmd": "python -m status.block render /vec/status/ledger.jsonl /vec/status/imports_three.jsonl /vec/status/status.md",
           "stdin": "{\"canary_cap_usd_micros\":1000000}",
           "fixture": [
@@ -4352,13 +4377,42 @@
             }
           }
         }
+      },
+      {
+        "id": "status.last_status_row",
+        "purpose": "Every cycle appends a status row, so the ledger holds one per cycle: the recorded hash is the last status row's (cycle 2's block), not the first's. status.md holding the block cycle 2 wrote is not edited; cycle 1's row is history.",
+        "cmd": "python -m status.block render /vec/status/ledger_two.jsonl /vec/status/imports.jsonl /vec/status/status_second.md",
+        "stdin": "{\"canary_cap_usd_micros\":1000000}",
+        "fixture": [
+          "status/ledger_two.jsonl",
+          "status/imports.jsonl",
+          "status/status_second.md"
+        ],
+        "expect": {
+          "edited": false,
+          "event": null
+        },
+        "changed": {
+          "description": "One field: status.md holds cycle 1's block, the one the earlier status row records (status.md).",
+          "cmd": "python -m status.block render /vec/status/ledger_two.jsonl /vec/status/imports.jsonl /vec/status/status.md",
+          "stdin": "{\"canary_cap_usd_micros\":1000000}",
+          "fixture": [
+            "status/ledger_two.jsonl",
+            "status/imports.jsonl",
+            "status/status.md"
+          ],
+          "expect_not": {
+            "edited": false,
+            "event": null
+          }
+        }
       }
     ]
   },
   "genesis": {
     "owner": "asama-0",
     "runner": "data",
-    "interface": "spec/tohum/29n-vektor-arayuzleri-mf14-18-devam.md",
+    "interface": "spec/tohum/29o-vektor-arayuzleri-mf14-18-son.md",
     "source": "reconciled cases; every expected value given alike by two blind independent implementations (docs/eksik-kaydi.md E161)",
     "cases": [
       {
@@ -4379,7 +4433,7 @@
           "ok": true,
           "payload": {
             "base_sha": "d72aefaeae8162032c73351e0cbf115d17253724",
-            "facts_sha256": "32ced8a5f16ad188e177842b38f878462f28760f59682d4dd37ad4dd534ad318",
+            "facts_sha256": "b5479245d2eb9323448b6319fd3027f0a7b6248f0d72fcc43d92da7009876094",
             "import_line_sha256": "6fb3461d0296811ad22a321e03a10be5409b69447ee7d2041483f2de6650f885",
             "policy_sha256": "85d5cf7dcf9d59920c595804681f7052af39932a97d119acb7c2a705604d56f6",
             "recipe_sha256": "5c13843aab5ef6d35a6bf6a5772725231bbfe29782054aadad8b00350c173958",
@@ -4415,7 +4469,7 @@
             "ok": true,
             "payload": {
               "base_sha": "d72aefaeae8162032c73351e0cbf115d17253724",
-              "facts_sha256": "32ced8a5f16ad188e177842b38f878462f28760f59682d4dd37ad4dd534ad318",
+              "facts_sha256": "b5479245d2eb9323448b6319fd3027f0a7b6248f0d72fcc43d92da7009876094",
               "import_line_sha256": "6fb3461d0296811ad22a321e03a10be5409b69447ee7d2041483f2de6650f885",
               "policy_sha256": "85d5cf7dcf9d59920c595804681f7052af39932a97d119acb7c2a705604d56f6",
               "recipe_sha256": "5c13843aab5ef6d35a6bf6a5772725231bbfe29782054aadad8b00350c173958",
@@ -4454,7 +4508,7 @@
           "ok": true,
           "payload": {
             "base_sha": "144de53f2ef6fbe655400a040fae3d95f7ad926b",
-            "facts_sha256": "0166ec04009dfd73ec2bbfc9ec7695926d1f42883ba94501b199199e3b592829",
+            "facts_sha256": "3ae99a73cfb16748b6ecc31f9af77a43fbe284afea00456ac2860d2ad9b16631",
             "import_line_sha256": "6fb3461d0296811ad22a321e03a10be5409b69447ee7d2041483f2de6650f885",
             "policy_sha256": "85d5cf7dcf9d59920c595804681f7052af39932a97d119acb7c2a705604d56f6",
             "recipe_sha256": "5c13843aab5ef6d35a6bf6a5772725231bbfe29782054aadad8b00350c173958",
@@ -4490,7 +4544,7 @@
             "ok": true,
             "payload": {
               "base_sha": "144de53f2ef6fbe655400a040fae3d95f7ad926b",
-              "facts_sha256": "0166ec04009dfd73ec2bbfc9ec7695926d1f42883ba94501b199199e3b592829",
+              "facts_sha256": "3ae99a73cfb16748b6ecc31f9af77a43fbe284afea00456ac2860d2ad9b16631",
               "import_line_sha256": "6fb3461d0296811ad22a321e03a10be5409b69447ee7d2041483f2de6650f885",
               "policy_sha256": "85d5cf7dcf9d59920c595804681f7052af39932a97d119acb7c2a705604d56f6",
               "recipe_sha256": "5c13843aab5ef6d35a6bf6a5772725231bbfe29782054aadad8b00350c173958",
@@ -4527,7 +4581,7 @@
         "expect": {
           "payload": {
             "base_sha": "d72aefaeae8162032c73351e0cbf115d17253724",
-            "facts_sha256": "32ced8a5f16ad188e177842b38f878462f28760f59682d4dd37ad4dd534ad318",
+            "facts_sha256": "b5479245d2eb9323448b6319fd3027f0a7b6248f0d72fcc43d92da7009876094",
             "import_line_sha256": "6fb3461d0296811ad22a321e03a10be5409b69447ee7d2041483f2de6650f885",
             "policy_sha256": "85d5cf7dcf9d59920c595804681f7052af39932a97d119acb7c2a705604d56f6",
             "recipe_sha256": "5c13843aab5ef6d35a6bf6a5772725231bbfe29782054aadad8b00350c173958",
@@ -4560,7 +4614,7 @@
           "expect_not": {
             "payload": {
               "base_sha": "d72aefaeae8162032c73351e0cbf115d17253724",
-              "facts_sha256": "32ced8a5f16ad188e177842b38f878462f28760f59682d4dd37ad4dd534ad318",
+              "facts_sha256": "b5479245d2eb9323448b6319fd3027f0a7b6248f0d72fcc43d92da7009876094",
               "import_line_sha256": "6fb3461d0296811ad22a321e03a10be5409b69447ee7d2041483f2de6650f885",
               "policy_sha256": "85d5cf7dcf9d59920c595804681f7052af39932a97d119acb7c2a705604d56f6",
               "recipe_sha256": "5c13843aab5ef6d35a6bf6a5772725231bbfe29782054aadad8b00350c173958",
@@ -4625,7 +4679,7 @@
       },
       {
         "id": "genesis.every_fault_named",
-        "purpose": "Four facts fail at once and each is named: the writer App is also installed on another repository, brain/state lacks non_fast_forward, brain/integration lacks pull_request and its required check is reported by another App. The toy's main differs from the summary's base_sha too, which is no fault: the toy is cut from main.",
+        "purpose": "Six facts fail at once and each is named: the writer App is also installed on another repository, brain/state lacks non_fast_forward, brain/integration lacks pull_request and its required check is reported by another App, main's only restriction is a pull request rule asking no approving review, and the toy has a workflow (25a:20). The toy's main differs from the summary's base_sha too, which is no fault: the toy is cut from main.",
         "cmd": "python -m activate genesis /vec/genesis/api_faults.json /vec/genesis/summary.json /vec/genesis/imports.jsonl /vec/genesis/policy.json /vec/genesis/security.jsonl /vec/genesis/recipe.json",
         "stdin": "{\"target\":\"toy\"}",
         "fixture": [
@@ -4644,7 +4698,9 @@
             "app_scope",
             "integration_check_not_writer",
             "integration_rules_missing",
-            "state_rules_missing"
+            "main_writable",
+            "state_rules_missing",
+            "toy_workflows"
           ]
         },
         "changed": {
@@ -4667,7 +4723,54 @@
               "app_scope",
               "integration_check_not_writer",
               "integration_rules_missing",
-              "state_rules_missing"
+              "main_writable",
+              "state_rules_missing",
+              "toy_workflows"
+            ]
+          }
+        }
+      },
+      {
+        "id": "genesis.bypass_named",
+        "purpose": "The writer App may bypass the copy's brain/state ruleset (current_user_can_bypass pull_requests_only) and is exempt from main's, though main's update rule leaves it to bypass alone: each ruleset the rules of brain/state, brain/integration and main come from is read, and only never counts (25a:17-18, 01b:59-60). Both are named and activation stops.",
+        "cmd": "python -m activate genesis /vec/genesis/api_bypass.json /vec/genesis/summary.json /vec/genesis/imports.jsonl /vec/genesis/policy.json /vec/genesis/security.jsonl /vec/genesis/recipe.json",
+        "stdin": "{\"target\":\"copy\"}",
+        "fixture": [
+          "genesis/api_bypass.json",
+          "genesis/summary.json",
+          "genesis/imports.jsonl",
+          "genesis/policy.json",
+          "genesis/security.jsonl",
+          "genesis/recipe.json"
+        ],
+        "expect": {
+          "hard_stop": true,
+          "ok": false,
+          "payload": null,
+          "reasons": [
+            "main_writable",
+            "rules_bypassable"
+          ]
+        },
+        "changed": {
+          "description": "One field: the recorded API where the writer App bypasses no ruleset (api.json).",
+          "cmd": "python -m activate genesis /vec/genesis/api.json /vec/genesis/summary.json /vec/genesis/imports.jsonl /vec/genesis/policy.json /vec/genesis/security.jsonl /vec/genesis/recipe.json",
+          "stdin": "{\"target\":\"copy\"}",
+          "fixture": [
+            "genesis/api.json",
+            "genesis/summary.json",
+            "genesis/imports.jsonl",
+            "genesis/policy.json",
+            "genesis/security.jsonl",
+            "genesis/recipe.json"
+          ],
+          "expect_not": {
+            "hard_stop": true,
+            "ok": false,
+            "payload": null,
+            "reasons": [
+              "main_writable",
+              "rules_bypassable"
             ]
           }
         }
