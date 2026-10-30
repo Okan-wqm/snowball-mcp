@@ -170,6 +170,21 @@ ikisini kendi kodunu yazarken buldu, kanıt testini ve tohum için taslak cümle
 Kalan, tohum tarafındadır: MF14–MF18'in vektör grupları (`revert_drill`, `prompt`, `status`, `genesis`; iş akışında) ve
 çıkışın altı denetimi (E162); ikisi gelmeden çıkış kapalı kalır.
 
+## Çıkış hazırlığı ve tohum dönemi 3a (2026-10-30 akşam)
+
+Kurucu MF18'den sonra çıkışın gerektirdiklerini kendisi çıkarıp kurdu, her biri kabul edildi: oyuncak hedef repo
+(`8223c90`) ve onun bir iyi, dört kötü adayı (`268092c`); MF2'nin kendi fark ettiği yanlış alarmları (`f057f1e`);
+ESLint çıktısını kapının kaydına çeviren dönüştürücü, yani kendi bildirdiği seed-023'ü kendi tarafında kapattı
+(`fe5907b`); döngünün `koş`, çekilen yapıt ve `çek` parçaları (`517b39d`, `3e1a105`, `f3f4933`, `3f01932`). İki kez kendi
+kabul edilmiş kodunda kusur buldu ve düzeltti: ağacı GitHub tarball'ından alıyordu (`git archive` `export-ignore`
+uygular), git nesnelerinden okumaya geçti (`2d364da`); git'in `SSH_ASKPASS`'ı istemsiz koşturduğunu gerçek git'le
+yakaladı (`3f01932`). Rakibin açık iddiasını (ağaç kipleri) bir sonraki oturumda kapattı (`e4dc54a`).
+
+Tohum dönemi 3a: snowball-mcp `c97803f` → beyin `3f605a1` (MF14–MF18 vektör arayüzleri `29m`–`29o`, `07a` geri dönüş ve
+silme, veri katmanı korkulukları, E260). Doğrulama `seed_update`/`noop`. Başlatıcı yeniden: `/vec` girdileri (E244), harita
+çizimi (E301) ve defterin de doğrulanacak belge olduğu (E302) talimatta. Kalan, 3b ile: sahip kararları paketi 1, çıkış
+denetimleri ve E280/E287 kararları.
+
 ## Pilotun tetiklediği düzeltmeler
 
 E148 (defter satırları push türünü bozuyordu), E149 (`main` mutasyonu hiç koşmuyordu), E152 (CRLF, `safe.directory`),
