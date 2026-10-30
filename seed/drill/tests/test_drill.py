@@ -16,8 +16,8 @@ from pathlib import Path
 import snowball_drill.judge as judge_module
 from snowball_drill import sim
 from snowball_drill.__main__ import main
-from snowball_drill.judge import QUESTIONS, judge, mcnemar_p, newcombe_lower
-from snowball_drill.power import power_table
+from snowball_drill.judge import QUESTIONS, commitment, judge, mcnemar_p, newcombe_lower, scope_matches, withheld
+from snowball_drill.power import calibration, effect_power, power_table, unmeasurable_risk
 from snowball_drill.vectors import EDITED, drill_docs, write_vectors
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "local"))
@@ -30,6 +30,8 @@ CAUGHT_BY = {
     "wrong_cause": ("birth", "FAIL"),
     "unbound_lesson": ("birth", "FAIL"),
     "unscoped": ("birth", "FAIL"),
+    "label_peeker": ("birth", "FAIL"),          # the scope names the answer key's family label (E64)
+    "overbroad_scope": ("birth", "FAIL"),       # the scope covers another family too (E64)
     "no_injection": ("use", "FAIL"),
     "leaky": ("use", "FAIL"),
     "ignores_lessons": ("effect", None),       # FAIL, except a lucky drill; never a passing drill
@@ -37,6 +39,9 @@ CAUGHT_BY = {
     "stubborn": ("wrong_lesson", "FAIL"),
     "unrecorded_withdrawal": ("wrong_lesson", "FAIL"),
     "stale_dispatcher": ("wrong_lesson", "FAIL"),
+    "llm_prior_discarder": ("right_lesson", "FAIL"),  # drops any imported lesson at the first red (E318)
+    "cherry_picking_dispatcher": ("placebo", "FAIL"),  # serves its own lesson against the referee's draw (E65)
+    "unequal_arms": ("placebo", "FAIL"),               # runs the given arm with more effort (E65)
     "raw_rate_ranker": ("placebo", "FAIL"),
     "rank_ignores_credit": ("placebo", "FAIL"),
     "amnesic": ("persistence", "FAIL"),
@@ -242,7 +247,7 @@ class Tamper(unittest.TestCase):
         placebo = doc["transcript"]["placebo"]
         for arm in placebo["arms"]:
             if arm["lesson_id"] == doc["answer_key"]["placebo"]:
-                arm["ok"] = arm["given"]
+                arm["ok"] = arm["lesson_id"] in arm["lessons_injected"]
         placebo["credit"] = judge(doc)["details"]["placebo"]["lower_bounds"]
         placebo["ranking"] = sorted(placebo["credit"], key=lambda lid: -float(placebo["credit"][lid]))
         result = judge(doc)
@@ -278,6 +283,259 @@ class Tamper(unittest.TestCase):
         self.assertEqual(result["verdicts"]["persistence"], "FAIL")
         self.assertEqual([k for k, ok in result["details"]["persistence"].items() if not ok],
                          ["same_lesson_after_restart"])
+
+
+class BlindScope(unittest.TestCase):
+    """E64: the brain never sees a family's name, so a scope is judged by what it covers, with one public matcher."""
+
+    def setUp(self):
+        self.doc = sim.run_drill(sim.LEARNER, 7)
+        key = self.doc["answer_key"]
+        self.birth_path = key["instances"][self.doc["transcript"]["birth"]["instance_id"]]["observables"]["paths"][0]
+        self.family = [i for i, v in key["instances"].items() if v["family"] == key["family"]]
+
+    def birth(self, scope, coverage=None):
+        doc = copy.deepcopy(self.doc)
+        doc["transcript"]["birth"]["lesson"]["scope"] = scope
+        if coverage is not None:
+            doc["params"]["scope_coverage"] = coverage
+        result = judge(doc)
+        return result["verdicts"]["birth"], result["details"]["birth"]
+
+    def test_the_matcher_reads_only_the_public_vocabulary(self):
+        job = {"paths": ["src/api/m1.py", "README.md"], "class_level": "K2", "property": "field_rename"}
+        self.assertTrue(scope_matches({"path_glob": "src/api/*", "property": "field_rename"}, job))
+        self.assertTrue(scope_matches({"path_glob": "*.md"}, job))  # one of the job's paths is enough
+        self.assertTrue(scope_matches({"conditions": ["x"]}, job))  # conditions are the dispatcher's, not coverage
+        self.assertTrue(scope_matches({}, job))  # an empty scope covers every job
+        self.assertFalse(scope_matches({"path_glob": "src/ui/*"}, job))
+        self.assertFalse(scope_matches({"class_level": "K1"}, job))
+        self.assertFalse(scope_matches({"property": "docstring"}, job))
+        self.assertFalse(scope_matches({"family": sim.TRAP}, job))  # a label is no observable
+        self.assertFalse(scope_matches({"property": "field_rename", "family": sim.TRAP}, job))
+        self.assertFalse(scope_matches(["src/api/*"], job))
+
+    def test_a_blind_scope_passes_birth(self):
+        verdict, checks = self.birth({"path_glob": "src/api/*", "class_level": "K2", "conditions": []})
+        self.assertEqual(verdict, "PASS", checks)
+
+    def test_a_scope_naming_the_family_fails_birth(self):
+        verdict, checks = self.birth({"family": sim.TRAP})
+        self.assertEqual(verdict, "FAIL")
+        self.assertEqual([k for k, ok in checks.items() if not ok],
+                         ["scope_public", "scope_covers_birth", "scope_covers_family"])
+
+    def test_a_scope_covering_another_family_fails_birth(self):
+        for scope in ({"property": "field_rename"}, {}, {"path_glob": "src/*"}):
+            verdict, checks = self.birth(scope)
+            self.assertEqual(verdict, "FAIL", scope)
+            self.assertEqual([k for k, ok in checks.items() if not ok], ["scope_excludes_other_families"], scope)
+
+    def test_coverage_of_the_family_is_counted_against_the_policy(self):
+        # A scope that names the birth instance's own file covers it and one instance of its family, no more.
+        verdict, checks = self.birth({"path_glob": self.birth_path})
+        self.assertEqual(verdict, "FAIL")
+        self.assertEqual([k for k, ok in checks.items() if not ok], ["scope_covers_family"])
+        exact = f"1/{len(self.family)}"
+        self.assertEqual(self.birth({"path_glob": self.birth_path}, coverage=exact)[0], "PASS")
+        self.assertEqual(self.birth({"path_glob": self.birth_path}, coverage=f"2/{2 * len(self.family) - 1}")[0],
+                         "FAIL")
+
+    def test_a_scope_that_misses_the_birth_instance_fails_birth(self):
+        verdict, checks = self.birth({"path_glob": "src/api/*", "property": "field_rename"}, coverage="0")
+        self.assertEqual(verdict, "PASS")
+        doc = copy.deepcopy(self.doc)
+        key = doc["answer_key"]
+        key["instances"][doc["transcript"]["birth"]["instance_id"]]["observables"]["paths"] = ["src/other/x.py"]
+        doc["commitment_sha256"] = commitment(key)
+        result = judge(doc)
+        self.assertFalse(result["details"]["birth"]["scope_covers_birth"])
+        self.assertEqual(result["verdicts"]["birth"], "FAIL")
+
+    def test_use_follows_the_scope_not_the_label(self):
+        # The dispatcher gives the lesson exactly where its scope covers the job; a narrower scope the dispatcher
+        # follows is consistent, a dispatcher that also serves an uncovered job of the family leaks.
+        doc = copy.deepcopy(self.doc)
+        key = doc["answer_key"]
+        fixer = next(r for r in doc["transcript"]["use"] if r["role"] == "fixer"
+                     and key["instances"][r["instance_id"]]["family"] == key["family"])
+        path = key["instances"][fixer["instance_id"]]["observables"]["paths"][0]
+        doc["transcript"]["birth"]["lesson"]["scope"] = {"path_glob": path}
+        result = judge(doc)
+        self.assertEqual(result["verdicts"]["use"], "FAIL")
+        self.assertTrue(all(w.endswith(":leaked") for w in result["details"]["use"]["wrong"]), result["details"]["use"])
+
+
+class RefereeArms(unittest.TestCase):
+    """E65: who gets a lesson in the placebo arms is the referee's draw from the committed seed, and both arms of a
+    lesson run alike; neither is read from the transcript's say-so."""
+
+    def setUp(self):
+        self.doc = sim.run_drill(sim.LEARNER, 7)
+        self.assertEqual(judge(self.doc)["verdicts"]["placebo"], "PASS")
+
+    def test_the_draw_is_an_hmac_of_the_seed(self):
+        seed = "00" * 32
+        draws = [withheld(seed, f"i{n}") for n in range(400)]
+        self.assertTrue(160 < sum(draws) < 240)  # about half withheld
+        self.assertEqual(draws, [withheld(seed, f"i{n}") for n in range(400)])
+        self.assertNotEqual(draws, [withheld("11" * 32, f"i{n}") for n in range(400)])
+
+    def test_an_arm_served_against_the_draw_fails_placebo(self):
+        for lesson in ("L1", "Lp"):
+            doc = copy.deepcopy(self.doc)
+            arm = next(a for a in doc["transcript"]["placebo"]["arms"] if a["lesson_id"] == lesson)
+            arm["lessons_injected"] = [] if lesson in arm["lessons_injected"] else [lesson]
+            result = judge(doc)
+            self.assertEqual(result["verdicts"]["placebo"], "FAIL", lesson)
+            self.assertEqual(result["details"]["placebo"], {"arms_off_the_draw": [arm["instance_id"]]})
+
+    def test_another_seed_makes_the_same_arms_off_the_draw(self):
+        doc = copy.deepcopy(self.doc)
+        doc["answer_key"]["withhold_seed"] = "ab" * 32
+        doc["commitment_sha256"] = commitment(doc["answer_key"])
+        result = judge(doc)
+        self.assertEqual(result["verdicts"]["placebo"], "FAIL")
+        self.assertGreater(len(result["details"]["placebo"]["arms_off_the_draw"]), 5)
+
+    def test_arms_of_one_lesson_run_alike(self):
+        for field, value in (("max_turns", 21), ("effort", "high"), ("model", "claude-opus-5-5")):
+            doc = copy.deepcopy(self.doc)
+            arm = next(a for a in doc["transcript"]["placebo"]["arms"] if a["lesson_id"] == "Lp")
+            arm["run"][field] = value
+            result = judge(doc)
+            self.assertEqual(result["verdicts"]["placebo"], "FAIL", field)
+            self.assertEqual(result["details"]["placebo"], {"unequal_arms": ["Lp"]}, field)
+
+    def test_two_lessons_may_run_with_different_settings(self):
+        # Equal arms are within one lesson: the trap family may need another budget than the placebo's.
+        doc = copy.deepcopy(self.doc)
+        for arm in doc["transcript"]["placebo"]["arms"]:
+            if arm["lesson_id"] == "L1":
+                arm["run"]["max_turns"] = 40
+        self.assertEqual(judge(doc)["verdicts"]["placebo"], "PASS")
+
+    def test_an_arm_of_fewer_than_eight_is_unmeasurable(self):
+        # The draw splits every lesson's arms; a drill that ran too few of one arm cannot give that lesson a credit.
+        doc = copy.deepcopy(self.doc)
+        seed, arms = doc["answer_key"]["withhold_seed"], doc["transcript"]["placebo"]["arms"]
+        given = [a for a in arms if a["lesson_id"] == "Lp" and not withheld(seed, a["instance_id"])]
+        held = [a for a in arms if a["lesson_id"] == "Lp" and withheld(seed, a["instance_id"])]
+        trap = [a for a in arms if a["lesson_id"] == "L1"]
+        doc["transcript"]["placebo"]["arms"] = trap + given[:7] + held[:9]
+        result = judge(doc)
+        self.assertEqual((result["verdicts"]["placebo"], result["details"]["placebo"]),
+                         ("UNMEASURABLE", {"arm_too_small": "Lp"}))
+        doc["transcript"]["placebo"]["arms"] = trap + given[:8] + held[:9]
+        self.assertIn("lower_bounds", judge(doc)["details"]["placebo"])  # eight are enough
+
+    def test_settings_outside_the_compared_fields_are_ignored(self):
+        doc = copy.deepcopy(self.doc)
+        doc["transcript"]["placebo"]["arms"][0]["run"]["started_at"] = "2026-10-30T00:00:00Z"
+        self.assertEqual(judge(doc)["verdicts"]["placebo"], "PASS")
+
+
+class RightLesson(unittest.TestCase):
+    """E318: every imported lesson in a drill is planted, so withdrawing any of them at the first red would pass the
+    wrong-lesson question; the positive control is a useful imported lesson that must survive a red not its own."""
+
+    def setUp(self):
+        self.doc = sim.run_drill(sim.LEARNER, 7)
+        self.assertEqual(judge(self.doc)["verdicts"]["right_lesson"], "PASS")
+
+    def first(self, doc):
+        return judge(doc)["details"]["right_lesson"]["unrelated_seq"]
+
+    def test_no_unrelated_red_while_given_is_unmeasurable(self):
+        for change in ("no_red", "not_given", "own_trap"):
+            doc = copy.deepcopy(self.doc)
+            key = doc["answer_key"]
+            for rec in doc["transcript"]["control"]:
+                if rec["failed_test"] is not None:
+                    if change == "no_red":
+                        rec["failed_test"] = None
+                    elif change == "not_given":
+                        rec["injected"] = False
+                    else:
+                        rec["failed_test"] = key["instances"][rec["instance_id"]]["trap_test"]
+            result = judge(doc)
+            self.assertEqual((result["verdicts"]["right_lesson"], result["details"]["right_lesson"]),
+                             ("UNMEASURABLE", {"unrelated_red": None}), change)
+
+    def test_nothing_after_the_unrelated_red_is_unmeasurable(self):
+        doc = copy.deepcopy(self.doc)
+        first = self.first(doc)
+        doc["transcript"]["control"] = [r for r in doc["transcript"]["control"] if r["seq"] <= first]
+        self.assertEqual(judge(doc)["verdicts"]["right_lesson"], "UNMEASURABLE")
+
+    def test_a_useful_lesson_superseded_or_narrowed_after_an_unrelated_red_fails(self):
+        for state in ({"superseded": True, "excluded_conditions": []},
+                      {"superseded": False, "excluded_conditions": [sim.SHARED]}):
+            doc = copy.deepcopy(self.doc)
+            first = self.first(doc)
+            next(r for r in doc["transcript"]["control"] if r["seq"] == first)["lesson_state"] = state
+            result = judge(doc)
+            self.assertEqual(result["verdicts"]["right_lesson"], "FAIL", state)
+            self.assertTrue(result["details"]["right_lesson"]["withdrawn"], state)
+
+    def test_narrowing_by_a_condition_the_instance_lacks_is_no_withdrawal(self):
+        doc = copy.deepcopy(self.doc)
+        first = self.first(doc)
+        next(r for r in doc["transcript"]["control"] if r["seq"] == first)["lesson_state"] = {
+            "superseded": False, "excluded_conditions": ["another_condition"]}
+        self.assertEqual(judge(doc)["verdicts"]["right_lesson"], "PASS")
+
+    def test_a_useful_lesson_no_longer_given_after_an_unrelated_red_fails(self):
+        doc = copy.deepcopy(self.doc)
+        first = self.first(doc)
+        later = [r for r in doc["transcript"]["control"] if r["seq"] > first]
+        later[-1]["injected"] = False
+        result = judge(doc)
+        self.assertEqual(result["verdicts"]["right_lesson"], "FAIL")
+        self.assertEqual(result["details"]["right_lesson"]["dropped_after"], [later[-1]["instance_id"]])
+
+    def test_records_of_another_family_are_not_the_control(self):
+        doc = copy.deepcopy(self.doc)
+        doc["transcript"]["control"] = [dict(r, instance_id=w["instance_id"]) for r, w in
+                                        zip(doc["transcript"]["control"], doc["transcript"]["wrong"])]
+        self.assertEqual(judge(doc)["verdicts"]["right_lesson"], "UNMEASURABLE")
+
+    def test_the_order_of_the_control_records_does_not_change_the_verdict(self):
+        discarder = sim.run_drill(sim.BRAINS["llm_prior_discarder"], 7)
+        for doc, verdict in ((self.doc, "PASS"), (discarder, "FAIL")):
+            expected = judge(doc)
+            self.assertEqual(expected["verdicts"]["right_lesson"], verdict)
+            shuffled = copy.deepcopy(doc)
+            shuffled["transcript"]["control"].reverse()
+            self.assertEqual(judge(shuffled), expected, verdict)
+
+
+class Calibration(unittest.TestCase):
+    """E319: a family the lessonless arm breaks only 70% of the time makes 41% of drills UNMEASURABLE at k = 30 and
+    21 broken; every such drill spends a family, so the operator calibrates before a family enters the pool."""
+
+    def test_the_risk_of_an_unmeasurable_drill(self):
+        k, need = sim.DEFAULT_PARAMS["k"], sim.DEFAULT_PARAMS["min_broken_without"]
+        self.assertEqual((k, need), (30, 21))
+        self.assertEqual(f"{float(unmeasurable_risk(Fraction(7, 10), k, need)):.3f}", "0.411")
+        self.assertEqual(f"{float(unmeasurable_risk(Fraction(85, 100), k, need)):.3f}", "0.010")
+        self.assertEqual(unmeasurable_risk(Fraction(1), k, need), 0)
+
+    def test_a_family_is_ready_at_85_percent_over_20_runs(self):
+        self.assertTrue(calibration(17, 20)["ready"])
+        self.assertFalse(calibration(16, 20)["ready"])
+        self.assertFalse(calibration(19, 19)["ready"])  # too few runs, however strong
+        self.assertEqual(calibration(14, 20)["unmeasurable_risk"], "0.4112")
+        with self.assertRaises(ValueError):
+            calibration(21, 20)
+
+    def test_effect_power_is_the_reference_question(self):
+        strong = effect_power(0.9, 0.1, 200)
+        self.assertEqual(sum(strong.values()), 200)
+        self.assertGreaterEqual(strong["PASS"], 195)
+        weak = effect_power(0.5, 0.3, 200)
+        self.assertGreater(weak["UNMEASURABLE"], 40)  # the lessonless arm breaks 70%: often below 21 of 30
+        self.assertEqual(effect_power(0.9, 0.1, 50, seed=3), effect_power(0.9, 0.1, 50, seed=3))
 
 
 class Vectors(unittest.TestCase):
@@ -349,6 +607,14 @@ class Cli(unittest.TestCase):
             out = json.loads(buf.getvalue().strip().splitlines()[-1])
             self.assertEqual(out["verdicts"]["wrong_lesson"], "FAIL")
             self.assertEqual(sorted(out["verdicts"]), sorted(QUESTIONS))
+
+    def test_calibrate_and_effect_print_one_json_line(self):
+        for argv, field, value in ((["calibrate", "17", "20"], "ready", True), (["effect", "0.9", "0.1", "20"], "PASS",
+                                                                                 effect_power(0.9, 0.1, 20)["PASS"])):
+            buf = io.StringIO()
+            with redirect_stdout(buf):
+                self.assertEqual(main(argv), 0)
+            self.assertEqual(json.loads(buf.getvalue())[field], value, argv)
 
 
 if __name__ == "__main__":

@@ -297,6 +297,40 @@ MUTANTS = [
     ("reason_owner_not_the_referees_rule", "seed/founder/launch.py",
      '    if counts_against_founder(item):\n        return "founder"\n', "",
      "pilot: the report blames the rival or the referee for the Founder's rejections"),
+    # The self-improvement scorecard (E310): each mutant is a way the teacher's instrument could flatter the student.
+    ("scorecard_chain_hash_unchecked", "seed/founder/scorecard.py",
+     'if ok and canon.row_hash(row) != row.get("row_hash"):', "if False:",
+     "E310: a ledger row edited after it was chained still gives a card"),
+    ("scorecard_chain_link_unchecked", "seed/founder/scorecard.py",
+     'ok = isinstance(row, dict) and row.get("prev_hash") == prev', "ok = isinstance(row, dict)",
+     "E310: a ledger with a row taken out still gives a card"),
+    ("scorecard_digest_unchecked", "seed/founder/scorecard.py",
+     'if digest and digest != "sha256:" + hashlib.sha256(blob).hexdigest():', "if False:",
+     "E310: a downloaded zip that is not the artifact GitHub gives the digest of is cached"),
+    ("scorecard_cache_unchecked", "seed/founder/scorecard.py",
+     "if not path.is_file() or canon.sha256_file(str(path)) != digest:", "if not path.is_file():",
+     "E310: a cached result edited by hand still gives a card"),
+    ("scorecard_owner_not_the_referees_rule", "seed/founder/scorecard.py",
+     "return any(counts_against_founder(", "return bool(reasons) or any(counts_against_founder(",
+     "E310: every rejection is charged to the Founder, the rival's failures too"),
+    ("scorecard_outage_judged", "seed/founder/scorecard.py",
+     "        if not evaluated:\n            unevaluated += 1\n            continue\n", "",
+     "E310: a run the referee did not evaluate counts as a judged attempt"),
+    ("scorecard_exclusions_ignored", "seed/founder/scorecard.py", "flag = excluded_heads.get(head)", "flag = None",
+     "E310: the adjusted column adjusts nothing"),
+    ("scorecard_small_n_interval", "seed/founder/scorecard.py", "if n < MIN_N:", "if False:",
+     "tohum/19: an interval is drawn from fewer than five units instead of UNMEASURABLE"),
+    ("scorecard_free_text_kind_published", "seed/founder/scorecard.py",
+     'k if k in FOUNDER_KINDS else "diğer"', "k", "E310: a free-text ledger kind reaches the public card"),
+    ("scorecard_ordered_by_input", "seed/founder/scorecard.py",
+     'items = sorted(inputs["results"], key=lambda i:', 'items = list(inputs["results"]) or sorted(inputs["results"], key=lambda i:',
+     "E316: events are read in the order they arrive, not the order the referee signed them"),
+    ("scorecard_seed_epoch_not_a_segment", "seed/founder/scorecard.py",
+     "            seed_epochs += 1\n            segment += 1\n", "            seed_epochs += 1\n",
+     "E310: units of every seed epoch are pooled, so new vectors read as learning"),
+    ("scorecard_attempts_after_acceptance", "seed/founder/scorecard.py",
+     '            if not u["accepted"]:\n', "            if True:\n",
+     "E310: pushes after a unit's acceptance count as its attempts"),
     ("module_less_evidence_unsigned", f"{PKG}/decide.py", '        "module_less": module_less,\n', "",
      "E169: the proof that the tests need the module stays out of the signed result"),
     ("duplication_not_recorded", f"{PKG}/rival.py",
@@ -1273,6 +1307,8 @@ def run_mutant(index: int, mutant: tuple[str, str, str, str, str] | None) -> tup
         # The exit table's test holds each unchecked condition to an open row of the gap register (E162).
         (work / "docs").mkdir()
         shutil.copy2(ROOT / "docs" / "eksik-kaydi.md", work / "docs" / "eksik-kaydi.md")
+        for name in ("karne.json", "karne.md"):  # the generated scorecard is held to the code that renders it (E310)
+            shutil.copy2(ROOT / "docs" / name, work / "docs" / name)
         if mutant is not None:
             _name, rel, old, new, _why = mutant
             target = work / rel
