@@ -19,6 +19,7 @@ Kural: bundan sonra çekirdek ile alana özel parçalar karıştırılmaz; her �
 | İlkeler | `seed/founder/prompt.md` | Vaat kadar kanıt; kök neden, gizleme yok; tek kaynak; belge ipucudur; anlaşmazlık kanıtla; eksiğini kendin bul; kendi fikrin |
 | Ölçüm | `docs/pilot-gunlugu.md`, operatörün fikir ölçütü | Sistemin kendi bulduğu, geri gelen hata, insan yardımı |
 | Sistem haritası | [`docs/harita.md`](harita.md), `seed/bootstrap/local/system_map.py`, E301 | Ne nereye bağlı: koddan üretilen, insan okur çizim; kodla uyuşmazsa test kırmızı |
+| Öğretmen döngüsü | E304, operatörün hafızası | Operatör sistemin alanındaki kusuru düzeltmez, ipucu vermez; sistem bir şeyi bulamazsa nedenini beş halkayla arar (görebiliyor muydu, görevi var mıydı, zamanı yetti mi, hafızası taşıdı mı, geri bildirim var mıydı) ve ilk kopan halkayı onarır, cevabı değil; yalnız yaşam desteği, anayasa, sınav ve ölçüm operatörde kalır |
 
 ## Alana özel (kod)
 
