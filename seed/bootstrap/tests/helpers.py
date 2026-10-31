@@ -57,9 +57,27 @@ def ledger_bytes(rows: list[dict]) -> bytes:
     return b"".join(canonical(row) + b"\n" for row in rows)
 
 
+# The seed's control step as `tohum/29p` writes it, typed here from the page and not imported from `wiring`, so the
+# check and the page are held to each other: every loop job starts with it, its `LOOP_JOB` the job's name (E282).
+CONTROL_STEP = """\
+      - name: control
+        id: control
+        env:
+          LOOP_JOB: @JOB@
+        run: |
+          set -eu
+          git clone --quiet --depth 1 --branch main --filter=blob:none --sparse "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" "$RUNNER_TEMP/control"
+          git -C "$RUNNER_TEMP/control" sparse-checkout set bootstrap
+          cd "$RUNNER_TEMP/control/bootstrap"
+          python3 -m snowball_bootstrap control --control ../control.json --job "$LOOP_JOB" --event "$GITHUB_EVENT_NAME" --github-output "$GITHUB_OUTPUT"
+"""
+GO = "steps.control.outputs.go == 'true'"  # every later step's `if:` (`29p`)
+
 # A loop workflow that keeps every rule of test 46 (`asama-0/09`; `tohum/08`, `01a`), written for the seed's own
 # tests and nobody's copy: the five jobs, `permissions: {}` at the top and on the jobs that run code, secrets only in
-# `cagir` and `yaz`, actions pinned by SHA, `persist-credentials: false`, every job on `main` only.
+# `cagir` and `yaz`, actions pinned by SHA, `persist-credentials: false`, every job on `main` only, every job's first
+# step the seed's control step and every later step waiting for its `go` (`29p`). Each later step's `if:` is its last
+# key, so a test that replaces the lines above it keeps the gate.
 LOOP_YML = """\
 # The loop's five jobs (tohum/08).
 name: loop
@@ -76,15 +94,16 @@ jobs:
       contents: read
       actions: read
     steps:
-      - name: control
-        run: python3 -m snowball_bootstrap control
+@CONTROL:cek@
       - uses: actions/checkout@0123456789abcdef0123456789abcdef01234567
         with:
           persist-credentials: false
+        if: @GO@
       - name: pull
         run: |
           set -eu
           python3 -m loop pull --out "$RUNNER_TEMP/pulled"
+        if: @GO@
   getir:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
@@ -92,10 +111,10 @@ jobs:
     needs:
       - cek
     steps:
-      - name: control
-        run: python3 -m snowball_bootstrap control
+@CONTROL:getir@
       - name: fetch
         run: python3 -m loop fetch
+        if: @GO@
   kos:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
@@ -103,13 +122,14 @@ jobs:
     needs:
       - getir
     steps:
-      - name: control
-        run: python3 -m snowball_bootstrap control
+@CONTROL:kos@
       - uses: actions/download-artifact@89abcdef0123456789abcdef0123456789abcdef
         with:
           name: deps
+        if: @GO@
       - name: run
         run: python3 -m loop run
+        if: @GO@
   cagir:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
@@ -117,12 +137,12 @@ jobs:
     needs:
       - cek
     steps:
-      - name: control
-        run: python3 -m snowball_bootstrap control
+@CONTROL:cagir@
       - name: call
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
         run: python3 -m loop call
+        if: @GO@
   yaz:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
@@ -133,14 +153,16 @@ jobs:
       - kos
       - cagir
     steps:
-      - name: control
-        run: python3 -m snowball_bootstrap control
+@CONTROL:yaz@
       - name: write
         env:
           WRITER_KEY: "${{ secrets.WRITER_APP_PRIVATE_KEY }}"
           HEAD_REF: ${{ github.ref }}
         run: python3 -m loop write
-"""
+        if: @GO@
+""".replace("@GO@", GO)
+for _job in ("cek", "getir", "kos", "cagir", "yaz"):
+    LOOP_YML = LOOP_YML.replace(f"@CONTROL:{_job}@\n", CONTROL_STEP.replace("@JOB@", _job))
 
 
 def module_less_red(meta: dict) -> list[dict]:

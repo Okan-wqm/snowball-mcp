@@ -1,5 +1,5 @@
 """The loop workflow's wiring rules (`asama-0/10` #is-akisi, `asama-0/09` test 46, `asama-0/14` MF17; `tohum/08`,
-`01a`; E100, E162, E281-E283).
+`01a`, `29p`; E100, E162, E281-E283).
 
 `referee/.github/workflows/` holds one file, `loop.yml` (`tohum/08` 1: the loop referee's jobs are in one workflow;
 `13`). It is read with the seed's restricted YAML subset and held to test 46's rules. Only bytes are read; nothing of
@@ -30,9 +30,16 @@ reading the file (E283); the decidable reading is `tohum/08` and `01a`'s table o
 run code (`getir`, `koş`) have ``permissions: {}`` and no secret; secrets, ``id-token`` and write scopes appear only in
 `çağır` and `yaz`; nothing enumerates or inherits the secrets.
 
-**Not decided here** (E282): "every job's first step is the seed's `control` command and stops the job while the kill
-switch is on". The seed's `control` command has no interface for the loop yet (`asama-0/01` D0, `asama-1/13`), so no
-file can be held to it; `decide.EXIT_NOT_CHECKED` keeps the exit closed on it by name.
+**The control step** (E282; `29p`, `asama-0/01` D0): "every job's first step is the seed's `control` command and the
+job stops while the kill switch is on", decided by reading the file. A shell script cannot be read for what it does,
+so the first step is the seed's step exactly (``control_step``: its name, ``id``, ``LOOP_JOB`` the job's own name, and
+the script that runs the referee repository's `bootstrap/` on its live `control.json`); every later step has exactly
+``if: steps.control.outputs.go == 'true'`` (GitHub adds ``success()``, so a stopped control step stops them too); and
+nothing above it changes where or how it runs. That last rule names what may stand there, not what may not (E296):
+the workflow holds only ``WORKFLOW_KEYS`` and each job only ``JOB_KEYS``, so ``env`` and ``defaults``, a job's
+``container`` and ``services`` (both start in "Initialize containers", before step 1, and a service's volumes reach
+the runner's files) and any key not named are refused. ``workflow_control_step:<job>``,
+``workflow_control_gate:<job>:<n>``, ``workflow_control_context:<job>`` (or ``:workflow``).
 """
 
 from __future__ import annotations
@@ -54,6 +61,28 @@ FORBIDDEN_EVENTS = ("pull_request_target", "workflow_run", "issue_comment")
 MAX_BYTES = 256 * 1024
 MAX_DEPTH = 32
 MAX_REASONS = 40
+# The seed's control step (`29p`): the referee repository's `main`, sparse (its root files and `bootstrap/`), and the
+# seed's `control` run from `bootstrap/` on the live `control.json`, writing `go` for the later steps.
+CONTROL_RUN = (
+    "set -eu\n"
+    'git clone --quiet --depth 1 --branch main --filter=blob:none --sparse "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"'
+    ' "$RUNNER_TEMP/control"\n'
+    'git -C "$RUNNER_TEMP/control" sparse-checkout set bootstrap\n'
+    'cd "$RUNNER_TEMP/control/bootstrap"\n'
+    'python3 -m snowball_bootstrap control --control ../control.json --job "$LOOP_JOB" --event "$GITHUB_EVENT_NAME"'
+    ' --github-output "$GITHUB_OUTPUT"\n'
+)
+CONTROL_GATE = "steps.control.outputs.go == 'true'"
+# What may stand above the control step (`29p`): keys that run nothing before it and change neither where nor how it
+# runs. A job calling a reusable workflow (``uses``, ``with``, ``secrets``) has no steps: the control step rule refuses it.
+WORKFLOW_KEYS = ("name", "run-name", "on", "permissions", "concurrency", "jobs")
+JOB_KEYS = ("name", "if", "needs", "runs-on", "permissions", "environment", "concurrency", "outputs", "timeout-minutes",
+            "strategy", "continue-on-error", "steps", "uses", "with", "secrets")
+
+
+def control_step(job: str) -> dict[str, Any]:
+    """The first step of loop job ``job``, as the seed's subset reads it."""
+    return {"name": "control", "id": "control", "env": {"LOOP_JOB": job}, "run": CONTROL_RUN}
 
 KEY_RE = re.compile(r"([A-Za-z_][A-Za-z0-9_-]*):(?: +|\Z)")
 PINNED_RE = re.compile(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_./-]+)?@[0-9a-f]{40}\Z")
@@ -380,6 +409,8 @@ def _rules(doc: dict[str, Any]) -> list[str]:
         reasons.append("workflow_secrets_enumerated:workflow")
     if _defaults_github(doc):
         reasons.append("workflow_github_in_run:workflow:defaults")
+    if any(key not in WORKFLOW_KEYS for key in doc):
+        reasons.append("workflow_control_context:workflow")
     jobs = doc.get("jobs")
     if not isinstance(jobs, dict):
         return reasons + ["workflow_shape:jobs"]
@@ -395,14 +426,20 @@ def _rules(doc: dict[str, Any]) -> list[str]:
             reasons.append(f"workflow_action_not_pinned:{name}:job")
         if _defaults_github(job):
             reasons.append(f"workflow_github_in_run:{name}:defaults")
+        if any(key not in JOB_KEYS for key in job):
+            reasons.append(f"workflow_control_context:{name}")
         steps = job.get("steps", [])
         if not isinstance(steps, list):
             reasons.append(f"workflow_shape:{name}")
             steps = []
+        if not steps or steps[0] != control_step(name):
+            reasons.append(f"workflow_control_step:{name}")
         for number, step in enumerate(steps, start=1):
             if not isinstance(step, dict):
                 reasons.append(f"workflow_shape:{name}:{number}")
                 continue
+            if number > 1 and step.get("if") != CONTROL_GATE:
+                reasons.append(f"workflow_control_gate:{name}:{number}")
             if _github_in_script(step):
                 reasons.append(f"workflow_github_in_run:{name}:{number}")
             uses = step.get("uses")

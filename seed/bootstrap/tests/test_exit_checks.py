@@ -2,8 +2,8 @@
 
 Four are checked now, on the brain archive `pull` already holds, never by running the Founder's code
 (`29b`; the draft `29e` "Tohum denetimleri"): #kurucu-defteri (E107, E280), #is-akisi (test 46's `wiring` rules,
-E100, E281-E283), #agac (E130, E131, E285) and #genellik (E284). #is-akisi keeps one sub-rule the seed cannot decide
-yet (E282), #spec (E286) and #durustluk (E79, E287) stay unchecked: each keeps the exit closed by name and is never
+E100, E281-E283; its control sub-rule since E282, `test_exit_decisions`), #agac (E130, E131, E285) and #genellik
+(E284). #spec (E286) and #durustluk (E79, E287) stay unchecked: each keeps the exit closed by name and is never
 counted against the Founder. The trailing comment on a test names the mutants it kills (`local/mutate.py`).
 """
 
@@ -264,18 +264,22 @@ class FounderLedgerOnEveryPush(ExitFlow):
         self.assertIn(("exit_condition", f"{INVALID}:missing"), [(r["kind"], r["ref"]) for r in result["reasons"]])
         self.assertEqual(result["state"]["reject_streaks"].get(f"exit_condition:{INVALID}:missing"), 1)
 
-    def test_at_the_exit_an_accepted_bad_row_closes_the_exit_but_is_never_the_founders(self):
-        """The live pilot's row f185 (`kind: learning`) was accepted before the seed checked rows (E280)."""
+    def test_at_the_exit_an_accepted_row_with_broken_bytes_closes_the_exit_but_is_never_the_founders(self):
+        """A row the referee accepted before it checked rows: its broken hash is tamper evidence for the operator
+        (`13`), which nothing the Founder may append closes (E280; a broken meaning rule is closable, below in
+        `test_exit_decisions`)."""
         self.freeze_stage0()
         self.accept({"referee/ledger/chain.py": "x = 1\n"})
-        rows = ledger_rows(3, edits={1: {"kind": "learning"}})
-        self.state["last_accepted_sha"] = commit(self.brain, {"founder-ledger.jsonl": ledger_bytes(rows)},
+        good = ledger_rows(3)
+        tampered = ledger_bytes([good[0], dict(good[1], payload={"summary": "edited", "refs": []}), good[2]])
+        self.state["last_accepted_sha"] = commit(self.brain, {"founder-ledger.jsonl": tampered},
                                                  "accepted under the seed that did not check rows")
-        meta = self.ask_exit({"founder-ledger.jsonl": ledger_bytes(rows + ledger_rows(1, start=4, prev=rows[-1]["row_hash"]))})
-        self.assertEqual(meta["exit_checks"]["kurucu-defteri"]["reasons"], [f"{ACCEPTED}:kind:L2"])
+        meta = self.ask_exit({"founder-ledger.jsonl": tampered + ledger_bytes(ledger_rows(1, start=4,
+                                                                                          prev=good[-1]["row_hash"]))})
+        self.assertEqual(meta["exit_checks"]["kurucu-defteri"]["reasons"], [f"{ACCEPTED}:row_hash:L2"])
         result = self.finish(meta, run=self.green_run(meta), jobs=EXIT_JOBS)
-        self.assertIn(f"{ACCEPTED}:kind:L2", result["exit"]["missing"])
-        self.assertNotIn(f"exit_condition:{ACCEPTED}:kind:L2", result["state"]["reject_streaks"])
+        self.assertIn(f"{ACCEPTED}:row_hash:L2", result["exit"]["missing"])
+        self.assertNotIn(f"exit_condition:{ACCEPTED}:row_hash:L2", result["state"]["reject_streaks"])
 
 
 class ExitDecision(unittest.TestCase):
@@ -313,7 +317,7 @@ class ExitDecision(unittest.TestCase):
 
     def test_the_anchors_are_split_between_the_checks_and_what_stays_unchecked(self):
         self.assertEqual(decide_module.EXIT_CHECKS, ("kurucu-defteri", "is-akisi", "agac", "genellik"))
-        self.assertEqual(set(decide_module.EXIT_NOT_CHECKED), {"is-akisi", "spec", "durustluk"})
+        self.assertEqual(set(decide_module.EXIT_NOT_CHECKED), {"spec", "durustluk"})  # #is-akisi whole since E282
 
     def test_no_result_from_pull_is_never_a_pass(self):  # exit_check_absent_passes
         res = self.run_(self.meta(self.state()))
@@ -335,9 +339,8 @@ class ExitDecision(unittest.TestCase):
 
     def test_with_every_check_passing_only_what_the_seed_cannot_check_is_left(self):  # unchecked_exit_conditions_pass
         res = self.run_(self.meta(self.state(), self.ok()))
-        self.assertEqual(res["exit"]["missing"], ["not_checked:is-akisi", "not_checked:spec", "not_checked:durustluk"])
+        self.assertEqual(res["exit"]["missing"], ["not_checked:spec", "not_checked:durustluk"])
         details = {r["ref"]: r.get("detail", "") for r in res["reasons"]}
-        self.assertIn("E282", details["not_checked:is-akisi"])
         self.assertIn("E286", details["not_checked:spec"])
         self.assertIn("E287", details["not_checked:durustluk"])
         self.assertFalse(res["exit"]["transferable"])
@@ -357,20 +360,25 @@ class ExitDecision(unittest.TestCase):
         self.assertIn("E284", reason["detail"])
         self.assertEqual((res["state"]["reject_streaks"], res["learning"]["not_learning"]), ({}, []))
 
-    def test_a_failed_check_is_the_founders_but_an_accepted_ledger_row_is_not(self):  # accepted_ledger_row_counted
-        accepted = {"status": "failed", "reasons": [f"{ACCEPTED}:kind:L185"], "why": ""}
+    def test_a_failed_check_is_the_founders_but_an_accepted_rows_broken_bytes_are_not(self):
+        # integrity_break_counted meaning_break_not_the_founders
+        """E280: an accepted row whose bytes or chain are broken is tamper evidence nothing appended closes; one that
+        breaks a meaning rule (`kind`) is closed by a superseding row, so it is the Founder's."""
+        accepted = {"status": "failed", "reasons": [f"{ACCEPTED}:row_hash:L7"], "why": ""}
         state = self.state()
         for _ in range(3):
             res = self.run_(self.meta(state, dict(self.ok(), **{"kurucu-defteri": accepted})))
             state = res["state"]
-        self.assertIn(f"{ACCEPTED}:kind:L185", res["exit"]["missing"])
+        self.assertIn(f"{ACCEPTED}:row_hash:L7", res["exit"]["missing"])
         self.assertEqual((res["verdict"], res["state"]["reject_streaks"], res["learning"]["not_learning"]),
                          ("rejected", {}, []))
-        new = {"status": "failed", "reasons": [f"{INVALID}:kind:L190"], "why": ""}
-        for _ in range(3):
-            res = self.run_(self.meta(state, dict(self.ok(), **{"kurucu-defteri": new})))
-            state = res["state"]
-        self.assertEqual(res["learning"]["not_learning"], [f"exit_condition:{INVALID}:kind:L190"])
+        for found in (f"{INVALID}:kind:L9", f"{ACCEPTED}:kind:L7"):
+            new = {"status": "failed", "reasons": [found], "why": ""}
+            state = self.state()
+            for _ in range(3):
+                res = self.run_(self.meta(state, dict(self.ok(), **{"kurucu-defteri": new})))
+                state = res["state"]
+            self.assertEqual(res["learning"]["not_learning"], [f"exit_condition:{found}"], found)
 
 
 # ---------------------------------------------------------------- #is-akisi
@@ -497,7 +505,7 @@ class WorkflowRules(unittest.TestCase):
 
     def test_the_five_jobs_and_no_other(self):  # workflow_job_set_unchecked
         extra = LOOP_YML + "  lint:\n    if: github.ref == 'refs/heads/main'\n    permissions: {}\n    steps:\n      - run: x\n"
-        self.assertEqual(self.check(extra.encode()), ["workflow_unknown_job:lint"])
+        self.assertEqual(self.check(extra.encode()), ["workflow_unknown_job:lint", "workflow_control_step:lint"])
         block = job_block("getir")
         self.assertEqual(self.check(workflow(block, "")), ["workflow_missing_job:getir"])
 
@@ -526,7 +534,8 @@ class WorkflowRules(unittest.TestCase):
             self.assertEqual(self.check(workflow(pinned, ref)), ["workflow_action_not_pinned:cek:2"], ref)
         reusable = "  other:\n    if: github.ref == 'refs/heads/main'\n    uses: o/r/.github/workflows/w.yml@main\n"
         self.assertEqual(self.check((LOOP_YML + reusable).encode()),
-                         ["workflow_unknown_job:other", "workflow_action_not_pinned:other:job"])
+                         ["workflow_unknown_job:other", "workflow_action_not_pinned:other:job",
+                          "workflow_control_step:other"])
 
     def test_checkout_never_keeps_its_credentials(self):  # workflow_persist_credentials_unchecked
         keep = "        with:\n          persist-credentials: false\n"
@@ -555,7 +564,7 @@ class WorkflowRules(unittest.TestCase):
         env = "      - name: pull\n        env:\n          K: ${{ secrets.X }}\n"
         self.assertEqual(self.check(workflow("      - name: pull\n", env)), ["workflow_secret_job:cek"])
         top = workflow("permissions: {}\njobs:", "permissions: {}\nenv:\n  K: ${{ secrets.X }}\njobs:")
-        self.assertEqual(self.check(top), ["workflow_secret_job:workflow"])
+        self.assertEqual(self.check(top), ["workflow_secret_job:workflow", "workflow_control_context:workflow"])
 
     def test_secrets_are_never_enumerated_or_inherited(self):  # workflow_secrets_enumeration_unchecked
         for value in ("${{ toJSON(secrets) }}", "${{ secrets['CLAUDE_CODE_OAUTH_TOKEN'] }}", "${{ secrets }}"):
@@ -565,7 +574,8 @@ class WorkflowRules(unittest.TestCase):
         inherit = workflow(*in_job("cagir", "    needs:\n", "    secrets: inherit\n    needs:\n"))
         self.assertEqual(self.check(inherit), ["workflow_secrets_enumerated:cagir"])
         top = workflow("permissions: {}\njobs:", "permissions: {}\nenv:\n  ALL: ${{ toJSON(secrets) }}\njobs:")
-        self.assertEqual(self.check(top), ["workflow_secret_job:workflow", "workflow_secrets_enumerated:workflow"])
+        self.assertEqual(self.check(top), ["workflow_secret_job:workflow", "workflow_secrets_enumerated:workflow",
+                                           "workflow_control_context:workflow"])
         # wiring_top_level_enumeration_unchecked
 
     def test_an_expression_ends_where_githubs_template_reader_ends_it(self):
@@ -599,11 +609,12 @@ class WorkflowRules(unittest.TestCase):
         self.assertEqual(self.check(workflow(fetch, script)), ["workflow_github_in_run:getir:2"])
         defaults = "    defaults:\n      run:\n        shell: bash ${{ github.head_ref }} {0}\n    steps:\n"
         self.assertEqual(self.check(workflow(*in_job("getir", "    steps:\n", defaults))),
-                         ["workflow_github_in_run:getir:defaults"])
+                         ["workflow_github_in_run:getir:defaults", "workflow_control_context:getir"])
         top = workflow("permissions: {}\njobs:", "permissions: {}\ndefaults:\n  run:\n    shell: ${{ github.ref }}\njobs:")
-        self.assertEqual(self.check(top), ["workflow_github_in_run:workflow:defaults"])
+        self.assertEqual(self.check(top), ["workflow_github_in_run:workflow:defaults", "workflow_control_context:workflow"])
         self.assertEqual(self.check(workflow("permissions: {}\njobs:", "permissions: {}\ndefaults: x\njobs:")),
-                         ["workflow_github_in_run:workflow:defaults"])  # not a mapping: no script the seed can read
+                         ["workflow_github_in_run:workflow:defaults",  # not a mapping: no script the seed can read
+                          "workflow_control_context:workflow"])
         where = fetch + "        working-directory: ${{ github.workspace }}/referee\n"
         self.assertEqual(self.check(workflow(fetch, where)), [])
         quiet = fetch + "        shell: bash\n"
@@ -660,7 +671,7 @@ class WorkflowOnEveryPush(ExitFlow):
         commit(self.brain, {"snowball-tests.json": test_flow.all_tests_manifest(range(1, 18))}, "declared again")
         self.assertEqual(self.pull()["pre_reasons"], [])
 
-    def test_at_the_exit_the_rules_are_checked_and_the_control_rule_stays_open(self):  # exit_wiring_check_not_wired
+    def test_at_the_exit_every_rule_is_checked_the_control_rule_too(self):  # exit_wiring_check_not_wired
         self.freeze_stage0()
         self.accept({"referee/ledger/chain.py": "x = 1\n", LOOP: workflow("permissions: {}\njobs:", "jobs:")})
         meta = self.ask_exit()
@@ -669,8 +680,7 @@ class WorkflowOnEveryPush(ExitFlow):
         result = self.finish(meta, run=self.green_run(meta), jobs=EXIT_JOBS)
         refs = [r["ref"] for r in result["reasons"]]
         self.assertIn("workflow_top_permissions", refs)
-        unchecked = next(r for r in result["reasons"] if r["ref"] == "not_checked:is-akisi")
-        self.assertIn("E282", unchecked["detail"])
+        self.assertNotIn("not_checked:is-akisi", refs)  # E282: the control sub-rule is decided by reading the file
 
 
 # ---------------------------------------------------------------- #agac

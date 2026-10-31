@@ -373,9 +373,10 @@ class KindsAndExit(unittest.TestCase):
         checked = {
             ("kurucu-defteri",): {
                 "cli": ["pre += ledgercheck.check(tar_file(tar_bytes, LEDGER_FILE), ledger_base, whole=False)"],
-                "exitchecks": ['"kurucu-defteri": lambda: outcome(ledgercheck.check(ledger_head, ledger_base, whole=True)),'],
-                "ledgercheck": ["if not head.startswith(accepted):", 'return "prev_hash", link', 'return "row_hash", link',
-                                'return "kind", link']},
+                "exitchecks": ['"kurucu-defteri": lambda: founder_ledger(ledger_head, ledger_base),',
+                               "reasons, closures = ledgercheck.judge(head, base, whole=True)"],
+                "ledgercheck": ["if not head.startswith(accepted):", 'return "prev_hash", link, None',
+                                'return "row_hash", link, None', 'return "kind", link, None']},
             ("is-akisi",): {
                 "cli": ["pre += wiring.check(wiring.files_in(exitchecks.referee_files(tar_bytes)))"],
                 "exitchecks": ['"is-akisi": lambda: outcome(wiring.check(wiring.files_in(referee_files(tar_bytes)))),'],
@@ -383,7 +384,9 @@ class KindsAndExit(unittest.TestCase):
                            'reasons.append(f"workflow_action_not_pinned:{name}:{number}")',
                            'reasons.append(f"workflow_persist_credentials:{name}:{number}")',
                            'reasons.append(f"workflow_job_not_main_only:{name}")',
-                           'reasons.append(f"workflow_secret_in_code_job:{name}")']},
+                           'reasons.append(f"workflow_secret_in_code_job:{name}")',
+                           'reasons.append(f"workflow_control_step:{name}")',
+                           'reasons.append(f"workflow_control_gate:{name}:{number}")']},
             ("agac",): {"cli": ['meta["referee_tree_sha256"] = tree_hash(tar_bytes, "referee")'],
                         "treehash": ["rel.parts[0].casefold() in RESERVED_TOP", "raise CaseCollision("],
                         "exitchecks": ['reasons = [f"agent_config_in_referee:{path}"', 'reasons.append("toy_tree_missing")'],

@@ -125,7 +125,25 @@ def remaining_budget(policy: config.Policy, prev: dict[str, Any]) -> int:
 
 # ---------------------------------------------------------------- commands
 
+LOOP_FLAGS = ("control", "job", "event", "github_output")
+
+
 def cmd_control(args: argparse.Namespace) -> int:
+    """The kill switch, read live. With ``--root``: this workflow's operator files. With the loop's four flags (`29p`,
+    `asama-0/01` D0): one loop job's first step, which writes ``go=true`` or ``go=false`` (a paused scheduled run) to
+    ``--github-output``, or stops the job (exit 2) on the kill switch, the budget brake or a trigger or job the loop
+    does not have."""
+    given = [flag for flag in LOOP_FLAGS if getattr(args, flag) is not None]
+    if given:
+        if len(given) != len(LOOP_FLAGS):
+            raise config.ConfigError("control: the loop's reading needs --control, --job, --event and --github-output")
+        if args.job not in wiring.JOBS:
+            raise config.ConfigError(f"control: {args.job!r} is not a loop job ({', '.join(wiring.JOBS)})")
+        go = config.loop_goes(Path(args.control), args.event)
+        with open(args.github_output, "a", encoding="utf-8") as handle:
+            handle.write(f"go={str(go).lower()}\n")
+        print(f"control {args.job}: " + ("go" if go else "paused (a scheduled run while loop_schedule is not true)"))
+        return 0
     root = Path(args.root)
     config.check_control(root)
     config.load_bootstrap(root)
@@ -249,6 +267,10 @@ def cmd_fetch_state(args: argparse.Namespace) -> int:
     art = ghapi.latest_artifact(repo, STATE_ARTIFACT, token)
     reupload = False
     if art is None:
+        missing = config.start_missing(summary_cfg)  # where Stage 0 starts: never without its setup (E293)
+        if missing:
+            raise config.ConfigError("setup/summary.json lacks what Stage 0 needs before it starts (`25`): "
+                                     + "; ".join(missing))
         prev = st.initial(summary_cfg, month_now())
         summary("No previous bootstrap state artifact: starting from the setup summary's seed commit.")
     else:
@@ -312,7 +334,7 @@ def _pull_meta(head: str, base: str, prev: dict[str, Any]) -> dict[str, Any]:
             "kind": "none", "changed": [], "pre_reasons": [], "evaluate": True,
             "run_tests": False, "run_rival": False, "manifest": None, "exit_request": None, "exit_request_sha256": None,
             "referee_tree_sha256": None, "spec_dir_hashes": {}, "state_repro": [], "reuse_rival": False,
-            "waived": [], "module_less": [], "exit_checks": {}, "toy_tree_sha256": None}
+            "waived": [], "module_less": [], "exit_checks": {}, "toy_tree_sha256": None, "honesty_exception": None}
 
 
 def seed_trees(tar_bytes: bytes) -> tuple[str | None, str | None]:
@@ -495,6 +517,11 @@ def _pull_classify(boot: config.Bootstrap, policy: config.Policy, summary_cfg: c
         # The exit's other reasons may quote the Founder's paths too; none says a target's name in clear (E290).
         names = exitchecks.target_names(summary_cfg.targets)
         pre = [exitchecks.withheld_reason(r, names) for r in pre]
+        exception = summary_cfg.honesty_exception  # the owner's, named in the signed result (`02`, E287, E294)
+        if exception is not None:  # with the commitment beside it, the carried stage's plant, or None (E297)
+            meta["honesty_exception"] = {"stage": exception.stage, "carry_to": exception.carry_to,
+                                         "reason": exitchecks.withheld(exception.reason, names),
+                                         "carry_commitment": summary_cfg.honesty_commitment}
 
     if kind == "spec":
         for d in spec_stage_dirs(own):
@@ -788,7 +815,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     root = ("--root", {"default": "."})
     req = {"required": True}
-    add("control", cmd_control, root)
+    add("control", cmd_control, root, ("--control", {"help": "a loop job's control.json (`29p`)"}),
+        ("--job", {}), ("--event", {}), ("--github-output", {}))
     add("config-value", cmd_config_value, root)
     add("poll", cmd_poll, root, ("--out", req), ("--remote", {}))
     add("licenses", cmd_licenses, root, ("--wheels", req), ("--out", {}))

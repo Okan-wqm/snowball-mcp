@@ -20,7 +20,7 @@ from typing import Any, Callable
 
 from . import ledgercheck, wiring
 from .classify import is_agent_config
-from .config import Target
+from .config import Target, names_the_copy
 from .treehash import CaseCollision, TreeError, iter_files, tree_hash
 
 ANCHORS = ("kurucu-defteri", "is-akisi", "agac", "genellik")
@@ -112,8 +112,7 @@ def generality(files: dict[str, bytes], targets: tuple[Target, ...] | None) -> d
     ``referee_file_not_text:<path>``, the Founder's to fix. The names are never published (`withheld`); ``why`` says
     which target and identifier by their index.
     """
-    copies = [t for t in targets or () if t.kind == "copy"]
-    if not copies or any(not t.identifiers for t in copies):
+    if not names_the_copy(targets):
         return undecided("setup/summary.json does not name the copy target's identifiers in targets[] (`26c`, `25` "
                          "10a): the operator's step, so nothing can be looked for yet (E99, E284)")
     names = target_names(targets)
@@ -137,6 +136,13 @@ def generality(files: dict[str, bytes], targets: tuple[Target, ...] | None) -> d
     return outcome(reasons[:MAX_REASONS], "; ".join(found[:MAX_REASONS]))
 
 
+def founder_ledger(head: bytes | None, base: bytes | None) -> dict[str, Any]:
+    """#kurucu-defteri at the exit: the whole file (`ledgercheck`); ``why`` names each accepted row a later row closed
+    beside the row that closed it (`13`, E280), so the signed result keeps both."""
+    reasons, closures = ledgercheck.judge(head, base, whole=True)
+    return outcome(reasons, "; ".join(f"L{old} superseded by L{new}" for old, new in closures))
+
+
 def _guarded(check: Callable[[], dict[str, Any]]) -> dict[str, Any]:
     try:
         return check()
@@ -156,7 +162,7 @@ def run(tar_bytes: bytes, ledger_head: bytes | None, ledger_base: bytes | None,
         return result
 
     checks: dict[str, Callable[[], dict[str, Any]]] = {
-        "kurucu-defteri": lambda: outcome(ledgercheck.check(ledger_head, ledger_base, whole=True)),
+        "kurucu-defteri": lambda: founder_ledger(ledger_head, ledger_base),
         "is-akisi": lambda: outcome(wiring.check(wiring.files_in(referee_files(tar_bytes)))),
         "agac": tree,
         "genellik": lambda: generality(referee_files(tar_bytes), targets),

@@ -319,7 +319,7 @@ flowchart LR
 | `ledgercheck` | The Founder's ledger (`asama-0/10` #kurucu-defteri, `asama-0/09` test 30, `tohum/26`, `00a`; E107, E280). | `cli`, `decide`, `exitchecks` |
 | `stages` | The stage tables (`asama-0/14`, `tohum/26c` "Aşama tablosu"): the machine copy of a stage's micro-features. | `cli`, `decide`, `manifest`, `moduleless`, `vectors`, `wiring` |
 | `state` | The bootstrap's memory between runs: the last signed result's ``state`` block. | `cli`, `decide` |
-| `wiring` | The loop workflow's wiring rules (`asama-0/10` #is-akisi, `asama-0/09` test 46, `asama-0/14` MF17; `tohum/08`, `01a`; E100, E162, E281-E283). | `cli`, `exitchecks` |
+| `wiring` | The loop workflow's wiring rules (`asama-0/10` #is-akisi, `asama-0/09` test 46, `asama-0/14` MF17; `tohum/08`, `01a`, `29p`; E100, E162, E281-E283). | `cli`, `exitchecks` |
 
 ### Commands
 
@@ -327,7 +327,7 @@ Every subcommand of `cli.py`, the jobs that run it, and the package modules its 
 
 | Command | Run by | Handler | Modules it reaches |
 |---|---|---|---|
-| `control` | `cek`, `getir`, `kos`, `cagir`, `yeniden`, `yaz` | `cmd_control` | `config` |
+| `control` | `cek`, `getir`, `kos`, `cagir`, `yeniden`, `yaz` | `cmd_control` | `config`, `wiring` |
 | `config-value` | `cek` | `cmd_config_value` | `config` |
 | `poll` | `cek` | `cmd_poll` | `config`, `decide`, `ghapi`, `gitio`, `treehash` |
 | `licenses` | `cek`, `yaz` | `cmd_licenses` | `canon`, `config`, `licenses` |
