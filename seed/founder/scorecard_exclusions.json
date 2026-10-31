@@ -1,0 +1,9 @@
+{
+  "schema": "snowball-scorecard-exclusions/1",
+  "why": "What the scorecard's adjusted column leaves out, each with the register row that says why (docs/eksik-kaydi.md). The referee-rule column always stands next to it, so an adjustment is never silent. Keep it short: every entry is a judgement, not a measurement.",
+  "entries": [
+    {"id": "E154", "unit": "MF1", "why": "the Founder read an old solution of MF1 in the brain's history: MF1 is not its own work"},
+    {"id": "E248", "head": "d0dc43326155a82c8baa349cf68d3de062ed3524", "why": "a blind push: the session started during an outage and never saw MF15's rejection"},
+    {"id": "E260", "head": "f668776f6cdfb5089b24b3aedbde3f7dec60624f", "why": "rejected by a reproducer whose polarity was inverted; the operator waived 027465767d2d46dc"}
+  ]
+}

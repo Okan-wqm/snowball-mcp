@@ -16,7 +16,7 @@ Read from the code: the jobs, `needs:` and commands of `seed/bootstrap/workflow/
 
 ## 1. System flow
 
-12 nodes, 16 edges. A job box lists the `snowball_bootstrap` commands it runs, in order. Job arrows leave out dependencies another path already implies; the table lists every `needs:`. A seed epoch is the operator's delivery of `spec/tohum/` and `seed/` to the brain, with the `seed_epochs` row the referee checks on its next pull (`seed/founder/README.md`).
+13 nodes, 19 edges. A job box lists the `snowball_bootstrap` commands it runs, in order. Job arrows leave out dependencies another path already implies; the table lists every `needs:`. A seed epoch is the operator's delivery of `spec/tohum/` and `seed/` to the brain, with the `seed_epochs` row the referee checks on its next pull (`seed/founder/README.md`).
 
 ```mermaid
 flowchart LR
@@ -27,6 +27,7 @@ flowchart LR
   subgraph machine["Operator's machine"]
     launcher["launcher<br/>seed/founder/launch.py"]
     capsule["Founder capsule, Docker<br/>Dockerfile · entrypoint.sh · prompt.md"]
+    scorecard["scorecard<br/>seed/founder/scorecard.py"]
   end
   subgraph referee["Referee repository: workflow/bootstrap.yml on GitHub Actions"]
     job_cek["job cek<br/>control · config-value · poll · licenses · fetch-state · pull · pack"]
@@ -52,6 +53,9 @@ flowchart LR
   launcher -.->|last verdict, read-only: /work/referee| capsule
   operator -.->|seed epoch: delivers spec/tohum and seed/| brain
   operator -.->|installs bootstrap/, vectors/, kill switch, seed_epochs row| referee
+  operator -.->|after each cycle: docs/karne.md| scorecard
+  job_yaz -.->|signed results, digest-checked, cached| scorecard
+  brain -.->|ledger, chain verified, and test manifests| scorecard
 ```
 
 | Job | needs | Runs | Permissions | Secrets |

@@ -75,20 +75,15 @@ bir kısayol görülmedi.
 
 ## Ölçüm
 
-Başlatıcı döngü 9'dan beri her döngüyü `pilot-metrics.jsonl`'a yazıyor: push, karar, nedenler ve **sahipleri** (hakemin
-kendi `counts_against_founder` kuralıyla: Kurucu / rakip / hakem), rakibin kanıtlanmış bulguları, hâlâ yeniden üretilen
-eski çürütmeler, yeni bildirimler, süre, maliyet, hakemin yeniden inceleme sayısı.
-
-| Ölçü | Döngü 0–9 | Döngü 0–16 |
-|---|---|---|
-| Kabul / dondurma | 2 (spec, MF1) | **7** (spec, MF1–MF6) |
-| İlk denemede kabul (MF başına) | — | MF3, MF5, MF6 ilk denemede; MF4 ikincide; MF2 sekizincide |
-| Rakibin kanıtlanmış gerçek bulguları | 6 | 7 (MF4: geçersiz operatör deseni traceback veriyordu) |
-| Geri gelen eski çürütme | 0 | 0 (her yeni push'ta hepsi yeniden koşuldu) |
-| Modülsüz kırmızı (her bitmiş MF'nin testleri modülü olmadan kırmızı) | — | MF2–MF6'nın hepsinde kırmızı, imzalı sonuçta (E169) |
-| Kurucu'nun bildirimleri | 11 | 15 seed_issue/spec_issue (operatörün bilmediği yeni: toy-repo okuyucusu, 17/18 çağrı, `profile/` std. kütüphaneyi gölgeler, `install_scripts_required` biçimi, ölçüt 5–6 çelişkisi, `toolchain` biçimi; 1'i kendi hatası) |
-| Pilotun açtığı sistem kusuru | 21 | 37 (E148–E173, E180–E185, E190–E202) |
-| Kurucu'nun düzeltemeyeceği bir nedenle kaybedilen döngü | 1 | 1 (döngü 5; E166 sonrası yok) |
+Ölçümün tek kaynağı karnedir: [`docs/karne.md`](karne.md), hakemin sonuçlarından ve Kurucu'nun zincirli defterinden
+`seed/founder/scorecard.py` ile üretilir, elle yazılmaz (E310); bu günlük karnenin sayılarını kopyalamaz. Burada
+2026-10-30'a kadar elle tutulan tablo (döngü 0–16) git geçmişindedir (`2c4fe72`). Satırlarından kabuller, ilk
+denemede kabul, rakibin çürüttüğü artefaktlar, geri gelen çürütme ve modülsüz kırmızı karnede hakemin kuralıyla
+yeniden sayılır. Üçü karneye girmedi: Kurucu'nun bildirimlerinden operatörün bilmedikleri ve pilotun açtığı sistem
+kusurları operatörün yargısıdır, hakemin sonucunda yoktur (karne bildirimlerin yalnız defter türünü sayar; kusurlar
+`eksik-kaydi`'ndadır); Kurucu'nun düzeltemeyeceği bir nedenle kaybedilen döngü başlatıcının döngüsüdür, hakem onu
+görmez (karne yalnız hakemin değerlendirmediği koşuyu sayar). Başlatıcının `pilot-metrics.jsonl`'u (döngü 9'dan beri:
+push, karar, nedenler ve sahipleri, süre, maliyet) yalnız operatörün özel karnesine girer.
 
 ## Gerçek değer: kabul edilmiş aletler hedefte (döngü 10–16)
 
@@ -217,6 +212,18 @@ zaman değerlidir; yol Kurucu'nundur.
 Kaçırdığı: yok sayılmadı; ret iki döngü sürdü çünkü cevap öğretmendeydi. Öğrendiği ve uyguladığı: vektör girdilerini
 push etmeden önce kendi koşturuyor (E244'ün amacı). Bildirdiği: seed-039 ve canlı yolun boşluğu. Kötü davranış
 görülmedi; vakayı geçirmek için kuralı gevşetmedi.
+## Karne ve sınav (2026-10-30)
+
+Sahip iki öneriyi uzmanlar doğrularsa onayladı: kendini geliştirmenin karnesi (P1) ve ders provasının MVP sınavı
+olarak öne alınması (P2). Ölçüm uzmanı, prova uzmanı ve şüpheci kanıtla tartıştı (E310–E320). Karar: karne var ama
+kanıt değildir; canlı pilotta sabit ölçüt, karşı-olgu ve önceden yazılmış karar kuralı yok. Sayılar yalnız
+karnededir ([`docs/karne.md`](karne.md)). Okurken: ilk denemede kabulün dönemleri yeni vektörlerle ve rakip
+kurallarıyla çakışır; rakibin kanıtladığı kusur yalnız kapanana, yani onu göstermeyen ilk kabul başına kadar izlenir,
+kabulden sonra geri dönüp dönmediği ölçülmez (E320); rakibin bulma gücü ölçülmediği için "hayatta kaldı" zayıf
+kanıttır (E311). Prova Aşama 0 çıkışında koşamaz: ders organı yok; onu öne almak aşama planını (`03`,
+`asama-1/13`) değiştirmektir, `asama-1/13` tohum dönemiyle değişmez (E180); karar sahibindir. Tohum tarafı şimdi
+düzeldi (gizli taahhütlü havuz, kör kapsam E64, hakemin çekilişi ve etkide de plaseboda da eşit kollar E65, doğru
+ders E318, kalibrasyon E319); gerçek beyinde sınav dar bir ders partisi olarak sahibin kararını bekler (E317).
 
 ## Pilotun tetiklediği düzeltmeler
 

@@ -46,6 +46,7 @@ Okunma: sayfa ararken; görev seçmek için `tohum/00b-gorev-haritasi.md`
 | `tohum/21a-kuresel-bilgi-ve-terfi.md` | Küresel Bilgi: Bağlam, Koşul, Sentez ve Terfi | ikinci repo bağlanınca, ithal bilgi kullanılırken ve bir bilgi ya da organ terfi edilirken |
 | `tohum/22-dersler.md` | Dersler: Öğrenme Planlayıcıya ve Implementer'a Akar | plan yaparken, düzeltme yazarken |
 | `tohum/22a-ders-provasi.md` | Ders Provası: Öğrenmenin ve Kullanmanın Testi | ders görünümünü, merge'ü ya da çok repolu terfiyi getiren aşamanın spec'i yazılırken |
+| `tohum/22b-ders-provasi-gercek-beyin.md` | Ders Provası, Gerçek Beyinde: Gizli Havuz, Kalibrasyon, Sınav | ders provası gerçek beyinde koşulmadan önce, aile havuzu yazılırken ve kendini geliştirmenin kanıtı tartışılırken |
 | `tohum/23-yama-degil-mimari-cozum.md` | Yama Değil, Mimari Çözüm | her düzeltme tasarlanırken ve panel faz 4'te |
 | `tohum/24-calisma-modeli.md` | Çalışma Modeli: Beyin, Hakem ve Kurucu Nasıl Koşar | Aşama 0 inşasından önce ve her dispatch değişikliğinde |
 | `tohum/24a-kurucu-ve-yerlesim.md` | Çalışma Modeli, Devam: Kurucu Başlatıcısı ve Yerleşim | Kurucu başlatıcısını yazarken, beyin reposunu kurarken ve her yerleşim değişikliğinde |
@@ -62,6 +63,7 @@ Okunma: sayfa ararken; görev seçmek için `tohum/00b-gorev-haritasi.md`
 | `tohum/29a-tohum-vektorleri.md` | Tohum Vektörleri: Değişmeyen Beklenen Çıktılar | zincir, istatistik ve puanlama kodu yazarken |
 | `tohum/29b-onyukleme-hakemi.md` | Önyükleme Hakemi: Aşama 0'ın Yargıcı | kurulumda ve Aşama 0 boyunca |
 | `tohum/29c-prova-vektorleri.md` | Prova Vektörleri: Ders Provasının Referans Yargıcı | ders provasının yargıcını (`harness.drill`) yazarken (Aşama 2 partisi) ve ders provası tasarlanırken |
+| `tohum/29q-prova-gucu-ve-kalibrasyon.md` | Prova Vektörleri, Devam: Ayırma Gücü ve Ailelerin Kalibrasyonu | ders provası tasarlanırken, tuzak ailesi havuza alınırken ve bir provanın FAIL ya da UNMEASURABLE'ı okunurken |
 | `tohum/29d-vektor-gruplari.md` | Tohum Vektörleri, Devam: Aşama 0'ın Grupları ve Genel Koşucu | Aşama 0'ın her mikro özelliğini yazarken ve önyükleme hakeminin vektör koşucusu değişirken |
 | `tohum/29f-vektor-arayuzleri.md` | Vektör Arayüzleri: `secrets`, `contained` | Aşama 0'ın MF2 ve MF3'ünü yazarken; bu grupların komutu, girdisi ya da çıktısı değişirken |
 | `tohum/29g-vektor-arayuzleri-devam.md` | Vektör Arayüzleri, Devam: `npmlock`, `recipe` | Aşama 0'ın MF5 ve MF6'sını yazarken; bu grupların komutu, girdisi ya da çıktısı değişirken |
