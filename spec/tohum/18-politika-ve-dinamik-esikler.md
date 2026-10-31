@@ -66,7 +66,7 @@ spec denetimidir, #lock (A)'da (aşama, donmuş spec hash) çifti ve açılışt
 | Ders görünümü ve enjeksiyonu | #ders-dogus doğuş; #ders-kullanim kullanım; #ders-etki etki; #ders-yanlis yanlış ders; #ders-dogru doğru ders; #ders-plasebo plasebo; #ders-kalicilik kalıcılık (`22a`) |
 | Genesis yaşam döngüsü | #genesis-buyume büyüme; #genesis-budama budama; #genesis-yeniden yeniden yazım; #genesis-sessizlik gereksiz büyümeme (`12a`) |
 | Çok repolu terfi | #baglam bağlam provası (`22a`); #terfi terfi testi (`21a`) |
-| Varsayılandan sapma | #sira-tahmin seçilen ve varsayılan sınıfın değer / USD alt sınırı, yalnız yasal düzeltmesi olan bulgulardan, aşama açılmadan hakem satırı olarak zincirde ve Rekor'da, Kurucu yazımı sayı 0, `UNMEASURABLE` tahmin sapma getirmez (`03`); #sira-denetim çıkışta seçilen sınıfın gerçek harcamayla değer / USD'si kendi alt sınırının altındaysa ya da `UNMEASURABLE`'sa (`19`) sonraki seçim varsayılandır |
+| Varsayılandan sapma | #sira-tahmin seçilen ve varsayılan sınıfın değer / USD alt sınırı, yalnız yasal düzeltmesi olan bulgulardan, aşama açılmadan hakem satırı olarak zincirde ve Rekor'da, Kurucu yazımı sayı 0, `UNMEASURABLE` tahmin sapma getirmez (`19`); #sira-denetim çıkışta seçilen sınıfın gerçek harcamayla değer / USD'si kendi alt sınırının altındaysa ya da `UNMEASURABLE`'sa (`19`) sonraki seçim varsayılandır |
 
 ## Eşik değişikliği bir artefakttır
 

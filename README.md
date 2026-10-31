@@ -135,7 +135,7 @@ seed/
 stage's specification from the measured results of the stage before it, and only the next stage is
 ever frozen. The seed therefore holds just the goal row of every stage (`spec/tohum/03-sinif-merdiveni.md`).
 That table is the default order, not a fixed one: after Stage 1 the founder's next stage spec may pick another
-class among those whose prerequisites already have PASS rows, one class per deviation, resting on a value
+class among those whose prerequisites are met (a same-exit prerequisite by the class's own exit at the latest), one class per deviation, resting on a value
 estimate the referee commits before the stage opens and checked at exit; a miss or an unmeasurable result
 restores the default.
 Stages 0 and 1 (the root) and Stage 6 (last) stay fixed, and the lesson drill stays Stage 2's first work.
