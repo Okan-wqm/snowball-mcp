@@ -2143,6 +2143,11 @@ Testler `tests/test_rival_memory.py`'de, sınıf adları kalem numarasıyla. Dur
   çaresinin yanında adlandırıyordu (`seed/` beyne de gider); kaldırıldı, testlerdeki `L185` nötr satır numarasıyla
   değişti, canlı pilotun adı yalnız bu kayıtta. "İstisna insan dokunuşu sayılır" ve "PASS satırı istisnayı taşır"
   yazılı ama denetlenmiyor (E294'te, E277). E280'deki (b) seçimi sahibin değil uygulayıcınındır.
+- **Şüpheci turunun doğrulaması.** Kırmızı-önce: yeni ve değişen testler bir önceki commit'in kodunda 13
+  başarısız, 2 hata verdi. Windows: 529 OK (19 atlandı). Linux (LF arşivi): 548 OK (3 atlandı). Mutasyon (sekiz
+  `snowball_dec_*` kapsayıcısı, her parça 61): 488/488 öldü; turun etkilediği 31 mutant ayrıca 31/31. Makine bu
+  koşulardan sonra, commit'ten önce kapandı (2026-10-30 ~23:02Z); bu kaydın çalışma kopyası sıfır baytla kaldı,
+  sağlam hâli sahnelenmiş sürümden geri yüklendi; main'le birleştirmeden sonra takımlar yeniden koşuldu.
 - **Yapılmayan.** `spec/asama-0` ve `spec/asama-1` değişmedi (dondurma, E180; tohum dönemi taşımaz). E150
   (`founder-ledger append` aracı) sahibin kararında. Dürüstlük makinesi ve ekim (E79, E287), taşımanın kodu (E294),
   ilk koşu işareti (E14, E92), özel hakem reposunun okuma yolu (E295).
