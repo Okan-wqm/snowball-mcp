@@ -17,8 +17,8 @@ Her kapı kararı onu okur.
 
 | Bölüm | İçerik | Kim değiştirir |
 |---|---|---|
-| Anayasal | Aylık USD ve CI dakikası tavanları, oturum tavanı ve paylar (iç kullanımda kaçak freni, `06`); `operating{}` kaynak sınırları ve bantları; **sınıf başına çıkış ve merge tabanları**; `required_exit_rows`; non-inferiority marjı ve eşli test asgarileri; hayatta kalma pencereleri; regresyon dondurma kuralı; döngü ve gün tavanları; güvenlik anahtar kelimeleri; yasaklı ifadeler; aşama sırası; bakış bütçesi; güven düzeyi | Yalnız operatör, hakem reposunda. Hash'i her kök kaydında ve Rekor'dadır; `drift.check` doğrular |
-| Performans | SHADOW, genesis ve sıralama eşikleri; pencere uzunlukları; merdiven sırası; itibar parametreleri; sinyal eşikleri | Prosedür; değişiklik çekişme protokolünden geçer |
+| Anayasal | Aylık USD ve CI dakikası tavanları, oturum tavanı ve paylar (iç kullanımda kaçak freni, `06`); `operating{}` kaynak sınırları ve bantları; **sınıf başına çıkış ve merge tabanları**; `required_exit_rows`; non-inferiority marjı ve eşli test asgarileri; hayatta kalma pencereleri; regresyon dondurma kuralı; döngü ve gün tavanları; güvenlik anahtar kelimeleri; yasaklı ifadeler; aşama sırası ve sınıf önkoşulları (`03`); bakış bütçesi; güven düzeyi | Yalnız operatör, hakem reposunda. Hash'i her kök kaydında ve Rekor'dadır; `drift.check` doğrular |
+| Performans | SHADOW, genesis ve sıralama eşikleri; pencere uzunlukları; maliyet merdiveni basamak sırası; itibar parametreleri; sinyal eşikleri | Prosedür; değişiklik çekişme protokolünden geçer |
 
 Performans eşikleri kural olarak yazılır, örnek:
 
@@ -66,6 +66,7 @@ spec denetimidir, #lock (A)'da (aşama, donmuş spec hash) çifti ve açılışt
 | Ders görünümü ve enjeksiyonu | #ders-dogus doğuş; #ders-kullanim kullanım; #ders-etki etki; #ders-yanlis yanlış ders; #ders-dogru doğru ders; #ders-plasebo plasebo; #ders-kalicilik kalıcılık (`22a`) |
 | Genesis yaşam döngüsü | #genesis-buyume büyüme; #genesis-budama budama; #genesis-yeniden yeniden yazım; #genesis-sessizlik gereksiz büyümeme (`12a`) |
 | Çok repolu terfi | #baglam bağlam provası (`22a`); #terfi terfi testi (`21a`) |
+| Varsayılandan sapma | #sira-tahmin seçilen ve varsayılan sınıfın değer / USD alt sınırı, yalnız yasal düzeltmesi olan bulgulardan, aşama açılmadan hakem satırı olarak zincirde ve Rekor'da, Kurucu yazımı sayı 0, spec onu satır hash'iyle anar, `UNMEASURABLE` tahmin sapma getirmez (`03`); #sira-denetim çıkışta gerçek harcamayla değer / USD bu alt sınırın altındaysa sonraki seçim varsayılandır |
 
 ## Eşik değişikliği bir artefakttır
 

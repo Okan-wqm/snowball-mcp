@@ -34,7 +34,8 @@ Performans değerleri `18b`'dedir ve `18`'deki prosedürle değişir. Adlar `26b
 | `daily_caps` | Gün başına PR ≤ 30, merge ≤ 15, CI ≤ 90 dk | `01b` |
 | `security_keywords` | `14`'teki liste | `14`, `profile.derive` |
 | `banned_phrases` | `23`'teki liste | `04a` 9, `spec.lint` |
-| `stage_order` | 0 → 1 → 2 → 3 → 4 → 5 → 6 (`03`) | önyükleme hakeminin kilidi (`setup/stage.json`), sonra `lock.check` |
+| `stage_order` | 0 → 1 kök; sonra +1 sayaç, sınıf `03`'ün önkoşul tablosundan; 6 son | önyükleme hakeminin kilidi (`setup/stage.json`), sonra `lock.check` |
+| `class_requires` | `03`'ün sınıf önkoşulları tablosu; prosedür yalnız ekler, yalnız operatör siler (Y11) | Aşama 1'den sonraki her aşama spec isteği (`03`), `drift.check` |
 | `gate_rules.ratio_bootstrap_lb` | Değer / USD yolu: eşli bootstrap alt sınırı ≥ 1,2 | `12`, `17`, `19` |
 | `gate_rules.membership_auc` | ε = 0,05; ≥ 200 aday; α = 0,10 | `19` (kendi-test 18) |
 | `gate_rules.audit_sample` | Gizli tohumla %10 tekdüze denetim; bütçe ≥ 40 çözülmüş denetimden sonra | `19` |

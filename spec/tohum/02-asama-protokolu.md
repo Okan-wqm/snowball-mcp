@@ -29,7 +29,7 @@ Okunma: her aşama başında ve sonunda
    - property spec'lerinde kalıp yok (`asama-4/06`);
    - hedef repoya özgü yol, araç ya da karar belgesi adı yok;
    - her yeni dosyanın okuyucusu `27`'de ve okuyucu bu aşamada bir kararı değiştiriyor (Y4);
-   - her çapa ya çözülüyor ya da "beklemede: aşama N".
+   - her çapa ya çözülüyor ya da "beklemede: <olay>"; olay aşama, parti aktarımı, sınıf açılışı ya da `18`'deki yetenektir.
 3. Kurucu inşa eder; takımı bu aşamanın bütçesi içinde kurar.
 4. Hakem harness'i ölçer. Çıkış testi canlı ve uçtan ucadır; birim testi ve taklit çıkış kanıtı
    değildir, yalnız ön provadır. Verdict `PASS`, `FAIL` ya da `UNMEASURABLE`'dır (`19`).
@@ -68,8 +68,8 @@ sayfaları "hedef taslak" durumundadır: okunur, sırası gelince yeniden yazıl
 Donmuş bir aşama dizinine dokunan spec isteği reddedilir (`spec_already_frozen`); donmuş spec yalnız
 operatör kararıyla açılır.
 
-**Çapa kuralı.** `taslak` ya da `hedef taslak` durumundaki sayfada çapa "beklemede: aşama N"
-olarak yazılabilir. Aşama N PASS alınca çapa çözülmelidir; çözülmeyen çapa bayatlıktır.
+**Çapa kuralı.** `taslak` ya da `hedef taslak` durumundaki sayfada çapa "beklemede: <olay>"
+olarak yazılabilir. Olayın PASS satırı yazılınca çapa çözülmelidir; çözülmeyen çapa bayatlıktır.
 
 **Harness şeridi.** Harness ve donmuş koltuklar hakem reposundadır (`01a`). Değişiklik adayını
 yalnız şerit yazarı yazar ve beyin reposunda `referee/` altında yayımlar. Aday hatayı gösteren yeni

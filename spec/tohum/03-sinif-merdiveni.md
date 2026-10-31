@@ -21,11 +21,28 @@ her sınıfın adapter'ı profildeki aracı sarar. LLM, mekanik aracın bittiği
 | K7 | Performans | Profildeki benchmark ve sorgu planı araçları | Baseline'a karşı ölçüm |
 | K8 | Hedef reponun dokümanı: bayat doküman, davranışı değişmiş kodun eksik dokümanı | Çapa çözümleme; doküman-kod çelişkisi | Her iddia koda çapalı (`path:line` ya da sembol) ve çapa çözülür; imza, CLI bayrağı, yapılandırma anahtarı ve uç adı gibi mekanik iddialar koda karşı doğrulanır; çözülmeyen çapa kırmızı |
 
-Bir sınıf grubu ancak bir önceki aşama PASS alınca açılır. K3'ün aracı yoktur; oracle'ı kasıtlı
-bozmadır. Her açılış aynı döngüyü yeniden koşturur: adapter → oracle → düzeltme → merge → defter
-→ maliyet inişi.
+Bir sınıf grubu ancak bir önceki aşama PASS alınca açılır. Aşama 1'den sonra hangi grubun açılacağını Kurucu'nun
+aşama spec'i, önkoşulları kapanmış sınıflar arasından seçer; aşama tablosu varsayılandır ve Savunma'nın zorunlu
+alternatifi (`10`) varsayılan satırdır. Varsayılandan sapan seçim tek sınıf getirir ve `18`'in Varsayılandan sapma
+satırlarını taşır. Kök (Aşama 0 ve 1) ve son aşama (6, sınıf değildir) sabittir; seçim satırdaki `18` atıflı yeteneği
+o aşamadan düşürmez (`02`). K3'ün aracı yoktur; oracle'ı kasıtlı bozmadır. Her açılış aynı döngüyü yeniden
+koşturur: adapter → oracle → düzeltme → merge → defter → maliyet inişi.
 
-**K6 Aşama 1'den gözlenir, Aşama 5'te düzeltilir.** Açık bulmak, kanıtlamak, bildirmek ve bir kuralı bekçi
+**Sınıf önkoşulları** (`class_requires`; prosedür yalnız ekler, operatör siler):
+
+| Sınıf | Önkoşul |
+|---|---|
+| K1, K2 bulgu, K3, K4, K8 | K0'ın Aşama 1 PASS satırı |
+| K2 silme | + `07a` kanıtları, harita (a) |
+| K5 | + LLM avcı, Held-out havuzu, Panel aynı çıkışta |
+| K6 düzeltme | K5 yetenekleri önceki PASS'ta + Güvenlik avcısı ve bekçi testleri + Güvenlik yoluna dokunma |
+| K7 | + LLM avcı |
+| K3, K7, K8 | `class_floors` yazılı |
+
+**Oracle'ı hazır olmayan sınıf rapor eder, değiştirmez.** Oracle'ı hakemin bu hedefte gizli tohumla ektiği bozmayı
+yakalamadan sınıf merge etmez; bulguları `blocked` satırdır (Y8). Geçen aşama ya da açık sınıf sayısı hiçbir puana girmez.
+
+**K6 Aşama 1'den gözlenir, önkoşulları kapanınca düzeltilir.** Açık bulmak, kanıtlamak, bildirmek ve bir kuralı bekçi
 testine bağlamak davranışı değiştirmez; bunu Aşama 1'den, P2 partisiyle gelen hakemin bağımsız güvenlik
 avcısı yapar (`30f`, `asama-1/13`). Aşama 0'ın güvenlik mikro özelliği `secrets.scan`'dir.
 Hedefin koduna güvenlik düzeltmesi yalnız K6 canlı olunca yazılır. Bilinen açık sınıfları, bulma yolları
@@ -36,7 +53,7 @@ ilk bağlanmada okunur ama hiçbir karar ona dayanmaz. Doküman düzeltmesi ve y
 düzeltmesiyle aynı kapıdan geçer; doküman yolları yalnız K8 adaylarında diff-guard'dan geçer
 (`01b`). Reponun kendi doküman düzenine uyulur.
 
-| Aşama | Döngüde canlı olan | Oracle |
+| Varsayılan aşama sırası | Döngüde canlı olan | Oracle |
 |---|---|---|
 | 0 | Yürüyen iskelet: ilk canlı döngünün okuduğu 18 mikro özellik beyin reposunun `referee/` dizininde, önyükleme hakeminin denetiminde (`29b`): zincir, `secrets.scan`, kum havuzu, profil ve birim, `deps.fetch` (npm), tarif doğrulaması, diff-guard, kapı, hedef yazıcı, defter, Rekor, nöbetçi, geri alma ve provası, `llm.call`, durum bloğu, `loop.yml`, etkinleştirme. Çıkışta aktarım; döngü önce oyuncak hedefte, aynı (B) içinde gerçek hedefin kopyasında tek birimde hazır adaylarla koşar. Çalışma zamanında tek LLM çağrısı kanaryadır | Kendi-testleri, tohum vektörleri, modülsüz kırmızı, kırmızı kontrol, rakip; (B)'de K0 oracle'ı (aracın yeniden koşusu, mandal) ve canlı merge'ler |
 | 1 | K0 döngüsü uçtan uca, oyuncu organları: lint adapter, taban, `fix` aralığı düzelticisi, araçsız Sonnet düzelticisi, aday yayımlama, üretilmiş sayfalar. Hakem parçaları ilk okuyucularından önce partilerle gelir (`asama-1/13`): P1 organ ve ölçüm (snapshot, vaka seti, harness, Gözcü, `drift.check`), P2 güvenlik gözlemi, Aşama 1 çıkış partisi (`exit.sample`, `spec.lint`, `lock.check`) | Kural sayımında sıfır kaçırma; araç yeniden koşusu ve mandal; kapının etkilenen-test koşusu; canlı merge'ler |

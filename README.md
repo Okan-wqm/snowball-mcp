@@ -134,6 +134,10 @@ seed/
 **Why there is no Stage 2 or Stage 3 directory.** The stage protocol makes the founder draft each
 stage's specification from the measured results of the stage before it, and only the next stage is
 ever frozen. The seed therefore holds just the goal row of every stage (`spec/tohum/03-sinif-merdiveni.md`).
+That table is the default order, not a fixed one: after Stage 1 the founder's next stage spec may pick another
+class among those whose prerequisites already have PASS rows, one class per deviation, resting on a value
+estimate the referee commits before the stage opens and checked at exit; a miss restores the default.
+Stages 0 and 1 (the root) and Stage 6 (last) stay fixed, and the lesson drill stays Stage 2's first work.
 Stages 0 and 1 are written in full because they are the starting point and the trust root. Stage 4
 is written as a target draft to show where the system is heading, so earlier stages know what they
 must deliver. Stages 2 and 3 are drafted by the founder when Stage 1 passes.
