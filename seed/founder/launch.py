@@ -5,7 +5,10 @@ One cycle:
   2. rebuild <work>/vec from the `vectors/` of the referee repo's main (E244); if that fails, no session: stop;
   3. run one Founder session in the capsule (seed/founder/Dockerfile);
   4. if the brain moved, dispatch the referee (its schedule does not fire, E32) and wait for it;
-  5. append what happened to <work>/pilot-log.md.
+  5. write the session's cost as a `kind: cost` founder row on the brain's main (`tohum/24a` 4), when that commit is
+     memory alone to the referee; otherwise keep it in <work>/cost-pending.jsonl for a later cycle;
+  6. append what happened to <work>/pilot-log.md (with the brain's open reports and their age) and one metrics line
+     that names what the cycle ran on (prompt, image, model, CLI, seed, rival configuration, target commit).
 
 Everything lives in one folder, <work> (the operator deletes it to remove the pilot):
   <work>/snowball-founder.env   the Founder's two secrets; written by the operator, never read by this script
@@ -17,13 +20,17 @@ Everything lives in one folder, <work> (the operator deletes it to remove the pi
   <work>/logs/                  session transcripts
   <work>/pilot-log.md           the operator's report
   <work>/STOP                   create this file to stop after the current step
+  <work>/cost-pending.jsonl     cost rows not written yet: the brain held work the referee had not accepted
+  <work>/reports-seen.json      when the launcher first saw each brain report (a report's age)
 
-The operator's own `gh` login dispatches the referee and reads results; it never enters the capsule.
+The operator's own `gh` login dispatches the referee and reads results; it never enters the capsule. It writes to the
+brain only the cost rows, as the launcher's own identity, through git's `gh` credential helper.
 """
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import io
 import json
 import re
@@ -40,6 +47,9 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 SEED = HERE.parent
 sys.path.insert(0, str(SEED / "bootstrap"))
+from snowball_bootstrap import canon, gitio, ledgercheck  # noqa: E402  (the chain rule, the referee's git and ledger check)
+from snowball_bootstrap.classify import (LEDGER_FILE, SEED_DIRS, is_founder_record,  # noqa: E402  (what is memory
+                                         is_seed_path)  # and what is the operator's delivery to the referee)
 from snowball_bootstrap.decide import counts_against_founder  # noqa: E402  (the referee's rule, not a copy)
 from snowball_bootstrap.vectors import founder_inputs  # noqa: E402  (the referee's projection, not a copy: E244)
 IMAGE = "snowball-founder:pilot"
@@ -49,6 +59,11 @@ REFEREE_VECTORS = "vectors"  # the referee repo's copy of seed/bootstrap/vectors
 MAX_REFEREE_RETRIES = 2  # with the first run, as many as the referee's own retries (decide.RIVAL_SIDE_WARN)
 BUILD_FILES = ("founder/Dockerfile", "founder/entrypoint.sh", "founder/prompt.md",
                "bootstrap/requirements/claude-cli/package.json", "bootstrap/requirements/claude-cli/package-lock.json")
+LAUNCHER_NAME, LAUNCHER_EMAIL = "Snowball launcher", "launcher@snowball.invalid"  # its commits are not the Founder's
+GH_CREDENTIAL = "credential.helper=!gh auth git-credential"  # the operator's login, never a token on a command line
+COST_PENDING = "cost-pending.jsonl"
+REPORTS_SEEN = "reports-seen.json"
+RIVAL_CONFIG = ("prompt_sha256", "model_served", "effort", "cli_version")  # of the result's rival block
 
 
 def now() -> str:
@@ -132,6 +147,95 @@ def usage_limit_wait(sess: dict, at: datetime) -> int | None:
     return int(min(wait + 120, LIMIT_MAX_WAIT_S))
 
 
+def prompt_sha256() -> str:
+    """The prompt the capsule is built with, as `write_build_context` copies it (LF)."""
+    return hashlib.sha256((SEED / "founder" / "prompt.md").read_bytes().replace(b"\r\n", b"\n")).hexdigest()
+
+
+def cost_summary(fact: dict) -> str:
+    """A session's bare facts, no interpretation: what the CLI and the launcher saw (`tohum/24a` 4)."""
+    turns = fact.get("turns") if isinstance(fact.get("turns"), int) and not isinstance(fact.get("turns"), bool) else None
+    cost = fact.get("cost_usd")
+    micros = round(cost * 1_000_000) if isinstance(cost, (int, float)) and not isinstance(cost, bool) else None
+    return (f"session {fact['stamp']}: exit {fact.get('exit')}, {fact.get('minutes')} min, "
+            f"turns {'unknown' if turns is None else turns}, "
+            f"cost_usd_micros {'unknown' if micros is None else micros}, CLI result {fact.get('subtype') or 'none'}")
+
+
+def cost_line(ledger: bytes, fact: dict, ts: str) -> bytes:
+    """One `kind: cost` founder row appended to the ledger's bytes, chained by `tohum/26`'s rule (the seed's own
+    `canon.row_hash`, ``prev_hash`` the last row's). ValueError when the ledger cannot take it as the referee checks a
+    pushed row (`ledgercheck`): a row the referee would hold against the Founder is never written for it."""
+    if ledger and not ledger.endswith(b"\n"):
+        raise ValueError("the ledger's last row has no final newline")
+    lines = ledger.splitlines()
+    try:
+        prev = json.loads(lines[-1])["row_hash"] if lines else ledgercheck.ZERO
+    except (ValueError, KeyError, TypeError) as exc:
+        raise ValueError(f"the ledger's last row gives no row_hash ({type(exc).__name__})") from None
+    row = {"row_id": f"f{len(lines) + 1}", "ts": ts, "part": "founder", "kind": "cost",
+           "payload": {"summary": cost_summary(fact),
+                       "refs": [f"logs/{fact['stamp']}/session-{fact['stamp']}.jsonl"]},
+           "derivation": "tool", "trust": "observed", "snapshot_id": fact["head"], "evidence_refs": [],
+           "prev_hash": prev}
+    row["row_hash"] = canon.row_hash(row)
+    line = (json.dumps(row, ensure_ascii=False, sort_keys=True) + "\n").encode("utf-8")
+    problems = ledgercheck.check(ledger + line, ledger, whole=False)
+    if problems:
+        raise ValueError("the row would not pass the referee's ledger check: " + ", ".join(problems))
+    return line
+
+
+def push_cost_rows(remote: str, facts: list[dict], last_accepted: str | None, ts: str, epoch: str | None = None,
+                   credential: bool = True) -> str:
+    """Append one cost row per fact to the brain's ledger on `main` and push it as the launcher, only when every path the
+    head changed since the referee's last accepted commit is the Founder's memory (`classify.is_founder_record`) or, while
+    the head's seed is the last epoch commit's, the operator's delivery (`epoch`; `cli._pull_classify` reads it so): then
+    the referee reads the commit as memory alone (`none`: no tests, no rival, a `noop`). On a head that carries work the
+    referee has not accepted, the commit would make it judge that work again and count its rejection twice: nothing is
+    written. Returns the new head, or "deferred: <why>"."""
+    config = ("-c", GH_CREDENTIAL) if credential else ()
+    if not last_accepted:
+        return "deferred: the referee has no accepted commit"
+    with tempfile.TemporaryDirectory(prefix="snowball-cost-") as tmp:
+        clone = Path(tmp) / "brain"
+        gitio.git(Path(tmp), *config, "clone", "--quiet", "--filter=blob:none", "--branch", "main", remote, str(clone))
+        head = gitio.git(clone, "rev-parse", "HEAD").decode().strip()
+        if head != last_accepted:
+            try:
+                changed = gitio.git(clone, "diff", "--name-only", "--no-renames", last_accepted, head).decode()
+            except gitio.GitError:
+                return "deferred: the last accepted commit is not on main"
+            delivered = bool(epoch) and gitio.same_under(clone, epoch, head, SEED_DIRS)
+            work = [p for p in changed.splitlines() if p and not is_founder_record(p)
+                    and not (delivered and is_seed_path(p))]
+            if work:
+                return f"deferred: {len(work)} path(s) changed since the last accepted {last_accepted[:7]}"
+        ledger_path = clone / LEDGER_FILE
+        ledger = ledger_path.read_bytes() if ledger_path.is_file() else b""
+        for fact in facts:
+            ledger += cost_line(ledger, fact, ts)
+        ledger_path.write_bytes(ledger)
+        who = ("-c", f"user.name={LAUNCHER_NAME}", "-c", f"user.email={LAUNCHER_EMAIL}")
+        gitio.git(clone, "add", LEDGER_FILE)
+        gitio.git(clone, *who, "commit", "--quiet", "-m", f"Launcher: {len(facts)} cost row(s) (tohum/24a 4)")
+        gitio.git(clone, *config, "push", "--quiet", "origin", "HEAD:main")
+        return gitio.git(clone, "rev-parse", "HEAD").decode().strip()
+
+
+def report_ages(reports: list[dict], seen: dict[str, str], ts: str) -> list[tuple[str, int]]:
+    """The open reports and the hours since the launcher first saw each (``seen`` is updated): a report carries no
+    time of its own, and the ledger's and commits' times are written in the capsule (E316)."""
+    now_dt = datetime.strptime(ts, "%Y-%m-%dT%H:%M:%SZ")
+    out = []
+    for r in reports:
+        rid = str(r.get("id") or r.get("file"))
+        first = seen.setdefault(rid, ts)
+        if r.get("state") == "open":
+            out.append((rid, int((now_dt - datetime.strptime(first, "%Y-%m-%dT%H:%M:%SZ")).total_seconds() // 3600)))
+    return sorted(out, key=lambda item: (-item[1], item[0]))
+
+
 def write_build_context(ctx: Path) -> None:
     """Copy exactly the files the image needs, with LF line ends: a Windows checkout may hand over CRLF, and a CR
     after the entrypoint's shebang makes the container fail before it starts (E152)."""
@@ -164,6 +268,10 @@ class Pilot:
         self.report = work / "pilot-log.md"
         self.metrics = work / "pilot-metrics.jsonl"  # one machine-readable line per cycle (what docs/pilot-gunlugu.md counts)
         self.seed = ""  # the brain commit the referee's setup summary pins; the capsule cuts history there
+        self.epoch: str | None = None  # the last seed epoch's brain commit (`26c` seed_epochs[]), if any
+        self.brain_remote = f"https://github.com/{brain}.git"
+        self.prompt_sha256: str | None = None  # what this launcher start built the capsule with (E313)
+        self.image_id: str | None = None
 
     # ---- checks -------------------------------------------------------------------------------------------
     def stopped(self) -> bool:
@@ -181,6 +289,7 @@ class Pilot:
             problems.append("gh is not logged in")
         else:
             self.seed = self.seed_commit()
+            self.epoch = self.last_epoch()
             if not re.fullmatch(r"[0-9a-f]{40}", self.seed):
                 problems.append(f"{self.referee} setup/summary.json has no seed_commit")
         if problems:
@@ -188,13 +297,34 @@ class Pilot:
         self.result_dir.mkdir(exist_ok=True)
         self.logs.mkdir(exist_ok=True)
 
-    def seed_commit(self) -> str:
+    def summary(self) -> dict:
         raw = run("gh", "api", "-H", "Accept: application/vnd.github.raw",
                   f"repos/{self.referee}/contents/setup/summary.json", check=False).stdout
         try:
-            return str(json.loads(raw).get("seed_commit", ""))
+            data = json.loads(raw)
         except ValueError:
-            return ""
+            return {}
+        return data if isinstance(data, dict) else {}
+
+    def seed_commit(self) -> str:
+        return str(self.summary().get("seed_commit", ""))
+
+    def last_epoch(self) -> str | None:
+        epochs = self.summary().get("seed_epochs") or []
+        last = epochs[-1] if isinstance(epochs, list) and epochs and isinstance(epochs[-1], dict) else {}
+        return str(last["commit"]) if re.fullmatch(r"[0-9a-f]{40}", str(last.get("commit", ""))) else None
+
+    def image(self) -> str | None:
+        """The capsule image's id, or None when docker cannot say."""
+        proc = run("docker", "image", "inspect", "--format", "{{.Id}}", IMAGE, check=False, timeout=60)
+        return proc.stdout.decode().strip() or None if proc.returncode == 0 else None
+
+    def intervention(self, args) -> None:
+        """One metrics row per launcher start: every start is the operator's touch, and what it ran with is what a later
+        difference is attributed to (E313)."""
+        self.prompt_sha256, self.image_id = prompt_sha256(), self.image()
+        self.record_metrics({"kind": "intervention", "ts": now(), "args": {k: str(v) for k, v in sorted(vars(args).items())},
+                             "image_id": self.image_id, "prompt_sha256": self.prompt_sha256, "seed_commit": self.seed})
 
     def build(self) -> None:
         """Build from a copy of exactly the files the image needs: a synced folder (iCloud) can hand docker
@@ -221,6 +351,78 @@ class Pilot:
             except ValueError:
                 rows.append({"kind": "<unreadable line>"})
         return rows
+
+    def target_head(self) -> str | None:
+        """The commit of the target clone the capsule mounts (read-only `rev-parse`)."""
+        proc = run("git", "-C", str(self.target), "rev-parse", "HEAD", check=False, timeout=60)
+        return proc.stdout.decode().strip() or None if proc.returncode == 0 else None
+
+    def spec_tohum_tree(self, sha: str) -> str | None:
+        """Git's tree id of the brain's `spec/tohum` at sha: the seed text the session read, one GET."""
+        proc = run("gh", "api", f"repos/{self.brain}/contents/spec?ref={sha}", check=False, timeout=120)
+        try:
+            entries = json.loads(proc.stdout) if proc.returncode == 0 else []
+            return next((e["sha"] for e in entries if e.get("name") == "tohum" and e.get("type") == "dir"), None)
+        except (ValueError, TypeError, KeyError):
+            return None
+
+    REPORTS_QUERY = ("query($owner:String!,$name:String!,$expr:String!){repository(owner:$owner,name:$name){"
+                     "object(expression:$expr){... on Tree{entries{name object{... on Blob{text}}}}}}}")
+
+    def open_reports(self, sha: str) -> list[dict] | None:
+        """The brain's root `reports/*.json` at sha, each `{file, id, state}`, in one read-only GraphQL call; None when
+        it cannot be read."""
+        owner, name = self.brain.split("/", 1)
+        proc = run("gh", "api", "graphql", "-f", f"query={self.REPORTS_QUERY}", "-f", f"owner={owner}", "-f",
+                   f"name={name}", "-f", f"expr={sha}:reports", check=False, timeout=120)
+        try:
+            tree = json.loads(proc.stdout)["data"]["repository"]["object"] if proc.returncode == 0 else None
+        except (ValueError, TypeError, KeyError):
+            return None
+        out = []
+        for entry in (tree or {}).get("entries") or []:
+            if not str(entry.get("name", "")).endswith(".json"):
+                continue
+            try:
+                doc = json.loads(((entry.get("object") or {}).get("text")) or "")
+            except ValueError:
+                doc = None
+            doc = doc if isinstance(doc, dict) else {}
+            out.append({"file": entry["name"], "id": doc.get("id"), "state": doc.get("state")})
+        return out
+
+    def observe(self, head: str) -> dict:
+        """What this cycle's outcome is attributed to, read after the session (E313): the brain's seed text and open
+        reports at head, and the target commit the capsule mounted."""
+        reports = self.open_reports(head)
+        seen_path = self.work / REPORTS_SEEN
+        try:
+            seen = json.loads(seen_path.read_text(encoding="utf-8")) if seen_path.is_file() else {}
+        except ValueError:
+            seen = {}
+        ages = report_ages(reports or [], seen, now())
+        seen_path.write_text(json.dumps(seen, ensure_ascii=False, indent=1, sort_keys=True) + "\n", encoding="utf-8")
+        return {"spec_tohum_tree": self.spec_tohum_tree(head), "target_sha": self.target_head(),
+                "reports_open": None if reports is None else ages}
+
+    def record_cost(self, stamp: str, sess: dict, head: str, last_accepted: str | None) -> str:
+        """The session's cost row (`tohum/24a` 4), with any rows an earlier cycle had to keep; what happened, as a line
+        for the report. A killed session gets its row too: that is what the next session can learn from (E340)."""
+        pending_path = self.work / COST_PENDING
+        facts = []
+        if pending_path.is_file():
+            facts = [json.loads(line) for line in pending_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+        facts.append({"stamp": stamp, "head": head, **{k: sess.get(k) for k in ("exit", "minutes", "turns", "cost_usd",
+                                                                               "subtype")}})
+        try:
+            outcome = push_cost_rows(self.brain_remote, facts, last_accepted, now(), self.epoch)
+        except (gitio.GitError, ValueError, OSError) as exc:
+            outcome = f"deferred: {type(exc).__name__}: {str(exc)[:200]}"
+        if outcome.startswith("deferred"):
+            pending_path.write_text("".join(json.dumps(f, sort_keys=True) + "\n" for f in facts), encoding="utf-8")
+            return f"{len(facts)} satır bekliyor ({outcome})"
+        pending_path.unlink(missing_ok=True)
+        return f"{len(facts)} satır yazıldı, beyin `{outcome[:7]}`"
 
     def fetch_result(self) -> dict | None:
         """The newest bootstrap-state artifact made on the referee's main branch, unpacked into <work>/referee."""
@@ -319,7 +521,23 @@ class Pilot:
         out = {"exit": exit_code, "minutes": round((time.monotonic() - started) / 60, 1), "line": tail[0] if tail else "",
                "stderr": err}
         out.update(self.transcript_summary(self.session_logs(stamp) / f"session-{stamp}.jsonl"))
+        out.update(self.transcript_init(self.session_logs(stamp) / f"session-{stamp}.jsonl"))
+        out["timed_out"] = exit_code == -1 and tail == ["session timed out"]
         return out
+
+    @staticmethod
+    def transcript_init(path: Path) -> dict:
+        """The CLI's opening `system`/`init` event: its version and the model it was served (E313)."""
+        if path.is_file():
+            with path.open("r", encoding="utf-8", errors="replace") as fh:
+                for line in fh:
+                    try:
+                        event = json.loads(line)
+                    except ValueError:
+                        continue
+                    if isinstance(event, dict) and event.get("type") == "system" and event.get("subtype") == "init":
+                        return {"cli_version": event.get("claude_code_version"), "model_served": event.get("model")}
+        return {"cli_version": None, "model_served": None}
 
     @staticmethod
     def transcript_summary(path: Path) -> dict:
@@ -455,6 +673,15 @@ class Pilot:
         for row in new_rows:
             if row.get("kind") in ("seed_issue", "blocked", "missing_capability"):
                 lines.append(f"  - **{row.get('kind')}**: {json.dumps(row, ensure_ascii=False)[:600]}")
+        last_accepted = ((verdict or prior or {}).get("state") or {}).get("last_accepted_sha")
+        cost = self.record_cost(stamp, sess, after, last_accepted)
+        seen = self.observe(after)
+        lines.append(f"- Maliyet satırı (`kind: cost`): {cost}")
+        if seen["reports_open"] is None:
+            lines.append("- Açık raporlar: okunamadı")
+        else:
+            lines.append(f"- Açık raporlar ({len(seen['reports_open'])}, beyin `{after[:7]}`; yaş: başlatıcının ilk "
+                         "görmesinden bu yana saat): " + ", ".join(f"`{rid}` {age} sa" for rid, age in seen["reports_open"]))
         if dispatched is not None:
             lines.append(f"- Hakem koşusu: {dispatched['conclusion']} {dispatched['url']}"
                          + (f" (aynı commit {retries} kez yeniden incelendi)" if retries else ""))
@@ -482,6 +709,15 @@ class Pilot:
             "old_refutations_still_reproducing": sum(1 for r in (verdict or {}).get("reasons") or []
                                                      if r.get("kind") == "refutation_still_reproduces"),
             "ledger_new": kinds, "api_error": sess.get("api_error"),
+            # What the outcome is attributed to (E313): the launcher start's prompt and image, the model asked for and
+            # served, the CLI, the seed, the rival's configuration, the target commit, and whether time ran out (E340).
+            "prompt_sha256": self.prompt_sha256, "image_id": self.image_id, "model": args.model,
+            "cli_version": sess.get("cli_version"), "model_served": sess.get("model_served"), "seed_commit": self.seed,
+            "spec_tohum_tree": seen["spec_tohum_tree"], "target_sha": seen["target_sha"],
+            "rival_config": ({k: ((verdict or {}).get("rival") or {}).get(k) for k in RIVAL_CONFIG}
+                             if (verdict or {}).get("rival") else None),
+            "timed_out": bool(sess.get("timed_out")), "cost_row": cost,
+            "reports_open": None if seen["reports_open"] is None else len(seen["reports_open"]),
             "reports_new": [r.get("payload", {}).get("summary", "")[:120] for r in new_rows
                             if r.get("kind") in ("seed_issue", "blocked", "missing_capability")],
         })
@@ -522,6 +758,7 @@ def main(argv: list[str] | None = None) -> int:
     pilot.preflight()
     if not args.no_build:
         pilot.build()
+    pilot.intervention(args)
     if not pilot.report.exists():
         pilot.write("# Snowball pilot günlüğü\n\nHer döngü: Kurucu oturumu → push → hakem → karar.\n")
     run_cycles(pilot, args)

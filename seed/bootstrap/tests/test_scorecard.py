@@ -251,6 +251,8 @@ class BuildTest(unittest.TestCase):
         self.assertIsNone(private["discovery"])
         founder = self.model["private"]["cost"]["founder"]
         self.assertEqual((founder["sessions"], founder["sessions_without_cost"], founder["usd_total"]), (2, 1, "2.50"))
+        started = METRICS + [{"kind": "intervention", "ts": "2026-10-31T21:01:35Z", "args": {}, "image_id": None}]
+        self.assertEqual(self.sc.build(inputs(metrics=started))["private"]["cost"]["founder"], founder)  # not a session
         self.assertEqual(self.model["private"]["discovery"],
                          {"ideas_proposed": 1, "ideas_held": 2, "gaps_found": 1, "gaps_held": 2})
 

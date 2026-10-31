@@ -3,6 +3,8 @@ is pinned here, so a later edit that loosens it fails a test instead of passing 
 
 from __future__ import annotations
 
+import argparse
+import hashlib
 import importlib.util
 import io
 import json
@@ -16,6 +18,8 @@ from pathlib import Path
 from unittest import mock
 
 from snowball_bootstrap import rival, vectors
+
+from helpers import commit, ledger_bytes, ledger_rows, make_repo, quiet_pilot
 
 FOUNDER = Path(__file__).resolve().parents[2] / "founder"
 VECTORS = Path(__file__).resolve().parents[1] / "vectors"
@@ -248,7 +252,7 @@ class VectorInputsTest(unittest.TestCase):
         launch = load_launch()
         head, calls, report = "a" * 40, [], []
 
-        class Fake(launch.Pilot):
+        class Fake(quiet_pilot(launch)):
             def fetch_result(self):
                 return {"head": head, "verdict": "accepted", "state": {"last_evaluated_sha": head}}
 
@@ -299,7 +303,7 @@ class RefereeRetryTest(unittest.TestCase):  # E166: the loop never waits on the 
         before, after = "a" * 40, "b" * 40
         report = []
 
-        class Fake(launch.Pilot):
+        class Fake(quiet_pilot(launch)):
             dispatches = 0
             heads = [before, after]
 
@@ -352,7 +356,7 @@ class RefereeRetryTest(unittest.TestCase):  # E166: the loop never waits on the 
         launch = load_launch()
         head, calls = "b" * 40, []
 
-        class Fake(launch.Pilot):
+        class Fake(quiet_pilot(launch)):
             dispatches = 0
 
             def fetch_result(self):
@@ -393,7 +397,7 @@ class RefereeRetryTest(unittest.TestCase):  # E166: the loop never waits on the 
         before, after = "a" * 40, "b" * 40
         report = []
 
-        class Fake(launch.Pilot):
+        class Fake(quiet_pilot(launch)):
             heads = [before, after]
 
             def fetch_result(self):  # the newest signed result is still the previous head's
@@ -479,7 +483,7 @@ class RefereeRetryTest(unittest.TestCase):  # E166: the loop never waits on the 
         launch = load_launch()
         calls = []
 
-        class Fake(launch.Pilot):
+        class Fake(quiet_pilot(launch)):
             def fetch_result(self):  # GitHub cannot be read: the newest result stays an older head's
                 return {"head": "a" * 40, "verdict": "accepted", "state": {"last_evaluated_sha": "a" * 40}}
 
@@ -534,7 +538,7 @@ class RefereeRetryTest(unittest.TestCase):  # E166: the loop never waits on the 
         launch = load_launch()
         head, waits = "a" * 40, []
 
-        class Fake(launch.Pilot):
+        class Fake(quiet_pilot(launch)):
             def fetch_result(self):
                 return {"head": head, "verdict": "accepted", "state": {"last_evaluated_sha": head}}
 
@@ -593,6 +597,269 @@ class RefereeRetryTest(unittest.TestCase):  # E166: the loop never waits on the 
         dispatches, report, cap = self.run_cycle(evaluated_on=99)
         self.assertEqual(dispatches, 1 + cap)
         self.assertIn(f"{cap} kez yeniden incelendi", report)
+
+
+class CycleRecordTest(unittest.TestCase):
+    """E313 and the debate's N4: every cycle's line names what its outcome is attributed to, every launcher start is a
+    row of its own, and the open brain reports with their age reach the report (N1: a report with no reader)."""
+
+    def cycle(self, verdict_rival=None, sess=None):
+        launch = load_launch()
+        before, after = "a" * 40, "b" * 40
+        report = []
+
+        class Fake(quiet_pilot(launch)):
+            heads = [before, after]
+            dispatches = 0
+
+            def fetch_result(self):
+                if not self.dispatches:
+                    return None
+                return {"head": after, "verdict": "accepted", "warnings": [], "rival": verdict_rival,
+                        "state": {"last_evaluated_sha": after, "last_accepted_sha": after}}
+
+            def dispatch_referee(self, timeout_s):
+                self.dispatches += 1
+                return {"id": "1", "conclusion": "success", "url": "u"}
+
+            def brain_head(self):
+                return self.heads.pop(0)
+
+            def ledger_rows(self, sha):
+                return []
+
+            def refresh_inputs(self):
+                pass
+
+            def session(self, *a):
+                return sess or {"exit": 0, "minutes": 1, "cli_version": "2.1.293", "model_served": "claude-opus-5-5",
+                                "timed_out": False}
+
+            def write(self, text):
+                report.append(text)
+
+        pilot = Fake(Path(tempfile.mkdtemp()), "o/brain", "o/referee", "target")
+        pilot.idle, pilot.seed = 0, before
+        pilot.prompt_sha256, pilot.image_id = "p" * 64, "sha256:" + "i" * 64
+        args = type("Args", (), dict(model="claude-opus-5-5", max_turns=1, budget_usd=1, session_timeout=1,
+                                     referee_timeout=1))
+        with mock.patch.object(launch, "say"):
+            pilot.cycle(1, args)
+        return pilot, json.loads(pilot.metrics.read_text(encoding="utf-8").splitlines()[-1]), "".join(report)
+
+    def test_every_attribution_field_is_on_the_cycles_line(self):
+        rival_block = {"prompt_sha256": "r" * 64, "model_served": "claude-sonnet-5-5", "effort": "medium",
+                       "cli_version": "2.1.290", "attempts": [], "cost_usd_micros": 320527}
+        pilot, m, _ = self.cycle(verdict_rival=rival_block)
+        self.assertEqual({k: m[k] for k in ("prompt_sha256", "image_id", "model", "cli_version", "model_served",
+                                            "seed_commit", "spec_tohum_tree", "target_sha", "timed_out")},
+                         {"prompt_sha256": "p" * 64, "image_id": "sha256:" + "i" * 64, "model": "claude-opus-5-5",
+                          "cli_version": "2.1.293", "model_served": "claude-opus-5-5", "seed_commit": "a" * 40,
+                          "spec_tohum_tree": "t" * 40, "target_sha": "c" * 40, "timed_out": False})
+        self.assertEqual(m["rival_config"], {"prompt_sha256": "r" * 64, "model_served": "claude-sonnet-5-5",
+                                             "effort": "medium", "cli_version": "2.1.290"})
+        self.assertEqual((m["cost_row"], m["reports_open"]), ("stub", 0))
+        self.assertEqual(pilot.cost_calls, [(pilot.cost_calls[0][0], "b" * 40, "b" * 40)])  # after the referee's verdict
+
+    def test_no_rival_block_is_no_rival_configuration_and_a_timeout_is_named(self):
+        _, m, _ = self.cycle(sess={"exit": -1, "minutes": 180.2, "timed_out": True})
+        self.assertEqual((m["rival_config"], m["timed_out"], m["cli_version"]), (None, True, None))
+
+    def test_a_launcher_start_writes_one_intervention_row(self):
+        launch = load_launch()
+        pilot = launch.Pilot(Path(tempfile.mkdtemp()), "o/brain", "o/referee", "target")
+        pilot.seed = "s" * 40
+        args = argparse.Namespace(cycles=3, model="claude-opus-5-5", no_build=False)
+        with mock.patch.object(launch.Pilot, "image", return_value="sha256:" + "i" * 64):
+            pilot.intervention(args)
+        rows = [json.loads(line) for line in pilot.metrics.read_text(encoding="utf-8").splitlines()]
+        self.assertEqual(rows, [{"kind": "intervention", "ts": rows[0]["ts"], "image_id": "sha256:" + "i" * 64,
+                                 "prompt_sha256": launch.prompt_sha256(), "seed_commit": "s" * 40,
+                                 "args": {"cycles": "3", "model": "claude-opus-5-5", "no_build": "False"}}])
+        built = (FOUNDER / "prompt.md").read_bytes().replace(b"\r\n", b"\n")  # the bytes the image is built with
+        self.assertEqual(launch.prompt_sha256(), hashlib.sha256(built).hexdigest())
+        self.assertIn("pilot.intervention(args)", (FOUNDER / "launch.py").read_text(encoding="utf-8"))
+
+    def test_the_transcripts_init_event_gives_the_cli_and_the_served_model(self):
+        launch = load_launch()
+        path = Path(tempfile.mkdtemp()) / "s.jsonl"
+        path.write_text("not json\n" + json.dumps({"type": "system", "subtype": "init", "model": "claude-opus-5-5",
+                                                   "claude_code_version": "2.1.293"}) + "\n", encoding="utf-8")
+        self.assertEqual(launch.Pilot.transcript_init(path), {"cli_version": "2.1.293", "model_served": "claude-opus-5-5"})
+        self.assertEqual(launch.Pilot.transcript_init(path.with_name("none.jsonl")),
+                         {"cli_version": None, "model_served": None})
+
+    def test_the_open_reports_and_their_age_reach_the_report(self):
+        launch = load_launch()
+        seen = {}
+        reports = [{"file": "seed-040.json", "id": "seed-040", "state": "open"},
+                   {"file": "spec-004.json", "id": "spec-004", "state": "confirmed"}]
+        self.assertEqual(launch.report_ages(reports, seen, "2026-10-31T20:00:00Z"), [("seed-040", 0)])
+        reports.append({"file": "seed-041.json", "id": "seed-041", "state": "open"})
+        self.assertEqual(launch.report_ages(reports, seen, "2026-11-01T01:30:00Z"), [("seed-040", 5), ("seed-041", 0)])
+        self.assertEqual(seen["seed-040"], "2026-10-31T20:00:00Z")  # the first sighting is kept
+        pilot = launch.Pilot(Path(tempfile.mkdtemp()), "o/brain", "o/referee", "target")
+        with mock.patch.object(launch.Pilot, "open_reports", return_value=reports[:1]), \
+                mock.patch.object(launch.Pilot, "spec_tohum_tree", return_value="t" * 40), \
+                mock.patch.object(launch.Pilot, "target_head", return_value="c" * 40):
+            seen_now = pilot.observe("b" * 40)
+        self.assertEqual(seen_now, {"spec_tohum_tree": "t" * 40, "target_sha": "c" * 40, "reports_open": [("seed-040", 0)]})
+        self.assertIn("seed-040", json.loads((pilot.work / launch.REPORTS_SEEN).read_text(encoding="utf-8")))
+        _, _, text = self.cycle()
+        self.assertIn("- Açık raporlar (0, beyin `bbbbbbb`", text)
+        self.assertIn("- Maliyet satırı (`kind: cost`): stub", text)
+
+    def test_the_reads_are_get_only(self):
+        source = (FOUNDER / "launch.py").read_text(encoding="utf-8")
+        for name in ("spec_tohum_tree", "open_reports"):
+            body = source.split(f"def {name}(", 1)[1].split("\n    def ", 1)[0]
+            self.assertNotIn("--method", body)
+            self.assertNotIn("-X", body)
+
+
+class CostRowTest(unittest.TestCase):
+    """The seed's launcher contract (`tohum/24a` 4, the debate's N3): after each session the launcher writes the CLI's
+    cost as a `kind: cost` founder row, chained by `26`'s rule, as its own identity, and only as a commit the referee
+    reads as memory alone. Before delivery it was tried on a mirror (docs/eksik-kaydi.md, E344)."""
+
+    FACT = {"stamp": "20261031T174316Z", "head": "9" * 40, "exit": -1, "minutes": 180.2, "turns": None,
+            "cost_usd": None, "subtype": None}
+
+    def test_the_row_is_bare_facts_chained_to_the_last_row_and_passes_the_referees_check(self):
+        from snowball_bootstrap import canon, ledgercheck
+        launch = load_launch()
+        ledger = ledger_bytes(ledger_rows(3))
+        line = launch.cost_line(ledger, self.FACT, "2026-10-31T21:00:00Z")
+        row = json.loads(line)
+        self.assertEqual(row["prev_hash"], ledger_rows(3)[-1]["row_hash"])
+        self.assertEqual(row["row_hash"], canon.row_hash(row))
+        self.assertEqual({k: row[k] for k in ("row_id", "part", "kind", "derivation", "trust", "snapshot_id")},
+                         {"row_id": "f4", "part": "founder", "kind": "cost", "derivation": "tool", "trust": "observed",
+                          "snapshot_id": "9" * 40})
+        self.assertEqual(row["payload"], {
+            "summary": "session 20261031T174316Z: exit -1, 180.2 min, turns unknown, cost_usd_micros unknown, "
+                       "CLI result none",
+            "refs": ["logs/20261031T174316Z/session-20261031T174316Z.jsonl"]})
+        self.assertEqual(ledgercheck.check(ledger + line, ledger, whole=False), [])
+        paid = launch.cost_summary(dict(self.FACT, exit=0, minutes=14.5, turns=88, cost_usd=2.3456789, subtype="success"))
+        self.assertEqual(paid, "session 20261031T174316Z: exit 0, 14.5 min, turns 88, cost_usd_micros 2345679, "
+                               "CLI result success")
+        first = json.loads(launch.cost_line(b"", self.FACT, "2026-10-31T21:00:00Z"))
+        self.assertEqual((first["row_id"], first["prev_hash"]), ("f1", "0" * 64))
+
+    def test_a_ledger_that_cannot_take_an_appended_row_gets_none(self):
+        launch = load_launch()
+        ledger = ledger_bytes(ledger_rows(2))
+        for broken in (ledger[:-1], ledger + b'{"kind": "x"}\n', ledger + b"not json\n"):
+            with self.assertRaises(ValueError):
+                launch.cost_line(broken, self.FACT, "2026-10-31T21:00:00Z")
+
+    def mirror(self, extra=None):
+        tmp = Path(tempfile.mkdtemp())
+        work = tmp / "work"
+        make_repo(work, {"referee/a.py": "x = 1\n"})
+        accepted = commit(work, {"founder-ledger.jsonl": ledger_bytes(ledger_rows(2))}, "accepted")  # bytes as given
+        if extra:
+            commit(work, extra, "the Founder's next push")
+        bare = tmp / "brain.git"
+        subprocess.run(["git", "clone", "--quiet", "--bare", str(work), str(bare)], check=True, capture_output=True)
+        return bare, accepted
+
+    def test_on_an_accepted_head_the_row_is_pushed_as_the_launcher(self):
+        from snowball_bootstrap import gitio, ledgercheck
+        launch = load_launch()
+        bare, accepted = self.mirror()
+        head = launch.push_cost_rows(str(bare), [self.FACT, dict(self.FACT, stamp="20261031T210135Z")], accepted,
+                                     "2026-10-31T22:00:00Z", credential=False)
+        self.assertRegex(head, r"^[0-9a-f]{40}$")
+        self.assertEqual(gitio.git(bare, "rev-parse", "main").decode().strip(), head)
+        self.assertEqual(gitio.git(bare, "log", "-1", "--format=%an <%ae>|%cn", head).decode().strip(),
+                         f"{launch.LAUNCHER_NAME} <{launch.LAUNCHER_EMAIL}>|{launch.LAUNCHER_NAME}")
+        self.assertEqual(gitio.git(bare, "diff", "--name-only", accepted, head).decode().split(), ["founder-ledger.jsonl"])
+        old = gitio.git(bare, "show", f"{accepted}:founder-ledger.jsonl")
+        new = gitio.git(bare, "show", f"{head}:founder-ledger.jsonl")
+        self.assertEqual(ledgercheck.check(new, old, whole=True), [])
+        self.assertEqual([json.loads(x)["kind"] for x in new.splitlines()], ["decision", "decision", "cost", "cost"])
+
+    def test_a_head_with_work_the_referee_has_not_accepted_gets_no_commit(self):
+        from snowball_bootstrap import gitio
+        launch = load_launch()
+        bare, accepted = self.mirror(extra={"referee/a.py": "x = 2\n"})  # rejected or unjudged: judged again otherwise
+        before = gitio.git(bare, "rev-parse", "main").decode().strip()
+        outcome = launch.push_cost_rows(str(bare), [self.FACT], accepted, "2026-10-31T22:00:00Z", credential=False)
+        self.assertTrue(outcome.startswith("deferred: 1 path(s) changed since the last accepted"), outcome)
+        self.assertEqual(gitio.git(bare, "rev-parse", "main").decode().strip(), before)
+        self.assertTrue(launch.push_cost_rows(str(bare), [self.FACT], None, "t", credential=False).startswith("deferred"))
+        bare2, accepted2 = self.mirror(extra={"reports/r.json": "{}\n"})  # memory above the accepted head is fine
+        self.assertRegex(launch.push_cost_rows(str(bare2), [self.FACT], accepted2, "2026-10-31T22:00:00Z",
+                                               credential=False), r"^[0-9a-f]{40}$")
+
+    def test_a_seed_delivery_above_the_accepted_head_is_the_operators_not_work(self):
+        """As the referee reads it (`cli._pull_classify`, E88): while the head's seed is the last epoch commit's, the
+        seed paths since the last accepted commit are the delivery; any other seed is work, and waits."""
+        from snowball_bootstrap import gitio
+        launch = load_launch()
+        bare, accepted = self.mirror(extra={"spec/tohum/00-cekirdek.md": "# core, epoch 2\n"})
+        epoch = gitio.git(bare, "rev-parse", "main").decode().strip()
+        self.assertRegex(launch.push_cost_rows(str(bare), [self.FACT], accepted, "2026-10-31T22:00:00Z", epoch,
+                                               credential=False), r"^[0-9a-f]{40}$")
+        bare2, accepted2 = self.mirror(extra={"spec/tohum/00-cekirdek.md": "# core, epoch 2\n"})
+        for named in (None, accepted2):  # no epoch named, or one whose seed is not the head's
+            self.assertTrue(launch.push_cost_rows(str(bare2), [self.FACT], accepted2, "t", named,
+                                                  credential=False).startswith("deferred"), named)
+
+    def test_a_deferred_row_waits_in_the_work_folder_and_goes_out_first_next_time(self):
+        launch = load_launch()
+        pilot = launch.Pilot(Path(tempfile.mkdtemp()), "o/brain", "o/referee", "target")
+        calls = []
+
+        def fake_push(remote, facts, last_accepted, ts, epoch=None, credential=True):
+            calls.append([f["stamp"] for f in facts])
+            return "deferred: 1 path(s)" if len(calls) == 1 else "f" * 40
+        with mock.patch.object(launch, "push_cost_rows", side_effect=fake_push):
+            self.assertIn("1 satır bekliyor", pilot.record_cost("S1", {"exit": 0}, "b" * 40, "a" * 40))
+            self.assertTrue((pilot.work / launch.COST_PENDING).is_file())
+            self.assertIn("2 satır yazıldı", pilot.record_cost("S2", {"exit": 0}, "b" * 40, "b" * 40))
+        self.assertEqual(calls, [["S1"], ["S1", "S2"]])
+        self.assertFalse((pilot.work / launch.COST_PENDING).exists())
+
+    def test_the_launchers_own_commit_is_not_a_founder_push(self):
+        """The two-sessions-without-a-push stop counts the Founder's pushes: the cost commit lands after the head is
+        read, so a session that pushed nothing is idle even when the launcher wrote a row (N3 (d))."""
+        launch = load_launch()
+        head = "a" * 40
+
+        class Fake(quiet_pilot(launch)):
+            def fetch_result(self):
+                return {"head": head, "verdict": "accepted", "state": {"last_evaluated_sha": head,
+                                                                       "last_accepted_sha": head}}
+
+            def brain_head(self):
+                return head
+
+            def ledger_rows(self, sha):
+                return []
+
+            def refresh_inputs(self):
+                pass
+
+            def session(self, *a):
+                return {"exit": 0, "minutes": 1}
+
+            def write(self, text):
+                pass
+
+            def record_cost(self, stamp, sess, head_, last_accepted):
+                return "1 satır yazıldı, beyin `ccccccc`"
+
+        pilot = Fake(Path(tempfile.mkdtemp()), "o/brain", "o/referee", "target")
+        pilot.idle, pilot.seed = 0, head
+        args = type("Args", (), dict(model="m", max_turns=1, budget_usd=1, session_timeout=1, referee_timeout=1))
+        with mock.patch.object(launch, "say"):
+            self.assertTrue(pilot.cycle(1, args))
+            self.assertFalse(pilot.cycle(2, args))  # two sessions without a Founder push stop the pilot
+        m = json.loads(pilot.metrics.read_text(encoding="utf-8").splitlines()[-1])
+        self.assertEqual((m["pushed"], pilot.idle), (False, 2))
 
 
 class TranscriptTest(unittest.TestCase):

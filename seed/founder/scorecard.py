@@ -482,7 +482,8 @@ def _count(values: Any) -> dict[str, int]:
 
 
 def _private(inputs: dict[str, Any], units: list[dict[str, Any]], latest: dict[str, Any]) -> dict[str, Any]:
-    metrics = inputs["metrics"]
+    # A launcher start is a row of its own (E313), not a session: only the cycles' rows are counted.
+    metrics = None if inputs["metrics"] is None else [m for m in inputs["metrics"] if m.get("kind") != "intervention"]
     cost: dict[str, Any] = {"rival_usd": f"{int(latest.get('stage_spend_usd_micros', 0)) / 1e6:.2f}"}
     if metrics is None:
         cost["founder"] = "GAP: pilot-metrics.jsonl not read"

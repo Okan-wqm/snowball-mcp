@@ -52,6 +52,22 @@ def ledger_rows(count: int, start: int = 1, prev: str = ZERO_HASH, edits: dict[i
     return rows
 
 
+def quiet_pilot(launch):
+    """The launcher's Pilot with the end of the cycle's reads of GitHub and the target, and its one write (the cost row),
+    stubbed: a test of another part of the cycle never reaches the network. Those parts have their own tests
+    (`test_founder_capsule` `CostRowTest`, `CycleRecordTest`)."""
+    class Quiet(launch.Pilot):
+        cost_calls: list = []
+
+        def record_cost(self, stamp, sess, head, last_accepted):
+            self.cost_calls = [*self.cost_calls, (stamp, head, last_accepted)]
+            return "stub"
+
+        def observe(self, head):
+            return {"spec_tohum_tree": "t" * 40, "target_sha": "c" * 40, "reports_open": []}
+    return Quiet
+
+
 def ledger_bytes(rows: list[dict]) -> bytes:
     """The rows as `founder-ledger.jsonl` holds them: one canonical JSON object per line, each ending with a newline."""
     return b"".join(canonical(row) + b"\n" for row in rows)
