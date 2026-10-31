@@ -231,7 +231,9 @@ class BuildTest(unittest.TestCase):
         self.assertIn("| Kalıcılık: kabul edilmiş işte kapanmış kusurun geri dönmesi | ölçülemez", text)
         self.assertNotIn("kalıcılık, tekrar", text)  # nothing on the card is called retention but the gap itself
         verbs = {line.split(" | ")[0]: line for line in text.splitlines() if line.startswith("| ")}
-        self.assertTrue(verbs["| yanlışı yanlış bilir"].endswith("| ölçülemez |"), verbs["| yanlışı yanlış bilir"])
+        # Not "ölçülemez" (G6): it is counted offline; without the operator's replays it is unmeasured yet (E315).
+        self.assertTrue(verbs["| yanlışı yanlış bilir"].endswith("| ölçülmedi: tekrar koşusu yok |"),
+                        verbs["| yanlışı yanlış bilir"])
 
     def test_the_latest_state_gives_the_rival_counts_and_spend(self):
         self.assertEqual(self.model["public"]["rival"], {"survived": 2, "refuted": 1, "open_refutations": 0,
@@ -290,6 +292,84 @@ class BuildTest(unittest.TestCase):
         self.assertEqual(public["ledger_kinds"], {"decision": 1, "diğer": 1, "session_start": 1})
         self.assertNotIn("cost", json.dumps(public))
         self.assertEqual(public["exam"], {"status": "not_run", "register": "E317"})
+
+
+class SelfFoundTest(unittest.TestCase):
+    """E315 and the debate's G6: a self-found defect is verified offline, from public records and the operator's replay,
+    when all three hold: (a) an [own_code] row names paths at an accepted head H, (b) nothing outside (a referee reason,
+    a rival attempt, an open claim) named them in any run up to H's verdict, (c) a later row names it and a replayed test
+    is red at H and green at a closing head accepted after H. The public card counts; only the private card names rows.
+    Also N5's split of the rival's survivals and the 'Expected:' calibration row, both private."""
+
+    H, CLOSE = sha(201), sha(202)
+    PATH = "referee/gate/check.py"
+
+    def history(self, rival_claim: bool = False, red_at_h: bool = True, replay: bool = True):
+        sc = load("scorecard")
+        ledger = chain([
+            {"ts": "2026-10-31T00:00:00Z", "part": "founder", "kind": "seed_issue", "snapshot_id": self.H,
+             "payload": {"summary": f"[own_code] Open, not fixed here: the catch-all in {self.PATH} keeps the message "
+                                    f"{CLAIM}", "refs": [self.PATH]}},
+            {"ts": "2026-10-30T00:00:00Z", "part": "founder", "kind": "build", "snapshot_id": self.H,
+             "payload": {"summary": "closes:f1, test_check T38 red before", "refs": []}},
+            {"ts": "2026-10-29T00:00:00Z", "part": "founder", "kind": "session_end", "snapshot_id": self.H,
+             "payload": {"summary": "Pushed one code request. Expected: accepted.", "refs": []}},
+        ])
+        attempts = [{"claim": f"{self.PATH} swallows the error", "evidence_refs": [{"path": self.PATH}]}] if rival_claim else []
+        arts = [{"sha": self.H, "outcome": "survived"}, {"sha": self.CLOSE, "outcome": "survived"}]
+        res = [result(self.H, SEED, "code", "accepted", rival={"attempts": attempts}),
+               result(self.CLOSE, self.H, "code", "accepted", rival={"attempts": []}, state={"rival_artifacts": arts})]
+        replays = [{"row_id": "f1", "h": self.H, "closing_head": self.CLOSE, "test": "referee/tests/test_check.py",
+                    "red_at_h": red_at_h, "green_at_close": True}] if replay else None
+        model = sc.build(inputs(results=signed(res), ledger_at=self.CLOSE, ledger=ledger,
+                                manifests={self.H: [], self.CLOSE: [], SEED: []}, replays=replays))
+        return sc, model
+
+    def test_the_three_histories_count_one_zero_zero_and_publish_no_row(self):
+        counts = []
+        for kw in ({}, {"rival_claim": True}, {"red_at_h": False}):
+            sc, model = self.history(**kw)
+            public = model["public"]["self_found"]
+            counts.append(public["verified"]["x"])
+            self.assertEqual(public["verified"]["n"], 1)  # one [own_code] claim in each
+            for text in (json.dumps(model["public"], ensure_ascii=False), sc.render_public(model["public"])):
+                self.assertNotIn('"f1"', text)
+                self.assertNotIn("`f1`", text)
+                self.assertNotIn(CLAIM, text)
+        self.assertEqual(counts, [1, 0, 0])
+        _sc, model = self.history()
+        self.assertEqual(model["private"]["self_found"]["verified"], ["f1"])  # the case list is the operator's only
+
+    def test_without_a_replay_a_candidate_waits_and_the_card_says_unmeasured(self):
+        sc, model = self.history(replay=False)
+        self.assertEqual(model["private"]["self_found"]["waiting_for_replay"], ["f1"])
+        self.assertEqual(model["public"]["self_found"], {"claims": 1, "waiting_for_replay": 1, "replays_read": False,
+                                                         "verified": {"verdict": "UNMEASURABLE", "reason": "no replay"}})
+        line = next(x for x in sc.render_public(model["public"]).splitlines() if x.startswith("| yanlışı yanlış bilir"))
+        self.assertTrue(line.endswith("| ölçülmedi: tekrar koşusu yok |"), line)
+
+    def test_the_order_is_the_referees_never_the_ledgers_times(self):
+        # The rows' ts run backwards (2026-10-31, -30, -29): the rule never reads them. A replay whose closing head was
+        # accepted before H, in signing order, closes nothing.
+        sc = load("scorecard")
+        _sc, model = self.history()
+        items = sorted(signed([result(self.CLOSE, SEED, "code", "accepted"), result(self.H, self.CLOSE, "code", "accepted",
+                                                                                     rival={"attempts": []})]),
+                       key=sc._signed_order)
+        rows = sc.verify_chain(chain([{"ts": "x", "part": "founder", "kind": "seed_issue", "snapshot_id": self.H,
+                                       "payload": {"summary": f"[own_code] {self.PATH}", "refs": []}},
+                                      {"ts": "x", "part": "founder", "kind": "build", "payload": {"summary": "f1 fixed"}}]))
+        replays = [{"row_id": "f1", "h": self.H, "closing_head": self.CLOSE, "red_at_h": True, "green_at_close": True}]
+        self.assertEqual(sc.self_found(rows, items, replays)["verified"], [])
+
+    def test_survivals_split_by_whether_the_rival_tried_and_expected_is_paired_with_the_next_verdict(self):
+        _sc, model = self.history(rival_claim=True)
+        self.assertEqual(model["private"]["rival_challenge"],
+                         {"survived": 2, "challenged": 1, "unchallenged": 1, "no_record": 0})
+        self.assertEqual(model["private"]["calibration"],
+                         {"rows": 1, "paired": 1, "agreed": 1, "by_expected": {"accepted": {"n": 1, "agreed": 1}}})
+        self.assertNotIn("calibration", model["public"])
+        self.assertNotIn("rival_challenge", model["public"])
 
 
 class FlaggedFirstAttemptTest(unittest.TestCase):

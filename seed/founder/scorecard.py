@@ -12,7 +12,10 @@ What it reads, every call a GET through the operator's `gh` login:
   - the brain's ledger at the head of the referee's last result, so the card has one record point; its hash chain
     verified with the seed's own `canon.row_hash`: a broken link or hash refuses the card;
   - `snowball-tests.json` at each judged head and base: the micro-features each push declared done;
-  - <work>/pilot-metrics.jsonl and <work>/fikir-olcutu.md, opened read-only, for the private card only.
+  - <work>/pilot-metrics.jsonl and <work>/fikir-olcutu.md, opened read-only, for the private card only;
+  - <work>/scorecard/self-found-replays.jsonl, opened read-only when it exists: the operator's offline replays of the
+    tests that close a self-found defect (E315), one JSON object per line `{row_id, h, closing_head, test, red_at_h,
+    green_at_close}`, each run in the capsule image with `--network none`.
 
 What it writes: <work>/scorecard/karne.json and karne.md, the private card (with cost and discovery), and with
 --public the public card: <prefix>.json (counts, the inputs' digests, the definitions' hash) and <prefix>.md rendered
@@ -33,6 +36,7 @@ import hashlib
 import io
 import json
 import math
+import re
 import statistics
 import subprocess
 import sys
@@ -55,6 +59,11 @@ GH_TIMEOUT_S = 120
 ZERO = "0" * 64
 MIN_N = 5  # below this many units an interval is not drawn: UNMEASURABLE (`tohum/19`)
 JUDGED_KINDS = ("spec", "code", "exit")
+REPLAYS = "self-found-replays.jsonl"  # in <work>/scorecard: the operator's offline replays (E315)
+OWN_CODE = "[own_code]"  # the Founder's own tag for a defect it found in its own code
+# A path a row names in its text: a top-level folder of the brain, then a file. Reports and the ledger are memory.
+PATH_RE = re.compile(r"(?<![\w./-])((?:referee|tests|docs|spec|candidates|targets)/[\w./-]*\w)")
+EXPECTED_RE = re.compile(r"\bExpected:\s*([A-Za-z_]+)")
 
 # Every measure on the card and its grade, frozen with the card: a change here changes `definitions_sha256`, which
 # the card prints and a seed test holds to the committed card. Grades: mechanical (from the referee's digest-checked
@@ -103,6 +112,20 @@ DEFINITIONS = {
                  "(found by the system) over all held gaps; held ideas likewise.",
     "exam": "Controlled. The lesson drill (tohum/22a, 22b) on the real brain, judged by the reference judge; the only "
             "measure that can say 'proved'. Not run: it waits on the owner's decision (E317).",
+    "self_found": "Mechanical with the operator's replays (E315). A Founder row whose summary carries the tag "
+                  "[own_code] is a claim. It is a verified self-found defect when (a) it names paths (its refs, or brain paths in its "
+                  "text) and its snapshot_id H is an accepted head; (b) no referee reason, rival attempt or open claim "
+                  "of any run up to and including the first that accepted H names those paths; (c) a later ledger row "
+                  "names the row's id, and a replay shows a test red at H and green at a closing head the referee "
+                  "accepted after H. Order is the referee's signing order, never ledger or commit times (E316). "
+                  "Public: the count over claims; private: the row ids. Pre-push self-corrections leave no record "
+                  "at an accepted head and are not counted.",
+    "calibration": "Private, observational. A session_end row's 'Expected: <verdict>' against the verdict of the first "
+                   "judged push after the result whose head is the row's snapshot_id; uninformative while nearly every "
+                   "push is accepted.",
+    "rival_challenge": "Private, mechanical. Each survived rival artifact of the latest state, split by whether the "
+                       "rival made any refutation attempt on it (attempts > 0: challenged) in the result that judged "
+                       "it; 'survived' without an attempt carries no information while recall is unmeasured (E311).",
 }
 DEFINITIONS_SHA256 = canon.sha256_hex(canon.canonical(DEFINITIONS))
 
@@ -301,9 +324,13 @@ def fetch(work: Path, brain: str, referee: str, get: Get = gh_get) -> dict[str, 
     if ideas_path.is_file():
         with ideas_path.open("r", encoding="utf-8") as fh:
             ideas = fh.read()
+    replays = None
+    if (cache.root / REPLAYS).is_file():
+        with (cache.root / REPLAYS).open("r", encoding="utf-8") as fh:
+            replays = [json.loads(line) for line in fh if line.strip()]
     return {"results": results, "ledger_at": ledger_at, "ledger": ledger, "manifests": known,
             "metrics": metrics, "ideas": ideas, "exclusions": json.loads(EXCLUSIONS.read_text(encoding="utf-8")),
-            "gaps": gaps}
+            "gaps": gaps, "replays": replays}
 
 
 # ---- statistics ---------------------------------------------------------------------------------------------------
@@ -339,6 +366,100 @@ def share(x: int, n: int) -> dict[str, Any]:
 
 
 # ---- the model (pure) ---------------------------------------------------------------------------------------------
+def _accepted_at(items: list[dict[str, Any]]) -> dict[str, int]:
+    """Each accepted head and the position, in signing order, of the first run that accepted it."""
+    out: dict[str, int] = {}
+    for i, item in enumerate(items):
+        r = item["result"]
+        if r.get("verdict") == "accepted" and (r.get("state") or {}).get("last_evaluated_sha") == r.get("head"):
+            out.setdefault(str(r.get("head")), i)
+    return out
+
+
+def _row_paths(row: dict[str, Any]) -> set[str]:
+    payload = row.get("payload") if isinstance(row.get("payload"), dict) else {}
+    named = {r for r in payload.get("refs") or [] if isinstance(r, str)}
+    named |= set(PATH_RE.findall(str(payload.get("summary", ""))))
+    return {p for p in named if p and not p.startswith("reports/") and p != LEDGER}
+
+
+def _touched(result: dict[str, Any], paths: set[str]) -> bool:
+    """Whether a run's outside findings name one of the paths: its reasons, the rival's attempts, the open claims."""
+    seen = json.dumps([result.get("reasons") or [], (result.get("rival") or {}).get("attempts") or [],
+                       (result.get("state") or {}).get("open_claims") or []], ensure_ascii=False)
+    return any(p in seen for p in paths)
+
+
+def self_found(rows: list[dict[str, Any]], items: list[dict[str, Any]], replays: list[dict[str, Any]] | None
+               ) -> dict[str, Any]:
+    """The verified self-found rule (DEFINITIONS["self_found"], E315): the claims, the ones (a) and (b) leave waiting
+    for a replay, and the verified ones, by row id (private)."""
+    accepted = _accepted_at(items)
+    by_row: dict[str, list[dict[str, Any]]] = {}
+    for rp in replays or []:
+        by_row.setdefault(str(rp.get("row_id")), []).append(rp)
+    claims, waiting, verified = [], [], []
+    for n, row in enumerate(rows):
+        if OWN_CODE not in str((row.get("payload") or {}).get("summary", "")):
+            continue
+        rid, h = str(row.get("row_id")), str(row.get("snapshot_id"))
+        claims.append(rid)
+        paths, at = _row_paths(row), accepted.get(h)
+        if not paths or at is None:  # (a)
+            continue
+        if any(_touched(items[j]["result"], paths) for j in range(at + 1)):  # (b): someone else named it first
+            continue
+        named = re.compile(rf"(?<![\w-]){re.escape(rid)}(?!\w)")
+        if not any(named.search(json.dumps(r.get("payload"), ensure_ascii=False)) for r in rows[n + 1:]):
+            continue  # (c): no later row closes it
+        if any(rp.get("h") == h and accepted.get(str(rp.get("closing_head")), -1) > at and rp.get("red_at_h") is True
+               and rp.get("green_at_close") is True for rp in by_row.get(rid, [])):
+            verified.append(rid)
+        else:
+            waiting.append(rid)
+    return {"claims": claims, "waiting_for_replay": waiting, "verified": verified, "replays_read": replays is not None}
+
+
+def calibration(rows: list[dict[str, Any]], items: list[dict[str, Any]]) -> dict[str, Any]:
+    """'Expected: <verdict>' in session_end rows against the verdict that followed (DEFINITIONS["calibration"])."""
+    out = {"rows": 0, "paired": 0, "agreed": 0, "by_expected": {}}
+    heads = [str(i["result"].get("head")) for i in items]
+    for row in rows:
+        m = EXPECTED_RE.search(str((row.get("payload") or {}).get("summary", ""))) if row.get("kind") == "session_end" else None
+        if not m:
+            continue
+        out["rows"] += 1
+        expected = m.group(1).lower()
+        start = max((i for i, h in enumerate(heads) if h == row.get("snapshot_id")), default=None)
+        after = next((i["result"] for i in items[(start if start is not None else len(items)) + 1:]
+                      if i["result"].get("kind") in JUDGED_KINDS
+                      and (i["result"].get("state") or {}).get("last_evaluated_sha") == i["result"].get("head")), None)
+        if after is None:
+            continue
+        out["paired"] += 1
+        agreed = after.get("verdict") == expected
+        out["agreed"] += agreed
+        tally = out["by_expected"].setdefault(expected, {"n": 0, "agreed": 0})
+        tally["n"] += 1
+        tally["agreed"] += agreed
+    return out
+
+
+def rival_challenge(items: list[dict[str, Any]], latest: dict[str, Any]) -> dict[str, int]:
+    """The latest state's survived artifacts, challenged (an attempt was made) or not (DEFINITIONS["rival_challenge"])."""
+    out = {"survived": 0, "challenged": 0, "unchallenged": 0, "no_record": 0}
+    for art in latest.get("rival_artifacts") or []:
+        if art.get("outcome") != "survived":
+            continue
+        out["survived"] += 1
+        judged = [i["result"] for i in items if i["result"].get("head") == art.get("sha") and i["result"].get("rival")]
+        if not judged:
+            out["no_record"] += 1
+        else:
+            out["challenged" if (judged[-1]["rival"].get("attempts") or []) else "unchallenged"] += 1
+    return out
+
+
 def _founder_owned(reasons: list[dict[str, Any]]) -> bool:
     return any(counts_against_founder({"kind": str(r.get("kind", "")), "ref": str(r.get("ref") or "")}) for r in reasons)
 
@@ -423,6 +544,7 @@ def build(inputs: dict[str, Any]) -> dict[str, Any]:
         return share(sum(1 for u in counted if u[col]), len(counted))
 
     segments = sorted({u["segment"] for u in unit_rows})
+    found = self_found(rows, items, inputs.get("replays"))
     code = [p for p in pushes if p["kind"] != "spec"]
     latest = items[-1]["result"].get("state") or {}
     rival_arts = latest.get("rival_artifacts") or []
@@ -470,8 +592,16 @@ def build(inputs: dict[str, Any]) -> dict[str, Any]:
         "autonomy": {"seed_epochs": seed_epochs, "waived_refutations": len(waived), "unevaluated_runs": unevaluated,
                      "rival_side_retries": rival_retries},
         "exam": {"status": "not_run", "register": "E317"},
+        # Counts only (E315): which rows are claims or verified is in the private card.
+        # Without the operator's replays nothing can be verified yet: unmeasured, never a measured zero.
+        "self_found": {"claims": len(found["claims"]), "waiting_for_replay": len(found["waiting_for_replay"]),
+                       "replays_read": found["replays_read"],
+                       "verified": (share(len(found["verified"]), len(found["claims"])) if found["replays_read"]
+                                    else {"verdict": "UNMEASURABLE", "reason": "no replay"})},
     }
-    return {"public": public, "private": _private(inputs, unit_rows, latest)}
+    private = _private(inputs, unit_rows, latest)
+    private.update(self_found=found, calibration=calibration(rows, items), rival_challenge=rival_challenge(items, latest))
+    return {"public": public, "private": private}
 
 
 def _count(values: Any) -> dict[str, int]:
@@ -514,6 +644,7 @@ def _share_text(s: dict[str, Any]) -> str:
 def _verbs(m: dict[str, Any]) -> tuple[tuple[str, str, str], ...]:
     """The owner's MVP sentence verb by verb: what the pilot shows, and its grade; only the exam can say more."""
     fa, pd, ml, rp = m["first_attempt"]["all"], m["proven_defects"], m["module_less"], m["repeat"]
+    sf = m["self_found"]
     return (
         ("öğrenir", f"aynı ret imzasının art arda tekrarı (`repeat_events`) {rp['events']}, düzeltilmiş "
                     f"{rp['events_adjusted']}; rakibin kanıtladığı {pd['defects']} ayrı kusurdan sonraki bir başta "
@@ -521,7 +652,11 @@ def _verbs(m: dict[str, Any]) -> tuple[tuple[str, str, str], ...]:
                     "(kusur yalnız kapanana kadar izlenir)", "mekanik"),
         ("öğrendiğini uygular", f"ilk denemede kabul {_share_text(fa['referee'])}, düzeltilmiş "
                                 f"{_share_text(fa['adjusted'])}; dönemlere göre aşağıda", "gözlemsel"),
-        ("yanlışı yanlış bilir", "kendi hatasını kendisinin bulduğunun doğrulanmış kaydı yok (E315)", "ölçülemez"),
+        ("yanlışı yanlış bilir", f"{sf['claims']} `[own_code]` beyanından doğrulanmış öz-tespit (H'de kırmızı, "
+                                 "kapanışta yeşil, önce dış bulgu yok): "
+                                 + (_share_text(sf["verified"]) if sf["replays_read"] else "tekrar koşusu yok")
+                                 + f"; tekrar koşusu bekleyen aday {sf['waiting_for_replay']} (E315)",
+         "mekanik" if sf["replays_read"] else "ölçülmedi: tekrar koşusu yok"),
         ("doğruyu doğru bilir", "yanlış kararda doğru kodu korumak: mekanik kaydı yok", "ölçülemez"),
         ("tartar", "derslerin kredisi ve sıralaması: Aşama 0'da ders organı yok", "ölçülemez"),
         ("test eder ve uygular", f"{ml['mfs']} MF'nin testleri modülü olmadan koşuldu: {ml['runs']} test koşusu "
