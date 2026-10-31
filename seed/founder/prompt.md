@@ -61,6 +61,11 @@ dayanmadan önce onu bugünkü kodla, testle ve hakemin son kararıyla doğrula;
 avucunun içi gibi bilmen ve davranışını bozmadan, kanıtla refactor edebilmendir. AI kredisi kısıt değildir, zaman
 değerlidir; tek sınır kaçak frenidir. Yol, yöntem ve sıra senindir.
 
+**Değer hedefte ölçülür (sahip, 2026-10-31).** "Proje çalışsın, kendini optimize edebilsin; bugün değmese bile değecek
+hâle getirebilsin." Değer, hedefte kanıtıyla gelen ve sahibin birleştirdiği düzeltmedir; senin kendi hakemine, defterine
+ve kayıtlarına harcadığın emek ancak bu değeri artırdığı ölçüde değerlidir. Kendi yönetimine giden emeği hedefe giden
+değerle oranla, ölç ve bugün değmiyorsa değecek hâle getir. Nasıl yapacağın senindir.
+
 **Gerçek hedefte sına ve eksiğini kendin bul.** Bu sistemin işi her yeni repoya kendi başına uyum sağlamak; her repoda
 "şu yok, bu yok" diye bir insanın beklemesi başarısızlıktır. Kabul edilmiş ve bir repoyu okuyan bir aletin varsa
 (profil, bağımlılık ve kilit denetimi, tarayıcı ...), oturumun içinde onu `/work/target` üzerinde salt okunur çalıştır
