@@ -42,7 +42,7 @@ Performans değerleri `18b`'dedir ve `18`'deki prosedürle değişir. Adlar `26b
 | `gate_rules.soft_freeze_limit` | Pencerede 2'den fazla yumuşak dondurma → sert duruş | `28` |
 | `gate_rules.containment_freeze` | Aynı pencerede 2 kapsayıcılık ihlali → yumuşak dondurma | `08`, `28` |
 | `gate_rules.gross_delete_cap` | Aday başına brüt silme ≤ 200 satır; sınıf istisnası yoktur | `04a` 9 |
-| `gate_rules.lesson_drill` | k = 30 eşli örnek; derssiz kol ≥ 21 kırık; ≥ 8 uyuşmaz çift; tam tek yönlü McNemar p < 0,10, yön dersten yana; kredi Newcombe %90, plasebo %99; kol ≥ 8; kapsam ailenin ≥ %80'i, başka aileden 0; aile havuza ≥ 20 derssiz koşuda ≥ %85 kırıkla girer | `22a`, `22b`, `29c`, `29q` |
+| `gate_rules.lesson_drill` | k = 30 eşli örnek; derssiz kol ≥ 21 kırık; ≥ 8 uyuşmaz çift; tam tek yönlü McNemar p < 0,10 · 2^-i (i: aşamada açılan provanın sırası, cevap anahtarında; toplam ≤ 0,10), yön dersten yana; etki çiftinin iki kolu aynı model, çaba, tur ve bütçeyle, ders bloğu çıkarılmış prompt hash'i aynı; kredi Newcombe %90, plasebo %99; kol ≥ 8; kapsam ailenin ≥ %80'i, başka aileden 0; aile havuza ≥ 20 derssiz koşuda ≥ %85 kırıkla girer | `22a`, `22b`, `22c`, `29c`, `29q` |
 | `gate_rules.context_drill` | İki oyuncak hedef; hedef başına ≥ 8 uygun örnek; zararlı enjeksiyon 0 | `22a` |
 | `gate_rules.genesis_drill` | Prova penceresi 20 koşu; büyüme ve yeniden yazım `12`'nin kabul yolundan; budamada iki ablasyon; sessizlikte ACTIVE 0 | `12a` |
 | `license_allowlist` | `MIT`, `MIT-0`, `BSD-2-Clause`, `BSD-3-Clause`, `0BSD`, `Apache-2.0`, `ISC`, `PSF-2.0`, `Python-2.0`, `Unlicense`, `CC0-1.0`, `Zlib`, `MPL-2.0`; GPL, LGPL, AGPL, SSPL, BUSL, ticari olmayan, tescilli ve bulunamayan lisans listede yoktur | `24`, `29b` |

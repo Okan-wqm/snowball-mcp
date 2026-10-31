@@ -6,12 +6,11 @@ Okunma: her aşama başında ve sonunda
 
 ---
 
-1. Kurucu spec'i taslaklar. En az şu sekiz bölümü vardır: amaç, doğruluk özellikleri, roller,
-   sıralı mikro özellikler, çıkış testi, yasaklar, bütçe, teslim listesi; aşamaya özgü ek bölüm
-   ayrı sayfa olabilir. Aşama özeti ön koşulu ve çıkış kapısını taşır. Tohumla gelen Aşama 0 ve 1
-   spec'i Kurucu'nun ilk taslağı sayılır: listeden geçmezse Kurucu düzeltip rakibe sunar, geçerse
-   incelemesini aşamanın `CHANGELOG.md`'sine tarihli satır olarak ekleyip sunar (`29b`); anayasal
-   bir değer gerektiren düzeltme `blocked` olur. Aşama spec'i tohumla çelişirse tohum geçerlidir;
+1. Kurucu spec'i taslaklar. En az şu sekiz bölümü vardır: amaç, doğruluk özellikleri, roller, sıralı mikro özellikler,
+   çıkış testi, yasaklar, bütçe, teslim listesi; aşamaya özgü ek bölüm ayrı sayfa olabilir. Aşama özeti ön koşulu ve
+   çıkış kapısını taşır. Tohumla gelen Aşama 0 ve 1 spec'i Kurucu'nun ilk taslağı sayılır: listeden geçmezse Kurucu
+   düzeltip rakibe sunar, geçerse incelemesini aşamanın `CHANGELOG.md`'sine tarihli satır olarak ekleyip sunar
+   (`29b`); anayasal bir değer gerektiren düzeltme `blocked` olur. Aşama spec'i tohumla çelişirse tohum geçerlidir;
    çelişki bir spec kusurudur: Kurucu donmamış spec'te düzeltir, donmuş spec'te bildirir (`00a`).
 2. Spec **yapısal kontrol listesinden** geçer ve tohum rakibi (`29`) onu çürütmeyi dener. Çürütme
    ancak hakemin yeniden koşturduğu bir yeniden üreticiyle sayılır; açık `not_refuted` dışındaki her
@@ -22,9 +21,10 @@ Okunma: her aşama başında ve sonunda
    - sekiz bölüm var ve boş değil;
    - her eşik ya `policy.json`'a ya da anayasal tabana atıf;
    - bütçe `policy.json` tavanının altında;
-   - aşama özeti getirdiği yetenekleri `18`'deki adlarla listeler ("Her aşama" her zaman); listedeki
-     her yeteneğin her `#kimlik`'i çıkış testinde bir satırın başında var; biri eksikse spec
-     reddedilir;
+   - aşama özeti getirdiği yetenekleri `18`'deki adlarla listeler ("Her aşama" her zaman) ve `03`'te
+     o aşamanın satırında `18` atfıyla geçen her yeteneği listeye alır (Kurucu'nun taslağı tohumun
+     hedefini düşüremez); listedeki her yeteneğin her `#kimlik`'i çıkış testinde bir satırın başında
+     var; biri eksikse spec reddedilir;
    - her mikro özellik tek mekanizma getirir (`04`);
    - property spec'lerinde kalıp yok (`asama-4/06`);
    - hedef repoya özgü yol, araç ya da karar belgesi adı yok;

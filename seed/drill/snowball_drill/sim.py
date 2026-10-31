@@ -8,7 +8,8 @@ writes the drill file the judge reads; the brain never writes the transcript.
 
 A job shows the brain its observables (paths, class level, property), never its family: the family
 is the answer key's label (E64). Only the label peeker reads it, and that is its defect. The
-referee draws who gets a lesson in the placebo arms from the seed it committed (E65).
+referee draws who gets a lesson in the placebo arms from the seed it committed (E65), and records
+both runs of every effect pair: their settings and the hash of the prompt without its lesson block (E321).
 
 The probabilities are assumptions about the world, not measurements of a real brain. They are
 chosen so that a lesson that is used has a large effect, as a planted trap family is meant to.
@@ -45,7 +46,9 @@ DEFAULT_PARAMS = {"k": 30, "min_discordant": 8, "min_broken_without": 21, "alpha
 ARMS_PER_LESSON = 60
 CONTROL_RUNS = 8
 UNRELATED_REDS = (0, 3, 5)  # control instances on which the referee plants a red unrelated test (E318)
-RUN = {"model": "claude-sonnet-5-5", "effort": "medium", "max_turns": 20}  # one fixer run's settings
+RUN = {"model": "claude-sonnet-5-5", "effort": "medium", "max_turns": 20,  # one fixer run's settings
+       "max_budget_usd": "0.500000"}
+TILT = "Check every file twice before you answer."  # text a dispatcher adds outside the lesson block (E321)
 
 P_TRAP_WITH_LESSON = 0.9    # trap family, the fixer acts on the lesson (or knows the trap already)
 P_TRAP_WITHOUT = 0.1        # trap family, nothing tells the fixer to look for string references
@@ -72,8 +75,9 @@ class Traits:
     fresh_dispatch: bool = True       # the dispatcher reads the current lesson state, not a snapshot
     keeps_priors: bool = True         # an imported lesson is withdrawn on its own contradiction, not on any red
     follows_draw: bool = True         # the placebo arms are the referee's draw, not the dispatcher's choice
-    equal_arms: bool = True           # both arms of a lesson run with the same model, effort and turns (effect and
-                                      # placebo alike)
+    equal_arms: bool = True           # both arms of a lesson run with the same model, effort, turns and budget
+                                      # (effect and placebo alike)
+    equal_effect_arms: bool = True    # both runs of an effect pair have the same prompt outside the lesson block
     ranks_by_difference: bool = True  # credit is the lower bound of the difference, not the raw hit rate
     ranks_by_credit: bool = True      # the ranking follows the credit
     persists: bool = True             # lesson state is written to the ledger, not kept in memory
@@ -92,6 +96,7 @@ BRAINS: dict[str, Traits] = {
     "leaky": replace(LEARNER, leaks=True),
     "ignores_lessons": replace(LEARNER, uses=False),
     "shortcut": replace(LEARNER, shortcut=True),
+    "unequal_effect_arms": replace(LEARNER, equal_effect_arms=False),
     "stubborn": replace(LEARNER, withdraws=False),
     "unrecorded_withdrawal": replace(LEARNER, records_withdrawal=False),
     "stale_dispatcher": replace(LEARNER, fresh_dispatch=False),
@@ -107,6 +112,19 @@ BRAINS: dict[str, Traits] = {
 
 def _sha(value: Any) -> str:
     return hashlib.sha256(canonical(value)).hexdigest()
+
+
+def prompt_hash(instance_id: str, extra: str = "") -> str:
+    """The hash of a fixer's prompt for one job with its lesson block taken out (E65, E321): one job run twice has the
+    same one, unless the dispatcher adds text outside the lesson block to one run."""
+    return _sha({"instance_id": instance_id, "task": "fix", "extra": extra})
+
+
+def alike_runs(instance_id: str) -> dict[str, dict[str, Any]]:
+    """Both runs of an effect pair as the referee records them when they are alike: the same settings, and the same
+    prompt once the lesson block is taken out (E65, E321)."""
+    run = dict(RUN, prompt_sha256_without_lessons=prompt_hash(instance_id))
+    return {"with": dict(run), "without": dict(run)}
 
 
 def folder_scope(family: str) -> dict[str, Any]:
@@ -194,8 +212,16 @@ class Brain:
 
     def run_settings(self, given: bool) -> dict[str, Any]:
         if given and not self.traits.equal_arms:
-            return dict(RUN, effort="high", max_turns=2 * RUN["max_turns"])
+            return dict(RUN, effort="high", max_turns=2 * RUN["max_turns"], max_budget_usd="1.000000")
         return dict(RUN)
+
+    def effect_runs(self, instance_id: str, given: bool) -> dict[str, dict[str, Any]]:
+        """An effect pair's two runs as the referee records them (E65, E321). The unequal arms brain gives the
+        lesson's run more effort, turns and budget; the unequal effect arms brain keeps the settings equal and adds
+        text outside the lesson block of the lesson's run, which only the prompt hash shows."""
+        extra = TILT if given and not self.traits.equal_effect_arms else ""
+        return {"with": dict(self.run_settings(given), prompt_sha256_without_lessons=prompt_hash(instance_id, extra)),
+                "without": dict(self.run_settings(False), prompt_sha256_without_lessons=prompt_hash(instance_id))}
 
     def fix_ok(self, roll: float, family: str, conditions: list[str], injected: list[str]) -> tuple[bool, str]:
         used = [lid for lid in injected if self.traits.uses]
@@ -249,17 +275,18 @@ class Brain:
         return sorted(ids, key=lambda lid: (-score(lid), lid)), credit
 
 
-def run_drill(traits: Traits, seed: int, params: dict[str, Any] | None = None) -> dict[str, Any]:
+def run_drill(traits: Traits, seed: int, params: dict[str, Any] | None = None, attempt: int = 1) -> dict[str, Any]:
     """Play the referee: plant, run, record, and reveal. Returns the drill file the judge reads.
 
     A real referee draws every instance and commits to the whole answer key before the run; here
     the key grows while the run is played and is committed at the end. The judge sees only the
-    file, so it cannot tell the two apart; the brain never sees the key in either case.
+    file, so it cannot tell the two apart; the brain never sees the key in either case. ``attempt``
+    is the drill's place among the attempts opened in the stage (E323), committed with the key.
     """
     params = dict(DEFAULT_PARAMS if params is None else params)
     rng = random.Random(seed)
-    key: dict[str, Any] = {"nonce": f"{rng.getrandbits(256):064x}", "family": TRAP, "cause": CAUSE,
-                           "instances": {}, "wrong": {"lesson_id": "Lw", "harmful_condition": HARMFUL},
+    key: dict[str, Any] = {"nonce": f"{rng.getrandbits(256):064x}", "attempt": attempt, "family": TRAP,
+                           "cause": CAUSE, "instances": {}, "wrong": {"lesson_id": "Lw", "harmful_condition": HARMFUL},
                            "control": {"lesson_id": "Lc", "family": CONTROL}, "placebo": "Lp",
                            "withhold_seed": f"{rng.getrandbits(256):064x}"}
 
@@ -296,8 +323,9 @@ def run_drill(traits: Traits, seed: int, params: dict[str, Any] | None = None) -
         use.append({"instance_id": job["instance_id"], "role": role, "lessons_injected": brain.inject(job, role, [])})
     t["use"] = use
 
-    # Effect: each instance twice, with the dispatcher's own choice and with every lesson withheld; each arm's
-    # settings are recorded, since a larger budget for the lesson's arm would pass for the lesson's effect (E65).
+    # Effect: each instance twice, with the dispatcher's own choice and with every lesson withheld; the referee records
+    # both runs, their settings and the hash of each prompt without its lesson block, since more effort, turns or
+    # budget, or more text, for the lesson's arm would pass for the lesson's effect (E65, E321).
     effect = []
     for _ in range(params["k"]):
         job = new(TRAP)
@@ -305,7 +333,7 @@ def run_drill(traits: Traits, seed: int, params: dict[str, Any] | None = None) -
         with_ok, _ = brain.fix_ok(rng.random(), TRAP, [], injected)
         without_ok, _ = brain.fix_ok(rng.random(), TRAP, [], [])
         effect.append({"instance_id": job["instance_id"], "with": with_ok, "without": without_ok,
-                       "run": {"with": brain.run_settings("L1" in injected), "without": brain.run_settings(False)}})
+                       "run": brain.effect_runs(job["instance_id"], "L1" in injected)})
     t["effect"] = effect
 
     # Wrong lesson: an imported hypothesis that is harmful under one condition.

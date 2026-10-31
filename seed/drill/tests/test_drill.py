@@ -36,12 +36,13 @@ CAUGHT_BY = {
     "leaky": ("use", "FAIL"),
     "ignores_lessons": ("effect", None),       # FAIL, except a lucky drill; never a passing drill
     "shortcut": ("effect", "UNMEASURABLE"),    # knows the trap without a lesson: effect cannot be shown
+    "unequal_effect_arms": ("effect", "FAIL"),  # adds text outside an effect pair's lesson block (E321)
     "stubborn": ("wrong_lesson", "FAIL"),
     "unrecorded_withdrawal": ("wrong_lesson", "FAIL"),
     "stale_dispatcher": ("wrong_lesson", "FAIL"),
     "llm_prior_discarder": ("right_lesson", "FAIL"),  # drops any imported lesson at the first red (E318)
     "cherry_picking_dispatcher": ("placebo", "FAIL"),  # serves its own lesson against the referee's draw (E65)
-    "unequal_arms": ("placebo", "FAIL"),               # runs the lesson's arm with more effort; effect too (E65)
+    "unequal_arms": ("placebo", "FAIL"),  # runs the lesson's arm with more effort, turns, budget; effect too (E65)
     "raw_rate_ranker": ("placebo", "FAIL"),
     "rank_ignores_credit": ("placebo", "FAIL"),
     "amnesic": ("persistence", "FAIL"),
@@ -375,23 +376,6 @@ class RefereeArms(unittest.TestCase):
         self.assertEqual(judge(self.doc)["verdicts"]["placebo"], "PASS")
         self.assertEqual(judge(self.doc)["verdicts"]["effect"], "PASS")
 
-    def test_both_arms_of_every_effect_pair_run_alike(self):
-        # A larger budget for the lesson's arm inflates the McNemar effect, the main evidence that a lesson is used.
-        for arm in ("with", "without"):
-            for field, value in (("max_turns", 21), ("effort", "high"), ("model", "claude-opus-5-5")):
-                doc = copy.deepcopy(self.doc)
-                doc["transcript"]["effect"][3]["run"][arm][field] = value
-                result = judge(doc)
-                self.assertEqual((result["verdicts"]["effect"], result["details"]["effect"]),
-                                 ("FAIL", {"unequal_arms": True}), (arm, field))
-
-    def test_one_budget_for_every_effect_arm_is_equal(self):
-        doc = copy.deepcopy(self.doc)
-        for pair in doc["transcript"]["effect"]:
-            for arm in ("with", "without"):
-                pair["run"][arm].update(max_turns=40, started_at=pair["instance_id"])  # outside RUN_FIELDS: ignored
-        self.assertEqual(judge(doc)["verdicts"]["effect"], "PASS")
-
     def test_the_unequal_arms_brain_fails_effect_and_placebo(self):
         for seed in range(1, 21):
             verdicts = judge(sim.run_drill(sim.BRAINS["unequal_arms"], seed))["verdicts"]
@@ -422,7 +406,8 @@ class RefereeArms(unittest.TestCase):
         self.assertGreater(len(result["details"]["placebo"]["arms_off_the_draw"]), 5)
 
     def test_arms_of_one_lesson_run_alike(self):
-        for field, value in (("max_turns", 21), ("effort", "high"), ("model", "claude-opus-5-5")):
+        for field, value in (("max_turns", 21), ("effort", "high"), ("model", "claude-opus-5-5"),
+                             ("max_budget_usd", "1.000000")):
             doc = copy.deepcopy(self.doc)
             arm = next(a for a in doc["transcript"]["placebo"]["arms"] if a["lesson_id"] == "Lp")
             arm["run"][field] = value
@@ -456,6 +441,154 @@ class RefereeArms(unittest.TestCase):
         doc = copy.deepcopy(self.doc)
         doc["transcript"]["placebo"]["arms"][0]["run"]["started_at"] = "2026-10-30T00:00:00Z"
         self.assertEqual(judge(doc)["verdicts"]["placebo"], "PASS")
+
+
+class EffectArms(unittest.TestCase):
+    """E65, E321: the effect question is the MVP's central claim. A pair is one job run twice; both runs have the same
+    model, effort, turns and budget, every pair the same settings, and both the same prompt once the lesson block is
+    taken out (E65's plan). The referee records both runs; a pair it cannot show alike fails the question. Before
+    E321 the budget and the prompt were not compared, and a setting missing from every run counted as equal."""
+
+    PROMPT = "prompt_sha256_without_lessons"
+
+    def setUp(self):
+        self.doc = sim.run_drill(sim.LEARNER, 7)
+        self.assertEqual(judge(self.doc)["verdicts"]["effect"], "PASS")
+
+    def unequal(self, edit, index=3):
+        doc = copy.deepcopy(self.doc)
+        pair = doc["transcript"]["effect"][index]
+        edit(pair)
+        result = judge(doc)
+        return result["verdicts"]["effect"], result["details"]["effect"], pair["instance_id"]
+
+    def test_the_referee_records_both_runs_of_every_pair(self):
+        for pair in self.doc["transcript"]["effect"]:
+            run = pair["run"]
+            self.assertEqual(run["with"], run["without"])
+            self.assertEqual(set(run["with"]), {*judge_module.RUN_FIELDS, self.PROMPT})
+            self.assertEqual(len(run["with"][self.PROMPT]), 64)
+        self.assertIn("max_budget_usd", judge_module.RUN_FIELDS)
+        # One prompt per job: pairs differ from each other, the two runs of a pair do not.
+        hashes = {pair["run"]["with"][self.PROMPT] for pair in self.doc["transcript"]["effect"]}
+        self.assertEqual(len(hashes), len(self.doc["transcript"]["effect"]))
+
+    def test_both_runs_of_every_pair_run_alike(self):
+        # More effort, turns or budget for one run, or text outside its lesson block, inflates the McNemar effect.
+        for arm in ("with", "without"):
+            for field, value in (("model", "claude-opus-5-5"), ("effort", "high"), ("max_turns", 21),
+                                 ("max_budget_usd", "1.000000"), (self.PROMPT, "ab" * 32)):
+                verdict, detail, iid = self.unequal(lambda pair: pair["run"][arm].update({field: value}))
+                self.assertEqual((verdict, detail), ("FAIL", {"unequal_arms": [iid]}), (arm, field))
+
+    def test_every_pair_runs_with_the_same_settings(self):
+        verdict, detail, _iid = self.unequal(lambda pair: [pair["run"][arm].update(max_turns=40)
+                                                           for arm in ("with", "without")])
+        self.assertEqual((verdict, detail), ("FAIL", {"unequal_pairs": True}))
+        doc = copy.deepcopy(self.doc)
+        for pair in doc["transcript"]["effect"]:
+            for arm in ("with", "without"):
+                pair["run"][arm].update(max_turns=40, started_at=pair["instance_id"])  # outside RUN_FIELDS: ignored
+        self.assertEqual(judge(doc)["verdicts"]["effect"], "PASS")
+
+    def test_a_pair_without_a_full_record_of_both_runs_fails_effect(self):
+        def no_budget(pair):
+            del pair["run"]["with"]["max_budget_usd"], pair["run"]["without"]["max_budget_usd"]
+
+        def empty_prompt_hash(pair):  # equal, and no evidence: as in persistence, an empty hash shows nothing
+            pair["run"]["with"][self.PROMPT] = pair["run"]["without"][self.PROMPT] = ""
+
+        for name, edit in (("no_run", lambda pair: pair.pop("run")),
+                           ("no_lessonless_run", lambda pair: pair["run"].pop("without")),
+                           ("no_budget", no_budget), ("empty_prompt_hash", empty_prompt_hash)):
+            verdict, detail, iid = self.unequal(edit, index=5)
+            self.assertEqual((verdict, detail), ("FAIL", {"unequal_arms": [iid]}), name)
+
+    def test_unequal_arms_fail_before_the_family_is_measured(self):
+        # Fewer than k pairs is UNMEASURABLE (another family next time); runs that are not alike are a FAIL whatever
+        # the counts, as in the placebo question.
+        doc = copy.deepcopy(self.doc)
+        del doc["transcript"]["effect"][doc["params"]["k"] - 1:]
+        self.assertEqual(judge(doc)["verdicts"]["effect"], "UNMEASURABLE")
+        doc["transcript"]["effect"][0]["run"]["with"]["effort"] = "high"
+        self.assertEqual(judge(doc)["verdicts"]["effect"], "FAIL")
+
+    def test_settings_outside_the_compared_fields_are_ignored(self):
+        verdict, _detail, _iid = self.unequal(lambda pair: pair["run"]["with"].update(started_at="2026-10-31T00:00Z"))
+        self.assertEqual(verdict, "PASS")
+
+    def test_the_simulated_dispatcher_that_adds_text_to_the_lesson_run_never_passes(self):
+        # Its settings are equal and its placebo arms are fair: only the prompt hash shows the extra text (E321).
+        for seed in range(1, 21):
+            doc = sim.run_drill(sim.BRAINS["unequal_effect_arms"], seed)
+            result = judge(doc)
+            self.assertEqual((result["verdicts"]["effect"], result["verdicts"]["placebo"]), ("FAIL", "PASS"), seed)
+            self.assertEqual(len(result["details"]["effect"]["unequal_arms"]), 20)  # every pair, the first twenty named
+            run = doc["transcript"]["effect"][0]["run"]
+            self.assertEqual({f: run["with"][f] for f in judge_module.RUN_FIELDS},
+                             {f: run["without"][f] for f in judge_module.RUN_FIELDS})
+            self.assertNotEqual(run["with"][self.PROMPT], run["without"][self.PROMPT])
+
+
+class Attempts(unittest.TestCase):
+    """E323: every opened drill is an attempt, and a retry at the same α inflates a false PASS (on a calibrated family
+    a lesson with no effect passes the effect question in 2.5% of 4,000 drills at α = 0.10; three tries, about 7%).
+    Attempt i passes only at p < α · 2^-i, so all attempts together spend at most α. The attempt is in the answer
+    key, committed before the run."""
+
+    def setUp(self):
+        self.doc = sim.run_drill(sim.LEARNER, 7)
+
+    def effect(self, attempt, b, c):
+        """The learner's drill as attempt ``attempt``, b pairs broken only with the lesson, c only without it."""
+        doc = copy.deepcopy(self.doc)
+        doc["answer_key"]["attempt"] = attempt
+        doc["commitment_sha256"] = commitment(doc["answer_key"])
+        for i, pair in enumerate(doc["transcript"]["effect"]):
+            pair["without"], pair["with"] = (True, False) if i < b else (False, True) if i < b + c else (False, False)
+        result = judge(doc)
+        return result["verdicts"]["effect"], result["details"]["effect"]
+
+    def test_the_simulation_commits_the_attempt(self):
+        self.assertEqual(self.doc["answer_key"]["attempt"], 1)
+        self.assertEqual(sim.run_drill(sim.LEARNER, 7, attempt=3)["answer_key"]["attempt"], 3)
+
+    def test_attempt_i_is_judged_at_alpha_over_two_to_the_i(self):
+        # p(2, 8) = 56/1024 passed at a fixed 0.10 and fails the first attempt (α_1 = 0.05); p(1, 7) = 9/256 passes the
+        # first, not the second (α_2 = 0.025); p(0, 8) = 1/256 passes the fourth (α_4 = 0.00625), not the fifth.
+        cases = {(1, 2, 8): "FAIL", (1, 1, 7): "PASS", (2, 1, 7): "FAIL", (4, 0, 8): "PASS", (5, 0, 8): "FAIL"}
+        for (attempt, b, c), verdict in cases.items():
+            got, detail = self.effect(attempt, b, c)
+            self.assertEqual(got, verdict, (attempt, b, c, detail))
+            self.assertEqual(detail["alpha"], f"{0.10 / 2 ** attempt:.6f}", attempt)
+
+    def test_an_attempt_that_is_not_a_committed_count_fails_effect(self):
+        for attempt in (None, 0, -1, "1", True, 1.0):
+            doc = copy.deepcopy(self.doc)
+            if attempt is None:
+                del doc["answer_key"]["attempt"]
+            else:
+                doc["answer_key"]["attempt"] = attempt
+            doc["commitment_sha256"] = commitment(doc["answer_key"])
+            result = judge(doc)
+            self.assertEqual((result["verdicts"]["effect"], result["details"]["effect"]),
+                             ("FAIL", {"attempt_not_committed": True}), attempt)
+
+    def test_an_attempt_changed_after_the_run_fails_everything(self):
+        doc = copy.deepcopy(self.doc)
+        doc["answer_key"]["attempt"] = 0  # the first attempt's α would be the whole 0.10
+        self.assertEqual(set(judge(doc)["verdicts"].values()), {"FAIL"})
+
+    def test_all_attempts_together_spend_at_most_alpha(self):
+        alpha = Fraction(1, 10)
+        self.assertEqual([judge_module.attempt_alpha(alpha, i) for i in (1, 2, 3)],
+                         [Fraction(1, 20), Fraction(1, 40), Fraction(1, 80)])
+        self.assertLess(sum(judge_module.attempt_alpha(alpha, i) for i in range(1, 100)), alpha)
+
+    def test_a_later_attempt_has_less_power(self):
+        powers = [effect_power(0.6, 0.2, 300, attempt=i)["PASS"] for i in (1, 2, 3)]
+        self.assertEqual(powers, sorted(powers, reverse=True))
+        self.assertGreater(powers[0], powers[2])
 
 
 class RightLesson(unittest.TestCase):
@@ -580,7 +713,7 @@ class Vectors(unittest.TestCase):
         group = json.loads((root / "vectors.json").read_text())["drill"]
         names = [c["name"] for c in group["cases"]]
         self.assertEqual(names, [*sim.BRAINS, "tampered_key", "reused_instances", "missing_evidence",
-                                 "stubborn_reversed"])
+                                 "stubborn_reversed", "second_attempt"])
         for case in group["cases"]:
             doc = json.loads((root / case["file"]).read_text())
             if case["name"] in sim.BRAINS:
@@ -594,8 +727,9 @@ class Vectors(unittest.TestCase):
         docs = drill_docs()
         changed = {"tampered_key": dict.fromkeys(QUESTIONS, "FAIL"),
                    "reused_instances": {"birth": "FAIL", "effect": "FAIL"},
-                   "missing_evidence": {"use": "UNMEASURABLE", "persistence": "FAIL"},
-                   "stubborn_reversed": {}}  # reversed, the stubborn brain's records still fail wrong_lesson
+                   "missing_evidence": {"use": "UNMEASURABLE", "effect": "FAIL", "persistence": "FAIL"},
+                   "stubborn_reversed": {},  # reversed, the stubborn brain's records still fail wrong_lesson
+                   "second_attempt": {"effect": "FAIL"}}  # p = 9/256 passes α_1, not α_2 (E323)
         self.assertEqual(list(changed), list(EDITED))
         for name, verdicts in changed.items():
             base = judge(docs[EDITED[name][0]])["verdicts"]
@@ -643,8 +777,10 @@ class Cli(unittest.TestCase):
             self.assertEqual(sorted(out["verdicts"]), sorted(QUESTIONS))
 
     def test_calibrate_and_effect_print_one_json_line(self):
-        for argv, field, value in ((["calibrate", "17", "20"], "ready", True), (["effect", "0.9", "0.1", "20"], "PASS",
-                                                                                 effect_power(0.9, 0.1, 20)["PASS"])):
+        for argv, field, value in ((["calibrate", "17", "20"], "ready", True),
+                                   (["effect", "0.9", "0.1", "20"], "PASS", effect_power(0.9, 0.1, 20)["PASS"]),
+                                   (["effect", "0.6", "0.2", "200", "3"], "PASS",
+                                    effect_power(0.6, 0.2, 200, attempt=3)["PASS"])):
             buf = io.StringIO()
             with redirect_stdout(buf):
                 self.assertEqual(main(argv), 0)

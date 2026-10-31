@@ -1,6 +1,6 @@
 # Prova Vektörleri, Devam: Ayırma Gücü ve Ailelerin Kalibrasyonu
 
-Tarih: 2026-10-30 · Sürüm: 2.2 · Durum: taslak · Sahibi: operatör
+Tarih: 2026-10-31 · Sürüm: 2.2 · Durum: taslak · Sahibi: operatör
 Okunma: ders provası tasarlanırken, tuzak ailesi havuza alınırken ve bir provanın FAIL ya da UNMEASURABLE'ı okunurken
 Çapa: `seed/drill/` (`power.py`: `power_table`, `effect_power`, `calibration`; `tests/test_drill.py`; `local/mutate_drill.py`)
 
@@ -8,31 +8,37 @@ Okunma: ders provası tasarlanırken, tuzak ailesi havuza alınırken ve bir pro
 
 `29c`'nin yargıcı öğreneni öğrenmeyenden ayırıyor mu, bir provanın kararı ne kadar güvenilir ve bir
 tuzak ailesi provaya ne zaman hazırdır: bu sayfa üçünü de ölçer. Her sayı `seed/drill/`'den yeniden
-üretilir (`python -m snowball_drill power 500`, `effect <p_dersli> <p_derssiz> 1000`, `calibrate <kırık> <koşu>`).
+üretilir (`python -m snowball_drill power 500`, `effect <p_dersli> <p_derssiz> 1000 [deneme]`, `calibrate <kırık> <koşu>`).
 
 ## Ayırma gücü
 
-Her beyin 500 bağımsız provada koştu (k = 30): öğrenen 500'ünün hepsinde PASS aldı, hiç FAIL almadı;
-19 kusurlu beynin hiçbiri bir kez bile PASS almadı (`ignores_lessons` 494 FAIL, 6 UNMEASURABLE; `shortcut`
-500 UNMEASURABLE; ötekiler 500 FAIL). Referans yargıcı birer satırla bozan 59 mutantın hepsini tohum
-testleri yakalar (`seed/drill/local/mutate_drill.py`).
+Her beyin 500 bağımsız provada koştu (k = 30, birinci deneme, `α_1` = 0,05): öğrenen 500'ünün hepsinde
+PASS aldı, hiç FAIL almadı; 20 kusurlu beynin hiçbiri bir kez bile PASS almadı (`ignores_lessons` 498 FAIL,
+2 UNMEASURABLE; `shortcut` 500 UNMEASURABLE; ötekiler 500 FAIL). Referans yargıcı birer satırla bozan 69
+mutantın hepsini tohum testleri yakalar (`seed/drill/local/mutate_drill.py`).
 
 ## Etkinin büyüklüğüne göre güç
 
-Etki sorusu, 1.000 prova, k = 30, derssiz kol ≥ 21 kırık (dersli / derssiz başarı → PASS, FAIL; kalan
-UNMEASURABLE):
+Etki sorusu, 1.000 prova, k = 30, derssiz kol ≥ 21 kırık. `i`'nci deneme `α_i = 0,10 · 2^-i` ile
+yargılanır (`22c`, E323); eski sabit 0,10 karşılaştırma için yanındadır. UNMEASURABLE α'ya bağlı değildir,
+FAIL kalandır:
 
-| Dersli / derssiz | PASS | FAIL | UNMEASURABLE |
-|---|---|---|---|
-| 0,9 / 0,1 | %99,9 | %0 | %0,1 |
-| 0,7 / 0,1 | %99,9 | %0 | %0,1 |
-| 0,7 / 0,2 | %93,1 | %0,2 | %6,7 |
-| 0,6 / 0,2 | %90,6 | %2,7 | %6,7 |
-| 0,7 / 0,3 | %59,5 | %0,2 | %40,3 |
-| 0,5 / 0,3 | %41,5 | %18,2 | %40,3 |
+| Dersli / derssiz | UNMEASURABLE | PASS, sabit 0,10 | PASS, 1. deneme (0,05) | 2. deneme (0,025) | 3. deneme (0,0125) |
+|---|---|---|---|---|---|
+| 0,9 / 0,1 | %0,1 | %99,9 | %99,9 | %99,9 | %99,9 |
+| 0,7 / 0,1 | %0,1 | %99,9 | %99,9 | %99,6 | %99,3 |
+| 0,7 / 0,2 | %6,7 | %93,1 | %92,8 | %91,3 | %88,9 |
+| 0,6 / 0,2 | %6,7 | %90,6 | %87,2 | %81,9 | %73,9 |
+| 0,7 / 0,3 | %40,3 | %59,5 | %58,8 | %56,5 | %52,8 |
+| 0,5 / 0,3 | %40,3 | %41,5 | %31,2 | %21,8 | %15,6 |
 
-k = 20'den 30'a çıkmak orta büyüklükteki etkilerde FAIL'ı yarıya ya da dörtte birine indirir (0,6 / 0,2
-→ %12,0'dan %2,7'ye). Güçlü bir tuzakta PASS neredeyse kesindir; orta bir etkide FAIL çoğu kez
+Etkisiz bir ders (0,15 / 0,15, kalibre bir aile) 4.000 provada sabit 0,10'da %2,5 PASS alır ve her yeniden
+deneme bu şansı yeniden verir (üç denemede ~%7); `α_i` ile birinci denemede %1,3, ikincide %0,6, üçüncüde
+%0,2; bütün denemelerin toplam yanılma payı 0,10'u geçmez. Bedeli güçtür: 0,6 / 0,2'de 4.000 provada sabit 0,10
+%91,2, birinci deneme %87,9 PASS (500 provada %91,0 ve %87,6).
+
+k = 20'den 30'a çıkmak orta büyüklükteki etkilerde FAIL'ı yarıya ya da dörtte birine indirir (sabit 0,10'da,
+0,6 / 0,2 → %12,0'dan %2,7'ye). Güçlü bir tuzakta PASS neredeyse kesindir; orta bir etkide FAIL çoğu kez
 "gösterilemedi" demektir, "öğrenmedi" değil. Zayıf ders yine de FAIL alabilir: prova, hatayı ölçülebilir
 biçimde azaltan ders bekler (Y5).
 

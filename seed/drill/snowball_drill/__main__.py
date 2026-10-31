@@ -1,5 +1,5 @@
 """``python -m snowball_drill judge <file>`` | ``simulate <brain> <seed>`` | ``power [runs]`` |
-``vectors <vectors dir>`` | ``effect <p_with> <p_without> [runs]`` | ``calibrate <broken> <runs>``."""
+``vectors <vectors dir>`` | ``effect <p_with> <p_without> [runs [attempt]]`` | ``calibrate <broken> <runs>``."""
 
 from __future__ import annotations
 
@@ -28,9 +28,10 @@ def main(argv: list[str]) -> int:
         group = write_vectors(Path(argv[1]))
         print(json.dumps({c["name"]: c["drill"] for c in group["cases"]}, indent=2))
         return 0
-    if argv[:1] == ["effect"] and len(argv) in (3, 4):
-        runs = int(argv[3]) if len(argv) == 4 else 1000
-        print(json.dumps(effect_power(float(argv[1]), float(argv[2]), runs), sort_keys=True))
+    if argv[:1] == ["effect"] and len(argv) in (3, 4, 5):
+        runs = int(argv[3]) if len(argv) >= 4 else 1000
+        attempt = int(argv[4]) if len(argv) == 5 else 1
+        print(json.dumps(effect_power(float(argv[1]), float(argv[2]), runs, attempt=attempt), sort_keys=True))
         return 0
     if argv[:1] == ["calibrate"] and len(argv) == 3:
         print(json.dumps(calibration(int(argv[1]), int(argv[2])), sort_keys=True))

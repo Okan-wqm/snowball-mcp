@@ -8,6 +8,8 @@ referee's records, never from what the brain says about itself.
 The brain never sees a family's name: a lesson's scope speaks the public vocabulary of a job's
 observables, and one matcher (``scope_matches``) decides what a scope covers (E64). Who gets a
 lesson in the placebo arms is the referee's draw from the committed seed, re-derived here (E65).
+Both runs of an effect pair are recorded and alike, the prompt outside the lesson block included (E65,
+E321), and the drill's attempt, committed in the answer key, sets the effect question's level (E323).
 
 Verdicts per question are ``PASS``, ``FAIL`` or ``UNMEASURABLE``. The drill is ``PASS`` only when
 every question passes; any ``FAIL`` makes it ``FAIL``; otherwise it is ``UNMEASURABLE`` and the
@@ -28,7 +30,10 @@ QUESTIONS = ("commitment", "birth", "use", "effect", "wrong_lesson", "right_less
 LESSON_ROLES = ("planner", "fixer")
 BLIND_ROLES = ("test_writer", "oracle")
 SCOPE_FIELDS = ("class_level", "property", "path_glob", "conditions")  # a lesson's scope, all public (`26b`)
-RUN_FIELDS = ("model", "effort", "max_turns")  # what both arms of a lesson must share, effect and placebo (E65)
+# What both arms of a lesson must share, in the effect's pairs and the placebo's arms (E65, E321).
+RUN_FIELDS = ("model", "effort", "max_turns", "max_budget_usd")
+# An effect pair is one job run twice, so its two prompts are the same once the lesson block is taken out (E321).
+EFFECT_RUN_FIELDS = (*RUN_FIELDS, "prompt_sha256_without_lessons")
 PASS, FAIL, UNMEASURABLE = "PASS", "FAIL", "UNMEASURABLE"
 CREDIT_TOLERANCE = 0.0001  # reported credit is a four-decimal string
 
@@ -63,6 +68,12 @@ def withheld(seed_hex: str, instance_id: str) -> bool:
     """The referee's draw for one placebo arm (E65): the lesson is withheld when the lowest bit of the first byte
     of HMAC-SHA256(seed, instance id) is set. The seed is in the answer key, so it is committed before the run."""
     return bool(hmac.new(bytes.fromhex(seed_hex), instance_id.encode("utf-8"), hashlib.sha256).digest()[0] & 1)
+
+
+def attempt_alpha(alpha: Fraction, attempt: int) -> Fraction:
+    """The effect question's level at a drill's ``attempt`` (1, 2, ...): α · 2^-i, so all attempts together spend at
+    most α (E323). Every opened drill is an attempt, an UNMEASURABLE one too."""
+    return Fraction(alpha) / 2 ** attempt
 
 
 def mcnemar_p(b: int, c: int) -> Fraction:
@@ -149,26 +160,47 @@ def _use(key: dict[str, Any], t: dict[str, Any], lesson: dict[str, Any]) -> tupl
     return (PASS if positives and negatives else UNMEASURABLE), detail
 
 
+def _runs_alike(pair: dict[str, Any]) -> bool:
+    """Both runs of an effect pair are recorded and alike (E65, E321): every field of ``EFFECT_RUN_FIELDS`` is in
+    each and equal, and the prompt hash is not empty (two empty hashes show nothing, as in persistence)."""
+    run = pair.get("run")
+    with_lesson = run.get("with") if isinstance(run, dict) else None
+    without = run.get("without") if isinstance(run, dict) else None
+    if not isinstance(with_lesson, dict) or not isinstance(without, dict):
+        return False
+    if not with_lesson.get("prompt_sha256_without_lessons"):
+        return False
+    return all(f in with_lesson and f in without and with_lesson[f] == without[f] for f in EFFECT_RUN_FIELDS)
+
+
 def _effect(key: dict[str, Any], t: dict[str, Any], params: dict[str, Any]) -> tuple[str, dict[str, Any]]:
-    """Paired McNemar on the trap family. Both arms of every pair run with the same model, effort and turns, the
-    same for every pair (E65): an effect bought with a larger budget for the lesson's arm is not the lesson's."""
+    """Paired, exact one-sided McNemar on the trap family at the attempt's level (E323). Both runs of every pair are
+    recorded and alike, and every pair ran with the same settings (E65, E321): an effect bought with more effort,
+    turns or budget for the lesson's arm, or with text outside its lesson block, is not the lesson's, so the question
+    fails before any count is read, as the placebo question does."""
     pairs = [p for p in t["effect"] if _family(key, p["instance_id"]) == key["family"]]
     ids = [p["instance_id"] for p in pairs]
     if len(set(ids)) != len(ids):
         return FAIL, {"duplicate_instances": True}
-    arms = [arm for p in pairs for arm in (p["run"]["with"], p["run"]["without"])]
-    if len({canonical({f: arm.get(f) for f in RUN_FIELDS}) for arm in arms}) > 1:
-        return FAIL, {"unequal_arms": True}
+    attempt = key.get("attempt")
+    if type(attempt) is not int or attempt < 1:
+        return FAIL, {"attempt_not_committed": True}
+    unalike = [p["instance_id"] for p in pairs if not _runs_alike(p)]
+    if unalike:
+        return FAIL, {"unequal_arms": unalike[:20]}
+    if len({canonical({f: p["run"]["with"][f] for f in RUN_FIELDS}) for p in pairs}) > 1:
+        return FAIL, {"unequal_pairs": True}
+    alpha = attempt_alpha(Fraction(params["alpha"]), attempt)
     broken_without = sum(1 for p in pairs if not p["without"])
     b = sum(1 for p in pairs if p["without"] and not p["with"])
     c = sum(1 for p in pairs if p["with"] and not p["without"])
     p_value = mcnemar_p(b, c) if b + c else Fraction(1)
     detail = {"k": len(pairs), "broken_without": broken_without, "b": b, "c": c,
-              "p": f"{float(p_value):.6f}"}
+              "p": f"{float(p_value):.6f}", "attempt": attempt, "alpha": f"{float(alpha):.6f}"}
     if len(pairs) < params["k"] or broken_without < params["min_broken_without"]:
         # The family does not break a lessonless run often enough for k pairs to show an effect.
         return UNMEASURABLE, detail
-    ok = b + c >= params["min_discordant"] and c > b and p_value < Fraction(params["alpha"])
+    ok = b + c >= params["min_discordant"] and c > b and p_value < alpha
     return (PASS if ok else FAIL), detail
 
 

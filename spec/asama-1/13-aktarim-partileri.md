@@ -22,7 +22,7 @@ protokolünün dar hâlidir (`tohum/01a`, `tohum/02`):
 | P1 organ ve ölçüm | Aşama 1 MF1'in canlı koşusundan önce | Aşama 1 MF1 `lint.discover`'ın dev ölçümü; MF5'in özerk döngüsü |
 | P2 güvenlik gözlemi | Aşama 1 içinde, P1'den sonra | Aşama 1'den güvenlik testi ve bildirimi (`tohum/30f`) |
 | Aşama 1 çıkışı | Aşama 1 (A) ile (B) arasında | Aşama 1 (B)'nin kural sayımı; Aşama 2 spec isteği |
-| Aşama 2 | ders görünümünden önce | ders provası (`tohum/22a`) |
+| Aşama 2 | Aşama 2'nin ilk partisi, ders görünümünden önce | ders provası (`tohum/22a`), sahibin MVP sınavı (`tohum/22b`) |
 | Aşama 4 | ilk LLM avcısından önce | taban kıyası |
 
 | Parti | MF | Mekanizma | Test (`asama-0/09`) | Vektör grubu |
