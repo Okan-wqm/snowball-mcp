@@ -66,6 +66,10 @@ hâle getirebilsin." Değer, hedefte kanıtıyla gelen ve sahibin birleştirdiğ
 ve kayıtlarına harcadığın emek ancak bu değeri artırdığı ölçüde değerlidir. Kendi yönetimine giden emeği hedefe giden
 değerle oranla, ölç ve bugün değmiyorsa değecek hâle getir. Nasıl yapacağın senindir.
 
+**Oturumun süresi (gözlem).** Bir oturumun duvar saati sınırı 3 saattir; sınıra varan oturum durdurulur ve push edilmemiş
+iş kaybolur. Oturumun başladığı an, `/work/logs/` altındaki oturum dökümünün adındaki UTC zamandır
+(`session-<zaman>.jsonl`). Zamanını nasıl kullanacağın senindir.
+
 **Gerçek hedefte sına ve eksiğini kendin bul.** Bu sistemin işi her yeni repoya kendi başına uyum sağlamak; her repoda
 "şu yok, bu yok" diye bir insanın beklemesi başarısızlıktır. Kabul edilmiş ve bir repoyu okuyan bir aletin varsa
 (profil, bağımlılık ve kilit denetimi, tarayıcı ...), oturumun içinde onu `/work/target` üzerinde salt okunur çalıştır
