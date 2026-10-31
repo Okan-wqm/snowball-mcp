@@ -22,8 +22,8 @@ Actions, a rival model attacks it, and the signed verdict goes to Rekor. On 2026
 micro-features were accepted; the Stage 0 exit checks are being completed. Seed changes reach the live brain only
 through seed epochs. What happened, cycle by cycle: [`docs/pilot-gunlugu.md`](docs/pilot-gunlugu.md); every gap found
 and how it closed: [`docs/eksik-kaydi.md`](docs/eksik-kaydi.md); the domain-independent core:
-[`docs/ana-taslak.md`](docs/ana-taslak.md). Four places (the sealed store opens at Stage 4) keep the player from
-grading itself:
+[`docs/ana-taslak.md`](docs/ana-taslak.md). Four places (the sealed store opens with the first held-out pool, a
+K5 prerequisite) keep the player from grading itself:
 
 - **Brain repository** (`snowball-rehearsal-brain` in the pilot): player code, plus the referee's candidate code while
   Stage 0 builds it.
@@ -33,7 +33,7 @@ grading itself:
   at stage exits and counted as human touches.
 - **Target repository**: the repository being maintained. Only the referee's writer App writes there,
   on the `brain/*` branches.
-- **Sealed store** (private, from Stage 4): the held-out pool and its seal. Only the seal App writes there.
+- **Sealed store** (private, from the first held-out pool): the held-out pool and its seal. Only the seal App writes there.
 
 The founder cannot build the judge of its own first stage, so the **bootstrap referee** ships with
 the seed under `seed/bootstrap/` (see `spec/tohum/29b-onyukleme-hakemi.md`): a GitHub Actions
@@ -136,11 +136,12 @@ stage's specification from the measured results of the stage before it, and only
 ever frozen. The seed therefore holds just the goal row of every stage (`spec/tohum/03-sinif-merdiveni.md`).
 That table is the default order, not a fixed one: after Stage 1 the founder's next stage spec may pick another
 class among those whose prerequisites already have PASS rows, one class per deviation, resting on a value
-estimate the referee commits before the stage opens and checked at exit; a miss restores the default.
+estimate the referee commits before the stage opens and checked at exit; a miss or an unmeasurable result
+restores the default.
 Stages 0 and 1 (the root) and Stage 6 (last) stay fixed, and the lesson drill stays Stage 2's first work.
 Stages 0 and 1 are written in full because they are the starting point and the trust root. Stage 4
-is written as a target draft to show where the system is heading, so earlier stages know what they
-must deliver. Stages 2 and 3 are drafted by the founder when Stage 1 passes.
+(K5 in the default order) is written as a target draft to show where the system is heading, so earlier
+stages know what they must deliver. Stages 2 and 3 are drafted by the founder when Stage 1 passes.
 
 The specification is written in Turkish, the operator's language. Everything the system itself
 produces (findings, organ pages, ledgers, status reports) is in English.

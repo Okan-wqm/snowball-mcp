@@ -77,7 +77,7 @@ Okunma: sayfa ararken; görev seçmek için `tohum/00b-gorev-haritasi.md`
 | `tohum/29o-vektor-arayuzleri-mf14-18-son.md` | Vektör Arayüzleri, Son: `genesis` | Aşama 0'ın MF18'ini yazarken; bu grubun komutu, girdisi ya da çıktısı değişirken |
 | `tohum/29p-kontrol-komutu.md` | Kontrol Komutu: Döngü İşlerinin İlk Adımı | `loop.yml` yazılırken; döngünün her işinde |
 | `tohum/30-guvenlik-katalogu.md` | Güvenlik Kataloğu: İlkeler, Zamanlama, Ortak Kader | her güvenlik işinde, her bildirimde ve yeni bir hedefe bağlanırken |
-| `tohum/30a-katalog-erisim-ve-enjeksiyon.md` | Güvenlik Kataloğu I: Erişim, Kimlik, Enjeksiyon, Web | kapsam bu sınıflara dokunduğunda; güvenlik avcısı, Kurucu ve Aşama 5'ten K6 işinde |
+| `tohum/30a-katalog-erisim-ve-enjeksiyon.md` | Güvenlik Kataloğu I: Erişim, Kimlik, Enjeksiyon, Web | kapsam bu sınıflara dokunduğunda; güvenlik avcısı, Kurucu ve K6 düzeltme işinde |
 | `tohum/30b-katalog-kiracilik-ve-graphql.md` | Güvenlik Kataloğu II: Çok Kiracılık, GraphQL, Kaynak Tüketimi | profil `tenancy.model` `none` değilse ya da hedef GraphQL sunuyorsa; güvenlik avcısı ve K6 işinde |
 | `tohum/30c-katalog-bellek-sir-tedarik.md` | Güvenlik Kataloğu III: Bellek, Kripto, Sır, Tedarik Zinciri, Hata İşleme, Ajanlar | kapsam bu sınıflara dokunduğunda; hakemin ve beynin kendi denetiminde her zaman |
 | `tohum/30d-hedef-guvenlik-profili.md` | Hedef Güvenlik Profili: Tehdit Modeli ve Kural–Test Bağı | yeni bir hedefe bağlanırken, her güvenlik testi bağlanırken ve her K6 işinde |

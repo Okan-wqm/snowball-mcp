@@ -28,14 +28,15 @@ satırlarını taşır. Kök (Aşama 0 ve 1) ve son aşama (6, sınıf değildir
 o aşamadan düşürmez (`02`). K3'ün aracı yoktur; oracle'ı kasıtlı bozmadır. Her açılış aynı döngüyü yeniden
 koşturur: adapter → oracle → düzeltme → merge → defter → maliyet inişi.
 
-**Sınıf önkoşulları** (`class_requires`; prosedür yalnız ekler, operatör siler):
+**Sınıf önkoşulları** (`class_requires`; prosedür yalnız ekler, operatör siler; "aynı çıkışta" en geç sınıfın kendi
+çıkışı demektir, öbür girdi seçimden önce kapanır):
 
 | Sınıf | Önkoşul |
 |---|---|
 | K1, K2 bulgu, K3, K4, K8 | K0'ın Aşama 1 PASS satırı |
-| K2 silme | + `07a` kanıtları, harita (a) |
+| K2 silme | + `07a` kanıtları, harita (a) aynı çıkışta |
 | K5 | + LLM avcı, Held-out havuzu, Panel aynı çıkışta |
-| K6 düzeltme | K5 yetenekleri önceki PASS'ta + Güvenlik avcısı ve bekçi testleri + Güvenlik yoluna dokunma |
+| K6 düzeltme | K5 yetenekleri önceki PASS'ta + Güvenlik avcısı ve bekçi testleri + Güvenlik yoluna dokunma aynı çıkışta |
 | K7 | + LLM avcı |
 | K3, K7, K8 | `class_floors` yazılı |
 
@@ -53,7 +54,7 @@ ilk bağlanmada okunur ama hiçbir karar ona dayanmaz. Doküman düzeltmesi ve y
 düzeltmesiyle aynı kapıdan geçer; doküman yolları yalnız K8 adaylarında diff-guard'dan geçer
 (`01b`). Reponun kendi doküman düzenine uyulur.
 
-| Varsayılan aşama sırası | Döngüde canlı olan | Oracle |
+| Varsayılan aşama sırası (0, 1 ve 6 sabit) | Döngüde canlı olan | Oracle |
 |---|---|---|
 | 0 | Yürüyen iskelet: ilk canlı döngünün okuduğu 18 mikro özellik beyin reposunun `referee/` dizininde, önyükleme hakeminin denetiminde (`29b`): zincir, `secrets.scan`, kum havuzu, profil ve birim, `deps.fetch` (npm), tarif doğrulaması, diff-guard, kapı, hedef yazıcı, defter, Rekor, nöbetçi, geri alma ve provası, `llm.call`, durum bloğu, `loop.yml`, etkinleştirme. Çıkışta aktarım; döngü önce oyuncak hedefte, aynı (B) içinde gerçek hedefin kopyasında tek birimde hazır adaylarla koşar. Çalışma zamanında tek LLM çağrısı kanaryadır | Kendi-testleri, tohum vektörleri, modülsüz kırmızı, kırmızı kontrol, rakip; (B)'de K0 oracle'ı (aracın yeniden koşusu, mandal) ve canlı merge'ler |
 | 1 | K0 döngüsü uçtan uca, oyuncu organları: lint adapter, taban, `fix` aralığı düzelticisi, araçsız Sonnet düzelticisi, aday yayımlama, üretilmiş sayfalar. Hakem parçaları ilk okuyucularından önce partilerle gelir (`asama-1/13`): P1 organ ve ölçüm (snapshot, vaka seti, harness, Gözcü, `drift.check`), P2 güvenlik gözlemi, Aşama 1 çıkış partisi (`exit.sample`, `spec.lint`, `lock.check`) | Kural sayımında sıfır kaçırma; araç yeniden koşusu ve mandal; kapının etkilenen-test koşusu; canlı merge'ler |
@@ -71,7 +72,8 @@ görünümünü getiren aşama ders provasını taşır (`22a`).
 
 **Neden yalnız Aşama 0, 1 ve 4 yazılı.** Aşama protokolü gereği her aşamanın spec'ini Kurucu, bir
 önceki aşamanın ölçülmüş sonuçlarıyla taslaklar (`02`); tohum yalnız bu tablodaki hedef satırını
-verir. Aşama 0 ve 1 başlangıç noktası ve güven kökü olduğu için tohumla gelir. Aşama 4 hedef
-taslaktır: sistemin varmak istediği yeri (kalıpsız LLM avcı) ve önceki aşamaların neyi teslim
-etmesi gerektiğini göstermek için yazıldı; sırası gelince yeniden yazılır. Aşama 2, 3, 5 ve 6'nın
-spec'i önceki aşamanın sonuçları olmadan yazılırsa ölçülmemiş bir tahmin olurdu.
+verir. Aşama 0 ve 1 başlangıç noktası ve güven kökü olduğu için tohumla gelir. `asama-4/` K5'in hedef
+taslağıdır (varsayılan sırada Aşama 4): sistemin varmak istediği yeri (kalıpsız LLM avcı) ve önceki
+aşamaların neyi teslim etmesi gerektiğini göstermek için yazıldı; K5'i getiren aşamanın spec'i olarak
+yeniden yazılır, ön koşulu yukarıdaki önkoşul tablosudur (`02` 1). Öbür aşamaların spec'i önceki
+aşamanın sonuçları olmadan yazılırsa ölçülmemiş bir tahmin olurdu.
