@@ -349,7 +349,7 @@ yapıştırılır; sohbete, dosyaya ya da günlüğe yazılmaz.
   Administration Read-only; Checks Read and write; Contents Read and write; Pull requests Read and write; Metadata
   Read-only; geri kalan her şey No access (Actions, Workflows, Secrets, Variables, Environments dahil). Organization ve
   Account permissions No access; Subscribe to events hiçbiri; Where can this GitHub App be installed: Only on this
-  account → Create GitHub App. App ID'yi operatöre söyle; Generate a private key (.pem iner).
+  account → Create GitHub App. App ID'yi operatöre söyle; özel anahtar: App ayarlarında soldan Credentials → Key pairs → New key (.pem iner; GitHub'ın 2026 arayüzü, eski "Generate a private key" düğmesi yok).
 - **S5 · App'i kur.** App sayfası → Install App → Okan-wqm → Only select repositories: snowball-rehearsal-toy,
   snowball-rehearsal-copy → Install. Başka repo yok (aquaculture_platform, beyin, hakem, snowball-mcp asla).
   Settings → Applications → Installed GitHub Apps'te yalnız bu App'in ve yalnız bu iki reponun göründüğünü operatöre söyle.
