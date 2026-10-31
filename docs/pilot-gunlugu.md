@@ -265,5 +265,6 @@ E167 (iki taraflı mekanizmada sınır), E168 (yargılanmamış push önce yarg�
 
 Kurucu'nun 3b'ye uyması (yeni defter kuralı, kontrol adımının izin listesi, `29k` vektörleri) ve çıkış isteği. Operatör:
 kopyanın aynalanması ve `targets[]` (sahibin belirteci), Aşama 1 ekiminin yolu (E308, sahibin kararı). Tohum dönemi 3c:
-karne ve ders provasının sınav tarafı (E310–E324, main'de), sınıf merdiveninin varsayılan sıra olması (uzman
-uzlaşması, uygulanacak) ve tuzağın tohum metni (E308). Sonra etkinleştirme (`seed/founder/ETKINLESTIRME.md`).
+karne ve ders provasının sınav tarafı (E310–E324, main'de), sınıf merdiveninin varsayılan sıra olması (E338,
+uzmanların kararı tohum metninde; kapının kodu Aşama 2 spec isteğiyle, E339) ve tuzağın tohum metni (E308).
+Sonra etkinleştirme (`seed/founder/ETKINLESTIRME.md`).
