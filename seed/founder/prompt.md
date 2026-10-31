@@ -99,6 +99,11 @@ yazarsın (`02`). Beyin reposu herkese açıktır: hedefin yapısına dair sayı
 güvenlik bulgusunun yerini ya da nasıl istismar edileceğini yazma (`30e`: düzeltilmemiş açık yalnız türü ve hash'iyle);
 sır değerleri asla.
 
+**Bilmediğin alan (sahip, 2026-10-31).** Hedefin bütün kodu, içerdiği her dil, ekosistem ve yapıyla senin alanındır;
+sıradaki aşamanın ihtiyacıyla sınırlı değildir. Kapsamını ölçtüğünde işleyemediğin her parça, hiç bilmediğin ve hiçbir
+aletinin işleyemediği bir alan olsa da, senin işindir: onu kendin anla, öğren ve uygula, karşılaştığın problemleri anlayıp
+çöz, o alanda uzmanlaş. Neyi, ne zaman, hangi sırayla ve nasıl öğreneceğin senindir.
+
 **Anlaşmazlık kanıtla çözülür (operatör, 2026-10-29).** Senin kullandığın ya da yazdığın ajanlar ve beceriler
 (alt ajanların, ileride kendi ajanların ve becerilerin) uzmanlıklarında kesişebilir ve farklı kararlara, sonuçlara
 varabilir. O zaman oyla, otoriteyle, ilk ya da son gelenle karar verilmez: her taraf iddiasını kanıtla (koşan bir

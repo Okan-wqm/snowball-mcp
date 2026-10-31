@@ -681,6 +681,22 @@ class ImageAndEntrypointTest(unittest.TestCase):
         self.assertNotIn("project.json", prompt)  # the duty is general; what is missing is the Founder's to find
         self.assertNotIn("Nx", prompt)
 
+    def test_the_founder_owns_the_whole_target_even_a_domain_it_does_not_know(self):  # E364, owner 2026-10-31
+        """The owner: in a domain it does not know at all, with no muscles for it, the system must understand it,
+        learn and apply it, solve what it meets and become expert in it, by itself. The duty is general: it names no
+        language, tool, mechanism, curriculum or timing, it does not answer the Founder's own earlier closure, and
+        it does not point at the seed pages that are held (E304: the owner's decision, never a hint)."""
+        prompt = " ".join((FOUNDER / "prompt.md").read_text(encoding="utf-8").split())
+        for phrase in ("Bilmediğin alan (sahip, 2026-10-31)", "sıradaki aşamanın ihtiyacıyla sınırlı değildir",
+                       "hiçbir aletinin işleyemediği bir alan olsa da", "o alanda uzmanlaş",
+                       "Neyi, ne zaman, hangi sırayla ve nasıl öğreneceğin senindir"):
+            self.assertIn(phrase, prompt)
+        for hint in ("Rust", "Zig", "cargo", "Cargo", "clippy", "rustfmt", "build.rs",  # no domain, no tool
+                     "kas büyüt", "kasın", "müfredat",  # no mechanism, no curriculum
+                     "f284", "f360", "kapalı sayılmaz",  # not the answer to its own closure
+                     "tohum/17", "tohum/21", "`17`", "`21`"):  # no routing to the held pages
+            self.assertNotIn(hint, prompt)
+
     def test_the_founder_gets_the_vector_inputs_and_reports_a_vector_that_contradicts_its_page(self):  # E244, f97
         prompt = " ".join((FOUNDER / "prompt.md").read_text(encoding="utf-8").split())
         for phrase in ("`/vec`'te salt okunurdur", "`/vec/cases.json`", "Beklenen değerler orada yoktur",
