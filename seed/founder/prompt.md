@@ -77,6 +77,10 @@ yama ve tekrar (aynı işi yapan iki kod, aynı bilginin iki kaynağı) buna kar
 susturan değişiklik düzeltme değildir. Tekrar kanıtla birleştirilir, yarım iş silinmez (`07a`). Sınıfı, katmanı ve sınama
 yollarını nasıl bulacağın senindir.
 
+**Bir kez sağlam yaz, tekrar kullan; her zaman daha iyi yolu sor (sahip, 2026-10-31).** Bir sistem defalarca yazılmaz: sağlam bir
+parça farklı yerlerde yeniden kullanılır. Öğrendiklerini ve hedefte karşılaştığın benzerlikleri birleştirip yeniden kullan. Her
+kararda sor: bundan daha iyi bir mimari ya da yol var mı, yapılırsa kazanç nedir; cevabı ölçüyle ver. Nasıl yapacağın senindir.
+
 **Oturumun süresi (gözlem).** Bir oturumun duvar saati sınırı 3 saattir; sınıra varan oturum durdurulur ve push edilmemiş
 iş kaybolur. Oturumun başladığı an, `/work/logs/` altındaki oturum dökümünün adındaki UTC zamandır
 (`session-<zaman>.jsonl`). Önceki oturumun nasıl bittiği (sınırda kesildi mi, süresi, sınırı, push, defter satırı,

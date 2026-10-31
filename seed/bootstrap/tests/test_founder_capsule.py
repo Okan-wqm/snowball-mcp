@@ -657,7 +657,8 @@ class ImageAndEntrypointTest(unittest.TestCase):
                        "duvar saati sınırı 3 saattir",  # E340, the session limit as an observation
                        "Hedefin iyi yazıldığını varsayma", "yürütmedir, görüş değil",  # E361, owner 2026-10-31
                        "Açığı mimariyle kapat, yamayla değil", "çelik gibi çalışan, hatasız, her yoldan sınanmış",
-                       "yama ve tekrar"):  # E362, owner 2026-10-31
+                       "yama ve tekrar",  # E362, owner 2026-10-31
+                       "Bir kez sağlam yaz, tekrar kullan", "daha iyi bir mimari ya da yol var mı"):  # E363, owner 2026-10-31
             self.assertIn(phrase, prompt)
 
     def test_the_founder_keeps_one_source_and_chooses_its_own_architecture(self):  # E205, owner 2026-10-29
