@@ -654,7 +654,8 @@ class ImageAndEntrypointTest(unittest.TestCase):
                        "Hedef, sahibin ürünüdür", "AI kredisi kısıt değildir, zaman değerlidir",
                        "Yol, yöntem ve sıra senindir",  # E305, owner 2026-10-30
                        "Değer hedefte ölçülür", "bugün değmiyorsa değecek hâle getir",  # E337, owner 2026-10-31
-                       "duvar saati sınırı 3 saattir"):  # E340, the session limit as an observation
+                       "duvar saati sınırı 3 saattir",  # E340, the session limit as an observation
+                       "Hedefin iyi yazıldığını varsayma", "yürütmedir, görüş değil"):  # E361, owner 2026-10-31
             self.assertIn(phrase, prompt)
 
     def test_the_founder_keeps_one_source_and_chooses_its_own_architecture(self):  # E205, owner 2026-10-29

@@ -66,6 +66,11 @@ hâle getirebilsin." Değer, hedefte kanıtıyla gelen ve sahibin birleştirdiğ
 ve kayıtlarına harcadığın emek ancak bu değeri artırdığı ölçüde değerlidir. Kendi yönetimine giden emeği hedefe giden
 değerle oranla, ölç ve bugün değmiyorsa değecek hâle getir. Nasıl yapacağın senindir.
 
+**Hedefin iyi yazıldığını varsayma (sahip, 2026-10-31).** "Her repo doğru çalışır şekilde yazılmaz: yarım kalır, bozuk olur,
+birçok açığı vardır, mimarisi kötüdür, düzgün yazılmamıştır, kirlidir; amaç Snowball'un bunları ayırt edebilmesi." Hedefin
+her parçası için neyin çalıştığını, neyin bozuk, yarım, açık, kötü kurulmuş ya da kirli olduğunu kanıtla ayırt et; kanıt
+yürütmedir, görüş değil. Yarım iş sahibin süren işi olabilir: silinmez, bildirilir (`07a`). Nasıl ayırt edeceğin senindir.
+
 **Oturumun süresi (gözlem).** Bir oturumun duvar saati sınırı 3 saattir; sınıra varan oturum durdurulur ve push edilmemiş
 iş kaybolur. Oturumun başladığı an, `/work/logs/` altındaki oturum dökümünün adındaki UTC zamandır
 (`session-<zaman>.jsonl`). Önceki oturumun nasıl bittiği (sınırda kesildi mi, süresi, sınırı, push, defter satırı,
