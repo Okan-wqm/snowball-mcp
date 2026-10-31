@@ -232,6 +232,17 @@ ders E318, kalibrasyon E319); gerçek beyinde sınav dar bir ders partisi olarak
 açık sayfada geçen aile havuza girmez (E324). Operatörün işi Aşama 1 sürerken: aileleri yazmak ve kalibre etmek,
 `pool_sha256`'yı Aşama 2 spec isteğinden önce zincire, Rekor'a ve bu günlüğe yazmak.
 
+## 2026-10-31 sabah: yeniden başlatma ve tohum dönemi 3b
+
+Pilot 08:12Z'de yeniden başladı. Döngü 1 (`2bea567` → `8c57160`) kabul edildi: Kurucu rakibin canlı yol iddiasını sınıf
+düzeyinde bir kayıt ve denetimle kapattı (`referee/status/off_live.json`, `status.depmap check`, 16 mutant) ve seed-039'un
+cevabını kendisi teyit etti. Döngü 2 (`8c57160` → `cdb1c43`, D5: `yaz` işinin döngü yapıtları üzerinden kararı) kabul
+edildi (STOP yüzünden operatör yargılattı). Son kabul Kurucu'nun son push'uyken tohum dönemi 3b teslim edildi:
+snowball-mcp `30b27a9` → beyin `db4b81d`, doğrulama `seed_update`/`noop`. İçerik: Aşama 0 çıkışının kararları (E280–E297),
+E249, sahip kararları paketi 1, E306. Özete sahibin #durustluk istisnası girdi (E294); Aşama 1'in ekimi üç denemede de
+üretilemedi (E308), bu yüzden koşul `not_checked` kalır. Oyuncak ve kopya repoları açıldı; `targets[]` sahibin aynalama
+belirtecini bekliyor (E330).
+
 ## Pilotun tetiklediği düzeltmeler
 
 E148 (defter satırları push türünü bozuyordu), E149 (`main` mutasyonu hiç koşmuyordu), E152 (CRLF, `safe.directory`),
@@ -241,9 +252,7 @@ E167 (iki taraflı mekanizmada sınır), E168 (yargılanmamış push önce yarg�
 
 ## Sıradaki
 
-Tohum dönemi 3b: Aşama 0 çıkışının karar verilemeyen koşulları ve şüpheci turunun kök düzeltmeleri (E280, E282, E287,
-E293–E297; main `e7b3b24`) ve sahibin sorusuna verilen E249 cevabı (`07`, `17`). Teslimin önkoşulu: başlatıcı durmuş
-ve son kabul Kurucu'nun son push'u olmalı (kuraldan önce yazılıp kabul edilmemiş bozuk defter satırı kapatılamaz).
-Ardından Kurucu'nun çıkış isteği. Paralelde: kendini geliştirme karnesi ve ders provasının sınav tarafı (E310–E321),
-sınıf merdiveninin sabit değil varsayılan sıra olması (uzman uzlaşması; uygulanacak), Aşama 1 etkinleştirme yordamı
-(sahibin GitHub App adımı dahil).
+Kurucu'nun 3b'ye uyması (yeni defter kuralı, kontrol adımının izin listesi, `29k` vektörleri) ve çıkış isteği. Operatör:
+kopyanın aynalanması ve `targets[]` (sahibin belirteci), Aşama 1 ekiminin yolu (E308, sahibin kararı). Tohum dönemi 3c:
+karne ve ders provasının sınav tarafı (E310–E324, main'de), sınıf merdiveninin varsayılan sıra olması (uzman
+uzlaşması, uygulanacak) ve tuzağın tohum metni (E308). Sonra etkinleştirme (`seed/founder/ETKINLESTIRME.md`).
