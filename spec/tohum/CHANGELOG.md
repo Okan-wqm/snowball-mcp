@@ -4,6 +4,9 @@ Tarih: 2026-10-29 · Sürüm: 2.2
 Okunma: bir sayfanın geçmişi aranırken
 Çapa: git geçmişi ve zincirdeki spec hash satırları
 
+- 2.2 (2026-10-31, E294, E308; sahibin kararı): ekim üretilemediyse taşınan #durustluk'un taahhüdü, aşama başlamadan
+  kaydedilmiş değişmez ve mühürlü bir ölçüm planının hash'idir (`02` "Sahip istisnası", `25` 10c); plan çıkışta
+  `setup/honesty-key.json` olarak açılır, değerlendiricinin çıktısı `setup/honesty-result.json`'dır (`26c`); gizli artefakt yoktur.
 - 2.2 (2026-10-31, E249; sahibin sorusu, uzman tartışması): `main`'i salt okunur okumak dokunmak değildir; taban yaşının
   commit sayısı ve eskimiş bulgu oranı senkrondan önce de bu okumayla ölçülür (`07`). `07`'nin andığı eskimiş bulgu oranı
   sinyali `17`'de satırdır: eşik pencerede > %20, doğan şey organ değil Aşama 2'deki senkron izin kararıdır.
