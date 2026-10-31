@@ -348,6 +348,25 @@ class Pilot:
         with self.metrics.open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(row, ensure_ascii=False, sort_keys=True) + "\n")
 
+    def previous_session_note(self, stamp: str, timeout_s: int) -> None:
+        """How the last session ended, from this script's own record of it, into the next session's folder (E360): a
+        session killed at the wall-clock limit leaves no ledger row, so without this the Founder could not see that it
+        happened. Facts only (end, minutes, the limit it ran under, push, ledger rows, verdict), never its transcript
+        (E155)."""
+        lines = self.metrics.read_text(encoding="utf-8").splitlines() if self.metrics.is_file() else []
+        if not lines:
+            return
+        last = json.loads(lines[-1])
+        limit_s = last.get("session_timeout_s") or timeout_s
+        note = {"stamp": last.get("stamp"), "ended": "timeout" if last.get("session_exit") == -1 else "exit",
+                "exit": last.get("session_exit"), "minutes": last.get("minutes"), "limit_minutes": round(limit_s / 60, 1),
+                "pushed": bool(last.get("pushed")), "ledger_rows_added": sum((last.get("ledger_new") or {}).values()),
+                "verdict": last.get("verdict")}
+        folder = self.session_logs(stamp)
+        folder.mkdir(parents=True, exist_ok=True)
+        (folder / "previous-session.json").write_text(json.dumps(note, ensure_ascii=False, sort_keys=True) + "\n",
+                                                      encoding="utf-8")
+
     @staticmethod
     def evaluated(verdict: dict | None, head: str) -> bool:
         return bool(verdict) and verdict.get("head") == head and (verdict.get("state") or {}).get("last_evaluated_sha") == head
@@ -410,6 +429,7 @@ class Pilot:
                        f"`{str(exc).replace('`', chr(39))}`\n")
             return False
         say(f"cycle {n}: Founder session {stamp} (brain {before[:7]})")
+        self.previous_session_note(stamp, args.session_timeout)
         sess = self.session(stamp, args.model, args.max_turns, args.budget_usd, args.session_timeout)
         after = self.brain_head()
         rows_after = self.ledger_rows(after)
@@ -450,6 +470,7 @@ class Pilot:
         self.record_metrics({
             "stamp": stamp, "brain_before": before, "brain_after": after, "pushed": after != before,
             "session_exit": sess.get("exit"), "minutes": sess.get("minutes"), "turns": sess.get("turns"),
+            "session_timeout_s": args.session_timeout,
             "cost_usd": sess.get("cost_usd"), "verdict": (verdict or {}).get("verdict"), "kind": (verdict or {}).get("kind"),
             "reasons": [{"kind": r.get("kind"), "ref": r.get("ref"), "owner": reason_owner(r)}
                         for r in (verdict or {}).get("reasons", [])],

@@ -280,3 +280,4 @@ kopyanın aynalanması ve `targets[]` (sahibin belirteci), Aşama 1 ekiminin yol
 karne ve ders provasının sınav tarafı (E310–E324, main'de), sınıf merdiveninin varsayılan sıra olması (E338,
 uzmanların kararı tohum metninde; kapının kodu Aşama 2 spec isteğiyle, E339) ve tuzağın tohum metni (E308).
 Sonra etkinleştirme (`seed/founder/ETKINLESTIRME.md`).
+E364 (talimatta "Bilmediğin alan" görevi) `gaps/self-extension` dalında sahibin ifade onayını bekliyor; sınav planı mühürlü.

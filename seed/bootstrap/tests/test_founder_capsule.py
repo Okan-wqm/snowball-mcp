@@ -85,6 +85,43 @@ class CapsuleArgvTest(unittest.TestCase):
                 self.assertTrue(Path(src).is_relative_to(self.work), src)
 
 
+class PreviousSessionTest(unittest.TestCase):  # E360: how the last session ended is an observation, never its transcript
+    def setUp(self):
+        self.launch = load_launch()
+        self.work = Path(tempfile.mkdtemp())
+        self.pilot = self.launch.Pilot(self.work, "owner/brain", "owner/referee", "target")
+
+    def note(self, stamp="20261031T210000Z"):
+        path = self.work / "logs" / stamp / "previous-session.json"
+        return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else None
+
+    def test_a_timed_out_session_is_named_for_the_next_one(self):
+        rows = [{"stamp": "20261031T170731Z", "session_exit": 0, "minutes": 18.5, "pushed": True,
+                 "ledger_new": {"decision": 3, "build": 1}, "verdict": "accepted", "session_timeout_s": 10800},
+                {"stamp": "20261031T174316Z", "session_exit": -1, "minutes": 180.2, "pushed": False,
+                 "ledger_new": {}, "verdict": None, "session_timeout_s": 10800}]
+        self.pilot.metrics.write_text("".join(json.dumps(r) + "\n" for r in rows), encoding="utf-8")
+        self.pilot.previous_session_note("20261031T210000Z", 10800)
+        self.assertEqual(self.note(), {"stamp": "20261031T174316Z", "ended": "timeout", "exit": -1, "minutes": 180.2,
+                                       "limit_minutes": 180.0, "pushed": False, "ledger_rows_added": 0, "verdict": None})
+
+    def test_a_normal_end_and_the_limit_it_ran_under(self):
+        row = {"stamp": "20261031T170731Z", "session_exit": 0, "minutes": 18.5, "pushed": True,
+               "ledger_new": {"decision": 3, "build": 1}, "verdict": "accepted", "session_timeout_s": 7200}
+        self.pilot.metrics.write_text(json.dumps(row) + "\n", encoding="utf-8")
+        self.pilot.previous_session_note("20261031T210000Z", 10800)
+        note = self.note()
+        self.assertEqual((note["ended"], note["limit_minutes"], note["ledger_rows_added"], note["pushed"]),
+                         ("exit", 120.0, 4, True))
+
+    def test_no_earlier_cycle_writes_nothing(self):
+        self.pilot.previous_session_note("20261031T210000Z", 10800)
+        self.assertIsNone(self.note())
+
+    def test_the_prompt_says_where_it_is(self):
+        self.assertIn("/work/logs/previous-session.json", (FOUNDER / "prompt.md").read_text(encoding="utf-8"))
+
+
 class BuildContextTest(unittest.TestCase):
     def test_a_windows_checkout_reaches_the_image_with_lf_and_nothing_else(self):  # E152
         launch = load_launch()
@@ -616,7 +653,12 @@ class ImageAndEntrypointTest(unittest.TestCase):
                        "kararıyla doğrula",  # E302, owner 2026-10-30
                        "Hedef, sahibin ürünüdür", "AI kredisi kısıt değildir, zaman değerlidir",
                        "Yol, yöntem ve sıra senindir",  # E305, owner 2026-10-30
-                       "Değer hedefte ölçülür", "bugün değmiyorsa değecek hâle getir"):  # E337, owner 2026-10-31
+                       "Değer hedefte ölçülür", "bugün değmiyorsa değecek hâle getir",  # E337, owner 2026-10-31
+                       "duvar saati sınırı 3 saattir",  # E340, the session limit as an observation
+                       "Hedefin iyi yazıldığını varsayma", "yürütmedir, görüş değil",  # E361, owner 2026-10-31
+                       "Açığı mimariyle kapat, yamayla değil", "çelik gibi çalışan, hatasız, her yoldan sınanmış",
+                       "yama ve tekrar",  # E362, owner 2026-10-31
+                       "Bir kez sağlam yaz, tekrar kullan", "daha iyi bir mimari ya da yol var mı"):  # E363, owner 2026-10-31
             self.assertIn(phrase, prompt)
 
     def test_the_founder_keeps_one_source_and_chooses_its_own_architecture(self):  # E205, owner 2026-10-29
@@ -638,6 +680,22 @@ class ImageAndEntrypointTest(unittest.TestCase):
             self.assertIn(phrase, prompt)
         self.assertNotIn("project.json", prompt)  # the duty is general; what is missing is the Founder's to find
         self.assertNotIn("Nx", prompt)
+
+    def test_the_founder_owns_the_whole_target_even_a_domain_it_does_not_know(self):  # E364, owner 2026-10-31
+        """The owner: in a domain it does not know at all, with no muscles for it, the system must understand it,
+        learn and apply it, solve what it meets and become expert in it, by itself. The duty is general: it names no
+        language, tool, mechanism, curriculum or timing, it does not answer the Founder's own earlier closure, and
+        it does not point at the seed pages that are held (E304: the owner's decision, never a hint)."""
+        prompt = " ".join((FOUNDER / "prompt.md").read_text(encoding="utf-8").split())
+        for phrase in ("Bilmediğin alan (sahip, 2026-10-31)", "sıradaki aşamanın ihtiyacıyla sınırlı değildir",
+                       "hiçbir aletinin işleyemediği bir alan olsa da", "o alanda uzmanlaş",
+                       "Neyi, ne zaman, hangi sırayla ve nasıl öğreneceğin senindir"):
+            self.assertIn(phrase, prompt)
+        for hint in ("Rust", "Zig", "cargo", "Cargo", "clippy", "rustfmt", "build.rs",  # no domain, no tool
+                     "kas büyüt", "kasın", "müfredat",  # no mechanism, no curriculum
+                     "f284", "f360", "kapalı sayılmaz",  # not the answer to its own closure
+                     "tohum/17", "tohum/21", "`17`", "`21`"):  # no routing to the held pages
+            self.assertNotIn(hint, prompt)
 
     def test_the_founder_gets_the_vector_inputs_and_reports_a_vector_that_contradicts_its_page(self):  # E244, f97
         prompt = " ".join((FOUNDER / "prompt.md").read_text(encoding="utf-8").split())
