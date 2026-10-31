@@ -15,8 +15,8 @@ What the spec leaves open is chosen here (E280):
 - ``part`` is ``founder`` and ``kind`` is one of `tohum/26`'s founder kinds (test 30); ``supersedes``, when present,
   names an earlier row of the file that breaks one of these meaning rules (`26`, `13`). These are the ledger's
   structure; its content, the other fields of `26`, is not gated: it is the Founder's memory (`13`).
-- a row the referee accepted is never rewritten. One that breaks a meaning rule (``MEANING_RULES``: the live pilot's
-  f185, accepted before the seed checked rows) is closed by a later valid row that names its ``row_hash`` in
+- a row the referee accepted is never rewritten. One that breaks a meaning rule (``MEANING_RULES``; a row accepted
+  before the seed checked rows can) is closed by a later valid row that names its ``row_hash`` in
   ``supersedes`` (`13` "Kurucu defterinde kapatma", E280); the closing row may ride along with the exit request, and
   the exit names each closed row beside the row that closed it. Left unclosed it is ``founder_ledger_accepted_invalid``
   and the Founder's to fix (`29b` "Ret hafızası"). Broken bytes or a broken chain in an accepted row are tamper

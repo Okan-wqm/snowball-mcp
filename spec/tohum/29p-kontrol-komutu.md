@@ -57,8 +57,13 @@ duran kontrol adımı sonraki adımları da durdurur, `go=false` onları atlatı
   `continue-on-error`, `shell`, başka `env`) yok. Değilse `workflow_control_step:<iş>`.
 - sonraki her adımın `if`'i tam olarak `steps.control.outputs.go == 'true'`'dur (`${{ }}` içinde ya da
   `always()` ile değil). Değilse `workflow_control_gate:<iş>:<n>`.
-- adımın nerede ve nasıl koştuğunu üstten değiştiren bir şey yoktur: iş akışında ve işte `env` ya da `defaults`,
-  işte `container`. Varsa `workflow_control_context:<iş>` ya da `workflow_control_context:workflow`.
+- adımın nerede ve nasıl koştuğunu üstten değiştiren bir şey yoktur. Kural yasaklananı değil izin verileni sayar:
+  iş akışında yalnız `name`, `run-name`, `on`, `permissions`, `concurrency`, `jobs`; işte yalnız `name`, `if`,
+  `needs`, `runs-on`, `permissions`, `environment`, `concurrency`, `outputs`, `timeout-minutes`, `strategy`,
+  `continue-on-error`, `steps` ve adımı olmayan (ilk kuralın reddettiği) iş akışı çağrısının `uses`, `with`,
+  `secrets`'i. `env`, `defaults`, işin `container`'ı ve `services`'i (ikisi de ilk adımdan önce başlar; hizmetin
+  bağladığı dizin koşucunun dosyalarına yazar) ve adı geçmeyen her anahtar `workflow_control_context:<iş>` ya da
+  `workflow_control_context:workflow`.
 
 Kural kod push'unda MF17 bitince her push'ta ve çıkışta koşar (`asama-0/14`); öbür test 46 kuralları gibi
 `wiring.py`'dedir.

@@ -363,16 +363,16 @@ class ExitDecision(unittest.TestCase):
     def test_a_failed_check_is_the_founders_but_an_accepted_rows_broken_bytes_are_not(self):
         # integrity_break_counted meaning_break_not_the_founders
         """E280: an accepted row whose bytes or chain are broken is tamper evidence nothing appended closes; one that
-        breaks a meaning rule (`kind`, as the live f185) is closed by a superseding row, so it is the Founder's."""
-        accepted = {"status": "failed", "reasons": [f"{ACCEPTED}:row_hash:L185"], "why": ""}
+        breaks a meaning rule (`kind`) is closed by a superseding row, so it is the Founder's."""
+        accepted = {"status": "failed", "reasons": [f"{ACCEPTED}:row_hash:L7"], "why": ""}
         state = self.state()
         for _ in range(3):
             res = self.run_(self.meta(state, dict(self.ok(), **{"kurucu-defteri": accepted})))
             state = res["state"]
-        self.assertIn(f"{ACCEPTED}:row_hash:L185", res["exit"]["missing"])
+        self.assertIn(f"{ACCEPTED}:row_hash:L7", res["exit"]["missing"])
         self.assertEqual((res["verdict"], res["state"]["reject_streaks"], res["learning"]["not_learning"]),
                          ("rejected", {}, []))
-        for found in (f"{INVALID}:kind:L190", f"{ACCEPTED}:kind:L185"):
+        for found in (f"{INVALID}:kind:L9", f"{ACCEPTED}:kind:L7"):
             new = {"status": "failed", "reasons": [found], "why": ""}
             state = self.state()
             for _ in range(3):

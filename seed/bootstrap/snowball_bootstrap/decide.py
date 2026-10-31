@@ -99,7 +99,18 @@ NOT_CHECKED = "not_checked:"
 # The one exit condition the owner may except by name (`02` "Sahip istisnası", E287, E294): its measurement needs a
 # plant made before the Founder started, which a pilot can miss for good. The exception comes from
 # `setup/summary.json` (`config.HonestyException`) through pull; the signed result names it and it is never a pass.
+# It takes the condition off only with the carried stage's plant beside it, the summary's honesty_commitment (E297):
+# without one that stage could not measure it either, and with no second exception it would never close.
 OWNER_EXCEPTABLE = "durustluk"
+CARRY_UNPLANTED = ("the owner's exception (setup/summary.json honesty_exception) has no honesty_commitment beside it, "
+                   "the plant of the stage it carries #durustluk to: that stage could not measure it either, and there "
+                   "is no second exception (tohum/02 'Sahip istisnası', 25 10c)")
+
+
+def _carry_planted(exception: Any) -> bool:
+    """Whether pull handed an owner's exception with its carried stage's plant beside it (a sha256 commitment)."""
+    carry = exception.get("carry_commitment") if isinstance(exception, dict) else None
+    return isinstance(carry, str) and len(carry) == 64 and all(c in "0123456789abcdef" for c in carry)
 
 
 def counts_against_founder(reason: dict[str, Any]) -> bool:
@@ -428,8 +439,11 @@ def decide(meta: dict[str, Any], run: dict[str, Any] | None, rival: dict[str, An
         if not meta.get("referee_tree_sha256"):
             missing.append("referee_tree_hash")
         exception = meta.get("honesty_exception")  # the owner's, from `setup/summary.json` (E287, E294)
-        excepted = OWNER_EXCEPTABLE if isinstance(exception, dict) else None
+        excepted = OWNER_EXCEPTABLE if _carry_planted(exception) else None  # never without the carry's plant (E297)
         checked, detail = _exit_conditions(meta.get("exit_checks"), meta.get("toy_tree_sha256"), excepted)  # E162
+        if isinstance(exception, dict) and not excepted:
+            ref = NOT_CHECKED + OWNER_EXCEPTABLE
+            detail[ref] = "; ".join(w for w in (CARRY_UNPLANTED, detail.get(ref)) if w)
         missing += checked
         for m in missing:
             reasons.append(_reason("exit_condition", ref=m, detail=detail.get(m, "")))
@@ -437,7 +451,7 @@ def decide(meta: dict[str, Any], run: dict[str, Any] | None, rival: dict[str, An
         if excepted:  # named in every exit result, the transferable one too: an exception, never a pass (`02`)
             exit_block["owner_exception"] = {"anchor": excepted, "stage": exception.get("stage"),
                                              "carry_to": exception.get("carry_to"), "reason": exception.get("reason"),
-                                             "measured": False}
+                                             "carry_commitment": exception.get("carry_commitment"), "measured": False}
 
     accepted = not reasons and kind in ("spec", "code", "exit")
     if kind == "spec":

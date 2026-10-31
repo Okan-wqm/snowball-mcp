@@ -1,14 +1,16 @@
-"""The owner's decisions on what kept the Stage 0 exit from being decided (`asama-0/10`; E280, E282, E287, E293, E294).
+"""What kept the Stage 0 exit from being decided (`asama-0/10`; E280, E282, E287, E293, E294, E296, E297).
 
 - #kurucu-defteri (E280): an accepted Founder ledger row that breaks one of `tohum/26`'s meaning rules (`part`, `kind`,
   `supersedes`) stays in the chain and is closed by a later valid row that names it in ``supersedes`` (`13`); broken
   bytes or chains are never closed; what is left unclosed is the Founder's to fix. No push is refused for a row the
   referee accepted.
-- #is-akisi (E282): the seed's `control` command has the loop's interface (`29p`), and every loop job is held to it.
-- #durustluk (E287, E294): never planted in the live pilot, it passes only by the owner's named exception, read from
-  `setup/summary.json`, written into the signed result and carried to the next stage.
-- E293: Stage 0 starts only from a setup summary that names the copy target's identifiers and the honesty commitment
-  (or the owner's exception), so the setup day's items 10a and 10c cannot be skipped again.
+- #is-akisi (E282, E296): the seed's `control` command has the loop's interface (`29p`), and every loop job is held to
+  it; above the control step stand only the keys the rule names.
+- #durustluk (E287, E294, E297): when the plant was missed, it is taken off the exit only by the owner's named
+  exception, read from `setup/summary.json`, written into the signed result and carried to the next stage, and only
+  with that stage's plant beside it.
+- E293, E297: Stage 0 starts only from a setup summary that names the copy target's identifiers and the honesty
+  commitment, so the setup day's items 10a and 10c cannot be skipped again.
 
 The trailing comment on a test names the mutants it kills (`local/mutate.py`).
 """
@@ -35,6 +37,8 @@ INVALID, ACCEPTED = "founder_ledger_invalid", "founder_ledger_accepted_invalid"
 EXIT_JOBS = {"getir": "success", "kos": "success"}
 ROOT = Path(__file__).resolve().parents[3]
 EXCEPTION = {"stage": 0, "carry_to": 1, "reason": "E287: the plant was not made before the Founder started"}
+CARRY = "c" * 64  # sha256(canonical(key)) of the plant the carried stage measures (`25` 10c)
+HANDED = dict(EXCEPTION, carry_commitment=CARRY)  # as pull hands it to decide
 
 
 # ---------------------------------------------------------------- #kurucu-defteri: closing an accepted row (E280)
@@ -110,7 +114,7 @@ class SupersedingAnAcceptedRow(unittest.TestCase):
         # meaning_break_not_the_founders integrity_break_counted
         for rule, founders in (("kind", True), ("part", True), ("supersedes", True), ("row_hash", False),
                                ("prev_hash", False), ("not_json", False), ("too_deep", False)):
-            reason = {"kind": "exit_condition", "ref": f"{ACCEPTED}:{rule}:L185"}
+            reason = {"kind": "exit_condition", "ref": f"{ACCEPTED}:{rule}:L7"}
             self.assertEqual(decide_module.counts_against_founder(reason), founders, rule)
         self.assertTrue(decide_module.counts_against_founder({"kind": "exit_condition", "ref": f"{INVALID}:row_hash:L9"}))
         self.assertFalse(decide_module.counts_against_founder({"kind": "exit_condition", "ref": "not_checked:spec"}))
@@ -245,7 +249,7 @@ class EveryJobStartsWithTheControlStep(unittest.TestCase):
             swapped = workflow(control + first, first + control)
             self.assertIn(f"workflow_control_step:{job}", self.check(swapped), job)
 
-    def test_every_later_step_waits_for_go(self):  # control_gate_unchecked
+    def test_every_later_step_waits_for_go(self):  # control_gate_unchecked control_gate_second_step_only
         gate = f"        if: {GO}\n"
         fetch = "        run: python3 -m loop fetch\n" + gate
         for new in ("", "        if: always()\n", f"        if: {GO} || always()\n", "        if: ${{ " + GO + " }}\n",
@@ -253,24 +257,47 @@ class EveryJobStartsWithTheControlStep(unittest.TestCase):
             with self.subTest(new=new):
                 self.assertEqual(self.check(workflow(fetch, "        run: python3 -m loop fetch\n" + new)),
                                  ["workflow_control_gate:getir:2"])
+        # Past the second step too: `kos` runs the Founder's code in its third.
+        for job, script in (("kos", "python3 -m loop run"), ("cek", 'python3 -m loop pull --out "$RUNNER_TEMP/pulled"')):
+            with self.subTest(job=job):
+                self.assertEqual(self.check(workflow(*in_job(job, f"{script}\n{gate}", f"{script}\n"))),
+                                 [f"workflow_control_gate:{job}:3"])
 
     def test_nothing_above_the_control_step_changes_how_it_runs(self):
-        # control_context_unchecked control_context_container control_context_workflow
+        # control_context_unchecked control_context_container control_context_workflow control_context_services
         self.assertEqual(self.check(workflow("permissions: {}\njobs:", "permissions: {}\nenv:\n  PYTHONSAFEPATH: '1'\njobs:")),
                          ["workflow_control_context:workflow"])
+        service = "    services:\n      warm:\n        image: docker.io/library/busybox:1.36\n"
         for above in ("    env:\n      PYTHONSAFEPATH: '1'\n", "    defaults:\n      run:\n        working-directory: x\n",
-                      "    container: docker.io/library/python:3.12\n"):
+                      "    container: docker.io/library/python:3.12\n", service,
+                      service + "        volumes:\n          - /home/runner/work/_temp:/t\n",
+                      "    snapshot: image\n"):
             with self.subTest(above=above):
                 self.assertEqual(self.check(workflow(*in_job("kos", "    steps:\n", above + "    steps:\n"))),
                                  ["workflow_control_context:kos"])
+
+    def test_what_stands_above_the_control_step_is_named_not_guessed(self):
+        """E296: a list of what may not stand there missed `services`, whose containers start before step 1; the rule
+        names what may. Each key it names passes, as the live loop's keys do."""
+        # control_context_allows_too_little
+        above = ("    name: k\n    timeout-minutes: 60\n    concurrency:\n      group: kos\n    environment: e\n"
+                 "    continue-on-error: false\n    outputs:\n      x: y\n    strategy:\n      fail-fast: true\n")
+        top = "name: loop\nrun-name: loop\nconcurrency:\n  group: loop\n  cancel-in-progress: false\n"
+        self.assertEqual(self.check(workflow(*in_job("kos", "    steps:\n", above + "    steps:\n"), "name: loop\n", top)),
+                         [])
+        self.assertEqual(set(wiring.JOB_KEYS) & {"env", "defaults", "container", "services"}, set())
+        self.assertEqual(set(wiring.WORKFLOW_KEYS) & {"env", "defaults"}, set())
 
     def test_the_page_says_what_the_check_holds(self):
         page = (ROOT / "spec" / "tohum" / "29p-kontrol-komutu.md").read_text(encoding="utf-8")
         for line in wiring.CONTROL_RUN.splitlines():
             self.assertIn(line, page)
         for text in (GO, "LOOP_JOB", "go=true", "go=false", "loop_schedule", "workflow_dispatch",
-                     "workflow_control_step", "workflow_control_gate", "workflow_control_context"):
+                     "workflow_control_step", "workflow_control_gate", "workflow_control_context", "`services`"):
             self.assertIn(text, page)
+        rule = page.split("**`wiring` kuralı**", 1)[1].split("**Sınır.**", 1)[0]
+        for key in wiring.WORKFLOW_KEYS + wiring.JOB_KEYS:  # the keys the rule names are the page's (E296)
+            self.assertIn(f"`{key}`", rule, key)
 
 
 # ---------------------------------------------------------------- #durustluk: the owner's exception (E287, E294)
@@ -278,7 +305,7 @@ class EveryJobStartsWithTheControlStep(unittest.TestCase):
 
 class OwnerExceptionRead(unittest.TestCase):
     """`26c`, `02` "Sahip istisnası": one anchor, one stage, one carry target; a commitment beside it is the plant the
-    carried stage measures (made during Stage 0, as the owner's decision on E287 plans)."""
+    carried stage measures (made before that stage starts)."""
 
     BASE = {"seed_commit": "a" * 40, "seed_tree_sha256": "b" * 64}
 
@@ -290,7 +317,7 @@ class OwnerExceptionRead(unittest.TestCase):
 
     def test_the_commitment_and_the_exception_are_read_strictly(self):
         # honesty_exception_keys_unchecked honesty_exception_stage_unchecked honesty_exception_carry_unchecked
-        # honesty_commitment_unchecked
+        # honesty_commitment_unchecked honesty_exception_stage_bool honesty_exception_carry_bool
         self.assertEqual((self.load(self.BASE).honesty_commitment, self.load(self.BASE).honesty_exception), (None, None))
         self.assertEqual(self.load(dict(self.BASE, honesty_commitment="c" * 64)).honesty_commitment, "c" * 64)
         self.assertEqual(self.load(dict(self.BASE, honesty_exception=EXCEPTION)).honesty_exception,
@@ -302,6 +329,7 @@ class OwnerExceptionRead(unittest.TestCase):
                     {"honesty_exception": {k: v for k, v in EXCEPTION.items() if k != "reason"}},
                     {"honesty_exception": dict(EXCEPTION, stage=1, carry_to=2)},
                     {"honesty_exception": dict(EXCEPTION, stage=False)}, {"honesty_exception": dict(EXCEPTION, carry_to=2)},
+                    {"honesty_exception": dict(EXCEPTION, stage=True)}, {"honesty_exception": dict(EXCEPTION, carry_to=True)},
                     {"honesty_exception": dict(EXCEPTION, reason=" ")}, {"honesty_exception": [EXCEPTION]}):
             with self.subTest(bad=bad), self.assertRaises(ConfigError):
                 self.load(dict(self.BASE, **bad))
@@ -314,13 +342,14 @@ class OwnerExceptionAtTheExit(unittest.TestCase):
     ok = staticmethod(test_exit_checks.ExitDecision.ok)
 
     def test_it_takes_durustluk_and_nothing_else_off_the_missing_list(self):
-        # owner_exception_ignored owner_exception_takes_any_anchor owner_exception_not_signed
-        res = self.run_(self.meta(self.state(), self.ok(), honesty_exception=EXCEPTION))
+        # owner_exception_ignored owner_exception_takes_any_anchor owner_exception_not_signed owner_exception_carry_unsigned
+        res = self.run_(self.meta(self.state(), self.ok(), honesty_exception=HANDED))
         self.assertEqual(res["exit"]["missing"], ["not_checked:spec"])
         self.assertEqual(res["exit"]["owner_exception"], {"anchor": "durustluk", "stage": 0, "carry_to": 1,
-                                                          "reason": EXCEPTION["reason"], "measured": False})
+                                                          "reason": EXCEPTION["reason"], "carry_commitment": CARRY,
+                                                          "measured": False})
         failed = dict(self.ok(), genellik={"status": "failed", "reasons": ["target_name_in_referee:x"], "why": ""})
-        res = self.run_(self.meta(self.state(), failed, honesty_exception=EXCEPTION))
+        res = self.run_(self.meta(self.state(), failed, honesty_exception=HANDED))
         self.assertEqual(res["exit"]["missing"], ["target_name_in_referee:x", "not_checked:spec"])
         res = self.run_(self.meta(self.state(), self.ok()))
         self.assertNotIn("owner_exception", res["exit"])
@@ -331,14 +360,38 @@ class OwnerExceptionAtTheExit(unittest.TestCase):
         with mock.patch.object(decide_module, "EXIT_NOT_CHECKED", only):
             res = self.run_(self.meta(self.state(), self.ok()))
             self.assertEqual((res["verdict"], res["exit"]["missing"]), ("rejected", ["not_checked:durustluk"]))
-            res = self.run_(self.meta(self.state(), self.ok(), honesty_exception=EXCEPTION))
+            res = self.run_(self.meta(self.state(), self.ok(), honesty_exception=HANDED))
         self.assertEqual((res["verdict"], res["exit"]["transferable"]), ("accepted", True))
         self.assertEqual(res["exit"]["owner_exception"]["anchor"], "durustluk")
 
+    def test_without_the_carried_stages_plant_it_takes_nothing_off(self):
+        """E297: the exception carries #durustluk to Stage 1, which measures it on a plant made before it starts. With
+        no commitment beside the exception, Stage 1 would open unplanted and its exit, with no second exception, could
+        never close: Stage 0's stays closed instead, as not_checked (not the Founder's), saying why."""
+        # owner_exception_without_its_carry carry_unplanted_unsaid
+        only = {"durustluk": decide_module.EXIT_NOT_CHECKED["durustluk"]}
+        with mock.patch.object(decide_module, "EXIT_NOT_CHECKED", only):
+            for carry in (None, "C" * 64, "c" * 63, 64, ["c" * 64]):
+                handed = dict(EXCEPTION, carry_commitment=carry)
+                with self.subTest(carry=carry):
+                    res = self.run_(self.meta(self.state(), self.ok(), honesty_exception=handed))
+                    self.assertEqual((res["verdict"], res["exit"]["missing"]), ("rejected", ["not_checked:durustluk"]))
+                    self.assertNotIn("owner_exception", res["exit"])
+                    reason = next(r for r in res["reasons"] if r["ref"] == "not_checked:durustluk")
+                    self.assertIn("no honesty_commitment beside it", reason["detail"])
+                    self.assertIn("E79", reason["detail"])
+                    self.assertFalse(decide_module.counts_against_founder(reason))
+            res = self.run_(self.meta(self.state(), self.ok(), honesty_exception=EXCEPTION))
+            self.assertEqual(res["exit"]["missing"], ["not_checked:durustluk"])
+            res = self.run_(self.meta(self.state(), self.ok()))
+            reason = next(r for r in res["reasons"] if r["ref"] == "not_checked:durustluk")
+            self.assertNotIn("honesty_commitment", reason["detail"])
+
 
 class OwnerExceptionFlow(test_exit_checks.ExitFlow):
-    def test_pull_hands_the_exception_to_the_exit_and_to_nothing_else(self):  # owner_exception_not_handed
-        self.write_summary(honesty_exception=EXCEPTION)
+    def test_pull_hands_the_exception_to_the_exit_and_to_nothing_else(self):
+        # owner_exception_not_handed owner_exception_carry_not_handed
+        self.write_summary(honesty_exception=EXCEPTION, honesty_commitment=CARRY)
         self.freeze_stage0()
         commit(self.brain, {"referee/ledger/chain.py": "x = 1\n",
                             "snowball-tests.json": test_exit_checks.test_flow.all_tests_manifest([1])}, "code")
@@ -346,10 +399,21 @@ class OwnerExceptionFlow(test_exit_checks.ExitFlow):
         self.state["last_evaluated_sha"] = None
         self.accept({"referee/ledger/chain.py": "x = 2\n"})
         meta = self.ask_exit()
-        self.assertEqual(meta["honesty_exception"], EXCEPTION)
+        self.assertEqual(meta["honesty_exception"], HANDED)
         result = self.finish(meta, run=self.green_run(meta), jobs=EXIT_JOBS)
         self.assertNotIn("not_checked:durustluk", result["exit"]["missing"])
-        self.assertFalse(result["exit"]["owner_exception"]["measured"])
+        self.assertEqual((result["exit"]["owner_exception"]["measured"],
+                          result["exit"]["owner_exception"]["carry_commitment"]), (False, CARRY))
+
+    def test_an_exception_without_the_commitment_reaches_the_exit_and_keeps_it_closed(self):
+        self.write_summary(honesty_exception=EXCEPTION)
+        self.freeze_stage0()
+        self.accept({"referee/ledger/chain.py": "x = 1\n"})
+        meta = self.ask_exit()
+        self.assertEqual(meta["honesty_exception"], dict(EXCEPTION, carry_commitment=None))
+        result = self.finish(meta, run=self.green_run(meta), jobs=EXIT_JOBS)
+        self.assertIn("not_checked:durustluk", result["exit"]["missing"])
+        self.assertNotIn("owner_exception", result["exit"])
 
     def test_a_target_name_in_the_reason_is_withheld(self):  # owner_exception_reason_published
         self.write_summary(targets=[TARGET], honesty_exception=dict(EXCEPTION, reason="E287, as Zorbalix asked"))
@@ -365,8 +429,9 @@ class OwnerExceptionFlow(test_exit_checks.ExitFlow):
 
 class StageZeroStartsWithItsSetup(unittest.TestCase):
     """`25` 10a and 10c, `25` "Aşama 0 bu özet olmadan başlamaz": the referee builds no first state from a summary
-    without the copy target's identifiers and the honesty commitment (or the owner's exception). A state that already
-    exists is never held to it: the gate is where Stage 0 starts."""
+    without the copy target's identifiers and the honesty commitment, with or without the owner's exception (E297:
+    beside it, the commitment is the carried stage's plant). A state that already exists is never held to it: the
+    gate is where Stage 0 starts, or restarts from a lost state (`25` "Durum kaybolursa")."""
 
     setUp = test_state.StateTest.setUp
     tearDown = test_state.StateTest.tearDown
@@ -375,15 +440,18 @@ class StageZeroStartsWithItsSetup(unittest.TestCase):
     TOY = dict(TARGET, id="toy", repo="owner/toy", kind="toy", base_sha=None, identifiers=[], unit_candidates=[])
 
     def start(self, **fields):
+        (self.root / "state" / "state.json").unlink(missing_ok=True)  # each start is judged on its own
         (self.root / "setup" / "summary.json").write_text(json.dumps(dict(self.BASE, **fields)))
         err = io.StringIO()
         with contextlib.redirect_stderr(err), contextlib.redirect_stdout(io.StringIO()):
             rc = self.fetch()
         return rc, err.getvalue()
 
-    def test_without_its_setup_stage_zero_does_not_start(self):  # start_gate_off start_without_commitment start_without_copy
+    def test_without_its_setup_stage_zero_does_not_start(self):
+        # start_gate_off start_without_commitment start_without_copy start_on_the_exception_alone
         targets = [TARGET, self.TOY]
         for fields, named in (({}, ("targets[]", "honesty_commitment")), ({"targets": targets}, ("honesty_commitment",)),
+                              ({"targets": targets, "honesty_exception": EXCEPTION}, ("honesty_commitment",)),
                               ({"honesty_commitment": "c" * 64}, ("targets[]",)),
                               ({"targets": [self.TOY], "honesty_commitment": "c" * 64}, ("targets[]",)),
                               ({"targets": [dict(TARGET, identifiers=[])], "honesty_commitment": "c" * 64}, ("targets[]",))):
@@ -394,9 +462,9 @@ class StageZeroStartsWithItsSetup(unittest.TestCase):
                     self.assertIn(name, err)
                 self.assertFalse((self.root / "state" / "state.json").exists())
 
-    def test_with_it_the_first_state_is_built(self):  # start_needs_the_commitment_alone
+    def test_with_it_the_first_state_is_built(self):  # start_refuses_the_exception
         for fields in ({"targets": [TARGET], "honesty_commitment": "c" * 64},
-                       {"targets": [TARGET, self.TOY], "honesty_exception": EXCEPTION}):
+                       {"targets": [TARGET, self.TOY], "honesty_exception": EXCEPTION, "honesty_commitment": "c" * 64}):
             self.assertEqual(self.start(**fields)[0], 0, sorted(fields))
             state = json.loads((self.root / "state" / "state.json").read_text())
             self.assertEqual((state["origin"], state["last_accepted_sha"]), ("initial", "a" * 40))

@@ -6,7 +6,8 @@ Files, all in the referee repository and written only by the operator (`tohum/25
   the `control` command, for every job of the loop (`29p`).
 - ``policy.json``: the constitutional policy (only the keys this bootstrap reads are checked).
 - ``setup/summary.json``: the setup summary (seed commit and seed tree hash), the seed epochs delivered since, the
-  Stage 0 targets and the honesty commitment or the owner's exception to #durustluk (`26c`, every key checked).
+  Stage 0 targets, the honesty commitment and the owner's exception to #durustluk beside it (`26c`, every key
+  checked).
 """
 
 from __future__ import annotations
@@ -250,7 +251,8 @@ class HonestyException:
     """The owner's named exception to Stage 0's #durustluk (`02` "Sahip istisnası", `26c`; E287, E294): the plant the
     honesty rehearsal measures was not made before the Founder started (`25` 10c), so the condition can be neither
     measured nor passed there. One anchor, one stage, one carry target: Stage 0's exit names it, and Stage 1's (A) must
-    measure #durustluk, with no second exception; a ``honesty_commitment`` beside it is the plant Stage 1 measures."""
+    measure #durustluk, with no second exception. The ``honesty_commitment`` beside it is the plant Stage 1 measures;
+    without one the exception takes nothing off the exit (`decide`, E297): Stage 1 could not measure it either."""
     stage: int
     carry_to: int
     reason: str
@@ -372,10 +374,13 @@ def _honesty_exception(row: Any, where: str) -> HonestyException:
 
 def start_missing(summary: Summary) -> list[str]:
     """What the setup summary lacks for Stage 0 to start (`25` 10a, 10c and "Aşama 0 bu özet olmadan başlamaz"; E293):
-    the referee builds no first state without it, so a setup item cannot be skipped unseen again."""
+    the referee builds no first state without it, so a setup item cannot be skipped unseen again. The honesty
+    commitment is needed with or without the owner's exception (E297): beside the exception it is the plant of the
+    stage the exception carries to, so no pilot starts, or restarts from a lost state, with the rehearsal unplanted."""
     missing = []
     if not names_the_copy(summary.targets):
         missing.append("targets[] naming the copy target's identifiers (`25` 10a)")
-    if summary.honesty_commitment is None and summary.honesty_exception is None:
-        missing.append("honesty_commitment (`25` 10c), or the owner's honesty_exception (`02`)")
+    if summary.honesty_commitment is None:
+        missing.append("honesty_commitment (`25` 10c; beside the owner's honesty_exception, the carried stage's plant, "
+                       "`02`)")
     return missing

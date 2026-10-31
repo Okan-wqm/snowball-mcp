@@ -35,9 +35,11 @@ job stops while the kill switch is on", decided by reading the file. A shell scr
 so the first step is the seed's step exactly (``control_step``: its name, ``id``, ``LOOP_JOB`` the job's own name, and
 the script that runs the referee repository's `bootstrap/` on its live `control.json`); every later step has exactly
 ``if: steps.control.outputs.go == 'true'`` (GitHub adds ``success()``, so a stopped control step stops them too); and
-nothing above it changes where or how it runs: no ``env`` or ``defaults`` on the workflow or the job, no job
-``container``. ``workflow_control_step:<job>``, ``workflow_control_gate:<job>:<n>``, ``workflow_control_context:<job>``
-(or ``:workflow``).
+nothing above it changes where or how it runs. That last rule names what may stand there, not what may not (E296):
+the workflow holds only ``WORKFLOW_KEYS`` and each job only ``JOB_KEYS``, so ``env`` and ``defaults``, a job's
+``container`` and ``services`` (both start in "Initialize containers", before step 1, and a service's volumes reach
+the runner's files) and any key not named are refused. ``workflow_control_step:<job>``,
+``workflow_control_gate:<job>:<n>``, ``workflow_control_context:<job>`` (or ``:workflow``).
 """
 
 from __future__ import annotations
@@ -71,7 +73,11 @@ CONTROL_RUN = (
     ' --github-output "$GITHUB_OUTPUT"\n'
 )
 CONTROL_GATE = "steps.control.outputs.go == 'true'"
-CONTROL_CONTEXT = ("env", "defaults")  # what above a step changes how it runs; a job's `container` too
+# What may stand above the control step (`29p`): keys that run nothing before it and change neither where nor how it
+# runs. A job calling a reusable workflow (``uses``, ``with``, ``secrets``) has no steps: the control step rule refuses it.
+WORKFLOW_KEYS = ("name", "run-name", "on", "permissions", "concurrency", "jobs")
+JOB_KEYS = ("name", "if", "needs", "runs-on", "permissions", "environment", "concurrency", "outputs", "timeout-minutes",
+            "strategy", "continue-on-error", "steps", "uses", "with", "secrets")
 
 
 def control_step(job: str) -> dict[str, Any]:
@@ -403,7 +409,7 @@ def _rules(doc: dict[str, Any]) -> list[str]:
         reasons.append("workflow_secrets_enumerated:workflow")
     if _defaults_github(doc):
         reasons.append("workflow_github_in_run:workflow:defaults")
-    if any(key in doc for key in CONTROL_CONTEXT):
+    if any(key not in WORKFLOW_KEYS for key in doc):
         reasons.append("workflow_control_context:workflow")
     jobs = doc.get("jobs")
     if not isinstance(jobs, dict):
@@ -420,7 +426,7 @@ def _rules(doc: dict[str, Any]) -> list[str]:
             reasons.append(f"workflow_action_not_pinned:{name}:job")
         if _defaults_github(job):
             reasons.append(f"workflow_github_in_run:{name}:defaults")
-        if any(key in job for key in CONTROL_CONTEXT + ("container",)):
+        if any(key not in JOB_KEYS for key in job):
             reasons.append(f"workflow_control_context:{name}")
         steps = job.get("steps", [])
         if not isinstance(steps, list):
