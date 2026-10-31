@@ -4,6 +4,9 @@ Tarih: 2026-10-29 · Sürüm: 2.2
 Okunma: bir sayfanın geçmişi aranırken
 Çapa: git geçmişi ve zincirdeki spec hash satırları
 
+- 2.2 (2026-10-31, E249; sahibin sorusu, uzman tartışması): `main`'i salt okunur okumak dokunmak değildir; taban yaşının
+  commit sayısı ve eskimiş bulgu oranı senkrondan önce de bu okumayla ölçülür (`07`). `07`'nin andığı eskimiş bulgu oranı
+  sinyali `17`'de satırdır: eşik pencerede > %20, doğan şey organ değil Aşama 2'deki senkron izin kararıdır.
 - 2.2 (2026-10-30, E301; sahip): hedefin ve sistemin kendi kodunun haritası insan okunur çizim olarak da üretilir, kodla yenilenir (`15` 4).
 - 2.2 (2026-10-30, E246, E247; sahibin kararları): her zaman geri dönüş, kimsenin işi silinmez, veri katmanının beş
   korkuluğu. Y2: sistemin önerdiği her değişikliğin, en başta silmenin, geri dönüş yolu adımdan önce kanıtlanmıştır ve
