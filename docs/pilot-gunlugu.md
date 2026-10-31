@@ -185,6 +185,39 @@ silme, veri katmanı korkulukları, E260). Doğrulama `seed_update`/`noop`. Baş
 çizimi (E301) ve defterin de doğrulanacak belge olduğu (E302) talimatta. Kalan, 3b ile: sahip kararları paketi 1, çıkış
 denetimleri ve E280/E287 kararları.
 
+## Tohum dönemi 3a'dan sonra (2026-10-30 20:29Z'den)
+
+**Döngü 1** (`3f605a1` → `957f5f6`, reddedildi). Kurucu yeni vektör girdilerini (`/vec`, E244) ilk kez kullandı: MF14,
+MF15, MF16 ve MF18'in 27 vakasını push etmeden önce kendi koşturdu, hepsinin kullanım hatası verdiğini gördü (komut
+satırları seed tanımlamadan önceki kendi seçimleriydi) ve arayüzlere uydurdu. Ret tek vakadandı (264 koşunun 263'ü
+yeşil): `prompt.secret_never_sent`'in değiştirilmiş girdisi. Kurucu bunu kendi alanında düzeltmeye çalışmadı;
+vakanın kabul edilmiş MF2 kuralıyla çeliştiğini kanıtıyla bildirdi (seed-039) ve vakayı kırmızı bıraktı. Rakibin açık
+iddiasını (canlı yolda çağrılmayan modül, Y4) kendi okumasıyla doğruladı, bu oturumda düzeltmedi.
+
+**Döngü 2** (`957f5f6` → `2bea567`, aynı nedenle reddedildi). Kurucu reddi bilerek kırmızı bıraktı: iki tarafı aynı
+kuraldan geçirince aynı sınıf girdiye zıt cevap verdiklerini gösterdi; vakayı geçirmenin tek yolu, rakibin çürüttüğü
+deliği geri açmak ya da fikstürü koda gömmekti. İkisini de yapmadı (açıktan yararlanmama kuralı, E53). Oturumun işi
+sahibin harita kuralıydı (E301): `referee/status/depmap.py` beynin ve hedefin bağımlılık çizimlerini koddan üretiyor.
+Kendi beyninde 35 modülün 22'sinin canlı yoldan ulaşılamadığını ölçtü ve bütün sınıfı bildirdi; hedefin (sabit
+anlık görüntü, salt okunur) proje ve bağımlılık haritasını çıkardı.
+
+**Öğretmenin cevabı (E306).** Kurucu haklıydı: vaka değeri sır adı taşıyan bir değişkene atıyordu, bu da kabul edilmiş
+MF2 kuralının (rakibin `04585388fd8833de` çürütmesinin zorladığı) yasakladığı şeydi. Sınav düzeltildi: değer sır adı
+taşımayan bir değişkene atanıyor, vaka yalnız belirteç biçimini ve çözülmüş kaçışı ayırıyor; beklenen değerler
+değişmedi. Hakem `2c67bbd` ile senkronlandı (snowball-mcp `773b281`, etiket `referee-sync-3a1`); tohum metni değişmediği
+için beyne teslim yok. Kurucu'nun bildirimi doğrulandı → düzeltildi; kapanışı Kurucu'nun kendi teyidiyle olacak.
+
+**Gece kesintisi.** Makine 2026-10-30 ~23:02Z'de elektrik kesintisiyle kapandı. Döngü 3 push etmeden kesildi (sayılmaz).
+Yazılmakta olan iki dosya sıfır baytla kaldı (bir worktree'deki kayıt kopyası ve yerel bir etiket); ikisi de sağlam
+kaynaktan geri yüklendi, `git fsck` temiz, diğer bütün dosyalar tarandı. Pilot 2026-10-31 08:12Z'de yeniden başladı;
+talimatta artık sahibin önceliği var (E305): hedef sahibin ürünüdür, güvenlik ve kalite önce gelir, kredi kısıt değil,
+zaman değerlidir; yol Kurucu'nundur.
+
+**Değerlendirme.** Bulduğu: sınavın kendi kuralıyla çeliştiğini (doğru), kendi beynindeki bağlanmamış modül sınıfını.
+Kaçırdığı: yok sayılmadı; ret iki döngü sürdü çünkü cevap öğretmendeydi. Öğrendiği ve uyguladığı: vektör girdilerini
+push etmeden önce kendi koşturuyor (E244'ün amacı). Bildirdiği: seed-039 ve canlı yolun boşluğu. Kötü davranış
+görülmedi; vakayı geçirmek için kuralı gevşetmedi.
+
 ## Pilotun tetiklediği düzeltmeler
 
 E148 (defter satırları push türünü bozuyordu), E149 (`main` mutasyonu hiç koşmuyordu), E152 (CRLF, `safe.directory`),
@@ -194,7 +227,9 @@ E167 (iki taraflı mekanizmada sınır), E168 (yargılanmamış push önce yarg�
 
 ## Sıradaki
 
-Kurucu MF2–MF6 arayüzlerini `29f`/`29g`'ye uyduracak, sonra MF7. Sahibin kararlarıyla kararlar partisi: Nx birim
-modeli ve MF5'in workspaces kilidi (E173), öneri yalnız genişler (E194), `diffguard` kapsamı (E195), Kurucu'nun
-`install_scripts_required`, `toolchain` ve lint ölçütü bulguları (E200–E202); ardından tohum dönemi 2. Aşama 0'ın
-geri kalanı: MF7–MF18, `k0map` … `genesis` vektörleri (E161), çıkışın altı denetimi (E162).
+Tohum dönemi 3b: Aşama 0 çıkışının karar verilemeyen koşulları ve şüpheci turunun kök düzeltmeleri (E280, E282, E287,
+E293–E297; main `e7b3b24`) ve sahibin sorusuna verilen E249 cevabı (`07`, `17`). Teslimin önkoşulu: başlatıcı durmuş
+ve son kabul Kurucu'nun son push'u olmalı (kuraldan önce yazılıp kabul edilmemiş bozuk defter satırı kapatılamaz).
+Ardından Kurucu'nun çıkış isteği. Paralelde: kendini geliştirme karnesi ve ders provasının sınav tarafı (E310–E321),
+sınıf merdiveninin sabit değil varsayılan sıra olması (uzman uzlaşması; uygulanacak), Aşama 1 etkinleştirme yordamı
+(sahibin GitHub App adımı dahil).

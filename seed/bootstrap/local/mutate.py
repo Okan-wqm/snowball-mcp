@@ -905,7 +905,7 @@ MUTANTS = [
      '"integration_id":424242}]},"ruleset_id":102}],', '"integration_id":424243}]},"ruleset_id":102}],',
      "E161: the recorded API under MF18's toy genesis row changes and nothing notices"),
     ("seed_prompt_secret_written_plain", "seed/bootstrap/vectors/vectors.json",
-     "token = " + chr(92) * 3 + '"gh' + chr(92) * 2 + "u0070_", "token = " + chr(92) * 3 + '"ghp_',
+     "ref = " + chr(92) * 3 + '"gh' + chr(92) * 2 + "u0070_", "ref = " + chr(92) * 3 + '"ghp_',
      "prompt.secret_never_sent's fake token sits raw in vectors.json, so tools that scan raw text withhold the file"),
     ("new_vector_page_29m_drops_a_case", "spec/tohum/29m-vektor-arayuzleri-mf14-18.md", "`rewritten_commitment`",
      "`rewritten`", "E161: an MF14 case's purpose is missing from the page the Founder reads"),
