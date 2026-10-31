@@ -69,16 +69,16 @@ flowchart LR
 
 ## 2. Referee package: `seed/bootstrap/snowball_bootstrap`
 
-26 modules, 59 imports inside the package, 1 started as a separate process. Areas are roles. The overview has 5 areas and 10 edges; an arrow's number is how many imports cross from one area to the other.
+27 modules, 66 imports inside the package, 1 started as a separate process. Areas are roles. The overview has 5 areas and 10 edges; an arrow's number is how many imports cross from one area to the other.
 
 ```mermaid
 flowchart LR
   a_Entry["Entry<br/>3 modules"]
-  a_Intake["Intake<br/>8 modules"]
+  a_Intake["Intake<br/>9 modules"]
   a_Sandbox["Sandbox<br/>5 modules"]
   a_Rival["Rival<br/>4 modules"]
   a_Judgement["Judgement<br/>6 modules"]
-  a_Entry -->|8| a_Intake
+  a_Entry -->|9| a_Intake
   a_Entry -->|6| a_Judgement
   a_Entry -->|2| a_Rival
   a_Entry -->|5| a_Sandbox
@@ -92,7 +92,7 @@ flowchart LR
 
 ### Entry
 
-3 modules, 22 edges out of them.
+3 modules, 23 edges out of them.
 
 ```mermaid
 flowchart LR
@@ -109,6 +109,7 @@ flowchart LR
     m_gitio["gitio"]:::outside
     m_importer["importer"]:::outside
     m_licenses["licenses"]:::outside
+    m_stagelock["stagelock"]:::outside
     m_treehash["treehash"]:::outside
   end
   subgraph a_Judgement["Judgement"]
@@ -147,6 +148,7 @@ flowchart LR
   m_cli --> m_moduleless
   m_cli --> m_reproduce
   m_cli --> m_rival
+  m_cli --> m_stagelock
   m_cli --> m_stages
   m_cli --> m_state
   m_cli --> m_treehash
@@ -163,7 +165,7 @@ flowchart LR
 
 ### Intake
 
-8 modules, 3 edges out of them.
+9 modules, 9 edges out of them.
 
 ```mermaid
 flowchart LR
@@ -175,23 +177,31 @@ flowchart LR
     m_gitio["gitio"]
     m_importer["importer"]
     m_licenses["licenses"]
+    m_stagelock["stagelock"]
     m_treehash["treehash"]
   end
   m_gitio --> m_treehash
+  m_importer --> m_canon
   m_importer --> m_gitio
+  m_importer --> m_stagelock
   m_importer --> m_treehash
+  m_stagelock --> m_canon
+  m_stagelock --> m_config
+  m_stagelock --> m_gitio
+  m_stagelock --> m_importer
   classDef outside stroke-dasharray: 4 3
 ```
 
 | Module | What it is (first sentence of its docstring) | Imported by |
 |---|---|---|
-| `canon` | Canonical JSON (the RFC 8785 subset the seed allows) and hashing helpers. | `cli`, `ledgercheck`, `reproduce`, `rival` |
+| `canon` | Canonical JSON (the RFC 8785 subset the seed allows) and hashing helpers. | `cli`, `importer`, `ledgercheck`, `reproduce`, `rival`, `stagelock` |
 | `classify` | What kind of push is this (`tohum/29b`, "İki tür push")? | `cli`, `exitchecks` |
-| `config` | Operator-written inputs, validated strictly. | `cli`, `exitchecks`, `rival`, `stages`, `state` |
+| `config` | Operator-written inputs, validated strictly. | `cli`, `exitchecks`, `rival`, `stagelock`, `stages`, `state` |
 | `ghapi` | Minimal GitHub REST calls the pull job needs: find and download the latest state artifact, and look at the newest failed run of this workflow (E13). | `cli` |
-| `gitio` | Git operations on the untrusted brain repository. | `cli`, `importer` |
-| `importer` | Operator import at the Stage 0 exit (`tohum/25a` 1-2). | `cli` |
+| `gitio` | Git operations on the untrusted brain repository. | `cli`, `importer`, `stagelock` |
+| `importer` | Operator import at the Stage 0 exit (`tohum/25a` 1-2, `asama-0/10a` #aktarim and #oyuncak). | `cli`, `stagelock` |
 | `licenses` | License gate for downloaded wheels (`tohum/24`, "Lisans"). | `cli` |
+| `stagelock` | The stage lock and the counter it is bound to (`tohum/02` 5, `asama-0/10a` "Kilidin açılışı", `tohum/25a` 9, `26c`). | `cli`, `importer` |
 | `treehash` | Tree hashes over git-archive tarballs, and safe extraction of regular files only. | `cli`, `exitchecks`, `gitio`, `importer`, `moduleless`, `stages` |
 
 ### Sandbox
@@ -331,12 +341,12 @@ Every subcommand of `cli.py`, the jobs that run it, and the package modules its 
 
 | Command | Run by | Handler | Modules it reaches |
 |---|---|---|---|
-| `control` | `cek`, `getir`, `kos`, `cagir`, `yeniden`, `yaz` | `cmd_control` | `config`, `wiring` |
+| `control` | `cek`, `getir`, `kos`, `cagir`, `yeniden`, `yaz` | `cmd_control` | `config`, `stagelock`, `wiring` |
 | `config-value` | `cek` | `cmd_config_value` | `config` |
 | `poll` | `cek` | `cmd_poll` | `config`, `decide`, `ghapi`, `gitio`, `treehash` |
 | `licenses` | `cek`, `yaz` | `cmd_licenses` | `canon`, `config`, `licenses` |
 | `fetch-state` | `cek` | `cmd_fetch_state` | `canon`, `config`, `decide`, `ghapi`, `importer`, `state` |
-| `pull` | `cek` | `cmd_pull` | `canon`, `classify`, `config`, `exitchecks`, `gitio`, `ledgercheck`, `manifest`, `rival`, `stages`, `treehash`, `wiring` |
+| `pull` | `cek` | `cmd_pull` | `canon`, `classify`, `config`, `exitchecks`, `gitio`, `ledgercheck`, `manifest`, `rival`, `stagelock`, `stages`, `treehash`, `wiring` |
 | `fetch-deps` | `getir` | `cmd_fetch_deps` | `canon`, `manifest`, `treehash` |
 | `run-tests` | `kos` | `cmd_run_tests` | `canon`, `config`, `container`, `controls`, `licenses`, `moduleless`, `stages`, `treehash`, `vectors` |
 | `rival` | `cagir` | `cmd_rival` | `canon`, `config`, `rival`, `treehash` |
@@ -347,6 +357,7 @@ Every subcommand of `cli.py`, the jobs that run it, and the package modules its 
 | `seed-hash` | operator / local | `cmd_seed_hash` | `gitio`, `treehash` |
 | `seed-epoch` | operator / local | `cmd_seed_epoch` | `canon`, `classify`, `gitio`, `treehash` |
 | `import` | operator / local | `cmd_import` | `importer` |
+| `stage-open` | operator / local | `cmd_stage_open` | `stagelock` |
 
 ## 3. Launcher links
 

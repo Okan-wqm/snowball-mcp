@@ -5,6 +5,16 @@
 the module path module-less red deletes and the micro-feature count of the exit (`asama-0/10`). A called
 micro-feature comes before its callers (`asama-0/14` "Sıra"). A table that breaks that, or any rule here, is not
 loaded: the run stops (a seed defect is the operator's to fix, never the Founder's rejection).
+
+`stages/stage1.json` is Stage 1's, read once the operator's lock opened it (`setup/stage.json`, `asama-0/10a`): the
+batches' micro-features (`asama-1/13` 1: "Partinin tablosu tohumdadır ... setup/stage.json açtıktan sonra geçerlidir"),
+P1's first, as the page's rows give their tests and groups (P2's and the exit batch's join it with the seed epoch
+that numbers their tests, E373). Stage 1 is the ladder's fixed root (`03`), so its table is no default to deviate
+from. A later stage's table carries the stages before it as finished (``before``): all their micro-features are done
+once the lock opened, so their vector groups run on every push (`asama-0/14`: a finished micro-feature's group runs on
+every later push) and their tests stay declared. Spec sessiz (E372): the module paths, from `26a`'s tool names as
+`asama-0/14`'s are (``snapshot.make`` is ``snapshot/make.py``) and, for the three mechanisms `26a` names no tool for,
+from the mechanism; ``calls`` empty, as the page names none.
 """
 
 from __future__ import annotations
@@ -43,6 +53,7 @@ class MicroFeature:
 class StageTable:
     stage: int
     mfs: tuple[MicroFeature, ...]
+    before: tuple["StageTable", ...] = ()  # the finished stages' tables, Stage 0 first (none for Stage 0)
 
     @property
     def count(self) -> int:
@@ -58,6 +69,8 @@ class StageTable:
         a micro-feature that owns it is done; a group no micro-feature of the table names does not run)."""
         finished = set(done)
         found: list[str] = []
+        for table in self.before:  # every micro-feature of a finished stage is done
+            found += [g for g in table.groups_of(range(1, table.count + 1)) if g not in found]
         for feature in self.mfs:
             if feature.mf in finished:
                 found += [g for g in feature.groups if g not in found]
@@ -122,11 +135,18 @@ def parse_table(text: str, stage: int) -> StageTable:
     return StageTable(stage, tuple(features))
 
 
-def load(stage: int = 0, directory: Path | None = None) -> StageTable:
-    """The seed's table of ``stage``, read and validated on every call (it is small; nothing stale is kept)."""
+def _read(stage: int, directory: Path | None) -> StageTable:
     path = (directory or STAGES_DIR) / f"stage{stage}.json"
     try:
         text = path.read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError) as exc:
         raise ConfigError(f"stage table {path.name} cannot be read: {type(exc).__name__}") from exc
     return parse_table(text, stage)
+
+
+def load(stage: int = 0, directory: Path | None = None) -> StageTable:
+    """The seed's table of ``stage``, read and validated on every call (it is small; nothing stale is kept), with the
+    tables of the stages before it as ``before``."""
+    table = _read(stage, directory)
+    before = tuple(_read(earlier, directory) for earlier in range(stage))
+    return StageTable(table.stage, table.mfs, before)
