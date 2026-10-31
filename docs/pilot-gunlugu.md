@@ -254,6 +254,18 @@ bir hata sınıfını (çıkışı kapalı her komut 1 ile çıkıyordu) tek sü
 rakibin bulma gücü ölçülmediği için (E311, kanarya E126 açık) bu kabuller testlerin ve vektörlerin kanıtıdır, rakibinki
 zayıftır.
 
+## Rakip kanaryası, ilk canlı parti (2026-10-31 akşam)
+
+Pilotun dışında, operatör tarafında (E126, E311): son kabul `50eb715`'e kanaryanın kendi deposunda bir kusur ekildi ve
+push hakemin kendi `pull`, `rival`, `reproduce` ve `decide` koduyla yargılandı; beyne de hakeme de hiçbir şey itilmedi,
+canlı dallara dokunulmadı. Gerçek rakip (Sonnet 5.5, orta çaba, 30 tur, 3 USD) altı ekimin dördünü hakemin kabul
+edeceği bir yeniden üreticiyle kanıtladı (düşmüş denetim, ters koşul, yutulmuş hata, zincir bağında kayma); recall 4/6,
+tek yönlü %90 alt sınır 0,33. Altısında da doğru satırı doğru iddiayla gösterdi; iki kaçırma kanıtın yanlışıydı (çıkış
+kodunu 0 sandı, komutu `python -I` ile yazdı). İki temiz kontrolde yanlış çürütme yok. Her ekimde 3–6 tur, toplam 8
+inceleme 1,42 USD. Okuma: bu pilotun kabullerindeki boş `attempts` "rakip kusur görmedi" demektir, "denemedi" değil;
+ama ekim diff'te tek başınaydı, gerçek push'ta kusur çok değişikliğin içindedir, sayı bir üst sınırdır. Dökümler
+`F:\snowball-work\canary\runs\`'da; araç `seed/bootstrap/local/canary.py`, ayrıntı `docs/eksik-kaydi.md`'de (E126, E311).
+
 ## Pilotun tetiklediği düzeltmeler
 
 E148 (defter satırları push türünü bozuyordu), E149 (`main` mutasyonu hiç koşmuyordu), E152 (CRLF, `safe.directory`),
