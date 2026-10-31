@@ -2341,6 +2341,10 @@ Testler `tests/test_rival_memory.py`'de, sınıf adları kalem numarasıyla. Dur
 - **Spec sayfası değişmedi.** Spec konuştuğu her yerde izlendi; sessiz kaldığı yerde seçim E370–E372'de. Sayfalar 80
   satırda olduğundan ve bir değişiklik gerekmediğinden tohum günlüğüne satır da yok.
 - **Yapılmayan.** E373'ün kalemleri; E130 ve E131'in açık kalanları; K2'nin hakeme teslimi (tohum dönemi).
+- **Doğrulama** (`141a256`). Windows `seed/bootstrap` (`PYTHONPATH=.;tests`): 619 test OK (19 atlandı); Linux Docker
+  (`snowball_linux_test:git`, `git -c core.autocrlf=false archive` ile LF, salt okunur bağlama, `PYTHONPATH=.:tests`):
+  638 test OK (3 atlandı); `local/mutate.py` altı kapta: yeni 57 mutant ve yeniden çapalanan 3'ü, 60/60 öldü;
+  `local/system_map.py --check` temiz; spec sayfası değişmedi (en uzunu 80 satır).
 
 ## Doğrulanmış sağlam taraflar
 Kapsayıcı bayrakları ve kırmızı kontroller; host'ta kabuk enjeksiyonu yok; `$GITHUB_OUTPUT`'a serbest
