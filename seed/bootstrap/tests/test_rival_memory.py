@@ -402,6 +402,75 @@ class E153ReportsHidden(unittest.TestCase):
         self.assertIn("reports/r1.json", meta["changed"])
 
 
+class E93ReportsReader(unittest.TestCase):
+    """`26c` reports/*.json has a reader (E93, E342): `pull` reads the brain's root reports, the signed result names
+    each one as {id, kind, ref, state, sha256} and warns the operator of the open ones; the rival's request still leaves
+    them out (E153). The `disputed` rule of a report that names a vector stays with E53."""
+
+    OPEN = {"id": "seed-900-state-read", "kind": "seed_issue", "ref": "spec/tohum/29b-onyukleme-hakemi.md:30",
+            "state": "open", "evidence_test": "REPORT-EVIDENCE-FOR-THE-RIVAL"}
+    DONE = {"id": "spec-901-calls", "kind": "spec_issue", "ref": "spec/asama-0/14-sirali-mikro-ozellikler.md:47",
+            "state": "confirmed"}
+
+    def test_two_reports_reach_the_signed_result_and_never_the_rival(self):
+        flow = test_flow.Flow("test_full_stage0_path")
+        flow.setUp()
+        self.addCleanup(flow.tearDown)
+        seats = flow.referee / "seats"
+        seats.mkdir()
+        source = Path(test_flow.__file__).resolve().parents[3] / "spec" / "tohum" / cli.SEATS_FILE
+        (seats / cli.SEATS_FILE).write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
+        files = {"referee/a.py": "x = 1\n", "reports/seed-900-state-read.json": json.dumps(self.OPEN) + "\n",
+                 "reports/spec-901-calls.json": json.dumps(self.DONE) + "\n",
+                 "referee/reports/fmt.json": '{"id": "not-a-report", "state": "open"}\n'}  # only the root ones
+        commit(flow.brain, files, "code and two reports")
+        meta = flow.pull()
+        digest = hashlib.sha256(files["reports/seed-900-state-read.json"].encode("utf-8")).hexdigest()
+        self.assertEqual(meta["reports"][0], {"id": "seed-900-state-read", "kind": "seed_issue",
+                                              "ref": "spec/tohum/29b-onyukleme-hakemi.md:30", "state": "open",
+                                              "sha256": digest})
+        self.assertEqual([r["id"] for r in meta["reports"]], ["seed-900-state-read", "spec-901-calls"])
+        result = flow.finish(meta)  # whatever the verdict (this bare brain froze no spec): the reports are named
+        self.assertEqual(result["reports"], meta["reports"])
+        self.assertIn("reports_open:1", result["warnings"])
+        pulled = Path(flow.tmp.name) / f"pulled{flow.n}"
+        bin_dir = Path(flow.tmp.name) / "bin"
+        bin_dir.mkdir()
+        claude = install_fake_claude(bin_dir)
+        (bin_dir / "scenario.json").write_text(json.dumps({"calls": [submit()], "result": ok_result()}))
+        with mock.patch.dict(os.environ, {"GITHUB_OUTPUT": str(Path(flow.tmp.name) / "gh")}), \
+                contextlib.redirect_stdout(io.StringIO()):
+            rc = cli.main(["rival", "--root", str(flow.referee), "--pulled", str(pulled), "--work",
+                           str(Path(flow.tmp.name) / "work_r"), "--out", str(Path(flow.tmp.name) / "rival"),
+                           "--claude", str(claude)])
+        self.assertEqual(rc, 0)
+        stdin = json.loads((bin_dir / "seen.json").read_text())["stdin"]
+        self.assertIn("referee/a.py", stdin)
+        self.assertNotIn("seed-900-state-read", stdin)
+        self.assertNotIn("REPORT-EVIDENCE-FOR-THE-RIVAL", stdin)
+
+    def test_a_report_that_is_not_a_json_object_or_carries_a_secret_is_named_not_quoted(self):
+        token = "gh" + "p_" + "FAKE" + "A" * 32
+        tar = io.BytesIO()
+        with tarfile.open(fileobj=tar, mode="w") as t:
+            for name, data in (("reports/broken.json", b"{not json"), ("reports/notes.md", b"# not a report"),
+                               ("reports/leak.json", json.dumps({"id": token, "kind": 7, "state": "open"}).encode())):
+                info = tarfile.TarInfo(name)
+                info.size = len(data)
+                t.addfile(info, io.BytesIO(data))
+        found = cli.read_reports(tar.getvalue())
+        self.assertEqual([r["sha256"] for r in found],
+                         [hashlib.sha256(b"{not json").hexdigest(),
+                          hashlib.sha256(json.dumps({"id": token, "kind": 7, "state": "open"}).encode()).hexdigest()])
+        self.assertEqual({k: found[0][k] for k in ("id", "kind", "ref", "state")},
+                         {"id": None, "kind": None, "ref": None, "state": None})
+        self.assertEqual(found[1]["kind"], None)  # not a string
+        result = decide(meta2("none", state2(), reports=found), None, None, None, {}, 2, 3, now=NOW)
+        self.assertNotIn(token, json.dumps(result))
+        self.assertEqual(result["reports"][1]["state"], "open")
+        self.assertIn("reports_open:1", result["warnings"])
+
+
 # ---------------------------------------------------------------- E11 what counts against the Founder
 
 

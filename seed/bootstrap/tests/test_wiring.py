@@ -273,6 +273,57 @@ class SpecPagesTest(unittest.TestCase):
                 self.assertLessEqual(len(page.read_text(encoding="utf-8").splitlines()), 80)
 
 
+class BootstrapStatePageTest(unittest.TestCase):
+    """The Founder's report seed-040 (E342): the loop's `çek` (D1) reads the bootstrap referee's signed state and compares
+    the accepted SHA's `referee/` tree hash, and the Founder reads only pages. What `29b` "Durum" and `26c` say of the
+    artifact, its verifier, the identity and the hash rule is held to the code that does it, so neither can drift."""
+
+    @staticmethod
+    def flat(text):
+        return " ".join(text.split())
+
+    def test_29b_names_the_artifact_the_verifier_and_the_identity_the_workflow_passes(self):
+        from unittest import mock
+        from snowball_bootstrap import importer
+        page = self.flat(spec_page("tohum", "29b"))
+        identity = re.search(r'fetch-state[^\n]*\n(?:[^\n]*\n)*?\s*--identity "([^"]+)"', WORKFLOW).group(1)
+        self.assertIn("${GITHUB_REPOSITORY}", identity)
+        argv = []
+        with mock.patch.object(importer.subprocess, "run",
+                               side_effect=lambda a, **k: argv.extend(a) or mock.Mock(returncode=0, stderr="")):
+            importer.verify_signature(Path("result.json"), Path("result.json.sigstore.json"),
+                                      identity.replace("${GITHUB_REPOSITORY}", "<hakem reposu>"), "python")
+        self.assertEqual(argv[:3], ["python", "-m", "sigstore"])
+        self.assertIn(f"`{' '.join(argv[2:])}`", page)  # the page's command is the code's argv, word for word
+        self.assertIn(f"--cert-oidc-issuer {importer.OIDC_ISSUER} ", page)
+        self.assertIn(f"adı tam `{cli.STATE_ARTIFACT}`", page)
+        self.assertIn("`result.json`, `result.json.sigstore.json`", page)  # what fetch-state unpacks from the zip
+        self.assertIn('for name in ("result.json", "result.json.sigstore.json")', Path(cli.__file__).read_text(encoding="utf-8"))
+        self.assertIn("`state.last_accepted_sha`", page)
+
+    def test_26c_gives_the_referee_tree_hash_rule_and_its_vector_the_code_computes(self):
+        import hashlib
+        import io
+        import tarfile
+        from snowball_bootstrap import treehash
+        page = self.flat(spec_page("tohum", "26c"))
+        m = re.search(r"`/vec/(treehash/[\w.-]+\.tar)` → `([0-9a-f]{64})`", page)
+        self.assertIsNotNone(m, "26c names no tree hash vector")
+        tar = (BOOT / "vectors" / m.group(1)).read_bytes()
+        self.assertEqual(treehash.tree_hash(tar, "referee"), m.group(2))
+        # The page's rule, read literally: one line per regular file under referee/, content sha256, two spaces, the
+        # path relative to referee/, LF; the lines in byte order; the sha256 of what they join to.
+        lines = []
+        with tarfile.open(fileobj=io.BytesIO(tar)) as t:
+            for member in t.getmembers():
+                if member.isfile() and member.name.startswith("referee/"):
+                    content = t.extractfile(member).read()
+                    lines.append(f"{hashlib.sha256(content).hexdigest()}  {member.name[len('referee/'):]}\n".encode())
+        self.assertEqual(len(lines), 3)
+        self.assertEqual(hashlib.sha256(b"".join(sorted(lines))).hexdigest(), m.group(2))
+        self.assertIn("`referee_tree_sha256`: `brain_sha`'nın `git archive`'ında `referee/` altındaki", page)
+
+
 VECTOR_PAGES = ("29f", "29g", "29h", "29i", "29j", "29k", "29m", "29n", "29o")
 
 

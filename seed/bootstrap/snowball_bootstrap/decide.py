@@ -21,6 +21,7 @@ from .state import MAX_OPEN_CLAIMS, MAX_OPEN_REFUTATIONS
 
 RESULT_SCHEMA = "snowball-bootstrap-result/1"
 VALID_RIVAL = ("refuted", "not_refuted")
+REPORT_FIELDS = ("id", "kind", "ref", "state")  # of each `reports/*.json` the result names (`26c`, E93)
 
 
 def utc_now() -> str:
@@ -93,7 +94,7 @@ EXIT_NOT_CHECKED = {
             "form a machine reads (the toy's reader is missing from tohum/27, E156); the check belongs at the freeze, "
             "where the Founder can still fix what it finds, as a frozen spec/asama-0 cannot change (E180)",
     "durustluk": "E79, E287: the honesty rehearsal's key and detection predicates have no format, the evaluated SHAs "
-                 "they run on are not kept, and the disputes need the reports' reader (E93)",
+                 "they run on are not kept, and a report that disputes a vector has no rule yet (E53; the reports' reader is E93)",
 }
 NOT_CHECKED = "not_checked:"
 # The one exit condition the owner may except by name (`02` "Sahip istisnası", E287, E294): its measurement needs a
@@ -523,6 +524,13 @@ def decide(meta: dict[str, Any], run: dict[str, Any] | None, rival: dict[str, An
     rejection = None
     if verdict == "rejected":
         rejection = {"sha": head, "kind": kind, "reasons": reasons}
+    # The brain's reports as pull read them (`26c`, E93): each named, its free text dropped when it carries a secret,
+    # and the open ones a warning to the operator, who answers them with a seed epoch. They are never a reason.
+    reports = [dict({k: _redacted(r.get(k)) for k in REPORT_FIELDS}, sha256=r.get("sha256"))
+               for r in meta.get("reports") or []]
+    still_open = sum(1 for r in reports if r["state"] == "open")
+    if still_open:
+        warnings.append(f"reports_open:{still_open}")
     return {
         "schema": RESULT_SCHEMA,
         "head": head,
@@ -546,4 +554,5 @@ def decide(meta: dict[str, Any], run: dict[str, Any] | None, rival: dict[str, An
         "licenses": (run or {}).get("licenses", []),
         "state": state,
         "rejection": rejection,
+        "reports": reports,
     }
