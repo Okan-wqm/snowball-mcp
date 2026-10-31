@@ -93,7 +93,7 @@ Okunma: sayfa ararken; görev seçmek için `tohum/00b-gorev-haritasi.md`
 | `tohum/31g-karar-rehberi.md` | Mimari İlkeler VII: Karar Rehberi | aşağıdaki durumlardan biri ortaya çıktığında, `decision` satırı yazılmadan önce |
 | `tohum/31h-catismalar-ve-tarama.md` | Mimari İlkeler VIII: Çatışmalar ve Tarama Sinyalleri | iki ilke aynı durumda farklı yön gösterdiğinde; bir repo ilkeler açısından taranırken; rakip bir tasarımı çürütmeye çalışırken |
 | `tohum/CHANGELOG.md` | Değişiklik Günlüğü — Tohum | bir sayfanın geçmişi aranırken |
-| `tohum/CHANGELOG-2.md` | Değişiklik Günlüğü — Tohum, 2.2'nin İlk Kaydı | bir sayfanın geçmişi aranırken |
+| `tohum/CHANGELOG-2.md` | Değişiklik Günlüğü — Tohum, 2.2'nin İlk Kayıtları | bir sayfanın geçmişi aranırken |
 | `tohum/CHANGELOG-1.md` | Değişiklik Günlüğü — Tohum, 2.1 ve öncesi | bir sayfanın geçmişi aranırken |
 
 ## Aşama 0 — Yürüyen İskelet: İlk Canlı Döngü
