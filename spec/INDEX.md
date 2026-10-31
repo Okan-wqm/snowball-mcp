@@ -47,6 +47,7 @@ Okunma: sayfa ararken; görev seçmek için `tohum/00b-gorev-haritasi.md`
 | `tohum/22-dersler.md` | Dersler: Öğrenme Planlayıcıya ve Implementer'a Akar | plan yaparken, düzeltme yazarken |
 | `tohum/22a-ders-provasi.md` | Ders Provası: Öğrenmenin ve Kullanmanın Testi | ders görünümünü, merge'ü ya da çok repolu terfiyi getiren aşamanın spec'i yazılırken |
 | `tohum/22b-ders-provasi-gercek-beyin.md` | Ders Provası, Gerçek Beyinde: Gizli Havuz, Kalibrasyon, Sınav | ders provası gerçek beyinde koşulmadan önce, aile havuzu yazılırken ve kendini geliştirmenin kanıtı tartışılırken |
+| `tohum/22c-ders-provasi-esit-kollar-ve-denemeler.md` | Ders Provası, Gerçek Beyinde, Devam: Eşit Kollar ve Denemeler | prova hakemi (`exit.drill`) ve yargıcı (`harness.drill`) yazılırken, bir prova denemesi açılırken ve bir etki kararı okunurken |
 | `tohum/23-yama-degil-mimari-cozum.md` | Yama Değil, Mimari Çözüm | her düzeltme tasarlanırken ve panel faz 4'te |
 | `tohum/24-calisma-modeli.md` | Çalışma Modeli: Beyin, Hakem ve Kurucu Nasıl Koşar | Aşama 0 inşasından önce ve her dispatch değişikliğinde |
 | `tohum/24a-kurucu-ve-yerlesim.md` | Çalışma Modeli, Devam: Kurucu Başlatıcısı ve Yerleşim | Kurucu başlatıcısını yazarken, beyin reposunu kurarken ve her yerleşim değişikliğinde |
@@ -91,6 +92,7 @@ Okunma: sayfa ararken; görev seçmek için `tohum/00b-gorev-haritasi.md`
 | `tohum/31g-karar-rehberi.md` | Mimari İlkeler VII: Karar Rehberi | aşağıdaki durumlardan biri ortaya çıktığında, `decision` satırı yazılmadan önce |
 | `tohum/31h-catismalar-ve-tarama.md` | Mimari İlkeler VIII: Çatışmalar ve Tarama Sinyalleri | iki ilke aynı durumda farklı yön gösterdiğinde; bir repo ilkeler açısından taranırken; rakip bir tasarımı çürütmeye çalışırken |
 | `tohum/CHANGELOG.md` | Değişiklik Günlüğü — Tohum | bir sayfanın geçmişi aranırken |
+| `tohum/CHANGELOG-2.md` | Değişiklik Günlüğü — Tohum, 2.2'nin İlk Kaydı | bir sayfanın geçmişi aranırken |
 | `tohum/CHANGELOG-1.md` | Değişiklik Günlüğü — Tohum, 2.1 ve öncesi | bir sayfanın geçmişi aranırken |
 
 ## Aşama 0 — Yürüyen İskelet: İlk Canlı Döngü

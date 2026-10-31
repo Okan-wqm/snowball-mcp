@@ -11,7 +11,7 @@ from typing import Any
 
 from .judge import QUESTIONS, judge
 from .judge import _effect as effect_question
-from .sim import BRAINS, DEFAULT_PARAMS, RUN, run_drill
+from .sim import BRAINS, DEFAULT_PARAMS, alike_runs, run_drill
 
 CALIBRATION_MIN_RUNS = 20  # lessonless runs of a trap family before it may enter the pool
 CALIBRATION_MIN_RATE = Fraction(85, 100)  # share of them it must break (`tohum/22b`)
@@ -33,17 +33,17 @@ def power_table(runs: int, first_seed: int = 1) -> dict[str, Any]:
 
 
 def effect_power(p_with: float, p_without: float, runs: int, params: dict[str, Any] | None = None,
-                 seed: int = 1) -> dict[str, int]:
+                 seed: int = 1, attempt: int = 1) -> dict[str, int]:
     """Verdicts of the reference effect question over ``runs`` drills of k independent pairs, a pair's arms
-    succeeding with probability ``p_with`` and ``p_without``."""
+    succeeding with probability ``p_with`` and ``p_without``, both runs alike, judged as attempt ``attempt`` (E323)."""
     params = dict(DEFAULT_PARAMS if params is None else params)
     rng = random.Random(seed)
     out: Counter[str] = Counter()
-    run = {"with": dict(RUN), "without": dict(RUN)}  # equal arms: the effect is the lesson's alone (E65)
+    runs_of = [alike_runs(f"i{j}") for j in range(params["k"])]  # alike: the effect is the lesson's alone (E65)
     for _ in range(runs):
-        key = {"family": "f", "instances": {f"i{j}": {"family": "f"} for j in range(params["k"])}}
+        key = {"family": "f", "attempt": attempt, "instances": {f"i{j}": {"family": "f"} for j in range(params["k"])}}
         pairs = [{"instance_id": f"i{j}", "with": rng.random() < p_with, "without": rng.random() < p_without,
-                  "run": run} for j in range(params["k"])]
+                  "run": runs_of[j]} for j in range(params["k"])]
         out[effect_question(key, {"effect": pairs}, params)[0]] += 1
     return {v: out[v] for v in ("PASS", "FAIL", "UNMEASURABLE")}
 

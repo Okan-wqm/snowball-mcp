@@ -63,7 +63,7 @@ spec denetimidir, #lock (A)'da (aşama, donmuş spec hash) çifti ve açılışt
 | Güvenlik yoluna dokunma | #k6 K6 kapısı; #ayna özel, çatallanmamış ayna (`15`) |
 | Güvenlik avcısı ve bekçi testleri | #guvenlik-kanarya ekilmiş açık provası, aile başına recall alt sınırı `class_floors.K6`'da ve temiz kanaryada yanlış bildirim 0 (`30f`); #guvenlik-dogrulama her bildirim hakemde yürütülmüş, avcının sözüyle değişen karar yok; #guvenlik-bag her kural bir teste bağlı, `blocked` ve `unbound` boşluk olarak sayılı (`30d`); #guvenlik-defter `security` bölümü zincirde, düzeltilmemiş açığın ayrıntısı açık yüzeyde yok (`30e`) |
 | Daha ucuz basamak | #non-inferiority tam non-inferiority testi, δ ve n ≥ 45 (`19`) |
-| Ders görünümü ve enjeksiyonu | #ders-dogus doğuş; #ders-kullanim kullanım; #ders-etki etki; #ders-yanlis yanlış ders; #ders-plasebo plasebo; #ders-kalicilik kalıcılık (`22a`) |
+| Ders görünümü ve enjeksiyonu | #ders-dogus doğuş; #ders-kullanim kullanım; #ders-etki etki; #ders-yanlis yanlış ders; #ders-dogru doğru ders; #ders-plasebo plasebo; #ders-kalicilik kalıcılık (`22a`) |
 | Genesis yaşam döngüsü | #genesis-buyume büyüme; #genesis-budama budama; #genesis-yeniden yeniden yazım; #genesis-sessizlik gereksiz büyümeme (`12a`) |
 | Çok repolu terfi | #baglam bağlam provası (`22a`); #terfi terfi testi (`21a`) |
 

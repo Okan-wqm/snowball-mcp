@@ -178,6 +178,13 @@ kanıttır (E311). Prova Aşama 0 çıkışında koşamaz: ders organı yok; onu
 düzeldi (gizli taahhütlü havuz, kör kapsam E64, hakemin çekilişi ve etkide de plaseboda da eşit kollar E65, doğru
 ders E318, kalibrasyon E319); gerçek beyinde sınav dar bir ders partisi olarak sahibin kararını bekler (E317).
 
+**Karar (2026-10-31, E317 kapandı).** İki uzmanın tartışmasından sonra hakem: dar ders partisi yok, prova Aşama 1
+çıkışına da bağlanmaz; gerçek beyinde ders provası Aşama 2'nin ilk işidir ve sahibin MVP sınavıdır (`tohum/03`,
+`22b`). Sınavın kendi düzeltmeleri tohumda: etki kollarında bütçe ve ders bloğu dışı prompt da eşit (E321),
+`#ders-dogru` zorunlu satır (E322), denemeler α harcar (E323), havuz Aşama 2 spec isteğinden önce taahhüt edilir ve
+açık sayfada geçen aile havuza girmez (E324). Operatörün işi Aşama 1 sürerken: aileleri yazmak ve kalibre etmek,
+`pool_sha256`'yı Aşama 2 spec isteğinden önce zincire, Rekor'a ve bu günlüğe yazmak.
+
 ## Pilotun tetiklediği düzeltmeler
 
 E148 (defter satırları push türünü bozuyordu), E149 (`main` mutasyonu hiç koşmuyordu), E152 (CRLF, `safe.directory`),

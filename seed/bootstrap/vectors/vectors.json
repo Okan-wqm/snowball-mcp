@@ -292,6 +292,21 @@
         }
       },
       {
+        "name": "unequal_effect_arms",
+        "file": "drill/unequal_effect_arms.json",
+        "drill": "FAIL",
+        "verdicts": {
+          "commitment": "PASS",
+          "birth": "PASS",
+          "use": "PASS",
+          "effect": "FAIL",
+          "wrong_lesson": "PASS",
+          "right_lesson": "PASS",
+          "placebo": "PASS",
+          "persistence": "PASS"
+        }
+      },
+      {
         "name": "stubborn",
         "file": "drill/stubborn.json",
         "drill": "FAIL",
@@ -479,7 +494,7 @@
           "commitment": "PASS",
           "birth": "PASS",
           "use": "UNMEASURABLE",
-          "effect": "PASS",
+          "effect": "FAIL",
           "wrong_lesson": "PASS",
           "right_lesson": "PASS",
           "placebo": "PASS",
@@ -496,6 +511,21 @@
           "use": "PASS",
           "effect": "PASS",
           "wrong_lesson": "FAIL",
+          "right_lesson": "PASS",
+          "placebo": "PASS",
+          "persistence": "PASS"
+        }
+      },
+      {
+        "name": "second_attempt",
+        "file": "drill/second_attempt.json",
+        "drill": "FAIL",
+        "verdicts": {
+          "commitment": "PASS",
+          "birth": "PASS",
+          "use": "PASS",
+          "effect": "FAIL",
+          "wrong_lesson": "PASS",
           "right_lesson": "PASS",
           "placebo": "PASS",
           "persistence": "PASS"

@@ -56,11 +56,12 @@ Two rules run through everything:
   (`spec/tohum/12a-genesis-provasi.md`; the lesson drill exists as code, the genesis drill is specified but not yet
   implemented). A stage that brings one of these capabilities cannot pass
   its exit without the drill. The lesson drill's judge is itself tested: `seed/drill/` holds a
-  reference judge and simulated brains, one that learns and uses what it learned and fourteen that
-  each lack one part of it. Over 500 drills each, the learner passed 498 times and was never
-  failed. None of the fourteen ever passed. The founder's own judge must give the same verdicts on
+  reference judge and simulated brains, one that learns and uses what it learned and twenty that
+  each lack one part of it. Over 500 drills each, the learner passed every time and was never
+  failed. None of the twenty ever passed. The founder's own judge must give the same verdicts on
   the resulting vectors (`spec/tohum/29c-prova-vektorleri.md`). These are simulated brains; whether
-  the real brain learns is shown when the drill runs on it. The bootstrap also remembers its own rejections and reports `not_learning` when the
+  the real brain learns is shown when the drill runs on it: that is the first work of Stage 2 and
+  the owner's MVP exam (`spec/tohum/22b-ders-provasi-gercek-beyin.md`). The bootstrap also remembers its own rejections and reports `not_learning` when the
   same rejection comes back three times in a row; the Founder is specified to stop then (`spec/tohum/24`).
 
 Run its tests with:
