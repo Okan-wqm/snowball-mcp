@@ -243,6 +243,17 @@ E249, sahip kararları paketi 1, E306. Özete sahibin #durustluk istisnası gird
 üretilemedi (E308), bu yüzden koşul `not_checked` kalır. Oyuncak ve kopya repoları açıldı; `targets[]` sahibin aynalama
 belirtecini bekliyor (E330).
 
+## Tohum dönemi 3b'den sonra (2026-10-31 10:18Z'den)
+
+Sekiz döngü, sekizi de kabul (`db4b81d` → `801c130`); oturumlar 12–22 dakika, 1,6–4,7 USD (dün 4–12 USD). Kurucu yeni defter
+kuralına ret almadan uydu: `learning` türlü satır yazmayı bıraktı, defter kurallarını tek modülde topladı ve kötü satırı
+reddeden kendi ekleme komutunu yazdı (tohumda bilerek bırakılmış araç, E150). Kendi defterinden açık maddeleri üretip bugünkü
+koda karşı denetledi, 74'ün 67'sini kapattı (defter de doğrulanacak belgedir, E302). Döngünün D2 ve D5 adımlarını bağladı,
+bir hata sınıfını (çıkışı kapalı her komut 1 ile çıkıyordu) tek süreç sınırıyla kapattı, MF5'i yeni kilit arayüzüne uydurdu.
+Çıkış isteğini henüz yapmadı. Gözlem: bu sekiz kabulde rakip hiç çürütme denemesi yapmadı (her biri birkaç tur, ~0,3 USD);
+rakibin bulma gücü ölçülmediği için (E311, kanarya E126 açık) bu kabuller testlerin ve vektörlerin kanıtıdır, rakibinki
+zayıftır.
+
 ## Pilotun tetiklediği düzeltmeler
 
 E148 (defter satırları push türünü bozuyordu), E149 (`main` mutasyonu hiç koşmuyordu), E152 (CRLF, `safe.directory`),
