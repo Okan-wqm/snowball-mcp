@@ -78,19 +78,19 @@
    "why": "a value nested past the recursion limit returns a truncated canonical form, whose hash then stands for a row it is not"
   },
   {
-   "id": "append-previous-is-ledger",
+   "id": "root-row-first-link",
    "kind": "chain_off_by_one",
-   "path": "referee/ledger/append.py",
-   "old": "        hashes = append_cycle(files[0], files[1], sys.stdin.buffer.read, state)\n",
-   "new": "        hashes = append_cycle(files[0], files[0], sys.stdin.buffer.read, state)\n",
+   "path": "referee/ledger/anchor.py",
+   "old": "           \"prev_hash\": old[-1][\"row_hash\"] if old else chain.ZERO_HASH}\n",
+   "new": "           \"prev_hash\": old[0][\"row_hash\"] if old else chain.ZERO_HASH}\n",
    "suite": [
-    "T39"
+    "T40"
    ],
    "mfs": [
-    10
+    11
    ],
-   "oracle": "cd referee && python -c '\nimport json, subprocess, sys\nimport ledger.chain as c\nr = {\"row_id\": \"r1\", \"part\": \"events\", \"kind\": \"k\", \"payload\": {\"n\": 1}, \"prev_hash\": c.ZERO_HASH}\nr[\"row_hash\"] = c.row_hash(r)\ne = {k: v for k, v in r.items() if k != \"row_hash\"}\ne[\"payload\"] = {\"n\": 2}\ne[\"row_hash\"] = c.row_hash(e)\nopen(\"/tmp/canary-prev.jsonl\", \"wb\").write(c.canonical(r) + b\"\\n\")\nopen(\"/tmp/canary-ledger.jsonl\", \"wb\").write(c.canonical(e) + b\"\\n\")\np = subprocess.run([sys.executable, \"-m\", \"ledger.append\", \"cycle\", \"/tmp/canary-ledger.jsonl\", \"/tmp/canary-prev.jsonl\"], input=b\"{\\\"rows\\\": [{\\\"row_id\\\": \\\"r2\\\"}]}\", capture_output=True)\nsys.exit(0 if json.loads(p.stdout)[\"hard_stop\"] is True else 1)'",
-   "why": "the command line hands the ledger as its own previous version, so a ledger whose rows were rewritten and rehashed passes step 1's append-only check and gets new rows"
+   "oracle": "cd referee && python -c '\nimport ledger.anchor as a, ledger.chain as c\nroots = b\"\"\nfor i in (1, 2, 3):\n    roots = a.root_row(roots, \"r%d\" % i, \"t\", \"0\" * 64, \"u\")\nraise SystemExit(0 if c.verify_bytes(roots)[\"valid\"] else 1)'",
+   "why": "from the third root row on, prev_hash names the first row instead of the last: the cycle commits a broken chain/root.jsonl, found only by the next cycle's check (a hard stop)"
   },
   {
    "id": "known-secret-length",
