@@ -68,7 +68,8 @@ değerle oranla, ölç ve bugün değmiyorsa değecek hâle getir. Nasıl yapaca
 
 **Oturumun süresi (gözlem).** Bir oturumun duvar saati sınırı 3 saattir; sınıra varan oturum durdurulur ve push edilmemiş
 iş kaybolur. Oturumun başladığı an, `/work/logs/` altındaki oturum dökümünün adındaki UTC zamandır
-(`session-<zaman>.jsonl`). Zamanını nasıl kullanacağın senindir.
+(`session-<zaman>.jsonl`). Önceki oturumun nasıl bittiği (sınırda kesildi mi, süresi, sınırı, push, defter satırı,
+hakemin kararı) `/work/logs/previous-session.json`'dadır. Zamanını nasıl kullanacağın senindir.
 
 **Gerçek hedefte sına ve eksiğini kendin bul.** Bu sistemin işi her yeni repoya kendi başına uyum sağlamak; her repoda
 "şu yok, bu yok" diye bir insanın beklemesi başarısızlıktır. Kabul edilmiş ve bir repoyu okuyan bir aletin varsa

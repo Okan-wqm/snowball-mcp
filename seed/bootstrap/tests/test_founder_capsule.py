@@ -85,6 +85,43 @@ class CapsuleArgvTest(unittest.TestCase):
                 self.assertTrue(Path(src).is_relative_to(self.work), src)
 
 
+class PreviousSessionTest(unittest.TestCase):  # E360: how the last session ended is an observation, never its transcript
+    def setUp(self):
+        self.launch = load_launch()
+        self.work = Path(tempfile.mkdtemp())
+        self.pilot = self.launch.Pilot(self.work, "owner/brain", "owner/referee", "target")
+
+    def note(self, stamp="20261031T210000Z"):
+        path = self.work / "logs" / stamp / "previous-session.json"
+        return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else None
+
+    def test_a_timed_out_session_is_named_for_the_next_one(self):
+        rows = [{"stamp": "20261031T170731Z", "session_exit": 0, "minutes": 18.5, "pushed": True,
+                 "ledger_new": {"decision": 3, "build": 1}, "verdict": "accepted", "session_timeout_s": 10800},
+                {"stamp": "20261031T174316Z", "session_exit": -1, "minutes": 180.2, "pushed": False,
+                 "ledger_new": {}, "verdict": None, "session_timeout_s": 10800}]
+        self.pilot.metrics.write_text("".join(json.dumps(r) + "\n" for r in rows), encoding="utf-8")
+        self.pilot.previous_session_note("20261031T210000Z", 10800)
+        self.assertEqual(self.note(), {"stamp": "20261031T174316Z", "ended": "timeout", "exit": -1, "minutes": 180.2,
+                                       "limit_minutes": 180.0, "pushed": False, "ledger_rows_added": 0, "verdict": None})
+
+    def test_a_normal_end_and_the_limit_it_ran_under(self):
+        row = {"stamp": "20261031T170731Z", "session_exit": 0, "minutes": 18.5, "pushed": True,
+               "ledger_new": {"decision": 3, "build": 1}, "verdict": "accepted", "session_timeout_s": 7200}
+        self.pilot.metrics.write_text(json.dumps(row) + "\n", encoding="utf-8")
+        self.pilot.previous_session_note("20261031T210000Z", 10800)
+        note = self.note()
+        self.assertEqual((note["ended"], note["limit_minutes"], note["ledger_rows_added"], note["pushed"]),
+                         ("exit", 120.0, 4, True))
+
+    def test_no_earlier_cycle_writes_nothing(self):
+        self.pilot.previous_session_note("20261031T210000Z", 10800)
+        self.assertIsNone(self.note())
+
+    def test_the_prompt_says_where_it_is(self):
+        self.assertIn("/work/logs/previous-session.json", (FOUNDER / "prompt.md").read_text(encoding="utf-8"))
+
+
 class BuildContextTest(unittest.TestCase):
     def test_a_windows_checkout_reaches_the_image_with_lf_and_nothing_else(self):  # E152
         launch = load_launch()
