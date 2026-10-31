@@ -1,0 +1,160 @@
+{
+ "schema": "snowball-rival-canary-catalog/1",
+ "about": "Plants for the rival canary (local/canary.py, register E126, E311): each is one edit of the brain's accepted code that its covering tests miss, with an oracle that passes on the accepted code and fails on the planted copy. Oracles and this file are operator data: the rival is never shown them. An anchor (old) must occur exactly once in its file at the base; when the brain moves on, re-anchor it.",
+ "kinds": {
+  "wrong_boundary": "a comparison or range moved by one step: the value at the edge lands on the wrong side",
+  "dropped_check": "a guard removed: input it refused now passes it and fails somewhere else",
+  "inverted_condition": "a condition negated: the answer says the opposite of the result",
+  "swallowed_error": "an exception caught and dropped: the call goes on as if it had succeeded",
+  "chain_off_by_one": "an index slip in the hash chain's checks: a link or a version is not compared",
+  "secret_slip": "a secret-handling rule weakened: a value that must be caught gets through"
+ },
+ "entries": [
+  {
+   "id": "surrogate-upper-edge",
+   "kind": "wrong_boundary",
+   "path": "referee/ledger/chain.py",
+   "old": "        elif 0xD800 <= ord(ch) <= 0xDFFF:\n",
+   "new": "        elif 0xD800 <= ord(ch) < 0xDFFF:\n",
+   "suite": [
+    "T13",
+    "T39",
+    "T14"
+   ],
+   "mfs": [
+    1,
+    10
+   ],
+   "oracle": "cd referee && python -c '\nimport ledger.chain as c\ntry:\n    c.canonical(chr(0xDFFF))\nexcept c.ChainError:\n    raise SystemExit(0)\nraise SystemExit(1)'",
+   "why": "U+DFFF is a lone surrogate (the module docstring: refused, never guessed); planted, it reaches encode and escapes as UnicodeEncodeError, so verify faults (exit 2) instead of naming the broken row"
+  },
+  {
+   "id": "non-string-key",
+   "kind": "dropped_check",
+   "path": "referee/ledger/chain.py",
+   "old": "            if not isinstance(key, str):\n                raise ChainError(\"object key is not a string\")\n",
+   "new": "",
+   "suite": [
+    "T13",
+    "T39",
+    "T14"
+   ],
+   "mfs": [
+    1,
+    10
+   ],
+   "oracle": "cd referee && python -c '\nimport ledger.chain as c\ntry:\n    c.canonical({1: 2})\nexcept c.ChainError:\n    raise SystemExit(0)\nraise SystemExit(1)'",
+   "why": "canonical promises ChainError for what the canonical form cannot hold; without the guard a non-string key raises TypeError, which no caller catches"
+  },
+  {
+   "id": "open-items-ok",
+   "kind": "inverted_condition",
+   "path": "referee/ledger/founder.py",
+   "old": "            _emit({\"ok\": not found, \"open\": items, \"problems\": found})\n",
+   "new": "            _emit({\"ok\": found, \"open\": items, \"problems\": found})\n",
+   "suite": [
+    "T14"
+   ],
+   "mfs": [],
+   "oracle": "cd referee && : > /tmp/canary-ledger.jsonl && python -m ledger.founder open --ledger /tmp/canary-ledger.jsonl --reports /tmp/canary-no-reports | python -c 'import json, sys; sys.exit(0 if json.load(sys.stdin)[\"ok\"] is True else 1)'",
+   "why": "`open` on a clean ledger prints ok: [] (falsy) and on a broken one the problem list (truthy)"
+  },
+  {
+   "id": "deep-value-swallowed",
+   "kind": "swallowed_error",
+   "path": "referee/ledger/chain.py",
+   "old": "        raise ChainError(\"value nested too deeply\") from None\n",
+   "new": "        pass\n",
+   "suite": [
+    "T13",
+    "T39",
+    "T14"
+   ],
+   "mfs": [
+    1,
+    10
+   ],
+   "oracle": "cd referee && python -c '\nimport ledger.chain as c\nv = []\nfor _ in range(100000):\n    v = [v]\ntry:\n    c.canonical(v)\nexcept c.ChainError:\n    raise SystemExit(0)\nraise SystemExit(1)'",
+   "why": "a value nested past the recursion limit returns a truncated canonical form, whose hash then stands for a row it is not"
+  },
+  {
+   "id": "append-previous-is-ledger",
+   "kind": "chain_off_by_one",
+   "path": "referee/ledger/append.py",
+   "old": "        hashes = append_cycle(files[0], files[1], sys.stdin.buffer.read, state)\n",
+   "new": "        hashes = append_cycle(files[0], files[0], sys.stdin.buffer.read, state)\n",
+   "suite": [
+    "T39"
+   ],
+   "mfs": [
+    10
+   ],
+   "oracle": "cd referee && python -c '\nimport json, subprocess, sys\nimport ledger.chain as c\nr = {\"row_id\": \"r1\", \"part\": \"events\", \"kind\": \"k\", \"payload\": {\"n\": 1}, \"prev_hash\": c.ZERO_HASH}\nr[\"row_hash\"] = c.row_hash(r)\ne = {k: v for k, v in r.items() if k != \"row_hash\"}\ne[\"payload\"] = {\"n\": 2}\ne[\"row_hash\"] = c.row_hash(e)\nopen(\"/tmp/canary-prev.jsonl\", \"wb\").write(c.canonical(r) + b\"\\n\")\nopen(\"/tmp/canary-ledger.jsonl\", \"wb\").write(c.canonical(e) + b\"\\n\")\np = subprocess.run([sys.executable, \"-m\", \"ledger.append\", \"cycle\", \"/tmp/canary-ledger.jsonl\", \"/tmp/canary-prev.jsonl\"], input=b\"{\\\"rows\\\": [{\\\"row_id\\\": \\\"r2\\\"}]}\", capture_output=True)\nsys.exit(0 if json.loads(p.stdout)[\"hard_stop\"] is True else 1)'",
+   "why": "the command line hands the ledger as its own previous version, so a ledger whose rows were rewritten and rehashed passes step 1's append-only check and gets new rows"
+  },
+  {
+   "id": "known-secret-length",
+   "kind": "secret_slip",
+   "path": "referee/gate/secrets.py",
+   "old": "    known_values = [(label, value) for label, value in known if len(value) >= MIN_KNOWN]\n",
+   "new": "    known_values = [(label, value) for label, value in known if len(value) > MIN_KNOWN]\n",
+   "suite": [
+    "T38"
+   ],
+   "mfs": [
+    2
+   ],
+   "oracle": "cd referee && printf 'see Zq7xWv3p here\\n' | CANARY_KNOWN=Zq7xWv3p python -m gate.secrets scan --kind prompt --known-env CANARY_KNOWN > /dev/null; test $? -eq 1",
+   "why": "scan's docstring ignores only known values shorter than MIN_KNOWN (8); planted, an 8-character known secret is no longer matched, so a prompt holding it is clean and gets sent"
+  },
+  {
+   "id": "surrogate-lower-edge",
+   "kind": "wrong_boundary",
+   "path": "referee/ledger/chain.py",
+   "old": "        elif 0xD800 <= ord(ch) <= 0xDFFF:\n",
+   "new": "        elif 0xD800 < ord(ch) <= 0xDFFF:\n",
+   "suite": [
+    "T13",
+    "T39",
+    "T14"
+   ],
+   "mfs": [
+    1,
+    10
+   ],
+   "oracle": "cd referee && python -c '\nimport ledger.chain as c\ntry:\n    c.canonical(chr(0xD800))\nexcept c.ChainError:\n    raise SystemExit(0)\nraise SystemExit(1)'",
+   "why": "U+D800 is a lone surrogate; planted, it escapes as UnicodeEncodeError like the upper edge"
+  },
+  {
+   "id": "control-lines-renamed",
+   "kind": "control",
+   "path": "referee/ledger/chain.py",
+   "old": "    lines = data.split(b\"\\n\")\n    if lines[-1] == b\"\":\n        lines.pop()\n    return lines\n",
+   "new": "    parts = data.split(b\"\\n\")\n    if parts[-1] == b\"\":\n        parts.pop()\n    return parts\n",
+   "suite": [
+    "T13",
+    "T39",
+    "T14"
+   ],
+   "mfs": [
+    1,
+    10
+   ],
+   "why": "a local variable renamed: no behaviour changes"
+  },
+  {
+   "id": "control-known-env-walrus",
+   "kind": "control",
+   "path": "referee/gate/secrets.py",
+   "old": "    return [(\"known:\" + name, os.environ[name]) for name in names if os.environ.get(name)]\n",
+   "new": "    return [(\"known:\" + name, value) for name in names if (value := os.environ.get(name))]\n",
+   "suite": [
+    "T38"
+   ],
+   "mfs": [
+    2
+   ],
+   "why": "the environment read once instead of twice: no behaviour changes"
+  }
+ ]
+}
