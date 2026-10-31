@@ -59,13 +59,13 @@ class Flow(unittest.TestCase):
             "stage_budgets": {"asama_0": {"rival_usd": 30}},
             "license_allowlist": ["MIT", "Apache-2.0"], "license_exceptions": {}}}))
         (self.referee / "control.json").write_text(json.dumps({"kill_switch": False, "budget_state": "ok"}))
-        self.state = {"schema": "snowball-bootstrap-state/3", "origin": "initial",
+        self.state = {"schema": "snowball-bootstrap-state/4", "origin": "initial",
                       "last_accepted_sha": self.seed_sha, "last_evaluated_sha": None, "frozen_specs": {},
                       "rival_artifacts": [], "month": "2026-10", "month_spend_usd_micros": 0,
                       "stage_spend_usd_micros": 0, "runs": 0, "reject_streaks": {}, "repeat_events": 0,
                       "outage_sha": None, "outage_count": 0, "outage_since": None,
                       "outage_stop": None, "rival_side_streak": 0, "open_refutations": [], "open_claims": [],
-                      "pending_rival": None, "rejected_exit_request": None}
+                      "pending_rival": None, "rejected_exit_request": None, "exit_accepted_sha": None}
         self.n = 0
 
     def tearDown(self):
@@ -433,6 +433,20 @@ class Flow(unittest.TestCase):
         self.assertIsNone(result["state"]["last_evaluated_sha"])
         self.assertEqual((result["state"]["outage_sha"], result["state"]["outage_count"]), (meta["head"], 1))
 
+    def test_after_an_accepted_exit_a_push_that_touches_referee_is_refused(self):
+        """E333 (`asama-0/10a` "Başarısızlık", `asama-0/11`, `25a` 8): after (A) the referee tree is the one the exit was
+        accepted with; a code push that touches `referee/` is `referee_changed_after_exit`. Before (A) it is not."""
+        commit(self.brain, {"referee/a.py": "x = 2\n"}, "touches the referee")
+        self.assertNotIn("referee_changed_after_exit", self.pull()["pre_reasons"])
+        self.state["exit_accepted_sha"] = self.seed_sha
+        self.assertIn("referee_changed_after_exit", self.pull()["pre_reasons"])
+
+    def test_after_an_accepted_exit_candidates_and_targets_may_change(self):
+        self.state["exit_accepted_sha"] = self.seed_sha
+        commit(self.brain, {"candidates/toy/c1/expect.json": "{}\n", "targets/toy/units.json": "[]\n",
+                            "tests/test_x.py": "pass\n"}, "only what (B) may change")
+        self.assertNotIn("referee_changed_after_exit", self.pull()["pre_reasons"])
+
     def test_full_stage0_path(self):
         meta = self.pull()
         self.assertEqual(meta["kind"], "none")
@@ -565,6 +579,7 @@ class Flow(unittest.TestCase):
             result = self.finish(meta, run=self.green_run(meta), jobs={"getir": "success", "kos": "success"})
         self.assertEqual(result["verdict"], "accepted", result["reasons"])
         self.assertTrue(result["exit"]["transferable"])
+        self.assertEqual(result["state"]["exit_accepted_sha"], meta["head"])  # (A): referee/ is frozen from here (E333)
         self.assertEqual(result["exit"]["repeat_events"], 0)
         tar_bytes = gitio.archive(self.brain, meta["head"])
         self.assertEqual(result["exit"]["toy_tree_sha256"],

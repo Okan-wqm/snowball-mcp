@@ -462,6 +462,10 @@ def _pull_classify(boot: config.Bootstrap, policy: config.Policy, summary_cfg: c
         pre += reasons
         if EXIT_FILE in judged and not left_in_place:
             pre.append("exit_request_not_alone")
+    if kind == "code" and prev.get("exit_accepted_sha") and any(p.startswith("referee/") for p in own):
+        # After (A) the referee tree is the one the exit was accepted with: the import copies it and the loop runs
+        # it (`asama-0/10a` "Başarısızlık", `asama-0/11`, `25a` 8; E333).
+        pre.append("referee_changed_after_exit")
     if {"base_unreachable", "history_rewritten", "non_utf8_path", "unsafe_path"} & set(pre):  # nothing can be read safely
         kind = "rejected"
     pre += [f"not_regular_file:{x}" for x in gitio.special_entries(repo, head)][:20]

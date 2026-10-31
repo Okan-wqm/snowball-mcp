@@ -4,6 +4,9 @@ Tarih: 2026-10-29 · Sürüm: 2.2
 Okunma: bir sayfanın geçmişi aranırken
 Çapa: git geçmişi ve zincirdeki spec hash satırları
 
+- 2.2 (2026-10-31, E333; uzman tartışması ve hakem): önyükleme hakemi `asama-0/10a`'nın kuralını uygular: kabul
+  edilmiş çıkıştan ((A)) sonra `referee/`'ye dokunan kod push'u `referee_changed_after_exit`'tir; imzalı durum çıkışın
+  başını taşır (`snowball-bootstrap-state/4`, `/3` aynen taşınır).
 - 2.2 (2026-10-31, E344; uzman tartışması ve hakem): başlatıcı oturumun CLI'nin bildirdiği maliyetini `kind: cost`
   satırı olarak `26`'nın zincir kuralıyla yazar (`24a` 4); andığı "tohumun defter aracı" tohumda yoktur (E150).
 - 2.2 (2026-10-31, E342, E93; Kurucu raporu seed-040, uzman tartışması ve hakem): önyükleme hakeminin imzalı durumunun

@@ -504,6 +504,7 @@ def decide(meta: dict[str, Any], run: dict[str, Any] | None, rival: dict[str, An
         state["rival_artifacts"].append({"sha": head, "outcome": "refuted" if refuted_here else "survived"})
 
     if kind == "exit" and accepted:
+        state["exit_accepted_sha"] = head  # (A): from here no push may touch referee/ (E333)
         exit_block["transferable"] = True
         exit_block["referee_tree_sha256"] = meta["referee_tree_sha256"]
         exit_block["toy_tree_sha256"] = meta["toy_tree_sha256"]  # `asama-0/10` #agac; the import's #oyuncak (`10a`)
