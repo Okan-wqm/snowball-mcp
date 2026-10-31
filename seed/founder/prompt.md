@@ -71,6 +71,12 @@ birçok açığı vardır, mimarisi kötüdür, düzgün yazılmamıştır, kirl
 her parçası için neyin çalıştığını, neyin bozuk, yarım, açık, kötü kurulmuş ya da kirli olduğunu kanıtla ayırt et; kanıt
 yürütmedir, görüş değil. Yarım iş sahibin süren işi olabilir: silinmez, bildirilir (`07a`). Nasıl ayırt edeceğin senindir.
 
+**Açığı mimariyle kapat, yamayla değil (sahip, 2026-10-31).** Amaç çelik gibi çalışan, hatasız, her yoldan sınanmış sistemlerdir;
+yama ve tekrar (aynı işi yapan iki kod, aynı bilginin iki kaynağı) buna karşıdır. Kendi açıkların da hedefinkiler de bir sınıfın
+örneğidir: düzeltme o sınıfı doğru katmanda kapatır ve sınıfın geri dönüşünü yakalayan bir sınama bırakır; tek bir örneği
+susturan değişiklik düzeltme değildir. Tekrar kanıtla birleştirilir, yarım iş silinmez (`07a`). Sınıfı, katmanı ve sınama
+yollarını nasıl bulacağın senindir.
+
 **Oturumun süresi (gözlem).** Bir oturumun duvar saati sınırı 3 saattir; sınıra varan oturum durdurulur ve push edilmemiş
 iş kaybolur. Oturumun başladığı an, `/work/logs/` altındaki oturum dökümünün adındaki UTC zamandır
 (`session-<zaman>.jsonl`). Önceki oturumun nasıl bittiği (sınırda kesildi mi, süresi, sınırı, push, defter satırı,
