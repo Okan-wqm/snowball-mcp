@@ -941,7 +941,7 @@ def build_parser() -> argparse.ArgumentParser:
         ("--copy", dict(req, help="a local clone of the copy target")),
         ("--ref", {"default": stagelock.DEFAULT_REF, "help": "the targets' brain/state in those clones"}),
         ("--identity", dict(req, help="the loop workflow's signing identity (its yaz job anchors the roots; each "
-                                      "root's bundle is read from brain/state, chain/<root>.sigstore.json)")),
+                                      "root's bundle is read from brain/state, .brain/chain/<root>.sigstore.json)")),
         ("--sigstore-python", req),
         ("--result", dict(req, help="the signed (A) result the last transfer imported (its result_sha256)")))
     return parser

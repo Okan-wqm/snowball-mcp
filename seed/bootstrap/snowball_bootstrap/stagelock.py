@@ -34,9 +34,12 @@ What `stage-open` binds, before it writes anything (`02` 5: only the PASS row op
 
 The PASS row's fields and the rule applied here are `tohum/26d`'s, the page the Founder reads (E404, E414). Spec
 sessiz, the narrowest choice each time (register E371, E375-E379, E388, E411, E414, E416):
-- ``<state_root>`` is the top of the target's `brain/state` (`asama-1/12`): `ledger.jsonl`, `chain/root.jsonl` and
-  the root's bundle ``chain/<root>.sigstore.json`` there, read at the commit ``--ref`` names in the operator's local
-  clone (default ``refs/remotes/origin/brain/state``); that commit is the state head the lock records.
+- ``<state_root>`` is the directory `01a` names, ``.brain/`` at the root of the target's `brain/state` (the operator's
+  decision under the owner's authority, E417: the Founder reads `01a` as written; E58's one folder): `ledger.jsonl`,
+  `chain/root.jsonl` and the root's bundle ``chain/<root>.sigstore.json`` under it, read at the commit ``--ref`` names
+  in the operator's local clone (default ``refs/remotes/origin/brain/state``); that commit is the state head the lock
+  records. A profile (`26b` ``state_root``) anywhere in that commit naming another directory stops: reading it needs a
+  seed epoch.
 - A row is a player's proposal when ``proposed_by`` names its proposer (a string that is not empty); a proposal is left
   out first, so a proposed copy cannot block the lock. A row that carries ``proposed_by`` with any other value (null)
   is counted, and is not the referee's own. The referee's own (`26`): no ``proposed_by``, ``trust`` one of ``verified``
@@ -84,9 +87,10 @@ LOCK_FILE = "stage.json"
 COUNTER_FILE = "imports.jsonl"
 LOCK_KEYS = ("stage", "pass_row_sha256", "toy_state_head", "copy_state_head", "import_line_sha256")
 OPENS = 1  # the stage the seed's lock opens: Stage 0 -> 1 (`03`)
-LEDGER = "ledger.jsonl"
-ROOTS = "chain/root.jsonl"
-ROOT_BUNDLE = "chain/{root}.sigstore.json"  # the root's Sigstore bundle, in the commit of its root row (E414)
+STATE_ROOT = ".brain/"  # `<state_root>` in `brain/state`, `01a`'s default; no other is read before a seed epoch (E417)
+LEDGER = STATE_ROOT + "ledger.jsonl"
+ROOTS = STATE_ROOT + "chain/root.jsonl"
+ROOT_BUNDLE = STATE_ROOT + "chain/{root}.sigstore.json"  # the root's Sigstore bundle, beside its root row (E414)
 DEFAULT_REF = "refs/remotes/origin/brain/state"
 # The derivations merge evidence may have (`26`: "yalnız ilk üç derivation"): the PASS row is the referee's measurement.
 REFEREE_DERIVATIONS = ("tool", "static_analysis", "test_verified")
@@ -240,10 +244,12 @@ def _state(repo: Path, ref: str, name: str) -> tuple[str, list[tuple[bytes, dict
         head = gitio.git(repo, "rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}").decode().strip()
     except gitio.GitError as exc:
         raise LockStop(f"{name}: {ref} is not a commit in {repo} (fetch the target's brain/state first)") from exc
+    _one_state_root(repo, head, name)
     ledger = gitio.file_at(repo, head, LEDGER)
     roots = gitio.file_at(repo, head, ROOTS)
     if ledger is None or roots is None:
-        raise LockStop(f"{name} brain/state {head}: no {LEDGER if ledger is None else ROOTS}")
+        raise LockStop(f"{name} brain/state {head}: no {LEDGER if ledger is None else ROOTS} (`<state_root>` is "
+                       f"{STATE_ROOT} at the root of brain/state, `01a`, `26d`)")
     rows = chained_lines(ledger, f"{name} brain/state {LEDGER}")
     anchors = chained_lines(roots, f"{name} brain/state {ROOTS}")
     if not rows or not anchors:
@@ -267,6 +273,22 @@ def _state(repo: Path, ref: str, name: str) -> tuple[str, list[tuple[bytes, dict
     return head, rows, last, bundle
 
 
+def _one_state_root(repo: Path, head: str, name: str) -> None:
+    """E417: this seed reads `<state_root>` at ``.brain/`` alone (`01a`'s default). A profile in the commit (`26b`: its
+    ``state_root``) that names another directory stops, named: reading it needs a seed epoch."""
+    for path in gitio.tree_paths(repo, head):
+        if path.rsplit("/", 1)[-1] != "profile.json":
+            continue
+        data = gitio.file_at(repo, head, path)
+        try:
+            profile = json.loads(data.decode("utf-8")) if data is not None else None
+        except (UnicodeDecodeError, ValueError, RecursionError):
+            continue  # no profile this check can read; the loop's own checks are its
+        if isinstance(profile, dict) and "state_root" in profile                 and profile["state_root"] not in (STATE_ROOT, STATE_ROOT.rstrip("/")):
+            raise LockStop(f"{name} brain/state {head}: {path} names state_root {profile['state_root']!r}: a state_root "
+                           f"other than {STATE_ROOT} needs a seed epoch (`01a`, `26d`, E417)")
+
+
 def _log_body(bundle: bytes, name: str) -> bytes:
     """The canonicalized body of the bundle's one transparency log entry."""
     try:
@@ -276,8 +298,8 @@ def _log_body(bundle: bytes, name: str) -> bytes:
             raise ValueError("not one log entry")
         return base64.b64decode(entries[0]["canonicalizedBody"], validate=True)
     except (UnicodeDecodeError, ValueError, RecursionError, KeyError, TypeError, binascii.Error) as exc:
-        raise LockStop(f"{name} root bundle (brain/state chain/<root>.sigstore.json) is not a Sigstore bundle with one log "
-                       f"entry: {exc}") from exc
+        raise LockStop(f"{name} root bundle (brain/state {STATE_ROOT}chain/<root>.sigstore.json) is not a Sigstore bundle "
+                       f"with one log entry: {exc}") from exc
 
 
 def _entry_hash(body: bytes) -> Any:

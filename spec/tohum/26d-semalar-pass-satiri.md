@@ -11,9 +11,11 @@ Okunma: Aşama 0'ın (B) devirlerini ve genesis, merge, PASS ve kök satırları
 yazar (`25a` 9, `02` 5). Bu sayfa `asama-0/10a`'nın PASS satırını alan alan söyler; aşama sayfası tohumla çelişirse
 tohum geçerlidir (`02` 1).
 
-**Yer.** `stage-open` için `<state_root>` hedefin `brain/state` commit'inin tepesidir: `ledger.jsonl`, `chain/root.jsonl`
-ve son kökün Sigstore paketi `chain/<kök>.sigstore.json` (`<kök>` son kök satırının `root`'u) orada, aynı commit'te,
-düzenli dosya olarak okunur. Paketi döngü yazar ve kök satırının yanında tutar; operatör paket vermez.
+**Yer.** `<state_root>` `01a`'nın adlandırdığı dizindir: hedefin `brain/state` commit'inin kökündeki `.brain/` (E58'in tek
+klasörü). `stage-open` `.brain/ledger.jsonl`'u, `.brain/chain/root.jsonl`'u ve son kökün Sigstore paketi
+`.brain/chain/<kök>.sigstore.json`'u (`<kök>` son kök satırının `root`'u) aynı commit'te, düzenli dosya olarak okur. Paketi
+döngü yazar ve kök satırının yanında tutar; operatör paket vermez. `26b` profilinin `state_root`'u bugün yalnız `.brain/`
+olabilir: commit'te başka bir dizin adlandıran profil `stage-open`'ı adıyla durdurur; başka bir dizin tohum dönemi ister.
 
 **Zincirli dosya** (`ledger.jsonl`, `chain/root.jsonl`, `setup/imports.jsonl`). Her satır, sonuncusu da, LF ile biter;
 CR yoktur; satır tek bir JSON nesnesidir, hiçbir anahtar iki kez geçmez, `NaN` ve `Infinity` yoktur; `row_hash` `26`'nın

@@ -289,8 +289,10 @@ koştur: PASS satırı oyuncağın `brain/state` defterinde, kopyanın genesis v
 
 `$E/arac` 2. adımdaki gibi hakemin canlı `bootstrap/`'ının kopyasıdır (K3'ü getiren tohum döneminden sonra yeniden
 kopyala). Kopyanın `brain/state`'i küçük bir klondadır (yetim dal). Her hedefin son kökünü imzalayan Sigstore paketini
-`stage-open` o hedefin `brain/state` başından okur: döngü onu kök satırının yanında tutar, `chain/<kök>.sigstore.json`
-(`26d`, E414); operatör paket indirmez. Kimlik döngünün iş akışınındır:
+`stage-open` o hedefin `brain/state` başından okur: döngü onu kök satırının yanında tutar,
+`.brain/chain/<kök>.sigstore.json` (`<state_root>` `01a`'nın `.brain/`'i: defter `.brain/ledger.jsonl`, kökler
+`.brain/chain/root.jsonl`; başka bir `state_root` adlandıran profil durdurur; `26d`, E414, E417); operatör paket indirmez.
+Kimlik döngünün iş akışınındır:
 
 ```
 WSL$ git -C $E/referee pull -q --ff-only && git -C $E/toy fetch -q origin
@@ -311,7 +313,8 @@ E377, E411), son genesis'ten sonra PASS satırı yok ya da iki tane (oyuncak def
 son genesis ile kendisi arasında oyuncağın merge satırı yok ya da sayacın son aktarım satırını adlandırmıyor
 (`payload.import_line_sha256`, E405), kopyanın son genesis'ini ve ondan sonraki merge satırlarını adlandırmıyor
 (`payload.copy_genesis_row_hash`, `payload.copy_merge_row_hashes`: her biri kopyanın bir `kind: merge` satırı; E376,
-E405), sahip istisnasını imzalı sonuçtaki gibi taşımıyor (`payload.owner_exception`, E379), bir zincir kırık, son kök
+E405), sahip istisnasını imzalı sonuçtaki gibi taşımıyor (`payload.owner_exception`, E379), defter `.brain/` altında
+yok ya da bir profil başka bir `state_root` adlandırıyor (E417), bir zincir kırık, son kök
 defterin uçları değil, kök paketi `brain/state`'te yok (E414), paket satırın Rekor girdisi değil ya da girdi kökü
 kaydeden bir Rekor v1 `hashedrekord` değil (v2 gövdesi de; kök `sign --rekor-version 1` ile imzalanır, E406, E415),
 Sigstore `sha256:<kök>`'ü reddetti (E375) ya da kilit zaten var (E371). Kural ve alanlar Kurucu'nun okuduğu `spec/tohum/26d`'dedir (E404). Durursa itme, `pilot-log.md`'ye yaz.

@@ -1020,12 +1020,14 @@ OWNER_EXCEPTION = {"anchor": "durustluk", "stage": 0, "carry_to": 1, "reason": "
 
 
 class Target:
-    """A target repository whose `brain/state` holds a ledger and a root chain, as the loop referee writes them, and the
-    last root's Sigstore bundle beside them, `chain/<root>.sigstore.json` (`26d`, E414): one `hashedrekord` log entry
-    that records the root as its hash (`29j`). ``bundle`` stands another bundle there (False: none), ``uuid_suffix``
-    follows the root row's `rekor_uuid`."""
+    """A target repository whose `brain/state` holds, under `<state_root>` (`.brain/`, `01a`, E417), a ledger and a root
+    chain, as the loop referee writes them, and the last root's Sigstore bundle beside them, `chain/<root>.sigstore.json`
+    (`26d`, E414): one `hashedrekord` log entry that records the root as its hash (`29j`). ``bundle`` stands another
+    bundle there (False: none), ``uuid_suffix`` follows the root row's `rekor_uuid`, ``state_root`` puts the files
+    elsewhere ("" the commit's top), ``extra`` adds files to the commit."""
 
-    def __init__(self, path, rows, root_override=None, entry_hash=None, body=None, bundle=None, uuid_suffix=""):
+    def __init__(self, path, rows, root_override=None, entry_hash=None, body=None, bundle=None, uuid_suffix="",
+                 state_root=".brain/", extra=None):
         self.path = path
         make_repo(path, {"README.md": "main\n"})
         sh(path, "git", "checkout", "-q", "--orphan", "brain/state")
@@ -1051,7 +1053,7 @@ class Target:
         files = {"ledger.jsonl": self.ledger, "chain/root.jsonl": root_bytes, "status.md": "# status\n"}
         if self.bundle is not False:
             files[f"chain/{self.root}.sigstore.json"] = self.bundle
-        write(path, files)
+        write(path, dict({state_root + rel: content for rel, content in files.items()}, **(extra or {})))
         sh(path, "git", "add", "-A")
         sh(path, "git", "commit", "-q", "-m", "state")
         self.head = sh(path, "git", "rev-parse", "HEAD")
@@ -1235,10 +1237,10 @@ class StageOpenRefusesTest(StageOpenCase):
                 target = getattr(self, name)
                 sh(target.path, "git", "checkout", "-q", "brain/state")
                 data = target.ledger.replace(b'"c":', b'"C":', 1)
-                write(target.path, {"ledger.jsonl": data})
+                write(target.path, {".brain/ledger.jsonl": data})
                 sh(target.path, "git", "commit", "-q", "-am", "edit a row")
                 sh(target.path, "git", "checkout", "-q", "main")
-                self.refused(f"{name} brain/state ledger.jsonl")
+                self.refused(f"{name} brain/state .brain/ledger.jsonl")
                 sh(target.path, "git", "branch", "-q", "-f", "brain/state", target.head)
 
     def test_when_the_ledger_moved_past_its_last_anchored_root(self):  # stage_open_root_not_the_tips
@@ -1510,7 +1512,7 @@ class StageOpenReadsTheGenesisTest(StageOpenCase):
     def test_a_ledger_row_without_a_part_stops(self):  # G7_state_part_unchecked
         rows = self.toy_rows()
         self.toy = self.make_toy(rows[:4] + [edited(rows[4], {"part": DROP})])
-        self.refused("toy brain/state ledger.jsonl: a row has no part")
+        self.refused("toy brain/state .brain/ledger.jsonl: a row has no part")
 
 
 class StageOpenReadsTheRootTest(StageOpenCase):
@@ -1519,7 +1521,7 @@ class StageOpenReadsTheRootTest(StageOpenCase):
 
     def test_without_the_bundle_in_brain_state(self):  # stage_open_bundle_from_elsewhere
         self.toy = self.make_toy(bundle=False)
-        self.refused(f"no chain/{self.toy.root}.sigstore.json")
+        self.refused(f"no .brain/chain/{self.toy.root}.sigstore.json")
         self.assertEqual(self.verified, [])
 
     def test_a_rekor_uuid_with_more_after_it_is_refused(self):  # G11_uuid_unanchored
@@ -1528,6 +1530,39 @@ class StageOpenReadsTheRootTest(StageOpenCase):
                 self.toy = self.make_toy(uuid_suffix=suffix)
                 self.refused("the last root row has no rekor_uuid")
         self.assertEqual(self.verified, [])
+
+
+class StageOpenReadsTheStateRootTest(StageOpenCase):
+    """E417 (the operator's decision under the owner's authority, 2026-11-01): `<state_root>` is the directory `01a:27-28`
+    names, `.brain/` at the root of `brain/state`, as the Founder reads it (E58: the system's one folder). A ledger at
+    the commit's top is not read; a profile naming another `state_root` stops, named: that needs a seed epoch."""
+
+    def test_the_state_root_is_brain_not_the_commits_top(self):  # stage_open_state_root_top
+        self.assertIsNotNone(gitio.file_at(self.toy.path, self.toy.head, ".brain/ledger.jsonl"))  # where it opens
+        self.toy = self.make_toy(state_root="")
+        self.refused("toy brain/state")
+        self.refused("no .brain/ledger.jsonl (`<state_root>` is .brain/ at the root of brain/state")
+        self.copy = self.make_copy(state_root="")
+        self.toy = self.make_toy()
+        self.refused("copy brain/state")
+        self.refused("no .brain/ledger.jsonl")
+
+    def test_a_profile_naming_another_state_root_stops(self):  # stage_open_state_root_any
+        """`26b`'s profile carries `state_root`: one naming another directory than `.brain/` (here the loop wrote its
+        state under `state/`; and a profile in `.brain/` naming `x/`) is named, not read as a missing ledger."""
+        for state_root, profile_at, named in (("state/", "state/profile.json", "state/"),
+                                              (".brain/", ".brain/profile.json", "x/")):
+            with self.subTest(profile_at=profile_at):
+                self.toy = self.make_toy(state_root=state_root,
+                                         extra={profile_at: json.dumps({"state_root": named, "units": []})})
+                self.refused(f"toy brain/state {self.toy.head}: {profile_at} names state_root {named!r}: a state_root "
+                             "other than .brain/ needs a seed epoch")
+        for value in (".brain/", ".brain"):  # `01a`'s own; and a security profile that names none (`30d`)
+            with self.subTest(value=value):
+                self.toy = self.make_toy(extra={".brain/profile.json": json.dumps({"state_root": value}),
+                                                ".brain/security/profile.json": json.dumps({"classes": []})})
+                self.open()
+                self.stage_file().unlink()
 
 
 class StageOpenCarriesTheExceptionTest(StageOpenCase):
@@ -1725,14 +1760,15 @@ class PassRowPageTest(unittest.TestCase):
                       f"`{decide_module.OWNER_EXCEPTABLE}`",
                       # E411-E416: the facts the third skeptic found missing
                       "`kind: genesis`", "Defterin ilk satırı o hedefin genesis'idir", "defterin son genesis satırıdır",
-                      "yalnız ondan sonrakileri sayar", "`<state_root>` hedefin `brain/state` commit'inin tepesidir",
-                      "`chain/<kök>.sigstore.json`", "Paketi döngü yazar ve kök satırının yanında tutar",
+                      "yalnız ondan sonrakileri sayar", "`<state_root>` `01a`'nın adlandırdığı dizindir: hedefin `brain/state` "
+                      "commit'inin kökündeki `.brain/`", "başka bir dizin adlandıran profil", "tohum dönemi ister",
+                      "`.brain/chain/<kök>.sigstore.json`", "Paketi döngü yazar ve kök satırının yanında tutar",
                       "sonuncusu da, LF ile biter", "CR yoktur", "hiçbir anahtar iki kez geçmez",
                       "`proposed_by`'ı boş olmayan bir dizgi olan satır oyuncunun önerisidir", "`proposed_by: null`",
                       "Rekor v1 `hashedrekord`", "`sign --rekor-version 1`", "en yüksek Rekor sürümünü seçer",
                       "ardında hiçbir şey olamaz"):
             self.assertIn(words, page)
-        self.assertEqual(stagelock.ROOT_BUNDLE, "chain/{root}.sigstore.json")  # the page's `chain/<kök>.sigstore.json`
+        self.assertEqual(stagelock.ROOT_BUNDLE, ".brain/chain/{root}.sigstore.json")  # `.brain/chain/<kök>.sigstore.json`
         self.assertIn("`stage-open` son genesis'i okur (`26d`)", self.flat("tohum/25a-kurulum-etkinlestirme.md"))
         self.assertIn("| `chain/<kök>.sigstore.json` (son kökün Sigstore paketi, `26d`) | `yaz` | `stage-open` |",
                       self.flat("tohum/27a-okuyucular-hedef-durumu.md"))
