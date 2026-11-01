@@ -534,10 +534,14 @@ class Pipeline(unittest.TestCase):
         page = entry(id="buried-page", host="mf1", edits=(canary.Edit("spec/asama-0/00-ozet.md", "frozen", "f"),))
         with self.assertRaises(canary.CanaryError):  # canary_buried_outside_diff
             canary.run_batch(self.world.batch([page], scripted()))
-        hosts = dict(self.world.hosts, mf1=canary.Host("mf1", self.world.epoch, "not an accepted push"))
+        unaccepted = [a for a in self.world.state["rival_artifacts"] if a["sha"] != self.world.host]
         batch = self.world.batch([BURIED], scripted())
-        batch.hosts = hosts
+        batch.state = dict(self.world.state, rival_artifacts=unaccepted)  # the MF1 push no longer a survived artifact
         with self.assertRaises(canary.CanaryError):  # canary_host_not_accepted
+            canary.run_batch(batch)
+        batch = self.world.batch([BURIED], scripted())
+        batch.hosts = dict(self.world.hosts, mf1=canary.Host("mf1", self.world.epoch, "the operator's seed delivery"))
+        with self.assertRaises(canary.CanaryError):
             canary.run_batch(batch)
 
 
