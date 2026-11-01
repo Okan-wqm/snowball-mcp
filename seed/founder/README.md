@@ -4,6 +4,12 @@ Kurucu (`spec/tohum/24a`) yalnız bu kapsülde çalışır: operatörün GitHub 
 girmez. Kapsülün kökü salt okunur, yetkileri düşürülmüş; beyin her oturumda bellekte taze klonlanır, GitHub tek
 evidir. Sınırlar `seed/bootstrap/tests/test_founder_capsule.py`'de sabitlidir.
 
+**Araçlar** (E380). Oturum CLI'ın varsayılan araçlarıyla koşar; yalnız dördü kapalıdır (`--disallowedTools
+"RemoteTrigger,CronCreate,CronDelete,CronList"`): `RemoteTrigger` etkisi kapsülden sonra da sürebilen tek varsayılan
+araçtır (bulutta bir rutin), Cron araçları süreçle ölür ve hiç kullanılmadı. Başka hiçbir araç daraltılmaz (`--tools`,
+`--allowedTools` yok); `test_live_cli` girişin kendi çağrısını sabitli CLI'a uydurma bir jetonla koşturur ve init
+olayında dördünün olmadığını, kalanların durduğunu denetler. İmaj yeniden kurulunca geçerli olur; talimat değişmez.
+
 **Klasör.** Pilotun her şeyi tek klasördedir (varsayılan `F:\snowball-work`); silinince pilot iz bırakmaz:
 
 | Yol | Ne |
@@ -73,7 +79,10 @@ dönemden aynen geçer. Aşağıda `S` `snowball-mcp`'nin teslim edilen commit'i
    (`spec/tohum/CHANGELOG.md`) yanıtladığı ya da reddettiği Kurucu raporlarının kimliklerini adlandırır:
    `<rapor kimliği> → <sayfa:satır>` ya da `declined: <neden>` (E342; rapor yanıtsız kalmasın).
 2. **Durdur.** Başlatıcı klasörüne `STOP` koy, oturumun bitmesini bekle. Hakem reposunda `control.json`'da
-   `"kill_switch": true` yap ve `main`'e it: dönem boyunca hiçbir hakem koşusu başlamaz.
+   `"kill_switch": true` yap ve `main`'e it: dönem boyunca hiçbir hakem koşusu başlamaz. Teslimi yalnız Kurucu'nun
+   son push'u yargılanmışken yap: ya kabul edilmiştir ya da reddi bir oturuma ulaşmıştır (E385; `seed_update`
+   sonucunda ret bloğu yoktur, dönemden hemen önce yargılanan bir ret sonraki oturuma yalnız seri imzası olarak
+   ulaşır).
 3. **Hakem kopyası** (`25` madde 3): `S`'deki `seed/bootstrap/` → `bootstrap/`, `seed/bootstrap/vectors/` →
    `vectors/`, `spec/tohum/29-tohum-koltuklari.md` → `seats/`, `seed/bootstrap/workflow/bootstrap.yml` →
    `.github/workflows/bootstrap.yml`. Henüz itme. Baytlar git blob'larıyla aynı olmalı (E242): hakem ve beyin

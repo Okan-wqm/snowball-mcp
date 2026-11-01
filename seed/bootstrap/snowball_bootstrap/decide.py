@@ -466,11 +466,16 @@ def decide(meta: dict[str, Any], run: dict[str, Any] | None, rival: dict[str, An
         state["last_accepted_sha"] = head
         if kind == "spec":
             state["frozen_specs"].update(meta.get("spec_dir_hashes", {}))
-        # A proven defect closes only on an accepted head where it ran and no longer reproduces (E08).
+        # A proven defect closes only on an accepted head where it ran to the end and no longer reproduces (E08): a
+        # timed-out run showed nothing either way, so it keeps the defect open (E387).
         for s in state_results:
-            if s["source"] == "refutation" and not s["reproduced"]:
+            if s["source"] == "refutation" and not s["reproduced"] and not s.get("timed_out"):
                 refutations.pop(s["key"], None)
-    state["open_refutations"] = list(refutations.values())[-MAX_OPEN_REFUTATIONS:]
+    # Over the caps the oldest go, each named: a defect or claim the referee stops remembering is never silent (E387).
+    kept = list(refutations.values())
+    warnings += [f"refutation_evicted:{e['key']}" for e in kept[:-MAX_OPEN_REFUTATIONS]]
+    warnings += [f"claim_evicted:{c['id']}" for c in claims[:-MAX_OPEN_CLAIMS]]
+    state["open_refutations"] = kept[-MAX_OPEN_REFUTATIONS:]
     state["open_claims"] = claims[-MAX_OPEN_CLAIMS:]
 
     learning = {"repeated": [], "not_learning": [], "repeat_events": state["repeat_events"]}

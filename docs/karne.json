@@ -1,17 +1,17 @@
 {
   "as_of": {
     "last_run": {
-      "created_at": "2026-10-31T21:56:45Z",
-      "head": "057ad34ef3383e13032f1336aab198f67df9281a",
-      "run_id": "41244173853"
+      "created_at": "2026-11-01T01:20:02Z",
+      "head": "ff652e9f2860f5580cc1d6c82dda6581abb4c7cd",
+      "run_id": "41259189630"
     },
-    "ledger_rows": 393,
-    "ledger_sha256": "8545dfa654e6005d1d283784e781e803c5bd7bee2de82bc145d658e77631cd23",
+    "ledger_rows": 416,
+    "ledger_sha256": "c62beb5976cb72f4d57b3d4bf3b203d3d497aff706407014ac119bacde2db7c3",
     "ledger_tip": {
-      "row_hash": "7c2c05e65a79f4ab02c5e48836c61ecbbf37219fed746df64e31d11b2efd3a08",
-      "row_id": "f393"
+      "row_hash": "f5da3b9b24302621c3995575466812eb33495a7ff934f30edd535db5a60f34d6",
+      "row_id": "f416"
     },
-    "results": 64
+    "results": 67
   },
   "autonomy": {
     "rival_side_retries": 0,
@@ -19,7 +19,7 @@
     "unevaluated_runs": 1,
     "waived_refutations": 1
   },
-  "definitions_sha256": "2493cb7379ab57e6cb323fad6ea7cbb5e86cbb1fb4874c1f18497b321e68b5ca",
+  "definitions_sha256": "69bd680ef9e5f7842b322f750a3d50fbba282e229a888654c82481054bcd6533",
   "exam": {
     "register": "E317",
     "status": "not_run"
@@ -485,6 +485,24 @@
         "digest": "sha256:d7629c807186e65c7d2c5ef2254d4c288c4c75894f69b18008cea9a2b5d733cc",
         "result_sha256": "4908a04221b4d9bd120d8752d559c1f725f95f67278c3cd16b57295611f4a7dd",
         "run_id": "41244173853"
+      },
+      {
+        "artifact_id": 13061382188,
+        "digest": "sha256:585a8f5b746e0dc19d8529967a7e596d30fc512639e8325b627210d26608de2f",
+        "result_sha256": "dc22413ab96cdb3f02996e38863de9b8047a7caa76da89c303c32ba30bb16388",
+        "run_id": "41248831339"
+      },
+      {
+        "artifact_id": 13061619728,
+        "digest": "sha256:633877b6a7e6b66b8eddb7987cefae618829f97d7a261c1456bbc2840fa2310f",
+        "result_sha256": "3bd9270b892dd2579e741dfe1c78f3e4537ac73b79e38689e24e5c6fcd75b459",
+        "run_id": "41253144708"
+      },
+      {
+        "artifact_id": 13064703668,
+        "digest": "sha256:0a5c5ff08b3d0f0ef14e375b7e3b1bbbb5dacc7d708b67cc0424a40a122eef94",
+        "result_sha256": "d221e73b0a6dc55a70141706abdb09798b480110f1cc81d5f30e5179aa3d77ea",
+        "run_id": "41259189630"
       }
     ],
     "exclusions": [
@@ -499,17 +517,25 @@
       {
         "id": "E260",
         "on": "f668776f6cdfb5089b24b3aedbde3f7dec60624f"
+      },
+      {
+        "id": "E306",
+        "on": "957f5f64db1e94c29877eca4c56bf74a68e5bdce"
+      },
+      {
+        "id": "E306",
+        "on": "2bea5679da26b6c0199883df3f0c366dee8533c0"
       }
     ]
   },
   "ledger_kinds": {
     "blocked": 1,
-    "build": 52,
-    "decision": 142,
+    "build": 55,
+    "decision": 155,
     "diğer": 6,
-    "seed_issue": 75,
-    "session_end": 59,
-    "session_start": 58
+    "seed_issue": 76,
+    "session_end": 62,
+    "session_start": 61
   },
   "module_less": {
     "green": 0,
@@ -525,33 +551,33 @@
   },
   "pushes": {
     "by_kind": {
-      "code": 57,
+      "code": 60,
       "spec": 1
     },
     "founder_rejected": {
       "adjusted": {
         "ci95": [
-          "0.12",
-          "0.35"
+          "0.09",
+          "0.30"
         ],
-        "n": 55,
-        "x": 12
+        "n": 56,
+        "x": 10
       },
       "referee": {
         "ci95": [
-          "0.14",
-          "0.38"
+          "0.13",
+          "0.36"
         ],
-        "n": 57,
+        "n": 60,
         "x": 14
       }
     },
-    "judged": 58,
-    "work_pushes": 30
+    "judged": 61,
+    "work_pushes": 33
   },
   "repeat": {
     "events": 2,
-    "events_adjusted": 1,
+    "events_adjusted": 0,
     "not_learning_runs": 0
   },
   "rival": {
@@ -559,7 +585,7 @@
     "open_refutations": 0,
     "recall": "UNMEASURABLE",
     "refuted": 10,
-    "survived": 43
+    "survived": 46
   },
   "schema": "snowball-karne/2",
   "self_found": {

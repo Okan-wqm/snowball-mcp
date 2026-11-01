@@ -70,7 +70,7 @@ flowchart LR
 
 ## 2. Referee package: `seed/bootstrap/snowball_bootstrap`
 
-26 modules, 59 imports inside the package, 1 started as a separate process. Areas are roles. The overview has 5 areas and 10 edges; an arrow's number is how many imports cross from one area to the other.
+26 modules, 60 imports inside the package, 1 started as a separate process. Areas are roles. The overview has 5 areas and 11 edges; an arrow's number is how many imports cross from one area to the other.
 
 ```mermaid
 flowchart LR
@@ -89,6 +89,7 @@ flowchart LR
   a_Rival -->|1| a_Sandbox
   a_Sandbox -->|1| a_Intake
   a_Sandbox -->|3| a_Judgement
+  a_Sandbox -->|1| a_Rival
 ```
 
 ### Entry
@@ -197,7 +198,7 @@ flowchart LR
 
 ### Sandbox
 
-5 modules, 7 edges out of them.
+5 modules, 8 edges out of them.
 
 ```mermaid
 flowchart LR
@@ -214,9 +215,13 @@ flowchart LR
   subgraph a_Judgement["Judgement"]
     m_stages["stages"]:::outside
   end
+  subgraph a_Rival["Rival"]
+    m_secretscan["secretscan"]:::outside
+  end
   m_controls --> m_container
   m_manifest --> m_stages
   m_moduleless --> m_container
+  m_moduleless --> m_secretscan
   m_moduleless --> m_stages
   m_moduleless --> m_treehash
   m_vectors --> m_container
@@ -269,7 +274,7 @@ flowchart LR
 | `reproduce` | Run reproducers in the same sandbox as the tests (`tohum/29`, "Rakibin kuralları"). | `cli`, `decide` |
 | `rival` | The seed rival (`tohum/29`), run through the operator's own ``claude`` CLI. | `cli`, `decide`, `reproduce`, `rival_mcp`, `state` |
 | `rival_mcp` | Stdio MCP server that gives the seed rival (`tohum/29`) its four tools. | - |
-| `secretscan` | Secret patterns checked before any text leaves for the model provider (`tohum/08` 11). | `decide`, `reproduce`, `rival`, `rival_mcp` |
+| `secretscan` | Secret patterns checked before any text leaves for the model provider (`tohum/08` 11). | `decide`, `moduleless`, `reproduce`, `rival`, `rival_mcp` |
 
 ### Judgement
 

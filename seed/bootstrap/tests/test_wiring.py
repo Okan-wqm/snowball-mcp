@@ -445,8 +445,17 @@ class DocWithChangeTest(unittest.TestCase):
         self.assertEqual(u(["", "  "]), [])
 
     def test_ci_runs_it_on_every_push_to_main(self):
-        ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
-        self.assertIn("python3 seed/bootstrap/local/doc_with_change.py", ci)
+        """E383: in its own workflow, which nothing cancels. In ci.yml a second push within a minute cancelled the
+        first run (cancel-in-progress) and the next run checked only its own range: a push went unchecked."""
+        command = "python3 seed/bootstrap/local/doc_with_change.py"
+        flows = {p.name: p.read_text(encoding="utf-8") for p in sorted((ROOT / ".github" / "workflows").glob("*.y*ml"))}
+        self.assertEqual([name for name, text in flows.items() if command in text], ["doc-with-change.yml"])
+        floor = flows["doc-with-change.yml"]
+        self.assertNotIn("concurrency", floor)
+        self.assertNotIn("cancel-in-progress", floor)
+        self.assertRegex(floor, r"(?m)^on:\n  push:\n    branches: \[main\]\n")
+        self.assertNotRegex(floor, r"(?m)^\s*if:")  # every push to main, with no condition that could skip one
+        self.assertIn('git diff --name-only "$BEFORE" "$AFTER" | ' + command, floor)  # the whole pushed range
 
 
 class SystemMapTest(unittest.TestCase):

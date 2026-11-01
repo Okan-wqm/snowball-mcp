@@ -689,11 +689,16 @@ class Pilot:
         with self.metrics.open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(row, ensure_ascii=False, sort_keys=True) + "\n")
 
-    def previous_session_note(self, stamp: str, timeout_s: int) -> None:
+    def previous_session_note(self, stamp: str, timeout_s: int, prior: dict | None = None) -> None:
         """How the last session ended, from this script's own record of it, into the next session's folder (E360): a
         session killed at the wall-clock limit leaves no ledger row, so without this the Founder could not see that it
         happened. Facts only (end, minutes, the limit it ran under, push, ledger rows, verdict), never its transcript
-        (E155)."""
+        (E155).
+
+        The verdict is the metrics row's unless the referee judged that session's push later (the cycle's judgement
+        did not finish, this start caught it up): then it is the signed verdict on that head (E381). A session that did
+        not push keeps the row's: the verdict on its head is an earlier session's. The row is never rewritten, so
+        readers of the last row see what the cycle saw."""
         lines = self.metrics.read_text(encoding="utf-8").splitlines() if self.metrics.is_file() else []
         # The last cycle's row, not the last line: every launcher start appends its own row first (E313), and the start
         # after a timed-out session is exactly the case this note is for (the operator's card skips those rows too).
@@ -703,10 +708,14 @@ class Pilot:
             return
         last = cycles[-1]
         limit_s = last.get("session_timeout_s") or timeout_s
+        verdict = last.get("verdict")
+        head = last.get("brain_after")
+        if last.get("pushed") and prior and head and prior.get("head") == head and self.evaluated(prior, head):
+            verdict = prior.get("verdict")
         note = {"stamp": last.get("stamp"), "ended": "timeout" if last.get("session_exit") == -1 else "exit",
                 "exit": last.get("session_exit"), "minutes": last.get("minutes"), "limit_minutes": round(limit_s / 60, 1),
                 "pushed": bool(last.get("pushed")), "ledger_rows_added": sum((last.get("ledger_new") or {}).values()),
-                "verdict": last.get("verdict")}
+                "verdict": verdict}
         folder = self.session_logs(stamp)
         folder.mkdir(parents=True, exist_ok=True)
         (folder / "previous-session.json").write_text(json.dumps(note, ensure_ascii=False, sort_keys=True) + "\n",
@@ -783,7 +792,7 @@ class Pilot:
                        f"`{str(exc).replace('`', chr(39))}`\n")
             return False
         say(f"cycle {n}: Founder session {stamp} (brain {before[:7]})")
-        self.previous_session_note(stamp, args.session_timeout)
+        self.previous_session_note(stamp, args.session_timeout, prior)
         sess = self.session(stamp, args.model, args.max_turns, args.budget_usd, args.session_timeout)
         after = self.brain_head()
         rows_after = self.ledger_rows(after)

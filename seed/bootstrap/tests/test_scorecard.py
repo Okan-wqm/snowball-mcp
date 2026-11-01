@@ -282,6 +282,14 @@ class BuildTest(unittest.TestCase):
         self.assertEqual(self.sc.render_public(again["public"]), self.sc.render_public(self.model["public"]))
         self.assertEqual(self.sc.render_private(again), self.sc.render_private(self.model))
 
+    def test_the_module_less_row_says_it_shows_imports_not_behaviour(self):  # E386
+        """Deleting the module fails every test that imports it: a red module-less run is no evidence that the tests
+        check what the module does, and the card must not read as if it were."""
+        self.assertIn("fails every test that imports it", self.sc.DEFINITIONS["module_less"])
+        row = next(line for line in self.sc.render_public(self.model["public"]).splitlines()
+                   if line.startswith("| test eder ve uygular |"))
+        self.assertIn("davranışını sınadığını değil", row)
+
     def test_the_public_card_says_unproved_first_and_publishes_counts_only(self):
         public = self.model["public"]
         text = self.sc.render_public(public) + json.dumps(public, ensure_ascii=False)
