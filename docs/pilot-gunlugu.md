@@ -263,9 +263,28 @@ E167 (iki taraflı mekanizmada sınır), E168 (yargılanmamış push önce yarg�
 
 ## Sıradaki
 
-Kurucu'nun 3b'ye uyması (yeni defter kuralı, kontrol adımının izin listesi, `29k` vektörleri) ve çıkış isteği. Operatör:
-kopyanın aynalanması ve `targets[]` (sahibin belirteci), Aşama 1 ekiminin yolu (E308, sahibin kararı). Tohum dönemi 3c:
-karne ve ders provasının sınav tarafı (E310–E324, main'de), sınıf merdiveninin varsayılan sıra olması (E338,
-uzmanların kararı tohum metninde; kapının kodu Aşama 2 spec isteğiyle, E339) ve tuzağın tohum metni (E308).
+MF1–18 kabul; çıkış isteği (A) yapılmadı. (B)'nin canlı döngüsü D1'i bekliyor (Kurucu'nun bildirimi seed-040, E342);
+D4 ve D6–D8 D1'e bağlı. `asama-0/10a:42` (A)'dan sonra `referee/`'yi dondurduğu için döngü (A)'dan önce bağlanır:
+Kurucu'nun çıkıştan önce döngüyü bağlaması doğrudur, beklenen sıradaki adım çıkış isteği değildir. Tohum dönemi 3c
+teslim edildi (2026-10-31 ~21:00Z, beyin `e04bc1c`; kopya aynalandı, `targets[]` özette).
+
+Operatörün sırası (B)'nin kritik yolu boyuncadır: önce seed-040'ın yanıtı (bir sonraki tohum dönemi: `29b` "Durum",
+`26c`'nin `referee_tree_sha256` kuralı), sonra sınav kodu: E331 (`stage-open` ve `stages/stage1.json`; `gaps/activation-tooling`'de
+E371, E372 olarak kuruldu), E333 (`referee_changed_after_exit` ve yaşam döngüsü, `gaps/learning-links`), E334
+(`asama-0/10a`'yı izler), E335. Aşama 2 ve sonrasının sınav işi bunlardan sonra. Birleştirme sırası (2026-11-01):
+`gaps/learning-links` önce (`main`'in üstünde, ileri sarılır), sonra `gaps/activation-tooling` `main`'e yeniden kurulup
+birleşir: kod çakışması yalnız `cli.py`'nin içe aktarma satırlarıdır (ikisinin birleşimi: `stagelock` ve `REPORTS_DIR`),
+`docs/eksik-kaydi.md` satırları numarayla birleşir, `docs/harita.md` `local/system_map.py` ile yeniden üretilir; birleşmiş
+ağaçta `exit_freeze` kilidin aşamasını `table.stage`'den okur, dondurma kilitle kendiliğinden biter (deneme birleşimi
+E333'ün altındaki doğrulamada).
 Sonra etkinleştirme (`seed/founder/ETKINLESTIRME.md`).
 E364 (talimatta "Bilmediğin alan" görevi) `gaps/self-extension` dalında sahibin ifade onayını bekliyor; sınav planı mühürlü.
+
+**Operatörün boşluk listesi, düzeltilmiş (2026-10-31, uzman tartışması ve hakem).** G5'in önermesi yanlıştı: Kurucu alt
+ajan çalıştırdı (bir oturumda beş paralel, bir başkasında iki salt okunur denetçi); sıralı biçim talimatın "tek iş"
+kuralından gelir, bilerek seçilmiş bir kredi atama kuralıdır. G1'in zamanı yanlıştı: sahibin birleştirmesi Aşama
+6'dan önce olamaz (Y2: `main`'e merge Aşama 6'dan); Aşama 1'le gelen değer kanalı hayatta kalma, yanlış alarm ve
+düzeltme kabulüdür; bugün öğrenmeyi G1 değil seed-040 tıkar. G4 bayatlıktan öte bir çataldır: Kurucu'nun okuduğu
+`/work/target` ürünün `main`'i (`c6e23d0`) değil, operatörün yerel dalıdır (ürünün geçmişinden ayrılmış, hiç
+itilmemiş commit'lerle); bir sonraki planlı yeniden başlatmada `c6e23d0`'da ayrık, temiz bir klona geçer (insan
+dokunuşu olarak yazılır).

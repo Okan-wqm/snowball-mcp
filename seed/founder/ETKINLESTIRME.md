@@ -261,7 +261,7 @@ PS> C:\Python312\python.exe seed\founder\launch.py --cycles 3
 
 Kurucu yalnız `candidates/<kopya>/`'yı değiştiren bir push yapar; başlatıcı önyükleme hakemini tetikler, sonuç `accepted`
 olmalı (`pilot-log.md`). Olunca `STOP`'u yeniden koy; kopyanın devirlerinden önce operatör denetler (`asama-0/10a:41-42`;
-tohum bunu bugün kendisi reddetmiyor, E333):
+E333'ü taşıyan tohum döneminden önce tohum bunu kendisi reddetmiyor, sonra da bu denetim ikinci göz olarak kalır):
 
 ```
 WSL$ git -C $E/brain fetch -q origin && N=$(git -C $E/brain rev-parse origin/main)
@@ -312,7 +312,9 @@ geçer. *Geri dönüş:* `loop_schedule` `False`, it; `stage.json` commit'ini `g
 
 1. `STOP` yerinde; kill switch açık (1. adımın betiği, it) ve `PS> gh workflow disable loop.yml -R $H`;
 2. `git -C $E/referee revert --no-edit <AKTARIM> && git -C $E/referee push -q origin main`: önyükleme hakemi
-   etkilenmez, Kurucu'nun yolu açık kalır; sonra kill switch kapalı, it;
+   etkilenmez, Kurucu'nun yolu açık kalır; sonra kill switch kapalı ve `control.json` `reverted_exits`'e (A)'nın
+   `brain_sha`'sı eklenmiş, it (`26c`; E333'ü taşıyan tohum döneminden sonra: o olmadan `referee/`'ye dokunan her push
+   `referee_changed_after_exit` kalır);
 3. nedeni `pilot-log.md`'ye; düzeltilmiş SHA (A)'dan yeniden geçer, aktarımı yine dokunuştur (2.–4. adım);
 4. yeniden etkinleştirmeden önce hedeflerdeki `brain/` dalları gider, çünkü genesis `brain/state`'i yetim dal olarak
    açar (`01a`, `24`) ve GitHub var olan ref'i yeniden yaratmaz (`POST git/refs`). Spec sessiz; en dar seçim: yalnız

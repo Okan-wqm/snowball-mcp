@@ -16,7 +16,7 @@ Read from the code: the jobs, `needs:` and commands of `seed/bootstrap/workflow/
 
 ## 1. System flow
 
-13 nodes, 19 edges. A job box lists the `snowball_bootstrap` commands it runs, in order. Job arrows leave out dependencies another path already implies; the table lists every `needs:`. A seed epoch is the operator's delivery of `spec/tohum/` and `seed/` to the brain, with the `seed_epochs` row the referee checks on its next pull (`seed/founder/README.md`).
+13 nodes, 20 edges. A job box lists the `snowball_bootstrap` commands it runs, in order. Job arrows leave out dependencies another path already implies; the table lists every `needs:`. A seed epoch is the operator's delivery of `spec/tohum/` and `seed/` to the brain, with the `seed_epochs` row the referee checks on its next pull (`seed/founder/README.md`).
 
 ```mermaid
 flowchart LR
@@ -46,6 +46,7 @@ flowchart LR
   launcher -.->|docker run: one Founder session| capsule
   capsule -.->|git push| brain
   launcher -.->|dispatch: gh workflow run| referee
+  launcher -.->|cost rows: git push as the launcher| brain
   brain -.->|read anonymously| job_cek
   job_cagir -.->|claude CLI: claims and reproducers| rival
   job_yaz -.->|signs result.json, keyless| rekor
@@ -336,7 +337,7 @@ Every subcommand of `cli.py`, the jobs that run it, and the package modules its 
 | `poll` | `cek` | `cmd_poll` | `config`, `decide`, `ghapi`, `gitio`, `treehash` |
 | `licenses` | `cek`, `yaz` | `cmd_licenses` | `canon`, `config`, `licenses` |
 | `fetch-state` | `cek` | `cmd_fetch_state` | `canon`, `config`, `decide`, `ghapi`, `importer`, `state` |
-| `pull` | `cek` | `cmd_pull` | `canon`, `classify`, `config`, `exitchecks`, `gitio`, `ledgercheck`, `manifest`, `rival`, `stages`, `treehash`, `wiring` |
+| `pull` | `cek` | `cmd_pull` | `canon`, `classify`, `config`, `decide`, `exitchecks`, `gitio`, `ledgercheck`, `manifest`, `rival`, `stages`, `treehash`, `wiring` |
 | `fetch-deps` | `getir` | `cmd_fetch_deps` | `canon`, `manifest`, `treehash` |
 | `run-tests` | `kos` | `cmd_run_tests` | `canon`, `config`, `container`, `controls`, `licenses`, `moduleless`, `stages`, `treehash`, `vectors` |
 | `rival` | `cagir` | `cmd_rival` | `canon`, `config`, `rival`, `treehash` |
@@ -350,15 +351,23 @@ Every subcommand of `cli.py`, the jobs that run it, and the package modules its 
 
 ## 3. Launcher links
 
-`seed/founder/launch.py` runs on the operator's machine and imports 2 referee modules, so the launcher applies the referee's own rules instead of a copy (E244). Through them it loads 15: `canon`, `classify`, `config`, `container`, `decide`, `exitchecks`, `ledgercheck`, `reproduce`, `rival`, `secretscan`, `stages`, `state`, `treehash`, `vectors`, `wiring`.
+`seed/founder/launch.py` runs on the operator's machine and imports 6 referee modules, so the launcher applies the referee's own rules instead of a copy (E244). Through them it loads 16: `canon`, `classify`, `config`, `container`, `decide`, `exitchecks`, `gitio`, `ledgercheck`, `reproduce`, `rival`, `secretscan`, `stages`, `state`, `treehash`, `vectors`, `wiring`.
 
 ```mermaid
 flowchart LR
   launcher["seed/founder/launch.py"]
   subgraph pkg["snowball_bootstrap"]
+    m_canon["canon"]
+    m_gitio["gitio"]
+    m_ledgercheck["ledgercheck"]
+    m_classify["classify"]
     m_decide["decide"]
     m_vectors["vectors"]
   end
+  launcher -->|module| m_canon
+  launcher -->|module| m_gitio
+  launcher -->|module| m_ledgercheck
+  launcher -->|LEDGER_FILE, SEED_DIRS, is_founder_record, is_seed_path| m_classify
   launcher -->|counts_against_founder| m_decide
   launcher -->|founder_inputs| m_vectors
 ```
