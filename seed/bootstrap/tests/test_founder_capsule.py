@@ -1291,6 +1291,22 @@ class ImageAndEntrypointTest(unittest.TestCase):
         self.assertNotIn('"missing_capability"', source)  # no tuple or comparison names it as a kind
         self.assertEqual(source.count('row.get("kind") in REPORT_KINDS') + source.count('r.get("kind") in REPORT_KINDS'), 2)
 
+    def test_the_system_is_for_every_repository_and_its_lessons_are_claims(self):  # E460, owner 2026-11-01
+        """The owner: Snowball is a general application for every kind of repository, not tailored to this target; it
+        knows and closes its own gaps, understands the given repository fully, gives its agents the repository's map
+        with their task, and tests whether what it learned is right. The duty is general: it names no tool, adaptor,
+        ecosystem or format, and how stays the Founder's."""
+        prompt = " ".join((FOUNDER / "prompt.md").read_text(encoding="utf-8").split())
+        for phrase in ("Her repo için, en ileri düzeyde (sahip, 2026-11-01)", "Bu hedef senin ilk sınavındır, son değil",
+                       "hiç görmediğin bir repoda da doğru çalışacak kadar genel olmalı",
+                       "hedefin koddan üretilmiş güncel haritasını ve işin ilgili kısmını görevle birlikte ver",
+                       "Öğrendiğin her şey bir iddiadır", "Nasıl yapacağın senindir"):
+            self.assertIn(phrase, prompt)
+        start = prompt.index("Her repo için, en ileri düzeyde")
+        paragraph = prompt[start:prompt.index("Nasıl yapacağın senindir", start)]
+        for hint in ("Nx", "Rust", "Zig", "cargo", "depmap", "profile.fit", "mermaid", "adaptör"):
+            self.assertNotIn(hint, paragraph)
+
     def test_the_founder_owns_the_whole_target_even_a_domain_it_does_not_know(self):  # E364, owner 2026-10-31
         """The owner: in a domain it does not know at all, with no muscles for it, the system must understand it,
         learn and apply it, solve what it meets and become expert in it, by itself. The duty is general: it names no

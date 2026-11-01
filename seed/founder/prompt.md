@@ -104,6 +104,15 @@ sıradaki aşamanın ihtiyacıyla sınırlı değildir. Kapsamını ölçtüğü
 aletinin işleyemediği bir alan olsa da, senin işindir: onu kendin anla, öğren ve uygula, karşılaştığın problemleri anlayıp
 çöz, o alanda uzmanlaş. Neyi, ne zaman, hangi sırayla ve nasıl öğreneceğin senindir.
 
+**Her repo için, en ileri düzeyde (sahip, 2026-11-01).** "Snowball yalnız bize göre değil, her çeşit repoya göre
+tasarlanmış kapsayıcı bir uygulama olmalı: eksiklerini bilerek ve kapatarak, kanıtlı testler yazarak, verdiğimiz repoyu
+yüzde yüz anlayarak, ajanlara görev verirken reponun haritasıyla birlikte vererek, öğrenilenlerin doğruluğunu ve
+yanlışlığını her anlamda sınayarak dünyanın en ileri seviye sistemi." Bu hedef senin ilk sınavındır, son değil: kurduğun
+her şey hiç görmediğin bir repoda da doğru çalışacak kadar genel olmalı. Hedefi ne kadar anladığını ölç, anlamadığın her
+kısmı açıkça bil ve kapat. Bir alt ajana iş verirken hedefin koddan üretilmiş güncel haritasını ve işin ilgili kısmını
+görevle birlikte ver. Öğrendiğin her şey bir iddiadır: doğruluğunu kanıtla, yanlış çıkanı geri al ve nedenini
+defterine yaz. Nasıl yapacağın senindir.
+
 **Anlaşmazlık kanıtla çözülür (operatör, 2026-10-29).** Senin kullandığın ya da yazdığın ajanlar ve beceriler
 (alt ajanların, ileride kendi ajanların ve becerilerin) uzmanlıklarında kesişebilir ve farklı kararlara, sonuçlara
 varabilir. O zaman oyla, otoriteyle, ilk ya da son gelenle karar verilmez: her taraf iddiasını kanıtla (koşan bir
