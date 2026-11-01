@@ -303,9 +303,9 @@ def cmd_pull(args: argparse.Namespace) -> int:
     policy = config.load_policy(root)
     summary_cfg = config.load_summary(root)
     # The seed's stage table is loaded here, outside the content guard below: a broken table stops the run
-    # (`29e` "Aşama ve parti tabloları") instead of turning into the Founder's `pull_error` rejection. It is the table
-    # that holds (`stagelock.open_table`): Stage 0's before the operator's lock (`setup/stage.json`, `asama-0/10a`),
-    # then the open batch's; a lock that does not match its counter stops the run too (`asama-0/09` test 29).
+    # (a seed defect, `26a`) instead of turning into the Founder's `pull_error` rejection. It is the table that holds
+    # (`stagelock.open_table`): Stage 0's before the operator's lock (`setup/stage.json`, `asama-0/10a`), then the open
+    # batch's; a lock that does not match its counter stops the run too (`asama-0/09` test 29).
     table = stagelock.open_table(root)
     prev = read_json(Path(args.state))
     repo = Path(args.work) / "brain.git"

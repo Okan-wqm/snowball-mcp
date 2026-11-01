@@ -55,6 +55,7 @@ from snowball_bootstrap.vectors import founder_inputs  # noqa: E402  (the refere
 IMAGE = "snowball-founder:pilot"
 REFEREE_WORKFLOW = "bootstrap.yml"
 STATE_ARTIFACT = "bootstrap-state"
+VERDICT_LOOKBACK = 10  # results scanned for a head's own verdict: seed epochs and scheduled runs come between (E420)
 REFEREE_VECTORS = "vectors"  # the referee repo's copy of seed/bootstrap/vectors (README, seed delivery step 3)
 MAX_REFEREE_RETRIES = 2  # with the first run, as many as the referee's own retries (decide.RIVAL_SIDE_WARN)
 BUILD_FILES = ("founder/Dockerfile", "founder/entrypoint.sh", "founder/prompt.md",
@@ -68,6 +69,9 @@ REPORTS_SEEN = "reports-seen.json"
 RIVAL_CONFIG = ("prompt_sha256", "model_served", "effort", "cli_version")  # of the result's rival block
 INTERVENTION = "intervention"  # a launcher start's metrics row (E313); no verdict kind is ever this word
 PROMPT_LABEL = "snowball.prompt_sha256"  # the image's own record of the prompt bytes it was built with (E313)
+# The Founder's report rows the cycle log shows: kinds of the closed set (`26`). A missing capability is a seed_issue
+# whose text starts missing_capability: (prompt.md), never a kind of its own (E158).
+REPORT_KINDS = ("seed_issue", "blocked")
 
 
 def now() -> str:
@@ -527,10 +531,7 @@ class Pilot:
         head is not the Founder's verdict: the referee's schedule can judge the launcher's commit at any time, and
         mounting that `noop` would hide the verdict on the Founder's own last push (its rival block, tests, warnings).
         The previous result is mounted instead; the state in both is the same, so nothing is lost."""
-        listing = gh_json("api", f"repos/{self.referee}/actions/artifacts?name={STATE_ARTIFACT}&per_page=30")
-        arts = sorted((a for a in listing.get("artifacts", [])
-                       if not a["expired"] and (a.get("workflow_run") or {}).get("head_branch") == "main"),
-                      key=lambda a: a["created_at"], reverse=True)
+        arts = self.state_artifacts()
         for old in self.result_dir.iterdir():
             old.unlink()
         if not arts:
@@ -545,6 +546,27 @@ class Pilot:
         for name, data in files.items():
             (self.result_dir / name).write_bytes(data)
         return result
+
+    def state_artifacts(self) -> list[dict]:
+        """The referee's unexpired bootstrap-state artifacts made on its main branch, newest first."""
+        listing = gh_json("api", f"repos/{self.referee}/actions/artifacts?name={STATE_ARTIFACT}&per_page=30")
+        return sorted((a for a in (listing or {}).get("artifacts", [])
+                       if not a["expired"] and (a.get("workflow_run") or {}).get("head_branch") == "main"),
+                      key=lambda a: a["created_at"], reverse=True)
+
+    def verdict_on(self, head: str) -> dict | None:
+        """The newest signed result that evaluated head, among the referee's last VERDICT_LOOKBACK results (E420): a
+        result on another head made after it (a seed epoch's `noop`, a scheduled run) does not hide it. None when no
+        such result is among them or GitHub cannot be read."""
+        try:
+            for art in self.state_artifacts()[:VERDICT_LOOKBACK]:
+                files = self.artifact_files(art)
+                result = json.loads(files["result.json"]) if "result.json" in files else None
+                if self.evaluated(result, head):
+                    return result
+        except (GitHubUnavailable, ValueError, zipfile.BadZipFile):
+            return None
+        return None
 
     def artifact_files(self, art: dict) -> dict[str, bytes]:
         """An artifact's top-level files (no paths, no dot files), as bytes."""
@@ -696,7 +718,8 @@ class Pilot:
         (E155).
 
         The verdict is the metrics row's unless the referee judged that session's push later (the cycle's judgement
-        did not finish, this start caught it up): then it is the signed verdict on that head (E381). A session that did
+        did not finish, this start caught it up): then it is the signed verdict on that head (E381), looked up among the
+        recent results when the newest is another head's (E420: a seed epoch delivered between). A session that did
         not push keeps the row's: the verdict on its head is an earlier session's. The row is never rewritten, so
         readers of the last row see what the cycle saw."""
         lines = self.metrics.read_text(encoding="utf-8").splitlines() if self.metrics.is_file() else []
@@ -710,6 +733,8 @@ class Pilot:
         limit_s = last.get("session_timeout_s") or timeout_s
         verdict = last.get("verdict")
         head = last.get("brain_after")
+        if last.get("pushed") and head and not self.evaluated(prior, head):
+            prior = self.verdict_on(head)  # the newest result is another head's: a seed epoch came between (E420)
         if last.get("pushed") and prior and head and prior.get("head") == head and self.evaluated(prior, head):
             verdict = prior.get("verdict")
         note = {"stamp": last.get("stamp"), "ended": "timeout" if last.get("session_exit") == -1 else "exit",
@@ -816,7 +841,7 @@ class Pilot:
         if sess.get("exit") not in (0, None) and sess.get("stderr"):
             lines.append(f"- Kapsül hatası: `{sess['stderr'].replace('`', chr(39))}`")
         for row in new_rows:
-            if row.get("kind") in ("seed_issue", "blocked", "missing_capability"):
+            if row.get("kind") in REPORT_KINDS:
                 lines.append(f"  - **{row.get('kind')}**: {json.dumps(row, ensure_ascii=False)[:600]}")
         last_accepted = ((verdict or prior or {}).get("state") or {}).get("last_accepted_sha")
         cost = self.record_cost(stamp, sess, after, last_accepted)
@@ -864,7 +889,7 @@ class Pilot:
             "timed_out": bool(sess.get("timed_out")), "cost_row": cost,
             "reports_open": None if seen["reports_open"] is None else len(seen["reports_open"]),
             "reports_new": [r.get("payload", {}).get("summary", "")[:120] for r in new_rows
-                            if r.get("kind") in ("seed_issue", "blocked", "missing_capability")],
+                            if r.get("kind") in REPORT_KINDS],
         })
         say(f"cycle {n}: done, verdict {(verdict or {}).get('verdict', '-')}")
         limit_wait = usage_limit_wait(sess, datetime.now(timezone.utc))

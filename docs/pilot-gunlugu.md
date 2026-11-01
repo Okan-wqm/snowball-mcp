@@ -268,15 +268,16 @@ D4 ve D6–D8 D1'e bağlı. `asama-0/10a:42` (A)'dan sonra `referee/`'yi dondurd
 Kurucu'nun çıkıştan önce döngüyü bağlaması doğrudur, beklenen sıradaki adım çıkış isteği değildir. Tohum dönemi 3c
 teslim edildi (2026-10-31 ~21:00Z, beyin `e04bc1c`; kopya aynalandı, `targets[]` özette).
 
-Operatörün sırası (B)'nin kritik yolu boyuncadır: önce seed-040'ın yanıtı (bir sonraki tohum dönemi: `29b` "Durum",
-`26c`'nin `referee_tree_sha256` kuralı), sonra sınav kodu: E331 (`stage-open` ve `stages/stage1.json`; `gaps/activation-tooling`'de
-E371, E372 olarak kuruldu), E333 (`referee_changed_after_exit` ve yaşam döngüsü, `gaps/learning-links`), E334
-(`asama-0/10a`'yı izler), E335. Aşama 2 ve sonrasının sınav işi bunlardan sonra. Birleştirme (2026-11-01):
-`gaps/learning-links`, `gaps/sota-review` (E380–E387) ve `gaps/e173-lock-half` (E400, Kurucu'nun spec-015'i) `main`'de;
-`gaps/activation-tooling` ikinci şüpheci turunda (ilk şüphecinin sekiz kırığı `0b69b2c`'de onarıldı; o turun E380 ve
-E381'i `main`'deki numaralarla çakışır, birleşirken yeniden numaralanır). Hepsi bir sonraki tohum döneminde (3d)
-teslim edilir; E400'de hakemin `vectors/`'u ile beynin `29g`'si aynı dönemde gider, Kurucu'nun kabul edilmiş MF5'i
-yeni vakalarda uyana kadar kırmızıdır.
+Tohum dönemi 3d teslim edildi (2026-11-01 ~04:55Z, kaynak `5803a92`, beyin `dc5acc2`; doğrulama `seed_update`/`noop`,
+durum `/3` → `/4`, son kabul `5cc4e86`): seed-040'ın yanıtı (`29b` "Durum", `26c`'nin `referee_tree_sha256` kuralı),
+E93'ün okuyucusu, E333'ün dondurması, spec-015 (E400; hakemin `vectors/`'u ile beynin `29g`'si aynı dönemde; Kurucu'nun
+kabul edilmiş MF5'i yeni vakalarda uyana kadar kırmızıdır), E341, uzman incelemesinin operatör payı (E380–E387) ve CI'ın
+parçaları (E410). Başlatıcı temiz hedef klonuyla (`--target target-c6e23d0`) yeniden başladı. Sıradaki dönem (3e):
+Kurucu'nun açık raporlarının yanıtları (E390–E399) ve şüpheciden geçerse etkinleştirme araçları (E331, E370–E379,
+E388–E389, E402 ve sonrası; dördüncü tur, üç tur şüpheciye düştü: aynı-ad takma adları, Stage 0'ın baytı, PASS
+satırının sözleşmesi, yeniden aktarımda kilitlenme). `26c`'nin `setup/imports.jsonl` biçimini yazan içe aktarıcı o
+dalda; çıkıştan önce gelir.
+Sınav kodunun sırası: E334 (`asama-0/10a`'yı izler), E335; Aşama 2 ve sonrasının sınav işi bunlardan sonra.
 Sonra etkinleştirme (`seed/founder/ETKINLESTIRME.md`).
 E364 (talimatta "Bilmediğin alan" görevi) `gaps/self-extension` dalında sahibin ifade onayını bekliyor; sınav planı mühürlü.
 

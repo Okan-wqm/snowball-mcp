@@ -417,7 +417,7 @@ Hepsi en dar seçimdir ve E330'dadır.
 - Repo adları; hedef kimlikleri `toy`, `copy`. İçe aktarma WSL'de (E116; `25a` yer ve komut söylemez).
 - K4 tutmuyorsa (A) kabul edilmiş olsa da aktarım yok: 7. satır kırmızı olur, sert duruş ve geri alma; aynı sonuç dokunuşsuz.
 - `loop.yml` 4. ile 7. adım arası kapalı (`25` 9'un yolu). 7. adımda `merge_paused: false`.
-- Kontrol adı `snowball-gate` (tohumun genesis vektörlerindeki ad). "Do not require status checks on creation" açık:
+- Kontrol adı `snowball-gate` (`25a` 3'ün adı; tohumun genesis vektörlerindeki ad). "Do not require status checks on creation" açık:
   yoksa `brain/integration`'ın `main`'den kesimi kontrolü olmayan commit'te reddedilir. Merge yöntemi yalnız Merge:
   geri alma merge'ün ilk ebeveynini okur (`asama-0/09` test 25, `29i`).
 - Hedeflerin `main`'i `25a` 4'ün ikinci yoluyla: güncelleme kısıtı, bypass yalnız Repository admin (kopyanın aynalaması
