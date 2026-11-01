@@ -16,7 +16,7 @@ Read from the code: the jobs, `needs:` and commands of `seed/bootstrap/workflow/
 
 ## 1. System flow
 
-14 nodes, 22 edges. A job box lists the `snowball_bootstrap` commands it runs, in order. Job arrows leave out dependencies another path already implies; the table lists every `needs:`. A seed epoch is the operator's delivery of `spec/tohum/` and `seed/` to the brain, with the `seed_epochs` row the referee checks on its next pull (`seed/founder/README.md`).
+15 nodes, 26 edges. A job box lists the `snowball_bootstrap` commands it runs, in order. Job arrows leave out dependencies another path already implies; the table lists every `needs:`. A seed epoch is the operator's delivery of `spec/tohum/` and `seed/` to the brain, with the `seed_epochs` row the referee checks on its next pull (`seed/founder/README.md`).
 
 ```mermaid
 flowchart LR
@@ -28,6 +28,7 @@ flowchart LR
     launcher["launcher<br/>seed/founder/launch.py"]
     capsule["Founder capsule, Docker<br/>Dockerfile · entrypoint.sh · prompt.md · brain_defs.py"]
     scorecard["scorecard<br/>seed/founder/scorecard.py"]
+    canary["rival canary<br/>seed/bootstrap/local/canary.py"]
   end
   subgraph referee["Referee repository: workflow/bootstrap.yml on GitHub Actions"]
     job_cek["job cek<br/>control · config-value · poll · licenses · fetch-state · pull · pack"]
@@ -60,6 +61,10 @@ flowchart LR
   operator -.->|after each cycle: docs/karne.md| scorecard
   job_yaz -.->|signed results, digest-checked, cached| scorecard
   brain -.->|ledger, chain verified, and test manifests| scorecard
+  operator -.->|plants a known defect: rival recall| canary
+  brain -.->|read-only mirror, plants stay local| canary
+  canary -.->|the referee rival command on the planted push| rival
+  referee -.->|a fresh read-only clone: its code, seats, vectors| canary
 ```
 
 | Job | needs | Runs | Permissions | Secrets |

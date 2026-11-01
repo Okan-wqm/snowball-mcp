@@ -254,6 +254,36 @@ bir hata sınıfını (çıkışı kapalı her komut 1 ile çıkıyordu) tek sü
 rakibin bulma gücü ölçülmediği için (E311, kanarya E126 açık) bu kabuller testlerin ve vektörlerin kanıtıdır, rakibinki
 zayıftır.
 
+## Rakip kanaryası, ilk canlı parti (2026-10-31 akşam)
+
+Pilotun dışında, operatör tarafında (E126, E311): son kabul `50eb715`'e kanaryanın kendi deposunda tek düzenlemelik
+kusurlar ekildi, her ekimde diff yalnız o düzenlemeydi. Push'lar hakemin kendi `pull`, `rival`, `reproduce` ve `decide`
+koduyla, ama hakem reposunun bayat bir klonuyla (tohum dönemi 3b; canlı hakem 3c'deydi) yargılandı; elek kapsayan
+testler ve seçilen vektörlerdi, gizli-değer ekimi elle kurulmuş bir taramadan geldi. Beyne de hakeme de hiçbir şey
+itilmedi, canlı dallara dokunulmadı. Gerçek rakip (Sonnet 5.5, orta çaba, 30 tur, 3 USD) altı ekimin dördünü hakemin
+kabul edeceği bir yeniden üreticiyle kanıtladı: 4/6, tek yönlü %90 sınırlar 0,33 ile 0,91 (n = 6'da bir aralık).
+Altısında da bir denemesi ekilen satırları gösterdi. İki temiz kontrolde yanlış çürütme yok (0/2, üst sınır 0,68).
+Toplam 8 inceleme 1,42 USD. Okuma: bu parti, canlı kabullerdeki boş `attempts`'ın "rakip kusur görmedi" mi "büyük
+diff'i yüzeysel inceledi" mi demek olduğunu ayıramaz; tek düzenlemelik diff ikisiyle de uyumludur. Dökümler
+`F:\snowball-work\canary\runs\`'da; araç `seed/bootstrap/local/canary.py`, ayrıntı `docs/eksik-kaydi.md`'de (E126, E311).
+
+## Rakip kanaryası, gömülü parti (2026-11-01)
+
+Bir şüpheci kanaryanın kırıklarını buldu, hepsi kökten kapandı (E126, E311): puanlamanın yaşayan mutantları, bugünün
+hakemine koşamaması (tohum dönemi 3c ekimin geçmişinde yoktu), canlı hakemin koşturduğu olmayan elek. Artık hakem her
+koşuda taze klonlanır ve kendi kodu koşar; elek hakemin `run-tests`'idir (tüm testler, vektörler, modülsüz kırmızı; tek
+konteyner; temiz baş kırmızıysa parti durur). Gömülü parti: kabul edilmiş gerçek bir push (`50eb715`: 22 modül, kendi
+ebeveyni `9e24664`'e karşı) yeniden oynatıldı, tek bir kusur o push'un değiştirdiği bir dosyanın içine ekildi; rakip
+gerçek diff'in tamamını (25 dosya, ~1150 satır) inceledi. Hakem `df3cf78` (o sırada canlı, tohum dönemi 3c), yalnız
+rapor. Sekiz ekim (altı tür, yedi modül) ve üç gerçekçi kontrol hakemin tam eleğinden geçti. Rakip, hakemin kabul
+edeceği kanıtla 4/8'ini kanıtladı (tek yönlü %90 sınırlar 0,24–0,76); 7/8'inde ekilen satırları bir denemeyle gösterdi
+(0,59–0,99); kontrollerde yanlış çürütme yok (0/3, üst sınır 0,54); 11 inceleme 3,43 USD, push başına 3–8 tur. İlk
+partinin dört kusuru bu kez büyük diff'in içindeydi: gösterilen 4/4, kanıt 3/4 (tek başınayken 2/4). Okuma: canlı
+kabullerdeki boş `attempts` "büyük diff'te yüzeysel" ile açıklanmıyor; eksik olan çoğunlukla kanıt; n = 8, aralık geniş.
+Not: elek `df3cf78`'de koştu; incelemelerin ilk denemesi hesabın kullanım sınırına takıldı (puanlanmadı), canlı hakem
+3f'ye geçince yeniden deneme aynı commit'e karşı, canlı hakemin aynı rakibi koştuğu doğrulanarak yapıldı. Ayrıntı
+`docs/eksik-kaydi.md`'de (E126, E311, 2026-11-01).
+
 ## Pilotun tetiklediği düzeltmeler
 
 E148 (defter satırları push türünü bozuyordu), E149 (`main` mutasyonu hiç koşmuyordu), E152 (CRLF, `safe.directory`),
