@@ -647,7 +647,9 @@ class Flow(unittest.TestCase):
         referee = work / "referee-checkout"
         (referee / "setup").mkdir(parents=True)
         (referee / "policy.json").write_text("{}")
+        (referee / "control.json").write_text('{"kill_switch": true}')  # `25a` 1: imported with the kill switch on
         (referee / "bootstrap").mkdir()
+        (referee / "bootstrap" / "cli.py").write_text("seed")
         (referee / ".github" / "workflows").mkdir(parents=True)
         (referee / ".github" / "workflows" / "bootstrap.yml").write_text("old")
         toy = work / "toy"
@@ -657,9 +659,12 @@ class Flow(unittest.TestCase):
         self.assertEqual(log["referee_tree_sha256"], result["exit"]["referee_tree_sha256"])
         self.assertTrue((referee / "ledger" / "chain.py").exists())
         self.assertTrue((referee / ".github" / "workflows" / "loop.yml").exists())
-        self.assertFalse((referee / ".github" / "workflows" / "bootstrap.yml").exists())
-        self.assertFalse((referee / "bootstrap").exists())
+        # The push judge stays (E100, `25a` 1): the bootstrap referee and its workflow are untouched.
+        self.assertEqual((referee / ".github" / "workflows" / "bootstrap.yml").read_text(), "old")
+        self.assertEqual((referee / "bootstrap" / "cli.py").read_text(), "seed")
         self.assertEqual((referee / "policy.json").read_text(), "{}")
+        self.assertEqual(json.loads((referee / "setup" / "imports.jsonl").read_text())["result_sha256"],
+                         hashlib.sha256((work / "result.json").read_bytes()).hexdigest())
         self.assertTrue((toy / "app.py").exists())
 
         # A signed hash that does not match the commit's referee tree stops the import.

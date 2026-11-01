@@ -53,7 +53,7 @@ def run_module_less(make_runner: Callable[[Path], Runner], tar_bytes: bytes, wor
                     mfs: Iterable[int], tests: list[dict[str, Any]], timeout_s: int,
                     max_bytes: int) -> list[dict[str, Any]]:
     """One result per test of each micro-feature in ``mfs``, run on its own module-less tree."""
-    by_id = {t["id"]: t for t in tests if t["stage"] == 0}
+    by_id = {t["id"]: t for t in tests if t["stage"] == table.stage}  # the table's own stage (`stage: 1` in Stage 1)
     results: list[dict[str, Any]] = []
     for k in mfs:
         feature = table.feature(k)

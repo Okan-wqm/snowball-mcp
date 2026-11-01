@@ -722,6 +722,7 @@ class RefereeTree(unittest.TestCase):
             referee = Path(tmp) / "referee"
             (referee / ".github" / "workflows").mkdir(parents=True)
             (referee / ".github" / "workflows" / "bootstrap.yml").write_text("name: bootstrap\n")
+            (referee / "control.json").write_text('{"kill_switch": true}')  # `25a` 1: the import runs only so
             with mock.patch.object(importer, "verify_signature"), \
                     mock.patch.object(importer.gitio, "has_commit", return_value=True), \
                     mock.patch.object(importer.gitio, "archive", return_value=brain_tar), \

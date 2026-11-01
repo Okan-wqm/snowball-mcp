@@ -16,14 +16,14 @@ import zipfile
 from pathlib import Path
 from typing import Any
 
-from . import canon, config, exitchecks, ghapi, gitio, ledgercheck, licenses, stages, state as st, wiring
+from . import canon, config, exitchecks, ghapi, gitio, ledgercheck, licenses, stagelock, stages, state as st, wiring
 from .classify import (LEDGER_FILE, REPORTS_DIR, SEED_DIRS, classify, is_founder_record, is_seed_path,
                        spec_stage_dirs)
 from .container import DockerRunner
 from .controls import run_controls
 from .decide import OUTAGE_GIVE_UP_DAYS, OUTAGE_RETRY_LIMIT, REPORT_FIELDS, decide, utc_now
 from .importer import ImportErrorStop, run_import, verify_signature
-from .manifest import ManifestError, check_stage0, parse_lockfile, parse_manifest
+from .manifest import ManifestError, check_stage, declares, parse_lockfile, parse_manifest
 from .moduleless import run_module_less
 from .reproduce import run_reproducers, run_state_reproducers
 from .rival import (HIDDEN_DIRS, HIDDEN_NAMES, RivalOutcome, build_context, extract_seat_prompt, hidden, resolve_claude,
@@ -150,6 +150,7 @@ def cmd_control(args: argparse.Namespace) -> int:
     config.load_bootstrap(root)
     config.load_policy(root)
     config.load_summary(root)
+    stagelock.load(root)  # the stage lock and the counter it names (`asama-0/10a`, test 29)
     print("control ok: kill switch off, budget ok, operator files valid")
     return 0
 
@@ -302,14 +303,18 @@ def cmd_pull(args: argparse.Namespace) -> int:
     policy = config.load_policy(root)
     summary_cfg = config.load_summary(root)
     # The seed's stage table is loaded here, outside the content guard below: a broken table stops the run
-    # (`29e` "Aşama ve parti tabloları") instead of turning into the Founder's `pull_error` rejection.
-    table = stages.load(0)
+    # (`29e` "Aşama ve parti tabloları") instead of turning into the Founder's `pull_error` rejection. It is the table
+    # that holds: Stage 0's before the operator's lock (`setup/stage.json`, `asama-0/10a`), then the open batch's after
+    # the batches the counter has transferred (`asama-1/13`, E378); a lock that does not match its counter stops the
+    # run too (`asama-0/09` test 29).
+    lock = stagelock.load(root)
+    table = stages.load(lock.stage, done=stagelock.batches_done(root, lock)) if lock else stages.load(0)
     prev = read_json(Path(args.state))
     repo = Path(args.work) / "brain.git"
     remote = args.remote or f"https://github.com/{boot.brain_repo}.git"
     base = prev["last_accepted_sha"]
     head = gitio.fetch(repo, remote, boot.brain_branch, base)
-    meta = _pull_meta(head, base, prev)
+    meta = _pull_meta(head, base, prev, table)
     if head in (base, prev["last_evaluated_sha"]):
         write_json(out / "meta.json", meta)
         output(skip=True, kind="none", head=head, run_tests=False, run_rival=False, repro=False)
@@ -325,16 +330,17 @@ def cmd_pull(args: argparse.Namespace) -> int:
         # answer that does not wedge the referee: without a signed result the same head comes back every
         # hour and nothing is ever parked (E02). Git, network and operator-file errors still stop the run.
         print(f"::warning::pull could not classify {head}: {type(exc).__name__}: {str(exc)[:200]!r}")
-        meta = _pull_meta(head, base, prev)
+        meta = _pull_meta(head, base, prev, table)
         meta.update(kind="rejected", pre_reasons=["pull_error"], waived=waived)
         write_json(out / "meta.json", meta)
         output(skip=False, kind="rejected", head=head, run_tests=False, run_rival=False, repro=False)
         return 0
 
 
-def _pull_meta(head: str, base: str, prev: dict[str, Any]) -> dict[str, Any]:
-    return {"schema": "snowball-bootstrap-pull/1", "head": head, "base": base, "state": prev,
-            "kind": "none", "changed": [], "pre_reasons": [], "evaluate": True,
+def _pull_meta(head: str, base: str, prev: dict[str, Any], table: stages.StageTable) -> dict[str, Any]:
+    # The table the later jobs load again (`table_of`): its stage, its batch and the batches transferred before it.
+    return {"schema": "snowball-bootstrap-pull/1", "head": head, "base": base, "state": prev, "stage": table.stage,
+            "batch": table.batch, "batches_done": [t.batch for t in table.before if t.batch], "kind": "none", "changed": [], "pre_reasons": [], "evaluate": True,
             "run_tests": False, "run_rival": False, "manifest": None, "exit_request": None, "exit_request_sha256": None,
             "referee_tree_sha256": None, "spec_dir_hashes": {}, "state_repro": [], "reuse_rival": False,
             "waived": [], "module_less": [], "exit_checks": {}, "toy_tree_sha256": None, "honesty_exception": None,
@@ -403,21 +409,32 @@ def _seed_update(repo: Path, base: str, head: str, meta: dict[str, Any], out: Pa
     return 0
 
 
+def table_of(meta: dict[str, Any]) -> stages.StageTable:
+    """The table `pull` judged under, loaded again from what its meta says (Stage 0's when it says nothing)."""
+    return stages.load(meta.get("stage", 0), done=meta.get("batches_done") or ())
+
+
 def _well_formed_exit_request(req: Any) -> bool:
-    return (isinstance(req, dict) and set(req) == {"stage", "sha", "spec_sha256"}
+    """`26c`: ``{stage, sha, spec_sha256}``; a batch's request is the same with ``batch`` (`26c:17`)."""
+    return (isinstance(req, dict) and set(req) - {"batch"} == {"stage", "sha", "spec_sha256"}
             and isinstance(req["stage"], int) and not isinstance(req["stage"], bool) and 0 <= req["stage"] <= 1000
             and isinstance(req["sha"], str) and bool(config.SHA_RE.match(req["sha"]))
-            and isinstance(req["spec_sha256"], str) and bool(config.HEX64_RE.match(req["spec_sha256"])))
+            and isinstance(req["spec_sha256"], str) and bool(config.HEX64_RE.match(req["spec_sha256"]))
+            and ("batch" not in req or (isinstance(req["batch"], str) and bool(stages.BATCH_RE.match(req["batch"])))))
 
 
-def _base_done(repo: Path, base: str) -> set[int]:
+def _base_done(repo: Path, base: str, table: stages.StageTable) -> set[int]:
     """The micro-features the last accepted commit had finished; none when it had no readable manifest (then every
-    finished one is new, and module-less red runs for all of them)."""
+    finished one is new, and module-less red runs for all of them). After the lock opened, a base whose manifest is
+    not the open stage's (Stage 0's 18, still there until the Founder's first Stage 1 push) has finished none of it."""
     raw = gitio.file_at(repo, base, MANIFEST_FILE)
     try:
-        return set(parse_manifest(raw.decode("utf-8")).done_mf) if raw is not None else set()
+        found = parse_manifest(raw.decode("utf-8")) if raw is not None else None
     except (ManifestError, UnicodeDecodeError):
         return set()
+    if found is None or (table.stage and not declares(found, table)):
+        return set()
+    return set(found.done_mf)
 
 
 EXIT_MAY_CHANGE = ("candidates/", "targets/")  # what (B) may change after (A) (`asama-0/10a`, `asama-0/11`)
@@ -503,22 +520,23 @@ def _pull_classify(boot: config.Bootstrap, policy: config.Policy, summary_cfg: c
     manifest = None
     finished: set[int] = set()
     if kind in ("code", "exit"):
-        frozen = prev["frozen_specs"].get("spec/asama-0")
-        try:
-            current = tree_hash(tar_bytes, "spec/asama-0", forbid_operator_names=False)
-        except TreeError:
-            current = None
-        if frozen is None:
-            pre.append("spec_not_frozen")
-        elif frozen != current:
-            pre.append("spec_changed_after_freeze")
+        for stage_dir in (f"spec/asama-{s}" for s in range(table.stage + 1)):  # code is built under a frozen spec (`02`)
+            frozen = prev["frozen_specs"].get(stage_dir)
+            try:
+                current = tree_hash(tar_bytes, stage_dir, forbid_operator_names=False)
+            except TreeError:
+                current = None
+            if frozen is None:
+                pre.append("spec_not_frozen")
+            elif frozen != current:
+                pre.append("spec_changed_after_freeze")
         raw = tar_file(tar_bytes, MANIFEST_FILE)
         if raw is None:
             pre.append("manifest_missing")
         else:
             try:
                 manifest = parse_manifest(raw.decode("utf-8"))
-                pre += check_stage0(manifest, table)
+                pre += check_stage(manifest, table)
                 for lock in manifest.lockfiles:
                     content = tar_file(tar_bytes, lock)
                     if content is None:
@@ -532,11 +550,11 @@ def _pull_classify(boot: config.Bootstrap, policy: config.Policy, summary_cfg: c
             "done_mf": list(manifest.done_mf), "lockfiles": list(manifest.lockfiles)}
         if manifest is not None and base_ok:
             # Module-less red (`asama-0/14`): for the micro-features this push finishes, and at the exit for all.
-            before = set() if kind == "exit" else _base_done(repo, base)
+            before = set() if kind == "exit" else _base_done(repo, base, table)
             meta["module_less"] = [k for k in manifest.done_mf if k not in before]
         # A finished micro-feature stays finished: its vector group, and for MF17 the wiring check, run on every push
         # after the one it entered done_mf in (`asama-0/14`, `29a`), so no push may declare fewer (E292).
-        accepted_done = _base_done(repo, base) if base_ok else set()
+        accepted_done = _base_done(repo, base, table) if base_ok else set()
         declared = set(manifest.done_mf) if manifest is not None else set()
         finished = accepted_done | declared
         if manifest is not None:
@@ -561,11 +579,20 @@ def _pull_classify(boot: config.Bootstrap, policy: config.Policy, summary_cfg: c
             pre.append("exit_request_malformed")
         else:
             meta["exit_request"] = req
-            if req["stage"] != 0:
+            # This seed judges Stage 0's exit alone, before the lock (`02`); a batch's (A) is the open stage's open
+            # batch, under that stage's frozen spec (`02` 6, `asama-1/13` 2, `26c:17`; E378).
+            batch = req.get("batch")
+            if batch is None:
+                wrong_stage, spec_dir = req["stage"] != 0 or table.stage != 0, "spec/asama-0"
+            else:
+                wrong_stage, spec_dir = req["stage"] != table.stage or table.stage == 0, f"spec/asama-{req['stage']}"
+            if wrong_stage:
                 pre.append("exit_request_wrong_stage")
+            elif batch is not None and batch != table.batch:
+                pre.append("exit_request_wrong_batch")
             if req["sha"] != base:
                 pre.append("exit_request_sha_is_not_last_accepted")
-            if req["spec_sha256"] != prev["frozen_specs"].get("spec/asama-0"):
+            if req["spec_sha256"] != prev["frozen_specs"].get(spec_dir):
                 pre.append("exit_request_spec_hash_mismatch")
         try:
             meta["referee_tree_sha256"] = tree_hash(tar_bytes, "referee")
@@ -657,8 +684,8 @@ def cmd_run_tests(args: argparse.Namespace) -> int:
     root, pulled, out = Path(args.root), Path(args.pulled), Path(args.out)
     boot = config.load_bootstrap(root)
     policy = config.load_policy(root)
-    table = stages.load(0)
     meta = read_json(pulled / "meta.json")
+    table = table_of(meta)  # the table `pull` read from the lock and the counter (`asama-0/10a`, `asama-1/13`)
     tar_bytes = (pulled / "brain.tar").read_bytes()
     src = Path(args.work) / "src"
     extract(tar_bytes, src, boot.limits.max_tree_bytes)
@@ -672,7 +699,7 @@ def cmd_run_tests(args: argparse.Namespace) -> int:
     vectors: list[dict[str, Any]] = []
     module_less: list[dict[str, Any]] = []
     if all(c["ok"] for c in controls):
-        for t in (x for x in manifest["tests"] if x["stage"] == 0):
+        for t in (x for x in manifest["tests"] if x["stage"] <= table.stage):  # a later stage's test is not one yet
             res = runner.run(t["cmd"], timeout_s=boot.limits.test_timeout_s)
             tail = (res.stdout + b"\n" + res.stderr).decode("utf-8", "replace")[-4000:]
             tests.append({"id": t["id"], "cmd_sha256": hashlib.sha256(t["cmd"].encode()).hexdigest(),
@@ -790,7 +817,8 @@ def cmd_decide(args: argparse.Namespace) -> int:
     jobs = dict(item.split("=", 1) for item in args.job or [])
     result = decide(meta, run, rival, None if repro_doc is None else repro_doc["results"], jobs,
                     policy.rival_min_attempts, policy.repeat_reject_limit,
-                    state_repro=None if repro_doc is None else repro_doc.get("state", []), now=utc_now())
+                    state_repro=None if repro_doc is None else repro_doc.get("state", []), now=utc_now(),
+                    table=table_of(meta))  # an exit needs every micro-feature of the table pull judged under
     result["run"] = {"id": os.environ.get("GITHUB_RUN_ID", "local"),
                      "attempt": os.environ.get("GITHUB_RUN_ATTEMPT", "1")}
     write_json(out / "result.json", result)
@@ -864,6 +892,16 @@ def cmd_import(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_stage_open(args: argparse.Namespace) -> int:
+    """`25a` 9, `asama-0/10a` "Kilidin açılışı": after Stage 0's PASS row, write ``setup/stage.json`` (`26c`)."""
+    lock = stagelock.open_stage(Path(args.referee), Path(args.toy), Path(args.copy), args.ref, args.identity,
+                                args.sigstore_python, Path(args.toy_root_bundle), Path(args.copy_root_bundle),
+                                Path(args.result))
+    print(json.dumps(lock, indent=2, sort_keys=True))
+    print("Review setup/stage.json in the referee checkout, then commit and push it yourself.")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="snowball_bootstrap")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -899,6 +937,15 @@ def build_parser() -> argparse.ArgumentParser:
         ("--source-commit", {"help": "commit of --source (default: --commit)"}))
     add("import", cmd_import, ("--result", req), ("--bundle", req), ("--identity", req),
         ("--sigstore-python", req), ("--brain", req), ("--referee", req), ("--toy", {}))
+    add("stage-open", cmd_stage_open, ("--referee", dict(req, help="the referee repository's local checkout")),
+        ("--toy", dict(req, help="a local clone of the toy target")),
+        ("--copy", dict(req, help="a local clone of the copy target")),
+        ("--ref", {"default": stagelock.DEFAULT_REF, "help": "the targets' brain/state in those clones"}),
+        ("--identity", dict(req, help="the loop workflow's signing identity (its yaz job anchors the roots)")),
+        ("--sigstore-python", req),
+        ("--toy-root-bundle", dict(req, help="the Sigstore bundle of the toy's last root")),
+        ("--copy-root-bundle", dict(req, help="the Sigstore bundle of the copy's last root")),
+        ("--result", dict(req, help="the signed (A) result the last transfer imported (its result_sha256)")))
     return parser
 
 

@@ -5,6 +5,23 @@
 the module path module-less red deletes and the micro-feature count of the exit (`asama-0/10`). A called
 micro-feature comes before its callers (`asama-0/14` "Sıra"). A table that breaks that, or any rule here, is not
 loaded: the run stops (a seed defect is the operator's to fix, never the Founder's rejection).
+
+Past Stage 0 the seed carries batch tables, not stage tables (`26c`: "Partilerin tabloları aynı dizindedir";
+`asama-1/13` 1: "Partinin tablosu tohumdadır ... setup/stage.json açtıktan sonra geçerlidir"): Stage 1's own
+micro-features (`asama-1/06`, `lint.discover` first) are the Founder's, and its batches are numbered apart from them
+(`06`: "Partiler numarasızdır"). `stages/stage1-P1.json` is `{stage: 1, batch: "P1", mfs}`, `asama-1/13`'s P1 rows.
+Once the operator's lock opened Stage 1 (`setup/stage.json`, `asama-0/10a`), the table that holds is the open batch's:
+the first of `BATCHES[1]` the counter has no transfer of (`stagelock.batches_done`). Each batch has its own numbering,
+so P2's table joins with the seed epoch that numbers its tests (E373) and renumbers nothing. With every batch the seed
+carries transferred, the open table is empty: no micro-feature of the seed is open, `done_mf` is `[]` (Stage 1's own
+micro-features are judged live by the transferred referee, `06`). Stage 1 is the ladder's fixed root (`03`), so none of
+this is a default to deviate from.
+
+The open table carries what is finished as ``before``: Stage 0 and every transferred batch. All their micro-features
+are done, so their vector groups run on every push (`asama-0/14`: a finished micro-feature's group runs on every later
+push) and their tests stay declared. Spec sessiz (E372, E378): the batch table's name and its ``batch`` field; the
+module paths, from `26a`'s tool names as `asama-0/14`'s are (``snapshot.make`` is ``snapshot/make.py``) and, for the
+three mechanisms `26a` names no tool for, from the mechanism; ``calls`` empty, as the page names none.
 """
 
 from __future__ import annotations
@@ -24,6 +41,9 @@ FIELDS = {"mf", "tests", "groups", "module", "calls"}
 GROUP_RE = re.compile(r"^[a-z][a-z0-9_]{0,40}\Z")
 MAX_TEST = 999  # the manifest's test ids are T1..T999 (`manifest.TEST_ID_RE`)
 MAX_MFS = 100
+# The batches whose tables this seed carries, per stage, in `asama-1/13`'s order (P1 before P2 before the exit batch).
+BATCHES: dict[int, tuple[str, ...]] = {1: ("P1",)}
+BATCH_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,39}\Z")  # a batch's name as a request and a counter row carry it
 
 
 @dataclass(frozen=True)
@@ -43,14 +63,21 @@ class MicroFeature:
 class StageTable:
     stage: int
     mfs: tuple[MicroFeature, ...]
+    before: tuple["StageTable", ...] = ()  # what is finished: Stage 0's table first, then the transferred batches'
+    batch: str | None = None  # a batch table's batch; None for Stage 0's table and for an open stage with none open
 
     @property
     def count(self) -> int:
         return len(self.mfs)
 
+    @property
+    def label(self) -> str:
+        """The table's name in a reason: ``stage0``, ``stage1-P1``."""
+        return f"stage{self.stage}" + (f"-{self.batch}" if self.batch else "")
+
     def feature(self, mf: int) -> MicroFeature:
         if not 1 <= mf <= self.count:
-            raise KeyError(f"MF{mf} is not in the stage {self.stage} table")
+            raise KeyError(f"MF{mf} is not in the {self.label} table")
         return self.mfs[mf - 1]
 
     def groups_of(self, done: Iterable[int]) -> tuple[str, ...]:
@@ -58,6 +85,8 @@ class StageTable:
         a micro-feature that owns it is done; a group no micro-feature of the table names does not run)."""
         finished = set(done)
         found: list[str] = []
+        for table in self.before:  # every micro-feature of a finished table is done
+            found += [g for g in table.groups_of(range(1, table.count + 1)) if g not in found]
         for feature in self.mfs:
             if feature.mf in finished:
                 found += [g for g in feature.groups if g not in found]
@@ -76,17 +105,24 @@ def _module(value: Any, where: str) -> str:
     return value
 
 
-def parse_table(text: str, stage: int) -> StageTable:
-    """Validate a stage table; a ConfigError names the first rule it breaks."""
-    name = f"stage{stage}.json"
+def table_name(stage: int, batch: str | None = None) -> str:
+    return f"stage{stage}" + (f"-{batch}" if batch else "") + ".json"
+
+
+def parse_table(text: str, stage: int, batch: str | None = None) -> StageTable:
+    """Validate a stage table (``batch`` None) or a batch table; a ConfigError names the first rule it breaks."""
+    name = table_name(stage, batch)
     try:
         data = json.loads(text)
     except (ValueError, RecursionError) as exc:
         raise ConfigError(f"{name} is not valid JSON: {exc}") from exc
-    if not isinstance(data, dict) or set(data) != {"stage", "mfs"}:
-        raise ConfigError(f"{name} must have exactly: stage, mfs")
+    keys = ("stage", "batch", "mfs") if batch else ("stage", "mfs")
+    if not isinstance(data, dict) or set(data) != set(keys):
+        raise ConfigError(f"{name} must have exactly: {', '.join(keys)}")
     if data["stage"] != stage or isinstance(data["stage"], bool):
         raise ConfigError(f"{name} says stage {data['stage']!r}")
+    if batch and data["batch"] != batch:
+        raise ConfigError(f"{name} says batch {data['batch']!r}")
     raw = data["mfs"]
     if not isinstance(raw, list) or not 1 <= len(raw) <= MAX_MFS:
         raise ConfigError(f"{name}: mfs must be a list of 1 to {MAX_MFS} micro-features")
@@ -119,14 +155,35 @@ def parse_table(text: str, stage: int) -> StageTable:
         if late:  # `asama-0/14` "Sıra": a called micro-feature comes before its caller
             raise ConfigError(f"{where} calls MF{late[0]}: a called micro-feature must come before its caller")
         features.append(MicroFeature(number, tuple(tests), tuple(groups), module, tuple(calls)))
-    return StageTable(stage, tuple(features))
+    return StageTable(stage, tuple(features), batch=batch)
 
 
-def load(stage: int = 0, directory: Path | None = None) -> StageTable:
-    """The seed's table of ``stage``, read and validated on every call (it is small; nothing stale is kept)."""
-    path = (directory or STAGES_DIR) / f"stage{stage}.json"
+def _read(stage: int, directory: Path | None, batch: str | None = None) -> StageTable:
+    path = (directory or STAGES_DIR) / table_name(stage, batch)
     try:
         text = path.read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError) as exc:
         raise ConfigError(f"stage table {path.name} cannot be read: {type(exc).__name__}") from exc
-    return parse_table(text, stage)
+    return parse_table(text, stage, batch)
+
+
+def load(stage: int = 0, directory: Path | None = None, done: Iterable[str] = ()) -> StageTable:
+    """The table that holds in ``stage``, read and validated on every call (it is small; nothing stale is kept): Stage
+    0's own, or past it the open batch's after the transferred batches ``done`` (the counter's, in order), with what is
+    finished as ``before``. A stage the seed has no batch tables for is past the root (`03`): a ConfigError."""
+    if stage == 0:
+        if tuple(done):
+            raise ConfigError("Stage 0 has no batches")
+        return _read(0, directory)
+    if stage not in BATCHES:
+        raise ConfigError(f"the seed has no table for Stage {stage}: past the fixed root (`03`) the stage spec is the "
+                          "Founder's")
+    order, done = BATCHES[stage], tuple(done)
+    if done != order[:len(done)]:
+        raise ConfigError(f"Stage {stage}'s transferred batches {', '.join(done)} are not the seed's batches in order "
+                          f"({', '.join(order)}, `asama-1/13`)")
+    before = (_read(0, directory),) + tuple(_read(stage, directory, b) for b in done)
+    if len(done) == len(order):
+        return StageTable(stage, (), before)
+    table = _read(stage, directory, order[len(done)])
+    return StageTable(table.stage, table.mfs, before, table.batch)

@@ -397,7 +397,7 @@ class KindsAndExit(unittest.TestCase):
                                                           '_reason("test_failed"', '_reason("vector_failed"',
                                                           'missing += [f"vector_group_missing:{g}"',
                                                           '_reason("license_not_allowed"']},
-            ("modulsuz",): {"cli": ['before = set() if kind == "exit" else _base_done(repo, base)'],
+            ("modulsuz",): {"cli": ['before = set() if kind == "exit" else _base_done(repo, base, table)'],
                             "decide": ["reasons += _module_less_green(module_less)"]},
             ("rakip",): {"decide": ['missing.append("no_rival_attempt_on_exit_sha")',
                                     'missing.append(f"rival_attempts:{len(others)}<{rival_min_attempts}")',
