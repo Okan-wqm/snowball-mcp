@@ -40,6 +40,7 @@ WSL$ E=~/etkinlestirme; SHA=<2. adımdaki brain_sha>; ID=https://github.com/Okan
 | Ö3 | Hakemin `bootstrap/`'ındaki tohum araçları (yalnız tohum dönemiyle değişir) ve beynin döngüsü: K1 `import` `25a` 1–2'yi taşır; K2 `control` döngü arayüzünü taşır (`29p`); K3 `stage-open` var; K4 döngünün işleri her `targets[]` hedefinde bir devir koşar, girdileri `29s`'teki gibi (değişken yok). Denetimi 2. adımda; tutmayana el yaması yapılmaz | K1 ve K3 snowball-mcp `gaps/activation-tooling-3` dalında (E370–E372, ikinci tur E374–E379, E388–E389, üçüncü tur E402–E406, dördüncü E411–E417, beşinci E470–E475, altıncı E478–E485, yedinci E494, E496–E498 `gaps/stage1-ready`'de; E100, E275, E331 kapandı: içe aktarma çalışma ağacına hiç dokunmaz, yeni `main`'i git nesneleriyle kurar, git'in nesne denetiminden geçirir ve okuduğu `main`'e kirayla iter (E470, E479, E482), `stage-open` kökü `sha256:<kök>` özetiyle doğrular, klonları, aktarımı, istisnayı, hakemin satırını ve merge'leri bağlar, PASS satırının biçimi `26d`'de, P1'in (A)'sı ve aktarımı aynı tohumla olur, kilit yokken Aşama 0'ın yargısı değişmez), K2 snowball-mcp `main`'inde (`e7b3b24`, E282); üçü de hakemde yok, tohum dönemi bekliyor; K4 yok, beyin `8c57160` (E332) |
 | Ö4 | Sahip 5. adım için ulaşılabilir (web arayüzü, yaklaşık yarım saat) | — |
 | Ö5 | 0. adım bir kez yapılmış | yapılmadı |
+| Ö6 | Oyuncağa ekilecek canlı prova fikstürleri (`22a`, `asama-0/01` D8; `26f`): onlarsız D8 canlı koşmaz, (B)'nin #geri-alma'sı ölçülemez, PASS yazılamaz | yok: tohumda yalnız vektör kataloğu var; kim ve ne zaman yazar sahibin kararı (E499) |
 
 ## Adımlar
 
@@ -112,7 +113,7 @@ Kapı denetimleri (`$E/arac`'ta; ilk dördü bugün `YOK` basar):
 WSL$ python3 -m snowball_bootstrap control --help | grep -q -- --job && echo "K2 tamam" || echo "K2 YOK (E282)"
 WSL$ python3 -m snowball_bootstrap stage-open --help >/dev/null 2>&1 && echo "K3 tamam" || echo "K3 YOK (E331)"
 WSL$ git -C $E/brain grep -q 'reason="cycle_not_wired"' $SHA -- referee/loop/job.py && echo "K4 YOK (E332)" || echo "K4 tamam"
-WSL$ git -C $E/brain grep -qE 'vars\.(BRAIN_REPO|LOOP_TARGET)\b' $SHA -- referee/.github/workflows/loop.yml && echo "K4 YOK (29s, E490)" || echo "K4: girdiler 29s'teki gibi"
+WSL$ git -C $E/brain grep -qE 'vars\.(BRAIN_REPO|LOOP_TARGET|CANARY_MODEL|CLAUDE_CLI_SHA512)\b' $SHA -- referee/.github/workflows/loop.yml && echo "K4 YOK (29s, E490)" || echo "K4: girdiler 29s'teki gibi"
 WSL$ rm -rf $E/prova && mkdir $E/prova && git clone -q --bare $E/referee $E/prova/referee.git && git clone -q --bare $E/toy $E/prova/toy.git
 WSL$ python3 -m snowball_bootstrap import --result $E/a/result.json --bundle $E/a/result.json.sigstore.json --identity "$ID" --sigstore-python $E/sig/bin/python --brain $E/brain --referee $E/prova/referee.git --toy $E/prova/toy.git
 WSL$ git -C $E/prova/referee.git ls-tree -r --name-only main | grep -cE '^(bootstrap/|\.github/workflows/bootstrap\.yml$|control\.json$|setup/summary\.json$)'
@@ -136,8 +137,8 @@ Beyin `b099103`'te (2026-11-01) bunlara ek olarak `vars.BRAIN_REPO` ve `vars.LOO
 `vars.CANARY_MODEL` ve `vars.CLAUDE_CLI_SHA512` (seed-042'nin varsayımları) vardır. `29s`'i taşıyan tohum döneminden sonra
 `vars.BRAIN_REPO` ya da `vars.LOOP_TARGET` kaldıysa K4 tutmaz: döngünün beyni `bootstrap.json` `brain_repo`, hedefleri
 özetin `targets[]`'ıdır ve bir koşu iki hedefe de hizmet eder; operatör bu iki değişkeni yazmaz (her devirde değişken
-değiştirmek dokunuştur, E490). seed-042 açıkken `CANARY_MODEL` ve `CLAUDE_CLI_SHA512` için spec sessiz: yazmadan önce
-sahibe sor. Başka bir ad varsa 3. adıma geçme, sahibe sor (spec sessiz). İkinci yarısı: kill switch kapalıyken aynı komut
+değiştirmek dokunuştur, E490). `CANARY_MODEL` ve `CLAUDE_CLI_SHA512` de yazılmaz (seed-042, E499): kanaryanın modeli
+`bootstrap.json` `rival.model`, CLI'nin pini hakemin `bootstrap/requirements/claude-cli/` kilididir (`29s`). Başka bir ad varsa 3. adıma geçme, sahibe sor (spec sessiz). İkinci yarısı: kill switch kapalıyken aynı komut
 durur (`25a` 1):
 
 ```

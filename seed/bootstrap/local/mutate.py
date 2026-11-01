@@ -2443,6 +2443,17 @@ MUTANTS = [
      "E490: the loop runs whatever sigstore the runner has"),
     ("changelog_drops_seed_041", "spec/tohum/CHANGELOG.md", "`seed-041-loop-run-inputs-unnamed` →", "seed-041 →",
      "E490: this epoch's entry no longer names the report it answers"),
+    # ---- E499: the Founder's reports seed-042 to seed-045 (`29s`, `26f`, the changelog)
+    ("canary_cli_step_unpinned", "spec/tohum/29s-dongu-girdileri.md", 'npm ci --prefix "$C" --no-audit --no-fund',
+     'npm install --prefix "$C" --no-audit --no-fund', "E499: the canary's CLI is installed past its lock"),
+    ("sentinel_end_row_moved", "spec/tohum/26f-semalar-nobetci-ve-prova.md",
+     "`kind: sentinel`): `payload {merge_sha, verdict: green|flaky,", "`kind: sentinel`): `payload {verdict: green|flaky,",
+     "E499: the sentinel's end row names no merge"),
+    ("drill_fixtures_said_present", "spec/tohum/26f-semalar-nobetci-ve-prova.md",
+     "kötü merge'ler, bu tohumda yoktur", "kötü merge'ler, bu tohumdadır",
+     "E499: the page promises live drill fixtures the seed does not hold"),
+    ("changelog_drops_seed_042_045", "spec/tohum/CHANGELOG.md", "declined: `seed-044-revert-facts-producers`",
+     "declined: seed-044", "E499: the entry no longer names the report it declines"),
     # ---- E491: P2's table (`26e`), its MF1's test numbered on `30d`
     ("stage1_p2_not_carried", f"{PKG}/stages.py", 'BATCHES: dict[int, tuple[str, ...]] = {1: ("P1", "P2")}',
      'BATCHES: dict[int, tuple[str, ...]] = {1: ("P1",)}', "E491: after P1 no table is open, P2 is never judged"),

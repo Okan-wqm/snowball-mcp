@@ -602,6 +602,67 @@ class LoopInputsPageTest(unittest.TestCase):
             self.assertTrue(lines[last - 1].strip() and (last == len(lines) or not lines[last].strip()), title)
 
 
+class LoopReportsPageTest(unittest.TestCase):
+    """The Founder's reports seed-042 to seed-045 (E499): each answered on a page and held to the code, or declined in
+    the changelog with its reason."""
+
+    def test_the_canarys_cli_is_the_rivals_pinned_cli_installed_as_the_bootstrap_does(self):  # canary_cli_step_unpinned
+        raw = spec_page("tohum", "29s")
+        block = re.findall(r"```yaml\n(.*?)```", raw, re.S)[1]
+        self.assertTrue(block.startswith("      - name: claude\n        if: steps.control.outputs.go == 'true'\n"))
+        script = [line.strip() for line in block.split("run: |\n", 1)[1].splitlines()]
+        self.assertEqual(script[:2], ["set -eu", 'C="$RUNNER_TEMP/control/bootstrap/requirements/claude-cli"'])
+        step = re.search(r"- name: Claude CLI[^\n]*\n\s*run: \|\n((?:\s{10}.*\n)+)", workflow_job("cagir")).group(1)
+        own = [line.strip() for line in step.splitlines()]  # bootstrap.yml's: the same checks, from its snapshot
+        self.assertEqual(script[2], own[0])  # node 22 or later
+        self.assertEqual(script[3].replace('"$C"', "D"), own[1].replace("snap/bootstrap/requirements/claude-cli", "D"))
+        for words in ("package.json').dependencies['@anthropic-ai/claude-code']",
+                      "/node_modules/.bin/claude\" --version | cut -d' ' -f1"):
+            self.assertIn(words, " ".join(script[4:]))
+        self.assertIn('dependencies["@anthropic-ai/claude-code"]', own[2])
+        lock = json.loads((BOOT / "requirements" / "claude-cli" / "package-lock.json").read_text(encoding="utf-8"))
+        self.assertTrue(lock["packages"]["node_modules/@anthropic-ai/claude-code"]["integrity"].startswith("sha512-"))
+        page = flat(raw)
+        self.assertIn("çalıştırılabilir dosyanın baytlarına ayrı bir pin yoktur", page)
+        self.assertIn("Kanaryanın istediği model `bootstrap.json`'un `rival.model`'idir", page)
+        from helpers import LOOP_YML
+        with_step = LOOP_YML.replace("      - name: call\n", block + "      - name: call\n", 1)
+        self.assertEqual(wiring.check({"loop.yml": with_step.encode()}), [])
+
+    def test_26f_gives_the_sentinels_end_row_from_mf12s_fields(self):  # sentinel_end_row_moved
+        from snowball_bootstrap import stagelock
+        page = flat(spec_page("tohum", "26f"))
+        self.assertIn("**Nöbetçinin sonu** (`part: events`, `kind: sentinel`): `payload {merge_sha, verdict: green|flaky, "
+                      "red: [], flaky: [test kimliği]}`", page)
+        mf12 = flat(spec_page("tohum", "29j"))
+        self.assertIn("Çıktı `verdict` (`green` | `red` | `flaky` | `rerun`), sıralı `red` ve `flaky`", mf12)
+        self.assertIn("**Geri alma** (`part: events`, `kind: revert`): üst düzey `cause`", page)
+        self.assertIn("geri alma `part: events`, `kind: revert`, üst düzey `cause` (`26:41-44`), `payload {merge_sha}`",
+                      flat(spec_page("tohum", "29m")))
+        self.assertIn("(`events` `kind: merge` ya da `drill` `kind: plant`)", page)
+        self.assertIn('row.get("kind") == "merge"', Path(stagelock.__file__).read_text(encoding="utf-8"))  # 26d's merge
+
+    def test_26f_says_where_d8_runs_and_that_its_live_fixtures_are_not_here(self):  # drill_fixtures_said_present
+        page = flat(spec_page("tohum", "26f"))
+        row = next(line for line in spec_page("tohum", "26a").splitlines() if line.startswith("| `exit.drill` |"))
+        self.assertEqual(row.split(" | ")[2], "`yaz`")
+        self.assertIn("`exit.drill` `yaz`'da koşar (`26a`)", page)
+        catalog = json.loads((BOOT / "vectors" / "revert_drill" / "catalog.json").read_text(encoding="utf-8"))
+        patches = [i["patch"] for i in catalog["instances"]]
+        self.assertEqual(sorted(patches), ["rd-build.patch", "rd-lint.patch", "rd-test.patch"])
+        for name in patches:  # the page says their bytes are nowhere: it changes with the epoch that brings them
+            self.assertEqual(list(ROOT.joinpath("seed").rglob(name)), [], name)
+        self.assertIn("Tohumun canlı prova fikstürleri, oyuncağa ekilecek kötü merge'ler, bu tohumda yoktur", page)
+
+    def test_the_changelog_names_each_report_answered_or_declined(self):  # changelog_drops_seed_042_045
+        entry = flat((ROOT / "spec" / "tohum" / "CHANGELOG.md").read_text(encoding="utf-8")[:9000])
+        for answered in ("`seed-042-d4-canary-inputs-unnamed` → `29s:", "`seed-043-sentinel-end-row-unnamed` → `26f:",
+                         "`seed-045-drill-live-inputs-unnamed` → `26f:"):
+            self.assertIn(answered, entry)
+        self.assertIn("declined: `seed-044-revert-facts-producers`: `29j:53-60`", entry)
+        self.assertIn("`build_ok`'un ve nöbetçinin lint toplamının üreticisini adlandırmaz", flat(spec_page("tohum", "29j")))
+
+
 class ReportAnswerPagesTest(unittest.TestCase):
     """The answers a seed epoch gives the Founder's reports (E390-E399) are interface facts the referee's code holds:
     each page sentence here is tied to the constant, string or behaviour it states, so neither can drift."""

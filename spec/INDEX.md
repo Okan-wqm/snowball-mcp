@@ -58,6 +58,7 @@ Okunma: sayfa ararken; görev seçmek için `tohum/00b-gorev-haritasi.md`
 | `tohum/26b-semalar-devam.md` | Şemalar, Devam: Bilgi, Organ, Profil, Politika | Aşama 0 inşasında ve her şema değişikliğinde |
 | `tohum/26c-semalar-asama-0.md` | Şemalar, Devam: Aşama 0'ın Dosyaları | Aşama 0 inşasında, kurulumda ve operatör dosyası yazılırken |
 | `tohum/26d-semalar-pass-satiri.md` | Şemalar, Devam: Aşama 0'ın PASS Satırı ve Kilidin Açılışı | Aşama 0'ın (B) devirlerini ve genesis, merge, PASS ve kök satırlarını yazan kod yazılırken; kilidin açılışından önce |
+| `tohum/26f-semalar-nobetci-ve-prova.md` | Şemalar, Devam: Döngünün Nöbetçi, Geri Alma ve Prova Satırları | Aşama 0'ın D7 ve D8'ini yazan kod yazılırken |
 | `tohum/26e-semalar-asama-1.md` | Şemalar, Devam: Aşama 1'in Parti Tabloları | Aşama 1'de her parti yazılırken ve parti çıkış isteğinden önce; kilidin açılışından önce |
 | `tohum/27-sozluk-ve-okuyucular.md` | Sözlük ve Okuyucular | yeni terim ya da dosya eklerken |
 | `tohum/27a-okuyucular-hedef-durumu.md` | Okuyucular, Devam: Hedefteki Durum Dosyaları | yeni durum dosyası, bölüm ya da görünüm eklerken |

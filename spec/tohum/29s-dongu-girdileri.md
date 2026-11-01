@@ -45,3 +45,25 @@ Program `"$RUNNER_TEMP/sig/bin/python" -m sigstore`'dur: tohumun `--sigstore-pyt
 `sigstore verify identity`'si ve `26d`'nin `sign --rekor-version 1`'i onunla koşar. Her iş kendisi kurar; kurulan küme
 artefaktla ya da önbellekle taşınmaz (`08` 4). Adım `29p`'nin kuralına uyar (`if`'i kontrol kapısıdır), kural
 değişmez. Hash, lisans ya da indirme tutmazsa adım kırmızıdır ve iş durur.
+
+**Kanaryanın `claude` CLI'si ve modeli** (D4, `çağır`). CLI tohum rakibinin pinli CLI'sidir: hakem reposunda
+`bootstrap/requirements/claude-cli/` (`package.json`'ın pinlediği sürüm, `package-lock.json`'ın her tarball için
+`integrity` sha512'si; `npm ci` tutmayanı reddeder). Pin bu kilit ve sürüm denetimidir; çalıştırılabilir dosyanın
+baytlarına ayrı bir pin yoktur. `bootstrap.yml`'ın `cagir`'ı gibi, kontrol adımından sonra sır taşımayan şu adımla
+kurulur; sır yalnız modeli çağıran adımın `env`'indedir:
+
+```yaml
+      - name: claude
+        if: steps.control.outputs.go == 'true'
+        run: |
+          set -eu
+          C="$RUNNER_TEMP/control/bootstrap/requirements/claude-cli"
+          node -e 'process.exit(Number(process.versions.node.split(".")[0]) >= 22 ? 0 : 1)'
+          npm ci --prefix "$C" --no-audit --no-fund
+          pinned=$(node -p "require('$C/package.json').dependencies['@anthropic-ai/claude-code']")
+          test "$("$C/node_modules/.bin/claude" --version | cut -d' ' -f1)" = "$pinned"
+```
+
+Program `$RUNNER_TEMP/control/bootstrap/requirements/claude-cli/node_modules/.bin/claude`'dur. Kanaryanın istediği
+model `bootstrap.json`'un `rival.model`'idir: operatör dosyasının adlandırdığı tek model; kanarya modelden bağımsız bir
+sözleşmeyi sınar (sunulan model istenen, tavan, `cost` satırı; `asama-0/10a` #model).
