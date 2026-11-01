@@ -341,6 +341,8 @@ hepsi yazılıdır. Bulguları birleştiren ve doğrulayan: Claude Code (Opus 5.
 | E401 | E400'ün vakasız kalan sınırları. (a) Bağın `resolved`'ı boşsa ya da `:` taşıyorsa (`https://…` gibi) A onu bağ saymaz, paket olarak denetler; B (kör yazarın bağ okuması) bağ sayıp atlar. `29g` A'nınkini yazar. (b) Kurucu'nun f409 taslağı üyeyi kökün `workspaces` desenleri ve ağaçta dizin olmakla tanımlıyor; `deps.fetch`'in arayüzünde ağaç yok (kilit ve ayna), teslim edilen kural sahibin E173 okumasıdır: dizin yalnız depo içi bir bağ onu adlandırınca muaf. (c) Taslağın tarif kuralı (bağlanan her üye `inputs`'ta, yoksa `workspace_member_not_in_inputs`; kurulumda göreli bağ) MF6 ve sahneleme işidir, `npmlock` arayüzünde değil | S | — | E400'ün yazımı | sınır · (a) vaka yok; B'nin bağ okuması kör kalsın diye değiştirilmedi · (b) Kurucu taslağıyla uzlaşma tohum döneminde, dönem notunda · (c) Kurucu'nundur; tohum metni isterse spec isteğiyle |
 | E410 | CI'ın mutasyon işi zaman aşımına düşüyordu: 560 mutant 8 parçada (parça başına 70), standart koşucuda mutant başına 41 ile 51 saniyeden fazla; 2026-11-01 koşu 41267568917'de üç parça 46–50 dakikada bitti, beşi 60 dakikalık sınırda kesildi, koşu iptal oldu ve o günün hiçbir commit'i yeşil olmadı (tohum teslimi yeşil CI ister) | B | — | E383 | kapandı · `ops/ci-shards` · 20 parça; `test_wiring` `MutationShardTest` matrisle `--shard K/N`'in aynı parçaları adlandırdığını ve parça başına en çok 40 mutant düştüğünü (en kötü gözlenen dakikada bir mutantla 60 dakikanın 40'ı) denetler: parça eklemeden mutant eklemek burada kırmızıdır; mutant `mutation_shards_back_to_eight` |
 | E420 | Önceki oturum notu, arada bir tohum dönemi teslim edilince oturumun kabul edilmiş kararını bilinmez (`null`) yazıyordu: E381 yetişilen kararı yalnız en yeni imzalı sonuçtan okur, en yeni sonuç dönemin `noop`'udur (başka baş). Canlı: 2026-11-01 04:55Z oturumu 20261101T045525Z, `5cc4e86` kabul, not `verdict: null` (3d teslimi araya girdi; Kurucu kabulü durumun `last_accepted_sha`'sından yine görür) | S | — | E381, E241 | kapandı · `merge/train3` · `launch.verdict_on`: son `VERDICT_LOOKBACK` (10) imzalı sonuç arasında o başı değerlendirmiş en yenisi; başka başın kararı asla ödünç verilmez, bulunamazsa `null`; artefakt listesi `fetch_result` ile tek yerde (`state_artifacts`). Testler `test_founder_capsule` `PreviousSessionTest` (eski kodda kırmızı), mutantlar `previous_note_stops_at_the_newest_result`, `verdict_look_up_takes_any_head`; bir sonraki yeniden başlatmada |
+| E450 | **Erişim halkası: kapsül beynin ajan ve skill tanımlarını yüklemiyordu.** `entrypoint.sh` `claude -p`'yi `--setting-sources ''` ile koşar (E90): hiçbir kaynaktan ajan, skill ya da `CLAUDE.md` yüklenmez, beynin kendi tanımları da; Kurucu `.claude/` yazamaz (talimat, `24a`). 67 oturumda `Agent` 7 kez, `Skill` ve `Workflow` 0 kez; beyinde tanım yok | B | evet (sahip, 2026-11-01) | sahibin onayı | kapandı (dal `gaps/capsule-agents`; birleştirme ve imajın yeniden kurulması bekliyor) · `seed/founder/brain_defs.py`: `HEAD`'in `agents/` ve `skills/`'i git nesnelerinden okunur, denetlenir ve `--plugin-dir` eklentisi `brain` olarak yüklenir (`brain:<ad>`), her tanım denetlenen alanlardan yeniden yazılır; korkuluklar (yalnız iki dizin; araçlar kapsülünkilerin alt kümesi, kapalı dört yok; tek sabit `LIMITS`; ad, yol, bağ, alt modül; kayıt `/work/logs/brain-definitions.json`; kırık tanım oturumu durdurmaz) `test_founder_capsule` `BrainDefinitionsTest`'te; `test_live_cli` sabitli CLI'da init olayını, ilk isteği ve alt ajanın araçlarını denetler; `24a` ağacı ve "Ajan ve skill tanımları", talimatta bir gözlem cümlesi; hakem bu yolları Kurucu'nun kodu sayar, değişmedi (testli); 27 mutant |
+| E451 | E450'nin sınırları. (a) Bir skill'in gövdesi CLI'ın `!` komut ön işlemini taşıyabilir: skill çağrılınca komut oturumun kendi `Bash` yetkisiyle koşar, yükleyici gövdeyi süzmez. (b) Denetim oturum başındadır: eklenti klasörü oturumun kendisinindir (aynı kullanıcı), oturum içinde ona yazılan kapsülün zaten verdiği araçlarla sınırlıdır; `--disallowedTools` alt ajana da uygulanır (`test_live_cli`, elle yazılmış bir eklenti ajanı bile kapalı aracı alamaz). (c) Beynin `main`'i hakem yargılamadan yüklenir: kapsülün denetimi hakemin kararına dayanmaz, yargılanmamış bir push'un tanımı da yüklenir | S | — | E450'nin yazımı | sınır · (a) ve (b) yeni yetki vermez; (c) tasarımdır, tanımlar Kurucu'nun kodudur |
 
 **Kararlar (2026-10-29).** Operatör, "karar" sütunu `evet` olan 19 kalemin hepsinde aşağıdaki
 önerileri onayladı ve `snowball-mcp`'nin de açık olmasını istedi. E46–E48 test denetçisinden sonra
@@ -2540,6 +2542,65 @@ Testler `tests/test_rival_memory.py`'de, sınıf adları kalem numarasıyla. Dur
   `local/system_map.py --check` temiz (`exitchecks` belgesi değişti, harita yeniden çizildi). Satır: `29b` 80, `26c` 80,
   `26a` 77, `29i` 74, `29p` 73, `29h` 69, `27` 68, `29k` 64, `29j` 62, `29d` 54, `29r` 38, `29e` 29, tohum günlüğü 75,
   `CHANGELOG-3` 33. Commit'lerin diff'inde CR baytı 0.
+
+### E450–E451 (2026-11-01) · erişim halkası: beynin ajan ve skill tanımları · dal `gaps/capsule-agents`
+- **Onay (sahip, 2026-11-01).** Kurucu kapsülü, Kurucu'nun kendi beyin reposunda tuttuğu ajan ve skill tanımlarını her
+  oturumun başında yükler; başka hiçbir şey yüklenmez. Talimat bunu yalnız bir olgu olarak söyler; Kurucu'ya ajan ya da
+  skill yazması söylenmez: yazıp yazmamak, ne zaman ve neden, onun seçimidir.
+- **Ölçüm.** 67 oturumda `Agent` 7, `Skill` ve `Workflow` 0 kez; beyinde tanım yok. Yazılsa da yüklenemezdi:
+  `--setting-sources ''` (E90) hiçbir kaynaktan ajan ya da skill yüklemez, `.claude/` Kurucu'ya yasak.
+- **Mekanizma, sabitli CLI 2.1.293'e karşı (tahmin değil).** Adaylar uydurma jetonla, init olayında denendi:
+  `--agents <dosya>` (`-p`'de dosya yolu) ajanları ad alanı olmadan yükler (`json-agent`), skill yükleyemez;
+  `--plugin-dir` ile üretilmiş bir eklenti ajanları ve skill'leri `brain:<ad>` olarak yükler; ikisi de `--setting-sources
+  ''` altında çalışır. Seçilen yalnız `--plugin-dir`: iki tür için tek yol; ad alanı, bir beyin tanımının CLI'ın kendi
+  ajanlarının (`general-purpose`, `Explore` ...) yerine geçmesini önler ve kullanımı dökümde ayırır (`subagent_type`,
+  `skill`: `brain:<ad>`). Bulunmayan ya da boş eklenti klasörü oturumu durdurmaz (init olayı gelir); `skills/<ad>/`
+  altındaki iç içe `SKILL.md` skill olmaz.
+- **Kanıt** (`test_live_cli` `CapsuleBrainDefinitionsTest`, girişin kendi çağrısı). Init olayı: `"agents": ["brain:reviewer",
+  "brain:wide", "claude", "Explore", "general-purpose", "Plan", "statusline-setup"]`, `"skills"` içinde `"brain:probe"`,
+  `"plugins"` içinde `{"name": "brain", "source": "brain@inline"}`; araçları `Read, CronCreate` olan `scheduler` yok,
+  kayıtta `tool_denied:CronCreate`. 127.0.0.1'deki yerel API'ye giden ilk istek modele
+  `- brain:reviewer: Reviews: "quoted" code, a\b, ç ş ğ ı İ # not a comment (Tools: Read, Grep, Glob)` ve
+  `- brain:probe: Probe: türkçe açıklama, iki nokta: tamam` gösterir, klonun `CLAUDE.md`'sini göstermez. Yerel API ilk
+  isteğe iki `Agent` çağrısıyla yanıt verince alt ajanların kendi istekleri: `brain:reviewer` yalnız `Glob`, `Grep` ve
+  `Read`, araçsız `brain:wide` oturumun araçları, ikisinde de kapalı dört yok. Linux'ta (kapsülün imajı) oturum `Glob` ve
+  `Grep`'i listelemez (aramayı `Bash` yapar), onları adlandıran ajan yine alır: ikisi `ALLOWED_TOOLS`'tadır
+  (`test_live_cli` `SEARCH_TOOLS`). Yükleyici atlanıp elle yazılmış bir eklenti ajanı `Read, CronCreate, RemoteTrigger`
+  adlandırsa da CLI ona yalnız `Read` verir: iki katman.
+- **Tasarım** (`seed/founder/brain_defs.py`, `README.md` "Beynin ajan ve skill tanımları"). Klon kesildikten sonra,
+  `claude`'dan önce: `ls-tree` ve `cat-file` ile yalnız `HEAD:agents` ve `HEAD:skills`; eklenti
+  `$CLAUDE_CONFIG_DIR/brain-plugin`'de yalnız `.claude-plugin/plugin.json`, `agents/`, `skills/`; her ajan dosyası ve
+  `SKILL.md` denetlenen alanlardan yeniden yazılır (CLI denetleneni okur, ayrıştırıcı farkı kalmaz), skill dosyaları bayt
+  bayt. Biçim `24a` "Ajan ve skill tanımları"nda ve yükleyicinin belgesinde; ajanda `name`, `description`, `tools`,
+  `model`, skill'de `name`, `description`. Korkuluk ve testi (`test_founder_capsule` `BrainDefinitionsTest`): yalnız iki
+  dizin (`test_only_agents_and_skills_become_the_plugin`, çalışma ağacındaki işlenmemiş dosya da okunmaz); başka anahtar
+  tanımı düşürür (`test_a_key_outside_the_format_drops_the_definition`); araçlar `ALLOWED_TOOLS`'un alt kümesi, kapalı
+  dört `tool_denied:` (`test_an_agent_whose_tools_leave_the_capsules_is_dropped_and_named`,
+  `test_the_tool_sets_are_the_capsules`; `test_live_cli` kümeyi init olayına bağlar); sınırlar tek sabit `LIMITS`
+  (`test_the_limits_are_one_named_constant_and_each_is_enforced`); ad, yol, bağ, alt modül ve hakemin ajan
+  yapılandırması kuralı (`test_names_are_checked_and_nothing_leads_out_of_the_brain`); kayıt
+  (`test_the_record_names_what_loaded_with_the_sha256_of_its_source`); kırık tanım
+  (`test_a_broken_definition_is_skipped_and_the_rest_load`, `test_an_unforeseen_failure_in_one_definition_names_it_and_the_rest_load`,
+  `test_a_loader_that_cannot_read_the_brain_leaves_no_plugin_and_says_why`); giriş
+  (`test_the_capsule_loads_them_after_the_clone_and_before_claude_and_never_stops_on_them`).
+- **Hakem.** `classify` bu yolları `code` sayar: dondurulmuş spec, manifest, testler, defter satırları ve rakip, öbür kod
+  gibi; `is_agent_config`, `is_founder_record`, `is_seed_path` ve `rival.hidden` tutmaz. Değişiklik gerekmedi;
+  `test_the_referee_judges_a_push_of_them_as_the_founders_code` ve iki mutant sabitler. Yükleyicinin ajan yapılandırması
+  kümeleri `classify.AGENT_DIRS` ve `AGENT_FILES`'a testle bağlıdır (hakemin kodu kapsüle girmez).
+- **Tohum ve talimat.** `24a`: ağaçta `agents/<ad>.md` ve `skills/<ad>/SKILL.md` Kurucu'nun dizinleri, "Ajan ve skill
+  tanımları" paragrafı (78 satır); tohum günlüğü satırı, E249 kaydı `CHANGELOG-3.md`'ye (79 ve 36 satır). Talimatın
+  "Beynin tanımları (gözlem)" cümlesi hangi dizinlerin yüklendiğini ve kaydın yerini söyler, kullanmayı önermez
+  (`test_the_prompt_states_which_brain_folders_load_and_where_their_record_is`).
+- **Ne zaman girer.** Yükleyici, giriş, `Dockerfile` ve talimat imajdadır (`BUILD_FILES`): operatör imajı yeniden kurunca;
+  `prompt_sha256` değişir. Tohum metni sonraki tohum dönemiyle. Sistem haritası yeniden çizildi (kapsülün dördüncü
+  dosyası, beyin → kapsül kenarı).
+- **Doğrulama.** Windows `seed/bootstrap` (`PYTHONPATH=.;tests`, Python 3.12): 655 test OK (20 atlandı). Linux Docker
+  (`snowball_linux_test:git`, `checkout-index` ile LF, salt okunur, ağsız): 675 test OK (10 atlandı). `test_live_cli`
+  sabitli CLI 2.1.293'le uydurma jetonla Windows'ta ve kapsülün ayrı adla kurulmuş test imajında (Linux, ağsız): 10 testin
+  9'u geçti, isteğe bağlı girişli olan atlandı; o da bir kez operatörün girişiyle (API kapalı bir porta) geçti.
+  `local/mutate.py`: 27 yeni mutantın 27'si öldü, her biri hedeflediği testle; 615 mutant 20 parçada parça başına 31
+  (`MutationShardTest` en çok 40). `local/system_map.py --check` temiz. Satır: `24a` 78, tohum günlüğü 79,
+  `CHANGELOG-3` 36. Staged diff'te CR baytı 0.
 
 ## Doğrulanmış sağlam taraflar
 Kapsayıcı bayrakları ve kırmızı kontroller; host'ta kabuk enjeksiyonu yok; `$GITHUB_OUTPUT`'a serbest

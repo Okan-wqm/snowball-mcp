@@ -58,7 +58,7 @@ STATE_ARTIFACT = "bootstrap-state"
 VERDICT_LOOKBACK = 10  # results scanned for a head's own verdict: seed epochs and scheduled runs come between (E420)
 REFEREE_VECTORS = "vectors"  # the referee repo's copy of seed/bootstrap/vectors (README, seed delivery step 3)
 MAX_REFEREE_RETRIES = 2  # with the first run, as many as the referee's own retries (decide.RIVAL_SIDE_WARN)
-BUILD_FILES = ("founder/Dockerfile", "founder/entrypoint.sh", "founder/prompt.md",
+BUILD_FILES = ("founder/Dockerfile", "founder/entrypoint.sh", "founder/prompt.md", "founder/brain_defs.py",
                "bootstrap/requirements/claude-cli/package.json", "bootstrap/requirements/claude-cli/package-lock.json")
 LAUNCHER_NAME, LAUNCHER_EMAIL = "Snowball launcher", "launcher@snowball.invalid"  # its commits are not the Founder's
 GH_CREDENTIAL = "credential.helper=!gh auth git-credential"  # the operator's login, never a token on a command line
