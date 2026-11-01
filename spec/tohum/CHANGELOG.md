@@ -4,6 +4,7 @@ Tarih: 2026-10-29 · Sürüm: 2.2
 Okunma: bir sayfanın geçmişi aranırken
 Çapa: git geçmişi ve zincirdeki spec hash satırları
 
+- 2.2 (2026-11-01, E400; Kurucu raporu spec-015 -> `29g`, `29d`, `24`, `30c`): npm workspaces kilidi. Kök, çalışma alanı bağı (`link` doğru, `resolved` depo içi göreli yol) ve böyle bir bağın adlandırdığı çalışma alanı dizini getirilmez ve denetlenmez; iç içe `<çalışma alanı>/node_modules/<paket>` dahil başka her girdi pakettir, getirilir ve denetlenir (`29g`; vakalar `workspaces_lock`, `workspace_folder_needs_its_link`, `nested_registry_not_allowed`). Hangi girdinin getirilip denetlendiği yalnız `29g`'dedir; `29d`, `24` ve `30c` oraya bakar.
 - 2.2 (2026-10-31, E333; uzman tartışması ve hakem, ikinci tur 2026-11-01): önyükleme hakemi `asama-0/10a`'nın kuralını
   uygular: kabul edilmiş çıkıştan ((A)) sonra spec, kod ya da çıkış push'unda Kurucu kayıtları dışında yalnız `candidates/`
   ve `targets/` değişebilir: `referee/` `referee_changed_after_exit`, başka yol `changed_after_exit:<yol>` (`29b` "Çıkıştan

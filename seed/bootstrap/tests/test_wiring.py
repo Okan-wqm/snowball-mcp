@@ -272,6 +272,22 @@ class SpecPagesTest(unittest.TestCase):
             with self.subTest(page=page.relative_to(ROOT).as_posix()):
                 self.assertLessEqual(len(page.read_text(encoding="utf-8").splitlines()), 80)
 
+    def test_which_lock_entries_are_fetched_is_stated_on_29g_only(self):
+        """spec-015 (E400): which entries of an npm lock, a workspaces lock included, `deps.fetch` fetches and checks
+        is one rule, on `29g`. Two pages that restate it drift apart (a draft of this rule had `14` and `24` leave the
+        workspace folder out while `29g` exempted it); `24` and `30c` point at `29g` instead. The changelog is history."""
+        terms = ("çalışma alanı bağı", "çalışma alanı dizini")
+        source = ROOT / "spec" / "tohum" / "29g-vektor-arayuzleri-devam.md"
+        self.assertTrue(all(t in source.read_text(encoding="utf-8").lower() for t in terms))
+        for page in sorted((ROOT / "spec").rglob("*.md")):
+            if page == source or page.name.startswith("CHANGELOG"):
+                continue
+            text = page.read_text(encoding="utf-8").lower()
+            with self.subTest(page=page.relative_to(ROOT).as_posix()):
+                self.assertEqual([t for t in terms if t in text], [])
+        for prefix in ("24", "30c"):
+            self.assertIn("`29g`", spec_page("tohum", prefix))
+
 
 class BootstrapStatePageTest(unittest.TestCase):
     """The Founder's report seed-040 (E342): the loop's `çek` (D1) reads the bootstrap referee's signed state and compares

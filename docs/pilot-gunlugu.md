@@ -271,12 +271,12 @@ teslim edildi (2026-10-31 ~21:00Z, beyin `e04bc1c`; kopya aynalandı, `targets[]
 Operatörün sırası (B)'nin kritik yolu boyuncadır: önce seed-040'ın yanıtı (bir sonraki tohum dönemi: `29b` "Durum",
 `26c`'nin `referee_tree_sha256` kuralı), sonra sınav kodu: E331 (`stage-open` ve `stages/stage1.json`; `gaps/activation-tooling`'de
 E371, E372 olarak kuruldu), E333 (`referee_changed_after_exit` ve yaşam döngüsü, `gaps/learning-links`), E334
-(`asama-0/10a`'yı izler), E335. Aşama 2 ve sonrasının sınav işi bunlardan sonra. Birleştirme sırası (2026-11-01):
-`gaps/learning-links` önce (`main`'in üstünde, ileri sarılır), sonra `gaps/activation-tooling` `main`'e yeniden kurulup
-birleşir: kod çakışması yalnız `cli.py`'nin içe aktarma satırlarıdır (ikisinin birleşimi: `stagelock` ve `REPORTS_DIR`),
-`docs/eksik-kaydi.md` satırları numarayla birleşir, `docs/harita.md` `local/system_map.py` ile yeniden üretilir; birleşmiş
-ağaçta `exit_freeze` kilidin aşamasını `table.stage`'den okur, dondurma kilitle kendiliğinden biter (deneme birleşimi
-E333'ün altındaki doğrulamada).
+(`asama-0/10a`'yı izler), E335. Aşama 2 ve sonrasının sınav işi bunlardan sonra. Birleştirme (2026-11-01):
+`gaps/learning-links`, `gaps/sota-review` (E380–E387) ve `gaps/e173-lock-half` (E400, Kurucu'nun spec-015'i) `main`'de;
+`gaps/activation-tooling` ikinci şüpheci turunda (ilk şüphecinin sekiz kırığı `0b69b2c`'de onarıldı; o turun E380 ve
+E381'i `main`'deki numaralarla çakışır, birleşirken yeniden numaralanır). Hepsi bir sonraki tohum döneminde (3d)
+teslim edilir; E400'de hakemin `vectors/`'u ile beynin `29g`'si aynı dönemde gider, Kurucu'nun kabul edilmiş MF5'i
+yeni vakalarda uyana kadar kırmızıdır.
 Sonra etkinleştirme (`seed/founder/ETKINLESTIRME.md`).
 E364 (talimatta "Bilmediğin alan" görevi) `gaps/self-extension` dalında sahibin ifade onayını bekliyor; sınav planı mühürlü.
 
