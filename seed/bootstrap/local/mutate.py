@@ -1460,6 +1460,14 @@ MUTANTS = [
     ("start_refuses_the_exception", f"{PKG}/config.py", "    if summary.honesty_commitment is None:",
      "    if summary.honesty_commitment is None or summary.honesty_exception is not None:",
      "E297: a pilot restarted from a lost state cannot carry the owner's exception it was given"),
+    ("doc_floor_back_in_cancellable_ci", ".github/workflows/ci.yml", "jobs:\n  unit-linux:\n",
+     "jobs:\n  doc-with-change:\n    if: github.event_name == 'push' && github.ref == 'refs/heads/main'\n"
+     "    runs-on: ubuntu-24.04\n    steps:\n      - run: git diff --name-only \"$BEFORE\" \"$AFTER\" | "
+     "python3 seed/bootstrap/local/doc_with_change.py\n\n  unit-linux:\n",
+     "E383: the documentation floor runs under ci.yml's cancel-in-progress group again and a push goes unchecked"),
+    ("doc_floor_cancellable", ".github/workflows/doc-with-change.yml", "permissions:\n  contents: read\n",
+     "concurrency:\n  group: doc-${{ github.ref }}\n  cancel-in-progress: true\n\npermissions:\n  contents: read\n",
+     "E383: a second push to main within a minute cancels the first push's documentation check"),
 ]
 
 

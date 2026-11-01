@@ -1,0 +1,33 @@
+# The owner's documentation floor (2026-10-30, spec/tohum/15): a change to the seed's behaviour lands with its
+# document. It checks every push to main over the pushed range. It is its own workflow and no later run cancels it
+# (E383): in ci.yml a second push within about a minute cancelled the first run, and the next run checked only its
+# own range, so the cancelled push was never checked. Read-only, no secret.
+
+name: doc-with-change
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  PYTHONDONTWRITEBYTECODE: "1"
+
+jobs:
+  doc-with-change:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Every pushed change to the seed's behaviour carries a document
+        env:
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+        run: |
+          if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then BEFORE="$AFTER~1"; fi
+          git diff --name-only "$BEFORE" "$AFTER" | python3 seed/bootstrap/local/doc_with_change.py
