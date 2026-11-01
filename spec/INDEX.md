@@ -64,7 +64,7 @@ Okunma: sayfa ararken; görev seçmek için `tohum/00b-gorev-haritasi.md`
 | `tohum/29-tohum-koltuklari.md` | Tohum Koltukları: Rakip, Test-Yazıcı, Şerit Yazarı | kurulumda ve Aşama 0 başında |
 | `tohum/29a-tohum-vektorleri.md` | Tohum Vektörleri: Değişmeyen Beklenen Çıktılar | zincir, istatistik ve puanlama kodu yazarken |
 | `tohum/29b-onyukleme-hakemi.md` | Önyükleme Hakemi: Aşama 0'ın Yargıcı | kurulumda ve Aşama 0 boyunca |
-| `tohum/29e-onyukleme-hakemi-devam.md` | Önyükleme Hakemi, Devam: Kurucu Kayıtları, Sır Desenli Metin | Aşama 0 boyunca; Kurucu kaydı itilirken ve bir `secret_in_*` reddi okunurken |
+| `tohum/29e-onyukleme-hakemi-devam.md` | Önyükleme Hakemi, Devam: Kurucu Kayıtları, Sır Desenli Metin, Sınav Hatası | Aşama 0 boyunca; Kurucu kaydı itilirken, bir `secret_in_*` reddi okunurken ve bir ret sınav hatası sayılınca |
 | `tohum/29c-prova-vektorleri.md` | Prova Vektörleri: Ders Provasının Referans Yargıcı | ders provasının yargıcını (`harness.drill`) yazarken (Aşama 2 partisi) ve ders provası tasarlanırken |
 | `tohum/29q-prova-gucu-ve-kalibrasyon.md` | Prova Vektörleri, Devam: Ayırma Gücü ve Ailelerin Kalibrasyonu | ders provası tasarlanırken, tuzak ailesi havuza alınırken ve bir provanın FAIL ya da UNMEASURABLE'ı okunurken |
 | `tohum/29d-vektor-gruplari.md` | Tohum Vektörleri, Devam: Aşama 0'ın Grupları ve Genel Koşucu | Aşama 0'ın her mikro özelliğini yazarken ve önyükleme hakeminin vektör koşucusu değişirken |
@@ -96,6 +96,7 @@ Okunma: sayfa ararken; görev seçmek için `tohum/00b-gorev-haritasi.md`
 | `tohum/31g-karar-rehberi.md` | Mimari İlkeler VII: Karar Rehberi | aşağıdaki durumlardan biri ortaya çıktığında, `decision` satırı yazılmadan önce |
 | `tohum/31h-catismalar-ve-tarama.md` | Mimari İlkeler VIII: Çatışmalar ve Tarama Sinyalleri | iki ilke aynı durumda farklı yön gösterdiğinde; bir repo ilkeler açısından taranırken; rakip bir tasarımı çürütmeye çalışırken |
 | `tohum/CHANGELOG.md` | Değişiklik Günlüğü — Tohum | bir sayfanın geçmişi aranırken |
+| `tohum/CHANGELOG-4.md` | Değişiklik Günlüğü — Tohum, 2.2'nin Üçüncü Kayıtları | bir sayfanın geçmişi aranırken |
 | `tohum/CHANGELOG-3.md` | Değişiklik Günlüğü — Tohum, 2.2'nin İkinci Kayıtları | bir sayfanın geçmişi aranırken |
 | `tohum/CHANGELOG-2.md` | Değişiklik Günlüğü — Tohum, 2.2'nin İlk Kayıtları | bir sayfanın geçmişi aranırken |
 | `tohum/CHANGELOG-1.md` | Değişiklik Günlüğü — Tohum, 2.1 ve öncesi | bir sayfanın geçmişi aranırken |

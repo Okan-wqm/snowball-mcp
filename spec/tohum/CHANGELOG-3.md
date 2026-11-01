@@ -4,6 +4,8 @@ Tarih: 2026-11-01 · Sürüm: 2.2
 Okunma: bir sayfanın geçmişi aranırken
 Çapa: git geçmişi ve zincirdeki spec hash satırları
 
+- 2.2 (2026-10-31, E344; uzman tartışması ve hakem): başlatıcı oturumun CLI'nin bildirdiği maliyetini `kind: cost`
+  satırı olarak `26`'nın zincir kuralıyla yazar (`24a` 4); andığı "tohumun defter aracı" tohumda yoktur (E150).
 - 2.2 (2026-10-31, E341; sahibin kararı): "Performanslı" hedefi beklenen yük altında da geçerlidir; gecikme, hata ve kaynak
   hedefleri yük altında ölçülür, yalnız yalıtılmış kopyada ve sentetik veriyle (`01`); K7 bu hedefe bağlıdır (`03`).
 - 2.2 (2026-10-31, E294, E308; sahibin kararı): ekim üretilemediyse taşınan #durustluk'un taahhüdü, aşama başlamadan
