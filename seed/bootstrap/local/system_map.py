@@ -29,7 +29,8 @@ WORKFLOW = "seed/bootstrap/workflow/bootstrap.yml"
 PACKAGE = "seed/bootstrap/snowball_bootstrap"
 LAUNCHER = "seed/founder/launch.py"
 SCORECARD = "seed/founder/scorecard.py"  # the operator's self-improvement card (E310), outside the launcher's loop
-CAPSULE = ("seed/founder/Dockerfile", "seed/founder/entrypoint.sh", "seed/founder/prompt.md")
+CAPSULE = ("seed/founder/Dockerfile", "seed/founder/entrypoint.sh", "seed/founder/prompt.md",
+           "seed/founder/brain_defs.py")
 
 # ---- The hand-written part: actors outside the code, the links that meet them, the package's areas. ----------------
 # Endpoints: an actor below, "launcher", "capsule", "referee" (the workflow as a whole) or "job:<regex>" (every job
@@ -44,6 +45,7 @@ LINKS = (
     ("operator", "launcher", "starts the pilot", (LAUNCHER, r"on the operator's machine")),
     ("launcher", "capsule", "docker run: one Founder session", (LAUNCHER, r'"docker", "run"')),
     ("capsule", "brain", "git push", (CAPSULE[1], r"push")),
+    ("brain", "capsule", "agents/ and skills/ at HEAD, checked: plugin brain", (CAPSULE[3], r'"ls-tree"')),
     ("launcher", "referee", "dispatch: gh workflow run", (LAUNCHER, r'"gh", "workflow", "run"')),
     ("launcher", "brain", "cost rows: git push as the launcher", (LAUNCHER, r'"push", "--quiet", "origin"')),
     ("brain", r"job:-m snowball_bootstrap pull\b", "read anonymously", (WORKFLOW, r"the brain is read anonymously")),

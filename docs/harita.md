@@ -16,7 +16,7 @@ Read from the code: the jobs, `needs:` and commands of `seed/bootstrap/workflow/
 
 ## 1. System flow
 
-13 nodes, 20 edges. A job box lists the `snowball_bootstrap` commands it runs, in order. Job arrows leave out dependencies another path already implies; the table lists every `needs:`. A seed epoch is the operator's delivery of `spec/tohum/` and `seed/` to the brain, with the `seed_epochs` row the referee checks on its next pull (`seed/founder/README.md`).
+13 nodes, 21 edges. A job box lists the `snowball_bootstrap` commands it runs, in order. Job arrows leave out dependencies another path already implies; the table lists every `needs:`. A seed epoch is the operator's delivery of `spec/tohum/` and `seed/` to the brain, with the `seed_epochs` row the referee checks on its next pull (`seed/founder/README.md`).
 
 ```mermaid
 flowchart LR
@@ -26,7 +26,7 @@ flowchart LR
   rekor[("Rekor (Sigstore transparency log)")]
   subgraph machine["Operator's machine"]
     launcher["launcher<br/>seed/founder/launch.py"]
-    capsule["Founder capsule, Docker<br/>Dockerfile · entrypoint.sh · prompt.md"]
+    capsule["Founder capsule, Docker<br/>Dockerfile · entrypoint.sh · prompt.md · brain_defs.py"]
     scorecard["scorecard<br/>seed/founder/scorecard.py"]
   end
   subgraph referee["Referee repository: workflow/bootstrap.yml on GitHub Actions"]
@@ -45,6 +45,7 @@ flowchart LR
   operator -.->|starts the pilot| launcher
   launcher -.->|docker run: one Founder session| capsule
   capsule -.->|git push| brain
+  brain -.->|agents/ and skills/ at HEAD, checked: plugin brain| capsule
   launcher -.->|dispatch: gh workflow run| referee
   launcher -.->|cost rows: git push as the launcher| brain
   brain -.->|read anonymously| job_cek

@@ -4,6 +4,9 @@ Tarih: 2026-11-01 · Sürüm: 2.2
 Okunma: bir sayfanın geçmişi aranırken
 Çapa: git geçmişi ve zincirdeki spec hash satırları
 
+- 2.2 (2026-10-31, E249; sahibin sorusu, uzman tartışması): `main`'i salt okunur okumak dokunmak değildir; taban yaşının
+  commit sayısı ve eskimiş bulgu oranı senkrondan önce de bu okumayla ölçülür (`07`). `07`'nin andığı eskimiş bulgu oranı
+  sinyali `17`'de satırdır: eşik pencerede > %20, doğan şey organ değil Aşama 2'deki senkron izin kararıdır.
 - 2.2 (2026-10-31, E317, E321–E324; ders provası tartışmasının hakem kararı): gerçek beyinde ders provası ders
   görünümünü getiren aşamanın (Aşama 2) ilk işidir ve sahibin MVP sınavıdır; erken ders partisi yok (`03`, `22b`,
   E317). `#ders-dogru` zorunlu çıkış satırı (`18`, E322). Aşama özeti `03` satırında `18` atfıyla geçen her yeteneği

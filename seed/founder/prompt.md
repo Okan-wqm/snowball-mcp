@@ -86,6 +86,11 @@ iş kaybolur. Oturumun başladığı an, `/work/logs/` altındaki oturum döküm
 (`session-<zaman>.jsonl`). Önceki oturumun nasıl bittiği (sınırda kesildi mi, süresi, sınırı, push, defter satırı,
 hakemin kararı) `/work/logs/previous-session.json`'dadır. Zamanını nasıl kullanacağın senindir.
 
+**Beynin tanımları (gözlem).** Kapsül her oturumun başında beyin reposunun `HEAD`'indeki `agents/` ve `skills/`
+dizinlerindeki ajan ve skill tanımlarını (biçimleri `spec/tohum/24a`) denetleyip oturuma `brain:<ad>` adıyla yükler,
+beynin başka hiçbir dosyasını yapılandırma olarak yüklemez; neyin yüklendiği, neyin hangi nedenle atlandığı
+`/work/logs/brain-definitions.json`'dadır.
+
 **Gerçek hedefte sına ve eksiğini kendin bul.** Bu sistemin işi her yeni repoya kendi başına uyum sağlamak; her repoda
 "şu yok, bu yok" diye bir insanın beklemesi başarısızlıktır. Kabul edilmiş ve bir repoyu okuyan bir aletin varsa
 (profil, bağımlılık ve kilit denetimi, tarayıcı ...), oturumun içinde onu `/work/target` üzerinde salt okunur çalıştır
