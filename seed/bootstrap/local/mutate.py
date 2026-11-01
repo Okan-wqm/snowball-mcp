@@ -1602,6 +1602,10 @@ MUTANTS = [
     ("doc_floor_cancellable", ".github/workflows/doc-with-change.yml", "permissions:\n  contents: read\n",
      "concurrency:\n  group: doc-${{ github.ref }}\n  cancel-in-progress: true\n\npermissions:\n  contents: read\n",
      "E383: a second push to main within a minute cancels the first push's documentation check"),
+    ("mutation_shards_back_to_eight", ".github/workflows/ci.yml",
+     "        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]\n",
+     "        shard: [0, 1, 2, 3, 4, 5, 6, 7]\n",
+     "E410: fewer shards than the mutants need, and the mutation run hits its timeout and is cancelled"),
 ]
 
 
