@@ -645,14 +645,14 @@ class Flow(unittest.TestCase):
         fake_sigstore.write_text("#!/bin/sh\nexit 0\n")
         fake_sigstore.chmod(fake_sigstore.stat().st_mode | stat.S_IEXEC)
         # The operator's two repositories, as their remotes: the import builds on their main and pushes (E470).
+        identity = mock.patch.dict(os.environ, GIT_IDENTITY)  # its commits are the operator's
+        identity.start()
+        self.addCleanup(identity.stop)
         referee = bare_repo(work / "referee.git", {
             "setup/summary.json": "{}", "policy.json": "{}", "bootstrap/cli.py": "seed",
             "control.json": '{"kill_switch": true}',  # `25a` 1: imported with the kill switch on
             ".github/workflows/bootstrap.yml": "old"})
         toy = bare_repo(work / "toy.git")
-        identity = mock.patch.dict(os.environ, GIT_IDENTITY)
-        identity.start()
-        self.addCleanup(identity.stop)
         log = run_import(work / "result.json", work / "bundle.json", "id", str(fake_sigstore), str(self.brain),
                          str(referee), str(toy))
         self.assertEqual(log["referee_tree_sha256"], result["exit"]["referee_tree_sha256"])
