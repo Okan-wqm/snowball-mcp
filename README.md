@@ -38,7 +38,8 @@ K5 prerequisite) keep the player from grading itself:
 The founder cannot build the judge of its own first stage, so the **bootstrap referee** ships with
 the seed under `seed/bootstrap/` (see `spec/tohum/29b-onyukleme-hakemi.md`): a GitHub Actions
 workflow and a standard-library Python package that pulls each founder commit, runs its tests and
-the seed vectors in network-less containers, asks a rival model to refute it, and signs the verdict
+the seed vectors in network-less containers (shared out among four parallel jobs, whose answers one job judges in
+the order a single job would, so the verdict is the same bytes), asks a rival model to refute it, and signs the verdict
 into Sigstore's Rekor log. It polls hourly; standard runners are free in a public repository, while a private one would spend about
 720 of the free plan's Actions minutes a month (the arithmetic is in `spec/tohum/25-kurulum-gunu.md`). In the pilot it runs
 on GitHub Actions in `snowball-rehearsal-referee`, dispatched by `seed/founder/launch.py` after each Founder push.
@@ -85,7 +86,8 @@ them in a `python:3.12-slim` container with git installed. Five more checks go b
   micro-feature 1 (the hash-chained ledger) that claims nothing else. It also carries reference implementations of
   micro-features 2-16 and 18 (17, the loop workflow, has no vectors), on which `tests/test_reference_brain.py` shows
   their seed vectors green, and red on every break
-  each case is there to catch; the brain does not declare them done. With `--rival` the real rival runs through your
+  each case is there to catch; the brain does not declare them done. It runs `kos` both ways, as one job
+  (`run-tests`) and as the workflow does (`run-part` twice, `join-parts`), and demands the same run. With `--rival` the real rival runs through your
   own `claude` login, so it also needs Claude Code signed in; there is no API key anywhere while this system is for
   internal use.
 - `python3 local/mutate.py`, run from `seed/bootstrap` on Linux, breaks the referee's code on purpose and demands that a test

@@ -88,7 +88,7 @@ sys.path.insert(0, str(CODE))
 from snowball_bootstrap import cli, config, gitio, reproduce, rival, state as st, vectors  # noqa: E402
 from snowball_bootstrap.classify import LEDGER_FILE, SEED_DIRS, is_seed_path  # noqa: E402
 from snowball_bootstrap.container import DockerRunner, RunResult  # noqa: E402
-from snowball_bootstrap.decide import decide  # noqa: E402  (the referee's own rule of what proves a defect)
+from snowball_bootstrap.decide import decide, utc_now  # noqa: E402  (the referee's own rule of what proves a defect)
 from snowball_bootstrap.treehash import extract  # noqa: E402
 from helpers import cp_lower  # noqa: E402  (the seed's one-sided Clopper-Pearson lower bound, held to `29a`)
 
@@ -796,7 +796,8 @@ def _write(path: Path, doc: Any) -> None:
 
 def run_batch(batch: Batch) -> dict[str, Any]:
     boot, policy = config.load_bootstrap(batch.root), config.load_policy(batch.root)
-    state = st.validate(copy.deepcopy(batch.state))
+    # The live state as the referee's fetch-state reads it: an older schema carried forward, then checked (`25`).
+    batch.state = state = st.validate(st.migrate(copy.deepcopy(batch.state), utc_now()))
     if not gitio.has_commit(batch.mirror, state["last_accepted_sha"]):
         raise CanaryError(f"the brain mirror lacks the accepted base {state['last_accepted_sha']}")
     bases = host_bases(batch.store, state, batch.hosts, batch.entries)

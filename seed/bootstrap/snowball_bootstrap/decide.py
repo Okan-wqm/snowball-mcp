@@ -21,6 +21,7 @@ from .state import MAX_OPEN_CLAIMS, MAX_OPEN_REFUTATIONS
 
 RESULT_SCHEMA = "snowball-bootstrap-result/1"
 VALID_RIVAL = ("refuted", "not_refuted")
+REPORT_FIELDS = ("id", "kind", "ref", "state")  # of each `reports/*.json` the result names (`26c`, E93)
 
 
 def utc_now() -> str:
@@ -90,10 +91,10 @@ EXIT_CHECKS = exitchecks.ANCHORS
 EXIT_NOT_CHECKED = {
     "spec": "E286: of tohum/02's mechanical items, how a section and the key of a threshold are recognised in the "
             "text has no machine definition, and a reader for each file asama-0/13 names needs the files named in a "
-            "form a machine reads (the toy's reader is missing from tohum/27, E156); the check belongs at the freeze, "
+            "form a machine reads; the check belongs at the freeze, "
             "where the Founder can still fix what it finds, as a frozen spec/asama-0 cannot change (E180)",
     "durustluk": "E79, E287: the honesty rehearsal's key and detection predicates have no format, the evaluated SHAs "
-                 "they run on are not kept, and the disputes need the reports' reader (E93)",
+                 "they run on are not kept, and a report that disputes a vector has no rule yet (E53; the reports' reader is E93)",
 }
 NOT_CHECKED = "not_checked:"
 # The one exit condition the owner may except by name (`02` "Sahip istisnası", E287, E294): its measurement needs a
@@ -160,13 +161,17 @@ def _exit_conditions(found: Any, toy: Any, excepted: str | None = None) -> tuple
     return missing, detail
 
 
-def _learning(state: dict[str, Any], reasons: list[dict[str, Any]], limit: int) -> dict[str, Any]:
+def _learning(state: dict[str, Any], reasons: list[dict[str, Any]], limit: int,
+              exam_faults: frozenset[str] = frozenset()) -> dict[str, Any]:
     """Update the rejection streaks of an evaluated commit and say which ones repeat.
 
     A signature's streak grows while every evaluated commit is rejected for it and ends at the first commit
     that is not; an accepted commit has no reasons, so it ends them all. A rejection only for reasons the
     Founder cannot act on (the rival's own failure, the budget, a referee step) leaves every streak as it was.
+    A reason under an exam fault the operator confirmed is read as if the exam had not given it (`29e`): a commit
+    rejected for nothing else ends the streaks as an accepted one does.
     """
+    reasons = [r for r in reasons if signature(r) not in exam_faults]
     counted = [r for r in reasons if counts_against_founder(r)]
     if counted or not reasons:
         old = state["reject_streaks"]
@@ -254,6 +259,12 @@ def decide(meta: dict[str, Any], run: dict[str, Any] | None, rival: dict[str, An
     """
     table = table or stages.load(0)
     state = copy.deepcopy(meta["state"])
+    # The operator's confirmed exam faults still in force (`control.json` `exam_faults`, `29e` "Sınav hatası"; E53,
+    # E426): the streak entry a wrong verdict caused is retracted and the signature is never counted while the exam that
+    # judged it is in force, so keeping correct code under a wrong verdict never pushes the Founder toward not_learning.
+    # The rejection itself stands until the exam's fix arrives with a seed epoch.
+    exam_faults = frozenset(meta.get("exam_faults") or [])
+    state["reject_streaks"] = {s: n for s, n in state["reject_streaks"].items() if s not in exam_faults}
     now = now or utc_now()
     head, base, kind = meta["head"], meta["base"], meta["kind"]
     reasons: list[dict[str, Any]] = [_reason(r) for r in meta.get("pre_reasons", [])]
@@ -465,17 +476,22 @@ def decide(meta: dict[str, Any], run: dict[str, Any] | None, rival: dict[str, An
         state["last_accepted_sha"] = head
         if kind == "spec":
             state["frozen_specs"].update(meta.get("spec_dir_hashes", {}))
-        # A proven defect closes only on an accepted head where it ran and no longer reproduces (E08).
+        # A proven defect closes only on an accepted head where it ran to the end and no longer reproduces (E08): a
+        # timed-out run showed nothing either way, so it keeps the defect open (E387).
         for s in state_results:
-            if s["source"] == "refutation" and not s["reproduced"]:
+            if s["source"] == "refutation" and not s["reproduced"] and not s.get("timed_out"):
                 refutations.pop(s["key"], None)
-    state["open_refutations"] = list(refutations.values())[-MAX_OPEN_REFUTATIONS:]
+    # Over the caps the oldest go, each named: a defect or claim the referee stops remembering is never silent (E387).
+    kept = list(refutations.values())
+    warnings += [f"refutation_evicted:{e['key']}" for e in kept[:-MAX_OPEN_REFUTATIONS]]
+    warnings += [f"claim_evicted:{c['id']}" for c in claims[:-MAX_OPEN_CLAIMS]]
+    state["open_refutations"] = kept[-MAX_OPEN_REFUTATIONS:]
     state["open_claims"] = claims[-MAX_OPEN_CLAIMS:]
 
     learning = {"repeated": [], "not_learning": [], "repeat_events": state["repeat_events"]}
     if evaluate and kind not in NOTHING_TO_JUDGE:
         state["last_evaluated_sha"] = head
-        learning = _learning(state, reasons, repeat_reject_limit)
+        learning = _learning(state, reasons, repeat_reject_limit, exam_faults)
     elif evaluate:  # an unchanged tree (an empty commit, a revert): nothing to judge and nothing to learn from
         state["last_evaluated_sha"] = head
     if outage:
@@ -502,7 +518,10 @@ def decide(meta: dict[str, Any], run: dict[str, Any] | None, rival: dict[str, An
         refuted_here = any(r["kind"] in REFUTATION_KINDS for r in reasons)
         state["rival_artifacts"].append({"sha": head, "outcome": "refuted" if refuted_here else "survived"})
 
+    if meta.get("exit_released"):  # the operator reverted its transfer, or a later stage opened (`cli.exit_freeze`)
+        state["exit_accepted_sha"] = None
     if kind == "exit" and accepted:
+        state["exit_accepted_sha"] = head  # (A): from here only (B)'s candidates and targets may change (E333)
         exit_block["transferable"] = True
         exit_block["referee_tree_sha256"] = meta["referee_tree_sha256"]
         exit_block["toy_tree_sha256"] = meta["toy_tree_sha256"]  # `asama-0/10` #agac; the import's #oyuncak (`10a`)
@@ -523,6 +542,13 @@ def decide(meta: dict[str, Any], run: dict[str, Any] | None, rival: dict[str, An
     rejection = None
     if verdict == "rejected":
         rejection = {"sha": head, "kind": kind, "reasons": reasons}
+    # The brain's reports as pull read them (`26c`, E93): each named, its free text dropped when it carries a secret,
+    # and the open ones a warning to the operator, who answers them with a seed epoch. They are never a reason.
+    reports = [dict({k: _redacted(r.get(k)) for k in REPORT_FIELDS}, sha256=r.get("sha256"))
+               for r in meta.get("reports") or []]
+    still_open = sum(1 for r in reports if r["state"] == "open")
+    if still_open:
+        warnings.append(f"reports_open:{still_open}")
     return {
         "schema": RESULT_SCHEMA,
         "head": head,
@@ -543,7 +569,9 @@ def decide(meta: dict[str, Any], run: dict[str, Any] | None, rival: dict[str, An
         "learning": learning,
         "warnings": warnings,
         "waived": waived,
+        "exam_faults": sorted(exam_faults),  # the signatures kept off the streaks this run (`29e` "Sınav hatası")
         "licenses": (run or {}).get("licenses", []),
         "state": state,
         "rejection": rejection,
+        "reports": reports,
     }

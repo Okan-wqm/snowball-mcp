@@ -1,7 +1,7 @@
 """The Stage 0 exit conditions E162 kept closed because the seed had no check for them (`asama-0/10`, (A)).
 
-Four are checked now, on the brain archive `pull` already holds, never by running the Founder's code
-(`29b`; the draft `29e` "Tohum denetimleri"): #kurucu-defteri (E107, E280), #is-akisi (test 46's `wiring` rules,
+Four are checked now, on the brain archive `pull` already holds, never by running the Founder's code (`29b`; the
+narrowing note's draft `29e` "Tohum denetimleri"): #kurucu-defteri (E107, E280), #is-akisi (test 46's `wiring` rules,
 E100, E281-E283; its control sub-rule since E282, `test_exit_decisions`), #agac (E130, E131, E285) and #genellik
 (E284). #spec (E286) and #durustluk (E79, E287) stay unchecked: each keeps the exit closed by name and is never
 counted against the Founder. The trailing comment on a test names the mutants it kills (`local/mutate.py`).
@@ -287,11 +287,11 @@ class ExitDecision(unittest.TestCase):
     and what the seed cannot check stays named with its open register row."""
 
     def state(self, **kw):
-        s = {"schema": "snowball-bootstrap-state/3", "origin": "artifact", "last_accepted_sha": A,
+        s = {"schema": "snowball-bootstrap-state/4", "origin": "artifact", "last_accepted_sha": A,
              "last_evaluated_sha": None, "frozen_specs": {}, "month": "2026-10", "month_spend_usd_micros": 0,
              "stage_spend_usd_micros": 0, "runs": 1, "reject_streaks": {}, "repeat_events": 0, "outage_sha": None,
              "outage_count": 0, "outage_since": None, "outage_stop": None, "rival_side_streak": 0,
-             "open_refutations": [], "open_claims": [], "pending_rival": None, "rejected_exit_request": None,
+             "open_refutations": [], "open_claims": [], "pending_rival": None, "rejected_exit_request": None, "exit_accepted_sha": None,
              "rival_artifacts": [{"sha": s_, "outcome": "survived"} for s_ in (A, "1" * 40, "2" * 40)]}
         s.update(kw)
         return s

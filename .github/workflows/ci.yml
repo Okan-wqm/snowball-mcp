@@ -2,9 +2,12 @@
 # are free. Every job is read-only and holds no secret; pull requests from forks run under the same limits.
 #
 #   every push and pull request: the referee's unit tests on Linux and Windows, the drill judge's tests
-#   main and weekly, in addition: the mutation checks (referee in 8 shards, reference brain, drill
+#   main and weekly, in addition: the mutation checks (referee in 20 shards, reference brain, drill
 #   judge), the end-to-end run against Docker, and the claude CLI contract against the pinned binary
 #   (a made-up token: it spends nothing)
+#
+# The documentation floor is not here: doc-with-change.yml runs it on every push to main with no concurrency
+# group, because cancel-in-progress below would drop a push's check (E383).
 
 name: ci
 
@@ -26,23 +29,6 @@ env:
   PYTHONDONTWRITEBYTECODE: "1"
 
 jobs:
-  doc-with-change:  # owner, 2026-10-30: a change to the seed's behaviour lands with its document (spec/tohum/15)
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-          fetch-depth: 0
-      - name: Every pushed change to the seed's behaviour carries a document
-        env:
-          BEFORE: ${{ github.event.before }}
-          AFTER: ${{ github.sha }}
-        run: |
-          if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then BEFORE="$AFTER~1"; fi
-          git diff --name-only "$BEFORE" "$AFTER" | python3 seed/bootstrap/local/doc_with_change.py
-
   unit-linux:
     runs-on: ubuntu-24.04  # its system python3 is the 3.12 the referee's own workflow runs on
     timeout-minutes: 20
@@ -83,7 +69,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [0, 1, 2, 3, 4, 5, 6, 7]
+        # at most 40 mutants a shard, so a shard ends well inside its 60 minutes (E410, test_wiring MutationShardTest)
+        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -92,7 +79,7 @@ jobs:
         working-directory: seed/bootstrap
         env:
           SHARD: ${{ matrix.shard }}
-        run: python3 local/mutate.py --shard "$SHARD/8"
+        run: python3 local/mutate.py --shard "$SHARD/20"
 
   fixture-mutation:
     if: github.event_name != 'pull_request' && (github.event_name != 'push' || github.ref == 'refs/heads/main')

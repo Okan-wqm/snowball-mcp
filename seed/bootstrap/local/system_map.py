@@ -31,6 +31,8 @@ LAUNCHER = "seed/founder/launch.py"
 SCORECARD = "seed/founder/scorecard.py"  # the operator's self-improvement card (E310), outside the launcher's loop
 CANARY = "seed/bootstrap/local/canary.py"  # the operator's measure of the rival's recall (E126), outside the loop too
 CAPSULE = ("seed/founder/Dockerfile", "seed/founder/entrypoint.sh", "seed/founder/prompt.md")
+CAPSULE = ("seed/founder/Dockerfile", "seed/founder/entrypoint.sh", "seed/founder/prompt.md",
+           "seed/founder/brain_defs.py")
 
 # ---- The hand-written part: actors outside the code, the links that meet them, the package's areas. ----------------
 # Endpoints: an actor below, "launcher", "capsule", "referee" (the workflow as a whole) or "job:<regex>" (every job
@@ -45,7 +47,9 @@ LINKS = (
     ("operator", "launcher", "starts the pilot", (LAUNCHER, r"on the operator's machine")),
     ("launcher", "capsule", "docker run: one Founder session", (LAUNCHER, r'"docker", "run"')),
     ("capsule", "brain", "git push", (CAPSULE[1], r"push")),
+    ("brain", "capsule", "agents/ and skills/ at HEAD, checked: plugin brain", (CAPSULE[3], r'"ls-tree"')),
     ("launcher", "referee", "dispatch: gh workflow run", (LAUNCHER, r'"gh", "workflow", "run"')),
+    ("launcher", "brain", "cost rows: git push as the launcher", (LAUNCHER, r'"push", "--quiet", "origin"')),
     ("brain", r"job:-m snowball_bootstrap pull\b", "read anonymously", (WORKFLOW, r"the brain is read anonymously")),
     (r"job:secrets\.CLAUDE_CODE_OAUTH_TOKEN", "rival", "claude CLI: claims and reproducers",
      (PACKAGE + "/rival.py", r"resolve_claude")),
@@ -53,7 +57,8 @@ LINKS = (
     (r"job:-m sigstore sign", "launcher", "signed verdict: bootstrap-state artifact",
      (LAUNCHER, r'STATE_ARTIFACT = "bootstrap-state"')),
     ("launcher", "capsule", "last verdict, read-only: /work/referee", (CAPSULE[2], r"/work/referee/result\.json")),
-    ("operator", "brain", "seed epoch: delivers spec/tohum and seed/", ("seed/founder/README.md", r"Tohum teslimi")),
+    ("operator", "brain", "seed epoch: delivers spec/tohum alone", ("seed/founder/README.md",
+                                                                    r"beyne tohum kodu\s+\(`seed/`\) gitmez")),
     ("operator", "referee", "installs bootstrap/, vectors/, kill switch, seed_epochs row",
      (WORKFLOW, r"all written by the operator")),
     ("operator", "scorecard", "after each cycle: docs/karne.md", (SCORECARD, r"--public docs/karne")),
@@ -70,7 +75,7 @@ LINKS = (
 AREAS = (
     ("Entry", ("__init__", "__main__", "cli")),
     ("Intake", ("canon", "classify", "config", "ghapi", "gitio", "importer", "licenses", "treehash")),
-    ("Sandbox", ("container", "controls", "manifest", "moduleless", "vectors")),
+    ("Sandbox", ("container", "controls", "manifest", "moduleless", "parts", "vectors")),
     ("Rival", ("reproduce", "rival", "rival_mcp", "secretscan")),
     ("Judgement", ("decide", "exitchecks", "ledgercheck", "stages", "state", "wiring")),
 )

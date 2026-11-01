@@ -275,9 +275,29 @@ E167 (iki taraflı mekanizmada sınır), E168 (yargılanmamış push önce yarg�
 
 ## Sıradaki
 
-Kurucu'nun 3b'ye uyması (yeni defter kuralı, kontrol adımının izin listesi, `29k` vektörleri) ve çıkış isteği. Operatör:
-kopyanın aynalanması ve `targets[]` (sahibin belirteci), Aşama 1 ekiminin yolu (E308, sahibin kararı). Tohum dönemi 3c:
-karne ve ders provasının sınav tarafı (E310–E324, main'de), sınıf merdiveninin varsayılan sıra olması (E338,
-uzmanların kararı tohum metninde; kapının kodu Aşama 2 spec isteğiyle, E339) ve tuzağın tohum metni (E308).
+MF1–18 kabul; çıkış isteği (A) yapılmadı. (B)'nin canlı döngüsü D1'i bekliyor (Kurucu'nun bildirimi seed-040, E342);
+D4 ve D6–D8 D1'e bağlı. `asama-0/10a:42` (A)'dan sonra `referee/`'yi dondurduğu için döngü (A)'dan önce bağlanır:
+Kurucu'nun çıkıştan önce döngüyü bağlaması doğrudur, beklenen sıradaki adım çıkış isteği değildir. Tohum dönemi 3c
+teslim edildi (2026-10-31 ~21:00Z, beyin `e04bc1c`; kopya aynalandı, `targets[]` özette).
+
+Tohum dönemi 3d teslim edildi (2026-11-01 ~04:55Z, kaynak `5803a92`, beyin `dc5acc2`; doğrulama `seed_update`/`noop`,
+durum `/3` → `/4`, son kabul `5cc4e86`): seed-040'ın yanıtı (`29b` "Durum", `26c`'nin `referee_tree_sha256` kuralı),
+E93'ün okuyucusu, E333'ün dondurması, spec-015 (E400; hakemin `vectors/`'u ile beynin `29g`'si aynı dönemde; Kurucu'nun
+kabul edilmiş MF5'i yeni vakalarda uyana kadar kırmızıdır), E341, uzman incelemesinin operatör payı (E380–E387) ve CI'ın
+parçaları (E410). Başlatıcı temiz hedef klonuyla (`--target target-c6e23d0`) yeniden başladı. Sıradaki dönem (3e):
+Kurucu'nun açık raporlarının yanıtları (E390–E399) ve şüpheciden geçerse etkinleştirme araçları (E331, E370–E379,
+E388–E389, E402 ve sonrası; dördüncü tur, üç tur şüpheciye düştü: aynı-ad takma adları, Stage 0'ın baytı, PASS
+satırının sözleşmesi, yeniden aktarımda kilitlenme). `26c`'nin `setup/imports.jsonl` biçimini yazan içe aktarıcı o
+dalda; çıkıştan önce gelir.
+Sınav kodunun sırası: E334 (`asama-0/10a`'yı izler), E335; Aşama 2 ve sonrasının sınav işi bunlardan sonra.
 Sonra etkinleştirme (`seed/founder/ETKINLESTIRME.md`).
 E364 (talimatta "Bilmediğin alan" görevi) `gaps/self-extension` dalında sahibin ifade onayını bekliyor; sınav planı mühürlü.
+
+**Operatörün boşluk listesi, düzeltilmiş (2026-10-31, uzman tartışması ve hakem).** G5'in önermesi yanlıştı: Kurucu alt
+ajan çalıştırdı (bir oturumda beş paralel, bir başkasında iki salt okunur denetçi); sıralı biçim talimatın "tek iş"
+kuralından gelir, bilerek seçilmiş bir kredi atama kuralıdır. G1'in zamanı yanlıştı: sahibin birleştirmesi Aşama
+6'dan önce olamaz (Y2: `main`'e merge Aşama 6'dan); Aşama 1'le gelen değer kanalı hayatta kalma, yanlış alarm ve
+düzeltme kabulüdür; bugün öğrenmeyi G1 değil seed-040 tıkar. G4 bayatlıktan öte bir çataldır: Kurucu'nun okuduğu
+`/work/target` ürünün `main`'i (`c6e23d0`) değil, operatörün yerel dalıdır (ürünün geçmişinden ayrılmış, hiç
+itilmemiş commit'lerle); bir sonraki planlı yeniden başlatmada `c6e23d0`'da ayrık, temiz bir klona geçer (insan
+dokunuşu olarak yazılır).

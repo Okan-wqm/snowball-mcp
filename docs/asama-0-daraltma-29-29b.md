@@ -11,6 +11,12 @@ kaymaz. `29b` 80 satır sınırında olduğu için durum, tohum dönemi, aşama 
 çıkış ve dürüstlük yeni `29e` sayfasına taşınır (tam metni §3). Uygulandıktan sonra: `29b` 79 satır, `29e` 64
 satır, `29` 72 satır.
 
+**Durum (2026-11-01, E390–E392).** `29e` bu adla var: Kurucu raporlarının yanıtı olarak "Kurucu kayıtları" ve
+"Sır desenli metin" paragraflarını taşır. `29b`'nin girişi (aktarım her çıkışta `import`) ve "Çıkış isteği"nin
+bayat cümleleri (`spec.lint`, `gate.lock`, "30 mikro özellik") düzeltildi. Aşağıdaki bloklar uygulanırken §3'ün
+metni `29e`'nin var olan iki paragrafına eklenir; `29b`'nin satır numaraları kaymıştır, bloklar alıntılanan eski
+ilk satırla eşlenir.
+
 ## 1. `spec/tohum/29-tohum-koltuklari.md`
 
 ### 29:16–18 → 4 satır

@@ -42,14 +42,23 @@ fi
 before=$(git -C /work/brain rev-parse HEAD 2>/dev/null || echo none)
 
 stamp=${SESSION_STAMP:-$(date -u +%Y%m%dT%H%M%SZ)}
+# The brain's own agent and skill definitions (E450): agents/ and skills/ of the clone's HEAD, read from git's objects
+# and checked here, become this session's plugin `brain` (and nothing else of the brain any configuration); what loaded
+# and what was skipped, and why, is /work/logs/brain-definitions.json. A broken definition never stops the session.
+python3 /opt/founder/brain_defs.py /work/brain "$CLAUDE_CONFIG_DIR/brain-plugin" /work/logs/brain-definitions.json \
+  || echo "brain definitions: the loader exited $?, the session starts without them" >&2
 cd /work/brain
 rc=0
+# Every default tool but four (E380): RemoteTrigger is the one whose effect can outlive the capsule (a routine in the
+# cloud); the Cron tools die with this process and were never used. Nothing else is narrowed.
 claude -p "$(cat /opt/founder/prompt.md)" \
   --model "${FOUNDER_MODEL:-claude-opus-5-5}" \
   --max-turns "${FOUNDER_MAX_TURNS:-200}" \
   --max-budget-usd "${FOUNDER_MAX_BUDGET_USD:-50}" \
   --setting-sources "" --no-session-persistence \
   --strict-mcp-config --mcp-config "$CLAUDE_CONFIG_DIR/no-mcp.json" \
+  --plugin-dir "$CLAUDE_CONFIG_DIR/brain-plugin" \
+  --disallowedTools "RemoteTrigger,CronCreate,CronDelete,CronList" \
   --dangerously-skip-permissions \
   --output-format stream-json --verbose \
   > "/work/logs/session-$stamp.jsonl" 2> "/work/logs/session-$stamp.err" || rc=$?

@@ -13,22 +13,24 @@ import sys
 import tarfile
 import tempfile
 import zipfile
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from . import canon, config, exitchecks, ghapi, gitio, ledgercheck, licenses, stages, state as st, wiring
-from .classify import LEDGER_FILE, SEED_DIRS, classify, is_founder_record, is_seed_path, spec_stage_dirs
+from . import canon, config, exitchecks, ghapi, gitio, ledgercheck, licenses, parts, stages, state as st, wiring
+from .classify import (LEDGER_FILE, REPORTS_DIR, SEED_DIRS, classify, is_founder_record, is_seed_path,
+                       spec_stage_dirs)
 from .container import DockerRunner
-from .controls import run_controls
-from .decide import OUTAGE_GIVE_UP_DAYS, OUTAGE_RETRY_LIMIT, decide, utc_now
+from .decide import OUTAGE_GIVE_UP_DAYS, OUTAGE_RETRY_LIMIT, REPORT_FIELDS, decide, utc_now
 from .importer import ImportErrorStop, run_import, verify_signature
 from .manifest import ManifestError, check_stage0, parse_lockfile, parse_manifest
-from .moduleless import run_module_less
+from .moduleless import run_module_less, units
+from .parts import PartError
 from .reproduce import run_reproducers, run_state_reproducers
 from .rival import (HIDDEN_DIRS, HIDDEN_NAMES, RivalOutcome, build_context, extract_seat_prompt, hidden, resolve_claude,
                     run_rival)
 from .treehash import path_problem, TreeError, extract, is_utf8_name, iter_files, shown, tree_hash
-from .vectors import fixtures, missing_groups, run_vectors
+from .vectors import applied, call_inputs, fixtures, missing_groups
 
 EXIT_FILE = "exit-request.json"
 MANIFEST_FILE = "snowball-tests.json"
@@ -107,15 +109,6 @@ def tar_page(tar_bytes: bytes, prefix: str) -> tuple[str, str] | None:
         if name.startswith(prefix) and name.endswith(".md"):
             return name, content.decode("utf-8", "replace")
     return None
-
-
-def is_green(controls: list[dict], tests: list[dict], vectors: list[dict], lic: list[dict],
-             module_less: list[dict] | None = None) -> bool:
-    """Green means: controls behaved, at least one test ran, every test, vector and wheel passed, and no test
-    stayed green without its micro-feature's module (nor did docker fail under one)."""
-    return (all(c["ok"] for c in controls) and bool(tests) and all(t["ok"] for t in tests)
-            and all(v["ok"] for v in vectors) and all(x["allowed"] for x in lic)
-            and not any(m["stayed_green"] or m["runner_fault"] for m in module_less or []))
 
 
 def remaining_budget(policy: config.Policy, prev: dict[str, Any]) -> int:
@@ -281,8 +274,9 @@ def cmd_fetch_state(args: argparse.Namespace) -> int:
                 (prev_dir / name).write_bytes(zf.read(name))
         verify_signature(prev_dir / "result.json", prev_dir / "result.json.sigstore.json",
                          args.identity, args.sigstore_python)
-        raw = read_json(prev_dir / "result.json")["state"]
-        carried = st.migrate(raw, utc_now())  # an older schema is carried forward, never thrown away (`25`)
+        signed = read_json(prev_dir / "result.json")
+        raw = signed["state"]
+        carried = st.migrate(raw, utc_now(), signed)  # an older schema is carried forward, never thrown away (`25`)
         if carried is not raw:
             summary(f"The previous state ({raw.get('schema')}) was carried forward to {st.SCHEMA}.")
         prev = st.rollover(st.validate(carried), month_now())
@@ -300,7 +294,7 @@ def cmd_pull(args: argparse.Namespace) -> int:
     policy = config.load_policy(root)
     summary_cfg = config.load_summary(root)
     # The seed's stage table is loaded here, outside the content guard below: a broken table stops the run
-    # (`29e` "Aşama ve parti tabloları") instead of turning into the Founder's `pull_error` rejection.
+    # (a seed defect, `26a`) instead of turning into the Founder's `pull_error` rejection.
     table = stages.load(0)
     prev = read_json(Path(args.state))
     repo = Path(args.work) / "brain.git"
@@ -315,15 +309,18 @@ def cmd_pull(args: argparse.Namespace) -> int:
     if summary_cfg.epoch is not None:  # outside the content guard: a wrong row is the operator's to fix
         _check_epoch(repo, summary_cfg.epoch)
     waived = config.load_waivers(root)
+    reverted = config.load_reverted_exits(root)  # the operator's file: a broken list stops the run, never a rejection
+    faults = exam_faults_in_force(repo, summary_cfg, config.load_exam_faults(root))
+    meta["exam_faults"] = faults
     try:
-        return _pull_classify(boot, policy, summary_cfg, table, prev, repo, base, head, meta, out, waived)
+        return _pull_classify(boot, policy, summary_cfg, table, prev, repo, base, head, meta, out, waived, reverted)
     except (ValueError, TypeError, KeyError, IndexError, AttributeError, RecursionError) as exc:
         # Content of the commit broke a step that should have named it. Rejecting it is the only safe
         # answer that does not wedge the referee: without a signed result the same head comes back every
         # hour and nothing is ever parked (E02). Git, network and operator-file errors still stop the run.
         print(f"::warning::pull could not classify {head}: {type(exc).__name__}: {str(exc)[:200]!r}")
         meta = _pull_meta(head, base, prev)
-        meta.update(kind="rejected", pre_reasons=["pull_error"], waived=waived)
+        meta.update(kind="rejected", pre_reasons=["pull_error"], waived=waived, exam_faults=faults)
         write_json(out / "meta.json", meta)
         output(skip=False, kind="rejected", head=head, run_tests=False, run_rival=False, repro=False)
         return 0
@@ -334,7 +331,54 @@ def _pull_meta(head: str, base: str, prev: dict[str, Any]) -> dict[str, Any]:
             "kind": "none", "changed": [], "pre_reasons": [], "evaluate": True,
             "run_tests": False, "run_rival": False, "manifest": None, "exit_request": None, "exit_request_sha256": None,
             "referee_tree_sha256": None, "spec_dir_hashes": {}, "state_repro": [], "reuse_rival": False,
-            "waived": [], "module_less": [], "exit_checks": {}, "toy_tree_sha256": None, "honesty_exception": None}
+            "waived": [], "module_less": [], "exit_checks": {}, "toy_tree_sha256": None, "honesty_exception": None,
+            "reports": [], "exam_faults": []}
+
+
+def exam_faults_in_force(repo: Path, summary_cfg: config.Summary, faults: list[config.ExamFault]) -> list[str]:
+    """The signatures of the operator's confirmed exam faults still in force (`29e` "Sınav hatası", E53, E426). An
+    entry holds while the exam that judged its head is the one in force: while the last seed epoch's commit (the setup
+    seed's when none was delivered) is an ancestor of the head. The next epoch, which brings the exam's fix, ends it
+    by itself, so an entry left in place never keeps a later failure of the fixed exam off the Founder's streaks. A
+    head the brain does not have is the operator's mistake: the run stops (git's own failure stops it too, E384)."""
+    exam = summary_cfg.epoch.commit if summary_cfg.epoch is not None else summary_cfg.seed_commit
+    held: set[str] = set()
+    for fault in faults:
+        if not gitio.has_commit(repo, fault.head):
+            raise config.ConfigError(f"control.json exam_faults names {fault.head}, which the brain does not have")
+        if gitio.is_ancestor(repo, exam, fault.head):
+            held.add(fault.signature)
+    return sorted(held)
+
+
+MAX_REPORTS = 200
+MAX_REPORT_FIELD = 500
+
+
+def read_reports(tar_bytes: bytes) -> list[dict[str, Any]]:
+    """The brain's reports (`26c` reports/*.json, E93): every regular file directly under the root `reports/` whose name
+    ends in `.json`, by path, as ``{id, kind, ref, state, sha256}``; the hash is of the file's bytes. A field that is
+    missing, not a string or longer than ``MAX_REPORT_FIELD``, or any field of a file that is not one JSON object, is
+    null: the reader names what a report holds and never turns a report into a reason (it is the Founder's memory, not
+    its code). An archive with something other than regular files has no reports to read here: `pull` names that."""
+    found: list[tuple[str, dict[str, Any]]] = []
+    try:
+        for path, content, _exec in iter_files(tar_bytes):
+            if len(path.parts) != 2 or path.parts[0] != REPORTS_DIR.rstrip("/") or not path.name.endswith(".json"):
+                continue
+            try:
+                data = json.loads(content.decode("utf-8"))
+            except (UnicodeDecodeError, ValueError, RecursionError):
+                data = None
+            row: dict[str, Any] = {}
+            for key in REPORT_FIELDS:
+                value = data.get(key) if isinstance(data, dict) else None
+                row[key] = value if isinstance(value, str) and len(value) <= MAX_REPORT_FIELD else None
+            row["sha256"] = hashlib.sha256(content).hexdigest()
+            found.append((path.as_posix(), row))
+    except TreeError:
+        return []
+    return [row for _path, row in sorted(found, key=lambda item: item[0])][:MAX_REPORTS]
 
 
 def seed_trees(tar_bytes: bytes) -> tuple[str | None, str | None]:
@@ -362,7 +406,8 @@ def _check_epoch(repo: Path, epoch: config.SeedEpoch) -> None:
 def _seed_update(repo: Path, base: str, head: str, meta: dict[str, Any], out: Path, waived: list[str]) -> int:
     """The operator's seed delivery itself (`25` 10b): nothing in it is the Founder's, so nothing is judged (E88)."""
     changed = gitio.changed_paths(repo, base, head) if gitio.has_commit(repo, base) else []
-    meta.update(kind="seed_update", changed=[shown(p) for p in changed], waived=waived)
+    meta.update(kind="seed_update", changed=[shown(p) for p in changed], waived=waived,
+                reports=read_reports(gitio.archive(repo, head)))  # the brain's reports are named on every result
     write_json(out / "meta.json", meta)
     output(skip=False, kind="seed_update", head=head, run_tests=False, run_rival=False, repro=False)
     return 0
@@ -385,10 +430,27 @@ def _base_done(repo: Path, base: str) -> set[int]:
         return set()
 
 
+EXIT_MAY_CHANGE = ("candidates/", "targets/")  # what (B) may change after (A) (`asama-0/10a`, `asama-0/11`)
+
+
+def exit_freeze(prev: dict[str, Any], reverted: list[str], stage: int) -> tuple[bool, bool]:
+    """(frozen, released) for the accepted exit the signed state names (E333). From (A) the brain stays the one the
+    exit was accepted with, but for (B)'s candidates and targets, while Stage 0 is open (`asama-0/11`); the operator's
+    revert of the transfer after a red (B), named in ``control.json`` ``reverted_exits``, or a lock that opened a later
+    stage ends it, and the state forgets that exit (`asama-0/10a` "Başarısızlık": the corrected SHA goes through (A)
+    again)."""
+    sha = prev.get("exit_accepted_sha")
+    if not sha:
+        return False, False
+    released = stage != 0 or sha in reverted
+    return not released, released
+
+
 def _pull_classify(boot: config.Bootstrap, policy: config.Policy, summary_cfg: config.Summary,
                    table: stages.StageTable, prev: dict[str, Any], repo: Path, base: str, head: str,
-                   meta: dict[str, Any], out: Path, waived: list[str]) -> int:
+                   meta: dict[str, Any], out: Path, waived: list[str], reverted: list[str]) -> int:
     epoch = summary_cfg.epoch
+    frozen, meta["exit_released"] = exit_freeze(prev, reverted, table.stage)
     if epoch is not None and head == epoch.commit:
         return _seed_update(repo, base, head, meta, out, waived)
     pre: list[str] = []
@@ -407,6 +469,7 @@ def _pull_classify(boot: config.Bootstrap, policy: config.Policy, summary_cfg: c
     tar_bytes = gitio.archive(repo, head)
     readable = not {"non_utf8_path", "unsafe_path"} & set(pre)
     trees = seed_trees(tar_bytes) if readable else (None, None)
+    meta["reports"] = read_reports(tar_bytes) if readable else []  # `26c`, E93: named in the signed result
     # While the head's seed is the last epoch's commit's, the seed paths in the diff from the last accepted commit are
     # the operator's delivery, not the Founder's change (`25` 10b, E88); any other seed is checked below. Git compares
     # them: a mode change counts (the tree hashes leave the executable bit out) and an unreadable tree is no excuse
@@ -428,6 +491,14 @@ def _pull_classify(boot: config.Bootstrap, policy: config.Policy, summary_cfg: c
         pre += reasons
         if EXIT_FILE in judged and not left_in_place:
             pre.append("exit_request_not_alone")
+    if frozen and kind in ("spec", "code", "exit"):
+        # After (A) the referee tree is the one the exit was accepted with: the import copies it and the loop runs
+        # it; only (B)'s candidates and targets may change, the Founder's memory beside them (`asama-0/10a`
+        # "Başarısızlık", `asama-0/11`, `25a` 8; E333).
+        moved = [p for p in own if not is_founder_record(p) and not p.startswith(EXIT_MAY_CHANGE)]
+        if any(p.startswith("referee/") for p in moved):
+            pre.append("referee_changed_after_exit")
+        pre += [f"changed_after_exit:{p}" for p in moved if not p.startswith("referee/")][:20]
     if {"base_unreachable", "history_rewritten", "non_utf8_path", "unsafe_path"} & set(pre):  # nothing can be read safely
         kind = "rejected"
     pre += [f"not_regular_file:{x}" for x in gitio.special_entries(repo, head)][:20]
@@ -592,8 +663,21 @@ def _runner(boot: config.Bootstrap, src: Path, deps: Path, vectors: Path, lockfi
                         vectors_dir=str(vectors.resolve()), lockfiles=tuple(lockfiles))
 
 
-def cmd_run_tests(args: argparse.Namespace) -> int:
-    root, pulled, out = Path(args.root), Path(args.pulled), Path(args.out)
+@dataclass(frozen=True)
+class Kos:
+    """One push as `kos` reads it from the verified snapshot, pulled tree and wheels: the same for every part and the
+    join (E440)."""
+
+    boot: config.Bootstrap
+    table: stages.StageTable
+    meta: dict[str, Any]
+    tar_bytes: bytes
+    src: Path
+    push: parts.Push
+
+
+def _kos(args: argparse.Namespace) -> Kos:
+    root, pulled = Path(args.root), Path(args.pulled)
     boot = config.load_bootstrap(root)
     policy = config.load_policy(root)
     table = stages.load(0)
@@ -603,35 +687,65 @@ def cmd_run_tests(args: argparse.Namespace) -> int:
     extract(tar_bytes, src, boot.limits.max_tree_bytes)
     manifest = meta["manifest"]
     done = tuple(manifest["done_mf"])
-    lic = licenses.check_dir(Path(args.deps), policy.license_allowlist, policy.license_exceptions)
+    groups = applied(root / "vectors", done, table=table, tree=src)
+    push = parts.Push(
+        head=meta.get("head"), tests=[t for t in manifest["tests"] if t["stage"] == 0], groups=groups,
+        asked=call_inputs(groups),
+        units=[(k, t["id"]) for k, t in units(table, meta.get("module_less") or [], manifest["tests"])],
+        lic=licenses.check_dir(Path(args.deps), policy.license_allowlist, policy.license_exceptions),
+        missing=missing_groups(root / "vectors", done, table, tree=src))
+    return Kos(boot, table, meta, tar_bytes, src, push)
+
+
+def _run_part(args: argparse.Namespace, kos: Kos, part: int, count: int) -> dict[str, Any]:
+    """Part ``part`` of ``count`` in this job's own sandbox: containers with the pushed tree, the locked wheels and
+    `/vec`; module-less red on its own trees."""
+    root, boot, manifest = Path(args.root), kos.boot, kos.meta["manifest"]
     vec = fixtures(root / "vectors", Path(args.work) / "vec")  # `/vec` without the expected values
-    runner = _runner(boot, src, Path(args.deps), vec, manifest["lockfiles"])
-    controls = run_controls(runner)
-    tests: list[dict[str, Any]] = []
-    vectors: list[dict[str, Any]] = []
-    module_less: list[dict[str, Any]] = []
-    if all(c["ok"] for c in controls):
-        for t in (x for x in manifest["tests"] if x["stage"] == 0):
-            res = runner.run(t["cmd"], timeout_s=boot.limits.test_timeout_s)
-            tail = (res.stdout + b"\n" + res.stderr).decode("utf-8", "replace")[-4000:]
-            tests.append({"id": t["id"], "cmd_sha256": hashlib.sha256(t["cmd"].encode()).hexdigest(),
-                          "exit": res.exit_code, "timed_out": res.timed_out, "duration_ms": res.duration_ms,
-                          "stdout_sha256": hashlib.sha256(res.stdout).hexdigest(),
-                          "stderr_sha256": hashlib.sha256(res.stderr).hexdigest(),
-                          "ok": res.ok, "output_tail": tail})
-        vectors = run_vectors(runner, root / "vectors", done, table=table, tree=src)
-        if is_green(controls, tests, vectors, lic):  # a red push is rejected anyway: spare the containers
-            module_less = run_module_less(
-                lambda tree: _runner(boot, tree, Path(args.deps), vec, manifest["lockfiles"]),
-                tar_bytes, Path(args.work) / "module-less", table, meta.get("module_less") or [],
-                manifest["tests"], boot.limits.test_timeout_s, boot.limits.max_tree_bytes)
-    green = is_green(controls, tests, vectors, lic, module_less)
-    write_json(out / "run.json", {"controls": controls, "tests": tests, "vectors": vectors, "licenses": lic,
-                                  "module_less": module_less,
-                                  "vector_groups_missing": missing_groups(root / "vectors", done, table, tree=src),
-                                  "green": green})
-    output(green=green)
+    runner = _runner(boot, kos.src, Path(args.deps), vec, manifest["lockfiles"])
+
+    def module_less(mine: Any) -> list[dict[str, Any]]:
+        return run_module_less(
+            lambda tree: _runner(boot, tree, Path(args.deps), vec, manifest["lockfiles"]),
+            kos.tar_bytes, Path(args.work) / "module-less", kos.table, kos.meta.get("module_less") or [],
+            manifest["tests"], boot.limits.test_timeout_s, boot.limits.max_tree_bytes, mine=mine)
+    return parts.run_part(kos.push, part, count, runner, boot.limits.test_timeout_s, module_less)
+
+
+def _write_run(out: Path, run: dict[str, Any]) -> int:
+    write_json(out / "run.json", run)
+    output(green=run["green"])
     return 0
+
+
+def cmd_run_tests(args: argparse.Namespace) -> int:
+    """`kos` in one job: the push as one part, joined at once (E440). The workflow runs `run-part` in parallel jobs and
+    `join-parts` after them; on the same answers both write this `run.json`."""
+    kos = _kos(args)
+    return _write_run(Path(args.out), parts.join(kos.push, [_run_part(args, kos, 0, 1)]))
+
+
+def cmd_run_part(args: argparse.Namespace) -> int:
+    """One part of `kos` (E440): `part.json`, what this part ran and every vector call's answer; it judges nothing."""
+    part, count = parts.part_of(args.part)
+    kos = _kos(args)
+    write_json(Path(args.out) / "part.json", _run_part(args, kos, part, count))
+    return 0
+
+
+def cmd_join_parts(args: argparse.Namespace) -> int:
+    """`run.json` from every part's `part.json`, each read from its artifact only if the artifact's hash is the one its
+    job output named (``--part TAR=SHA``, in part order). A part without its artifact or its hash stops the join."""
+    kos = _kos(args)
+    records = []
+    for place, item in enumerate(args.part or []):
+        tar, _sep, sha = item.rpartition("=")
+        if not sha or not Path(tar).is_file():
+            raise PartError(f"part {place}: no artifact or no hash ({item!r}): the part did not finish")
+        dest = Path(args.work) / f"part-{place}"
+        unpack(Path(tar), sha, dest)
+        records.append(read_json(dest / "part.json"))
+    return _write_run(Path(args.out), parts.join(kos.push, records))
 
 
 def _pages(tar_bytes: bytes, kind: str) -> dict[str, str]:
@@ -824,6 +938,10 @@ def build_parser() -> argparse.ArgumentParser:
     add("pull", cmd_pull, root, ("--state", req), ("--work", req), ("--out", req), ("--remote", {}))
     add("fetch-deps", cmd_fetch_deps, ("--pulled", req), ("--work", req), ("--out", req))
     add("run-tests", cmd_run_tests, root, ("--pulled", req), ("--deps", req), ("--work", req), ("--out", req))
+    add("run-part", cmd_run_part, root, ("--part", {"required": True, "help": "K/N: part K of N, from 0 (E440)"}),
+        ("--pulled", req), ("--deps", req), ("--work", req), ("--out", req))
+    add("join-parts", cmd_join_parts, root, ("--pulled", req), ("--deps", req), ("--work", req), ("--out", req),
+        ("--part", {"action": "append", "help": "TAR=SHA256 of each part's artifact, in part order"}))
     add("rival", cmd_rival, root, ("--pulled", req), ("--work", req), ("--out", req),
         ("--claude", {"help": "path of the claude CLI (default: the one on PATH)"}))
     add("reproduce", cmd_reproduce, root, ("--pulled", req), ("--deps", req), ("--rival", req),
@@ -845,6 +963,6 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
         return args.fn(args)
-    except (config.ConfigError, ImportErrorStop, gitio.GitError, TreeError) as exc:
+    except (config.ConfigError, ImportErrorStop, gitio.GitError, TreeError, PartError) as exc:
         print(f"stop: {exc}", file=sys.stderr)
         return 2

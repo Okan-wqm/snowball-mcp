@@ -138,7 +138,8 @@ class World:
             "stage_budgets": {"asama_0": {"rival_usd": 30}},
             "license_allowlist": ["MIT", "Apache-2.0"], "license_exceptions": {}}}))
         (self.root / "control.json").write_text(json.dumps({"kill_switch": False, "budget_state": "ok"}))
-        self.state = {"schema": "snowball-bootstrap-state/3", "origin": "initial", "last_accepted_sha": seed,
+        self.state = {"schema": canary.st.SCHEMA, "origin": "initial", "last_accepted_sha": seed,
+                      "exit_accepted_sha": None,
                       "last_evaluated_sha": None, "frozen_specs": {}, "rival_artifacts": [], "month": "2026-10",
                       "month_spend_usd_micros": 0, "stage_spend_usd_micros": 0, "runs": 0, "reject_streaks": {},
                       "repeat_events": 0, "outage_sha": None, "outage_count": 0, "outage_since": None,

@@ -3,7 +3,8 @@
 # start from a file the operator mounts read-only: a fine-grained GitHub token that can write only the brain
 # repository, and the system's own Claude login token. Its Claude configuration is fresh in every session,
 # with no project or local settings, no MCP servers and no auto-memory, so nothing the Founder commits to
-# the brain repository can widen its own permissions in the next session.
+# the brain repository can widen its own permissions in the next session. The brain's agents/ and skills/
+# load as a plugin only after brain_defs.py has checked them (E450): their tools inside the capsule's own.
 FROM docker.io/library/node:22-bookworm-slim@sha256:4b150b48b4116e2a22f2c39cc27025fbf4f153e2078fd3b14d159fdb5c7279da AS node
 
 FROM docker.io/library/python:3.12-slim@sha256:aa943ce411423c7582288f18707ff66eddcbaeb510502d747a72aeb34f30d159
@@ -24,6 +25,7 @@ RUN npm ci --prefix /opt/claude-cli --no-audit --no-fund \
 RUN useradd --create-home --uid 10001 founder
 COPY founder/entrypoint.sh /opt/founder/entrypoint.sh
 COPY founder/prompt.md /opt/founder/prompt.md
+COPY founder/brain_defs.py /opt/founder/brain_defs.py
 RUN chmod 0555 /opt/founder/entrypoint.sh
 
 ENV DISABLE_AUTOUPDATER=1 \

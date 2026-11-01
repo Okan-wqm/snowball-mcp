@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import math
 import shlex
@@ -32,6 +33,22 @@ EVERY_GROUP = stages.parse_table(json.dumps({"stage": 0, "mfs": [
     {"mf": 2, "tests": [28], "groups": ["cp_lower", "mcnemar", "match"], "module": "harness/stats.py", "calls": []},
     {"mf": 3, "tests": [990], "groups": ["drill"], "module": "harness/drill.py", "calls": []}]}), 0)
 STATS, DRILL = (1, 2), (3,)
+BOOTSTRAP_YML = (Path(__file__).resolve().parents[1] / "workflow" / "bootstrap.yml").read_text(encoding="utf-8")
+
+
+def workflow_job(name: str, text: str = BOOTSTRAP_YML) -> str:
+    """One job of the referee's `bootstrap.yml`, its key line left out."""
+    import re
+    found = re.search(rf"(?ms)^  {name}:\n(.*?)(?=^  \S|\Z)", text)
+    if not found:
+        raise AssertionError(f"bootstrap.yml has no job {name}")
+    return found.group(1)
+
+
+def kos_part_count() -> int:
+    """How many parts `kos` runs in (E440): the matrix of `kos_parca`."""
+    import re
+    return len(json.loads(re.search(r"(?m)^        part: (\[[0-9, ]+\])", workflow_job("kos_parca")).group(1)))
 
 
 ZERO_HASH = "0" * 64
@@ -50,6 +67,28 @@ def ledger_rows(count: int, start: int = 1, prev: str = ZERO_HASH, edits: dict[i
         prev = row["row_hash"]
         rows.append(row)
     return rows
+
+
+def quiet_pilot(launch):
+    """The launcher's Pilot with the end of the cycle's reads of GitHub and the target, and its one write (the cost row),
+    stubbed: a test of another part of the cycle never reaches the network. Those parts have their own tests
+    (`test_founder_capsule` `CostRowTest`, `CycleRecordTest`)."""
+    class Quiet(launch.Pilot):
+        cost_calls: list = []
+
+        def record_cost(self, stamp, sess, head, last_accepted):
+            self.cost_calls = [*self.cost_calls, (stamp, head, last_accepted)]
+            return "stub"
+
+        def observe(self, head):
+            return {"spec_tohum_tree": "t" * 40, "target_sha": "c" * 40, "reports_open": []}
+
+        def memory_alone(self, prior, head):  # a clone of the brain; `CostRowTest` reads a mirror
+            return False
+
+        def verdict_on(self, head):  # the referee's artifacts; `PreviousSessionTest` tests the look-up
+            return None
+    return Quiet
 
 
 def ledger_bytes(rows: list[dict]) -> bytes:
@@ -443,6 +482,44 @@ def make_repo(path: Path, files: dict[str, str]) -> str:
     sh(path, "git", "config", "user.email", "t@example.invalid")
     sh(path, "git", "config", "user.name", "t")
     return commit(path, files, "seed")
+
+
+FOUNDER_DIR = Path(__file__).resolve().parents[2] / "founder"
+
+
+def load_brain_defs():
+    """The capsule's loader of the brain's agent and skill definitions (`seed/founder/brain_defs.py`, E450)."""
+    spec = importlib.util.spec_from_file_location("founder_brain_defs", FOUNDER_DIR / "brain_defs.py")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module  # its dataclasses look their module up there
+    spec.loader.exec_module(module)
+    return module
+
+
+def definition(name: str, description: str = "Reviews code.", body: str = "You review.\n",
+               extra: dict[str, str] | None = None) -> bytes:
+    """A definition file in the brain's format (`brain_defs`): front matter, then the body."""
+    keys = [f"name: {name}", f"description: {description}"] + [f"{k}: {v}" for k, v in (extra or {}).items()]
+    return "\n".join(["---", *keys, "---", body]).encode("utf-8")
+
+
+def tree_repo(path: Path, entries: dict[str, bytes | tuple[str, bytes]]) -> str:
+    """A repository whose one commit holds exactly these entries, written through git's index alone (no working tree,
+    no line-end filter): bytes are a regular file; (mode, data) gives the mode, 100755, 120000 (a symbolic link whose
+    target is data) or 160000 (a submodule at the commit data names). The same on Windows, where a link cannot be
+    checked out."""
+    path.mkdir(parents=True, exist_ok=True)
+    sh(path, "git", "init", "-q", "-b", "main")
+    sh(path, "git", "config", "user.email", "t@example.invalid")
+    sh(path, "git", "config", "user.name", "t")
+    for rel, spec in entries.items():
+        mode, data = spec if isinstance(spec, tuple) else ("100644", spec)
+        sha = data.decode("ascii") if mode == "160000" else subprocess.run(
+            ["git", "hash-object", "-w", "--stdin"], cwd=path, input=data, capture_output=True, check=True
+        ).stdout.decode("ascii").strip()
+        sh(path, "git", "update-index", "--add", "--cacheinfo", f"{mode},{sha},{rel}")
+    sh(path, "git", "commit", "-q", "--allow-empty", "-m", "brain")
+    return sh(path, "git", "rev-parse", "HEAD")
 
 
 def commit(path: Path, files: dict[str, str | bytes | None], message: str) -> str:

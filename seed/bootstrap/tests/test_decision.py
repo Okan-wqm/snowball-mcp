@@ -11,7 +11,7 @@ import unittest
 import zipfile
 from pathlib import Path
 
-from snowball_bootstrap import cli, decide as decide_module, ghapi, state as st
+from snowball_bootstrap import cli, decide as decide_module, ghapi, parts, state as st
 from snowball_bootstrap.classify import classify
 from snowball_bootstrap.config import ConfigError, Policy
 from snowball_bootstrap.container import RunResult
@@ -32,12 +32,12 @@ UNCHECKED = [decide_module.NOT_CHECKED + anchor
 
 
 def state0(**kw):
-    s = {"schema": "snowball-bootstrap-state/3", "origin": "artifact", "last_accepted_sha": A,
+    s = {"schema": "snowball-bootstrap-state/4", "origin": "artifact", "last_accepted_sha": A,
          "last_evaluated_sha": None, "frozen_specs": {}, "rival_artifacts": [], "month": "2026-10",
          "month_spend_usd_micros": 1000, "stage_spend_usd_micros": 2000, "runs": 4, "reject_streaks": {},
          "repeat_events": 0, "outage_sha": None, "outage_count": 0, "outage_since": None, "outage_stop": None,
          "rival_side_streak": 0, "open_refutations": [], "open_claims": [], "pending_rival": None,
-         "rejected_exit_request": None}
+         "rejected_exit_request": None, "exit_accepted_sha": None}
     s.update(kw)
     return s
 
@@ -552,10 +552,10 @@ class SmallGates(unittest.TestCase):
     def test_is_green_needs_every_part(self):  # L22 L23 L24
         ok, bad = [{"ok": True}], [{"ok": False}]
         lic = [{"allowed": True}]
-        self.assertTrue(cli.is_green(ok, ok, ok, lic))
-        self.assertFalse(cli.is_green(bad, ok, ok, lic))
-        self.assertFalse(cli.is_green(ok, bad, ok, lic))
-        self.assertFalse(cli.is_green(ok, ok, bad, lic))
+        self.assertTrue(parts.is_green(ok, ok, ok, lic))
+        self.assertFalse(parts.is_green(bad, ok, ok, lic))
+        self.assertFalse(parts.is_green(ok, bad, ok, lic))
+        self.assertFalse(parts.is_green(ok, ok, bad, lic))
 
     def test_a_container_that_the_host_killed_once_is_asked_again_before_the_judge_is_blamed(self):
         """Under load a vector container was killed and two vectors were recorded as the Founder's failure."""

@@ -4,6 +4,8 @@
   "entries": [
     {"id": "E154", "unit": "MF1", "why": "the Founder read an old solution of MF1 in the brain's history: MF1 is not its own work"},
     {"id": "E248", "head": "d0dc43326155a82c8baa349cf68d3de062ed3524", "why": "a blind push: the session started during an outage and never saw MF15's rejection"},
-    {"id": "E260", "head": "f668776f6cdfb5089b24b3aedbde3f7dec60624f", "why": "rejected by a reproducer whose polarity was inverted; the operator waived 027465767d2d46dc"}
+    {"id": "E260", "head": "f668776f6cdfb5089b24b3aedbde3f7dec60624f", "why": "rejected by a reproducer whose polarity was inverted; the operator waived 027465767d2d46dc"},
+    {"id": "E306", "head": "957f5f64db1e94c29877eca4c56bf74a68e5bdce", "why": "rejected only by a vector that contradicted the referee's accepted refutation 04585388fd8833de"},
+    {"id": "E306", "head": "2bea5679da26b6c0199883df3f0c366dee8533c0", "why": "the same contradicting vector; the Founder kept its correct rule"}
   ]
 }
