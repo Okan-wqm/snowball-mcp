@@ -110,7 +110,9 @@ them in a `python:3.12-slim` container with git installed. Five more checks go b
   per mode, the plants found and the false refutations on controls, each with both one-sided 90% Clopper-Pearson
   bounds, and keeps every request and transcript in the private folder. Without `--live` the rival is a fake that
   knows each oracle (a positive control that spends nothing, whose screens the live run reuses); `--live` spends
-  through your own `claude` login. It never pushes anything.
+  through your own `claude` login. When the live referee moves on after a batch was screened, `--referee-ref <commit>`
+  reviews it against that commit, only while the live head runs the same rival (seat prompt, config, rival code, CLI
+  pin); the result names both commits. It never pushes anything.
 
 One limit of running the rival on Windows: the MCP server's per-call deadline for a model-chosen regex uses the POSIX
 interval timer, so there it does not exist and a runaway `grep` ends only at the CLI timeout. Run the rival on Linux
