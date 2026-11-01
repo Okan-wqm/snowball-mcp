@@ -94,14 +94,21 @@ them in a `python:3.12-slim` container with git installed. Five more checks go b
   rival refutes.
 - `tests/test_live_cli.py` runs when `claude` is on `PATH`. It spends nothing (a made-up token) and fails
   when the CLI renames a flag or changes its output format.
-- `python3 local/canary.py --work <private folder> --referee <referee clone> [--live]`, run from `seed/bootstrap`
-  (needs git and Docker), measures the rival itself (register E126, E311): it plants one known defect at a time
-  from `local/canary_catalog.json` into the last accepted brain commit, in a repository of its own, and has the
-  push judged with the referee's own `pull`, `rival`, `reproduce` and `decide`; each plant's oracle, never shown to
-  the rival, proves the defect is real, and the plant's covering tests must stay green. It reports recall per defect
-  kind with the seed's lower bound and false refutations on defect-free controls, and keeps every request and
-  transcript in the private folder. Without `--live` the rival is a fake that knows each oracle (a positive control
-  that spends nothing); `--live` spends through your own `claude` login. It never pushes anything.
+- `python3 local/canary.py --work <private folder> [--mode buried] [--live] [--max-usd N]`, run from
+  `seed/bootstrap` (needs git and Docker), measures the rival itself (register E126, E311). Every run clones the live
+  referee repository afresh and runs its `bootstrap/` code with its `bootstrap.json`, seat prompt and vectors; every
+  record names the referee commit and the seat prompt's hash. Each entry of `local/canary_catalog.json` is one push:
+  a whole-diff entry plants one known defect into the last accepted brain commit, a buried entry plants it inside a
+  real accepted multi-module push of the brain, replayed against that push's parent, so the rival reviews the whole
+  real diff with the defect somewhere in it; controls are behaviour-preserving refactors. The pushes sit, in a
+  repository of the canary's own, on a history holding every seed epoch the live summary names, and are judged with
+  the referee's own `pull`, `run-tests` (every stage-0 test, every finished micro-feature's vectors, module-less red,
+  one container at a time; a clean head it turns red stops the batch before any review), `rival`, `reproduce` and
+  `decide`; each plant's oracle, never shown to the rival, proves the defect is real. It reports recall per kind and
+  per mode, the plants found and the false refutations on controls, each with both one-sided 90% Clopper-Pearson
+  bounds, and keeps every request and transcript in the private folder. Without `--live` the rival is a fake that
+  knows each oracle (a positive control that spends nothing, whose screens the live run reuses); `--live` spends
+  through your own `claude` login. It never pushes anything.
 
 One limit of running the rival on Windows: the MCP server's per-call deadline for a model-chosen regex uses the POSIX
 interval timer, so there it does not exist and a runaway `grep` ends only at the CLI timeout. Run the rival on Linux

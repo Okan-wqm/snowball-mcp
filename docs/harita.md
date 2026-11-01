@@ -16,7 +16,7 @@ Read from the code: the jobs, `needs:` and commands of `seed/bootstrap/workflow/
 
 ## 1. System flow
 
-14 nodes, 22 edges. A job box lists the `snowball_bootstrap` commands it runs, in order. Job arrows leave out dependencies another path already implies; the table lists every `needs:`. A seed epoch is the operator's delivery of `spec/tohum/` and `seed/` to the brain, with the `seed_epochs` row the referee checks on its next pull (`seed/founder/README.md`).
+14 nodes, 23 edges. A job box lists the `snowball_bootstrap` commands it runs, in order. Job arrows leave out dependencies another path already implies; the table lists every `needs:`. A seed epoch is the operator's delivery of `spec/tohum/` and `seed/` to the brain, with the `seed_epochs` row the referee checks on its next pull (`seed/founder/README.md`).
 
 ```mermaid
 flowchart LR
@@ -60,6 +60,7 @@ flowchart LR
   operator -.->|plants a known defect: rival recall| canary
   brain -.->|read-only mirror, plants stay local| canary
   canary -.->|the referee rival command on the planted push| rival
+  referee -.->|a fresh read-only clone: its code, seats, vectors| canary
 ```
 
 | Job | needs | Runs | Permissions | Secrets |

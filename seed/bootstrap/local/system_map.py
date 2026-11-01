@@ -63,6 +63,7 @@ LINKS = (
     ("operator", "canary", "plants a known defect: rival recall", (CANARY, r"--live")),
     ("brain", "canary", "read-only mirror, plants stay local", (CANARY, r"gitio\.fetch\(mirror")),
     ("canary", "rival", "the referee rival command on the planted push", (CANARY, r'\["rival", "--root"')),
+    ("referee", "canary", "a fresh read-only clone: its code, seats, vectors", (CANARY, r"def fresh_referee_clone")),
 )
 # Which area of the referee package a module belongs to (a role, which the code cannot say). A module missing here is
 # drawn under UNPLACED, so a new module shows up on the map before anyone files it.
