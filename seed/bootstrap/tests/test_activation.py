@@ -692,15 +692,18 @@ class ImportChecksObjectsTest(ImportCase):
 
     def test_what_would_be_pushed_is_checked_before_the_first_push(self):  # import_unchecked_before_push import_fsck_not_strict
         """The brain's objects reached the import's repository with the referee's clone (a branch of the referee
-        repository holds the brain commit), so the fetch checks nothing; git's strict check of the repository refuses
-        before the toy is pushed, where the referee's remote would have refused after it."""
-        git_in(self.referee, "config", "receive.fsckObjects", "true")
-        for kind in ("treeNotSorted", "zeroPaddedFilemode"):
-            with self.subTest(kind=kind):
+        repository holds the brain commit), so the fetch checks nothing; git's strict check of the repository holding
+        both new commits refuses before anything is pushed: no object git refuses is pushed, whichever way it came."""
+        for kind, other in (("treeNotSorted", "zeroPaddedFilemode"), ("zeroPaddedFilemode", "treeNotSorted")):
+            with self.subTest(kind=kind):  # each its own referee repository: one bad object at a time
+                self.referee = bare_repo(self.work / f"referee-{kind}.git",
+                                         dict(OPERATOR_FILES, **{"control.json": CONTROL_ON}))
+                git_in(self.referee, "config", "receive.fsckObjects", "true")
                 self.brain_with_a_bad_tree(kind)
-                git_in(self.referee, "fetch", "-q", str(self.brain), f"{self.sha}:refs/heads/brain-{kind}")
+                git_in(self.referee, "fetch", "-q", str(self.brain), f"{self.sha}:refs/heads/brain-copy")
                 said = self.refused("git's object check refuses what the import would push (E479): nothing was pushed")
                 self.assertIn(kind, said)
+                self.assertNotIn(other, said)
 
 
 # ---------------------------------------------------------------- the batch transfer (`asama-1/13` 3, E378)
