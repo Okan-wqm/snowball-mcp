@@ -251,7 +251,7 @@ hepsi yazılıdır. Bulguları birleştiren ve doğrulayan: Claude Code (Opus 5.
 | E270 | MF14–MF18 sözleşmelerinin spec sessiz olduğu için bilerek yaptığı seçimler. `revert_drill`: HMAC'in SHA-256 olması, anahtarı tohum ve iletisi `cycle_id` (taahhüdü yazan önceki devrin kimliği), kod noktası sırasında `mod N` eşlemesi (N = 3'te 256 ≡ 1 olduğu için hiçbir vaka bayt sırasını ayıramaz; sayfa büyük-sonlu der), katalog biçimi, anahtar `{cycle_id, selection, instance_id, cause}`, `commit`/`reveal` ayrımı (`commit`'in anahtarı yazmaması sayfa kuralıdır, veri koşucusu sabitleyemez), satır sözcükleri, neden adları, "önceki devir"in yalnız zincir sırası olması; `not_planted` vakasız (son ekme ve ondan önceki son taahhüt `last_of_several_drills`'te, inceleme 6). `prompt`: şablon biçimi, tek geçişli RFC 8785 yerleştirme, bildirilmeyen alanın reddedilmeyip düşmesi, hash'in yalnız kurulan metni kapsaması (rakip sistem metnini de hash'ler, `rival.py:748`), mikroya çevrilmiş bütçe, `min(çağrı tavanı, kalan)`, neden adları; sunulan model, 429 ve `cost` satırı (test 37) grupta değil, `argv` karşılaştırılmaz (E196'nın sınırı). `status`: düzenleme tespiti (`events`/`status` satırındaki blok hash'i), işaret satırları, `status_edited`, `cycle_start` ve `decision` türleri, taban yaşının yalnız süre olması (`07:12-13`'ün commit sayısının Aşama 0'da üreticisi yok), insan dokunuşunun `imports.jsonl`'ın her satırı olması (spec öbür dokunuşları da o sayaca koyar, satırlarının biçimi yok: E277), birden çok `status` satırında sonuncusu (`last_status_row`, inceleme 6); bloğun görünümü karşılaştırılmaz. `genesis`: kayıtlı API'yle kuru koşu, `rules/branches` ve `current_user_can_bypass` (`01b:59-60`) dışındaki uç noktalar (`rulesets/{id}`, `actions/workflows`, `actions/permissions`), yazma modu şartının (`25a:18`) genesis'te denetlenmesi, `bypass_actors`'ın okunmaması (GitHub onu yalnız ruleset'e yazma erişimi olana verir, yazar App'i `administration:read`, `25:22`), on iki yük anahtarı, hash biçimleri, türe göre taban, son aktarım satırı, neden adları; (A)'nın Rekor kimlikleri, `25a` 5. satırın App beyanı (özette alanı yok), öbür aktörlerin bypass'ı, mandal tabanı ve hazır adaylar grupta değil | S | evet | E161 MF14–MF18 partisi; inceleme 6 | sınır · seçimler `29m`, `29n` ve `29o`'da yazılı; her biri spec yazılınca sonraki tohum döneminde vakaya döner. Kurucu fazlasını yapabilir, vektör tabandır (`29a`), `genesis`'in okumaları dışında: kayıtlı API kapalı listedir, okumada tavandır (`29o`); bu yüzden spec'in genesis'e okuttuğu her olgu (`asama-0/10a:16`, `25a:17-20`, `25a:29-30`) listededir, yenisi önce listeye girer (inceleme 6) |
 | E271 | `26:9-10` alan adı tanımını yalnız `26`, `26b`, `30d` ve `30e`'ye bırakır; MF14–MF18'in vektörleri `26`'da olmayan satırları okur: `drill`/`commit` ve `drill`/`plant` (`commitment_sha256`, `instance_id`, `merge_sha`), `events`/`revert` (`payload.merge_sha`), `events`'in `cycle_start`, `decision`, `status`, `status_edited` türleri ve yükleri, genesis yükünün on iki anahtarı. `26:74-75`'in tek drill yükü `instance_id`'yi zorunlu tutar: koşudan önce açık deftere yazılan taahhüt onu taşırsa ekilecek merge'ü koşudan önce adlandırır (`25:15`). Test 14 (`asama-0/09:38`, MF18) bu satırlarda `26` değişmeden geçemez | K | evet | E161 MF14–MF18 partisi | açık · aynı tohum döneminde `26`'ya bu satırlar; drill yükü taahhüt ve ekme satırını ayırmalı; `root/ledger.jsonl`'ın `q4` satırı (taahhütte `instance_id`) yalnız bölüm uçlarını okuyan `root`'un fikstürüdür, emsal değil |
 | E272 | `status.md`'deki elle düzenlemeye spec üç cevap verir: `asama-0/14:43` ve `asama-0/09:66` (donmuş) sonraki devirde yeniden üretip `events`'e yazar; `15:16` üretilmiş sayfanın düzenlenmesini zincir kırığı sayar; `01b:37` elle düzenlemeyi reddeder ve `01b:27-29` tutmayan `brain/state` denetiminde yazmayıp sert durur | B | evet | E161 MF14–MF18 partisi | karar bekliyor · `status` grubu Aşama 0'ın kuralını izler (çıkış 1, `status_edited`, yeniden üretim, sert duruş yok); karar sahibin; `01b` paralel partide (`gaps/owner-decisions-p1`), bu dal ona dokunmadı |
-| E273 | Vektör bütçesi (E199 b, `BUDGET_S` 1200 s) bütün gruplarla aşılabilir: bütün MF'ler bitince push başına 264 vektör sonucu (veri 258, `chain` 6). İnceleme 6'ya kadar her sonuç bir kapsayıcıydı: E161'in en kötü ölçümüyle (5,0 s) 258 çağrı 1290 s, bütçe biterken ilk koşmayan, sırada son grup olan `genesis` olurdu (denendi: `test_the_seed_vectors_fit_the_budget_at_the_worst_measured_call` düzeltmeden önce 1290 > 1200). Bugün aynı komut ve stdin bir push'ta bir kez sorulur: 208 çağrı, 5,0 s'de 1040 s. Yüklü makinede ölçülen çağrıyla (inceleme 6, gerçek kum, başka oturumların kapsayıcıları koşarken: 7,6–14,2 s, ortalama 9,9 s) yaklaşık 2070 s: bütçeyi aşan push'ta kalan vektörler `not_run:time_budget` ile kırmızıdır ve Kurucu'nundur | K | evet | E161 MF14–MF18 partisi; inceleme 6 | açık · azaltıldı: bir push aynı girdiyi yeniden sormaz (`VectorRun.answers`, yalnız cevaplar; mutantlar `vector_inputs_asked_twice`, `vector_no_answer_remembered`), tohumun çağrıları × 5,0 s ≤ `BUDGET_S` testle tutulur (mutant `vector_budget_below_the_seed`). Kalan: gerçek koşucuda (Actions) çağrı süresi ölçülmeli; karar: bütçe ya da çağrı başı maliyet (her çağrıda yeni kapsayıcı ve `venv`) |
+| E273 | Vektör bütçesi (E199 b, `BUDGET_S` 1200 s) bütün gruplarla aşılabilir: bütün MF'ler bitince push başına 264 vektör sonucu (veri 258, `chain` 6). İnceleme 6'ya kadar her sonuç bir kapsayıcıydı: E161'in en kötü ölçümüyle (5,0 s) 258 çağrı 1290 s, bütçe biterken ilk koşmayan, sırada son grup olan `genesis` olurdu (denendi: `test_the_seed_vectors_fit_the_budget_at_the_worst_measured_call` düzeltmeden önce 1290 > 1200). Bugün aynı komut ve stdin bir push'ta bir kez sorulur: 208 çağrı, 5,0 s'de 1040 s. Yüklü makinede ölçülen çağrıyla (inceleme 6, gerçek kum, başka oturumların kapsayıcıları koşarken: 7,6–14,2 s, ortalama 9,9 s) yaklaşık 2070 s: bütçeyi aşan push'ta kalan vektörler `not_run:time_budget` ile kırmızıdır ve Kurucu'nundur | K | evet | E161 MF14–MF18 partisi; inceleme 6 | açık · azaltıldı: bir push aynı girdiyi yeniden sormaz (`VectorRun.answers`, yalnız cevaplar; mutantlar `vector_inputs_asked_twice`, `vector_no_answer_remembered`), tohumun çağrıları × 5,0 s ≤ `BUDGET_S` testle tutulur (mutant `vector_budget_below_the_seed`). Kalan: gerçek koşucuda (Actions) çağrı süresi ölçülmeli; karar: bütçe ya da çağrı başı maliyet (her çağrıda yeni kapsayıcı ve `venv`) · kapandı (E440, dal `gaps/referee-shards`): Actions'ta kapsayıcı başına ~2,2 s ölçüldü (koşu 41283511268); ne bütçe ne çağrı maliyeti değişti, çağrılar dört `kos` parçasına bölündü ve bütçe parçanındır: parça başına 58 kapsayıcı × 5,0 s = 290 s |
 | E274 | MF14–MF18'in ikinci kör uygulaması (B) repoda değil (E233 gibi): 24 vakanın ikinci hesabı iş akışının kaydıdır; bu oturumda B (`wf5/B/<grup>/referee`, değiştirilmeden) gerçek veri koşucusunda 48/48 verdi, ama her tohum değişikliğinde yeniden koşmaz | B | — | E161 MF14–MF18 partisi | açık · B `local/blind_b/referee/`'ye, `ledger/` ve `gate/secrets.py` çakışmaları çözülerek (E233 ile birlikte) |
 | E275 | Tohumun içe aktarıcısı `setup/imports.jsonl`'a `26c:37-38`'in satırını yazmıyor: `importer.py:71-76` `{brain_sha, referee_tree_sha256, referee_bytes, toy_bytes, result_head}` yazar, zincirsiz; `ts`, `stage`, `result_sha256` ve `toy_tree_sha256` yok. MF18 son satırın `result_sha256`'sını bağlar (`asama-0/10a:17`): gerçek aktarımdan sonraki genesis kullanılamaz girdiyle durur (A'da çıkış 2, `{"ok": false, "hard_stop": true, "payload": null}`; denendi); MF16 yalnız satır sayar | K | — | E161 MF14–MF18 partisi | açık · `importer.py` `26c:37-38`'in zincirli satırını yazmalı, testi ve mutantıyla (E104: `imports.jsonl`'ın şeması); vektörler `26c`'yi izler, bu partide tohum kodu değişmedi |
 | E276 | `22a:51` ekilen kötü merge'lerin "tohumun prova fikstürlerinden" geldiğini söyler ve `asama-0/10a:26` (#geri-alma) oyuncakta üç kategoride (`test_regression`, `build_break`, `lint_regression`) birer ekilmiş merge ister; tohumda böyle fikstür ve biçimi yok (`seed/drill/` yalnız ders provası yargıcı) | K | — | E161 MF14–MF18 partisi | açık · MF14'ün kataloğu `29m`'nin biçimiyle (`{instances: [{id, cause, …}]}`) ve oyuncağa uygulanan yamalarıyla bir tohum dönemi getirmeli; vektörler kendi taklit kataloğunu taşır |
@@ -341,6 +341,7 @@ hepsi yazılıdır. Bulguları birleştiren ve doğrulayan: Claude Code (Opus 5.
 | E401 | E400'ün vakasız kalan sınırları. (a) Bağın `resolved`'ı boşsa ya da `:` taşıyorsa (`https://…` gibi) A onu bağ saymaz, paket olarak denetler; B (kör yazarın bağ okuması) bağ sayıp atlar. `29g` A'nınkini yazar. (b) Kurucu'nun f409 taslağı üyeyi kökün `workspaces` desenleri ve ağaçta dizin olmakla tanımlıyor; `deps.fetch`'in arayüzünde ağaç yok (kilit ve ayna), teslim edilen kural sahibin E173 okumasıdır: dizin yalnız depo içi bir bağ onu adlandırınca muaf. (c) Taslağın tarif kuralı (bağlanan her üye `inputs`'ta, yoksa `workspace_member_not_in_inputs`; kurulumda göreli bağ) MF6 ve sahneleme işidir, `npmlock` arayüzünde değil | S | — | E400'ün yazımı | sınır · (a) vaka yok; B'nin bağ okuması kör kalsın diye değiştirilmedi · (b) Kurucu taslağıyla uzlaşma tohum döneminde, dönem notunda · (c) Kurucu'nundur; tohum metni isterse spec isteğiyle |
 | E410 | CI'ın mutasyon işi zaman aşımına düşüyordu: 560 mutant 8 parçada (parça başına 70), standart koşucuda mutant başına 41 ile 51 saniyeden fazla; 2026-11-01 koşu 41267568917'de üç parça 46–50 dakikada bitti, beşi 60 dakikalık sınırda kesildi, koşu iptal oldu ve o günün hiçbir commit'i yeşil olmadı (tohum teslimi yeşil CI ister) | B | — | E383 | kapandı · `ops/ci-shards` · 20 parça; `test_wiring` `MutationShardTest` matrisle `--shard K/N`'in aynı parçaları adlandırdığını ve parça başına en çok 40 mutant düştüğünü (en kötü gözlenen dakikada bir mutantla 60 dakikanın 40'ı) denetler: parça eklemeden mutant eklemek burada kırmızıdır; mutant `mutation_shards_back_to_eight` |
 | E420 | Önceki oturum notu, arada bir tohum dönemi teslim edilince oturumun kabul edilmiş kararını bilinmez (`null`) yazıyordu: E381 yetişilen kararı yalnız en yeni imzalı sonuçtan okur, en yeni sonuç dönemin `noop`'udur (başka baş). Canlı: 2026-11-01 04:55Z oturumu 20261101T045525Z, `5cc4e86` kabul, not `verdict: null` (3d teslimi araya girdi; Kurucu kabulü durumun `last_accepted_sha`'sından yine görür) | S | — | E381, E241 | kapandı · `merge/train3` · `launch.verdict_on`: son `VERDICT_LOOKBACK` (10) imzalı sonuç arasında o başı değerlendirmiş en yenisi; başka başın kararı asla ödünç verilmez, bulunamazsa `null`; artefakt listesi `fetch_result` ile tek yerde (`state_artifacts`). Testler `test_founder_capsule` `PreviousSessionTest` (eski kodda kırmızı), mutantlar `previous_note_stops_at_the_newest_result`, `verdict_look_up_takes_any_head`; bir sonraki yeniden başlatmada |
+| E440 | `kos` tek işti ve vektör bütçesi (`vectors.BUDGET_S`, 1200 s) bir push'un bütün çağrılarınındı. Canlı koşu 41283511268'de (2026-11-01, beyin `aa46fee`) koşunun 1012 s'sinin 923'ü `kos`'tu: `run-tests` adımı 912 s; Kurucu'nun 21 testi 398 s (imzalı `duration_ms`; en uzunları T46 94 s, T38 84 s, T48 76 s), kontroller ve 232 vektör kapsayıcısı (306 sonuç) ~514 s, kapsayıcı başına ~2,2 s. Kurucu'nun sonraki oturumu bu kararı bekler (E168). En kötü ölçülen çağrıyla (5,0 s) 232 × 5,0 = 1160 s, bütçeye 40 s kalmıştı; yüklü yerel makinede tek iş bütçeyi 66. kapsayıcıda bitirdi (18 s/çağrı, `npmlock`'tan sonra hiçbir grup koşmadı) | K | — | E273, E168, E199 b | kapandı · dal `gaps/referee-shards` (`a4fdde6`) · `kos_parca` dört parçalık matris: her parça kendi kumunda kontrolleri ve sırası kendisine düşen (yer mod N) testleri, vektör girdilerini (her girdi tek parçada, bir kez) ve modülsüz koşuları tek işin yaptığı gibi koşar, yargılamaz, cevapları yazar (bant); `kos` (birleştirme) her parçayı işinin çıktısındaki hash'le okur, yerini, sayısını, başı ve planı kendisi yeniden hesaplar, bütün yargıçları bandın üstünde tek işin sırasıyla yeniden oynatır: `run.json` ve imzalı sonuç bayt bayt tek işinki (`test_parts`; eski `main` koduyla altı fikstür push'ta aynı baytlar; canlı push `aa46fee` gerçek kumda sekiz parçada: kontroller ve 306 vektör sonucu canlı tek işinkiyle aynı). Eksik, fazla, sırası bozuk ya da başka push'un parçası `kos:failure`, kesintidir, asla kabul değil. Bütçe parçanındır (spec bütçe adlandırmaz): parça başına 58 kapsayıcı × 5,0 s = 290 s. Tahmin: `kos` 923 s'den ~295 s'ye, koşu ~17 dk'dan ~6,5 dk'ya. GitHub'da uçtan uca koşulmadı; canlı hakeme tohum dönemiyle. E441–E449 ayrıldı, kullanılmadı |
 
 **Kararlar (2026-10-29).** Operatör, "karar" sütunu `evet` olan 19 kalemin hepsinde aşağıdaki
 önerileri onayladı ve `snowball-mcp`'nin de açık olmasını istedi. E46–E48 test denetçisinden sonra
@@ -2540,6 +2541,103 @@ Testler `tests/test_rival_memory.py`'de, sınıf adları kalem numarasıyla. Dur
   `local/system_map.py --check` temiz (`exitchecks` belgesi değişti, harita yeniden çizildi). Satır: `29b` 80, `26c` 80,
   `26a` 77, `29i` 74, `29p` 73, `29h` 69, `27` 68, `29k` 64, `29j` 62, `29d` 54, `29r` 38, `29e` 29, tohum günlüğü 75,
   `CHANGELOG-3` 33. Commit'lerin diff'inde CR baytı 0.
+
+### E440 (2026-11-01) · `kos` parçalarda, birleştirme tek işin sırasıyla · dal `gaps/referee-shards` · E273 kapandı · E441–E449 ayrıldı
+- **Kaynak.** Operatör (2026-11-01): hakemin koşusunu hiçbir hükmü değiştirmeden hızlandır ve kapasite sınırını
+  aşılmadan kapat. Canlı koşu 41283511268 (beyin `aa46fee`, hakem `9b35afa`'nın kopyası) 17 dakika sürdü; Kurucu'nun
+  sonraki oturumu kararı bekler (E168).
+- **Süre nereye gidiyor (ölçüldü).** İşlerin ve adımların süreleri Actions API'sinden (salt okuma): koşu 1012 s;
+  `cek` 17, `getir` 9, `kos` 923 (iş), `cagir` 33, `yaz` 19, işler arası başlatma 2–3 s. `kos`'un 912 s'si `run-tests`
+  adımıdır, kalan 9 s indirme, imaj çekme ve paketleme. Adımın içi: Kurucu'nun 21 testi 398,2 s (imzalı
+  `duration_ms`: T46 94,4, T38 83,8, T48 75,9, T34 23,6, T21 22,5; kalan 16'sı 2,7–10,1 s); kalan 513,8 s dört kontrol
+  ile vektörlerindir: 306 sonuç, 232 kapsayıcı (aynı girdi bir kez, E273), kapsayıcı başına ~2,18 s; modülsüz koşu
+  yoktu. Grup başına kapsayıcı (çağrı planından): `k0map` 25, `npmlock` 22, `append` 21, `diffguard` 18, `secrets`,
+  `profile`, `refs` 14, `revert_drill` 13, `recipe`, `prompt` 12, `flaky` 11, `contained`, `root`, `cause`, `status`,
+  `genesis` 10, `chain` 6. Her çağrı yeni bir kapsayıcıdır (`cp -R /src`, `venv`): süre grubun komutundan çok
+  kapsayıcının kendisidir, grubun süresi kapsayıcı sayısıyla orantılıdır. Sonraki koşu 41286970870 (`76372ff`) daha
+  yavaş bir koşucudaydı: `kos` 1323 s, adım 1312 s, testler 571 s, kapsayıcı başına ~3,14 s. Yerel ölçüm (eski kod,
+  gerçek kum, yüklü makine, kapsayıcılar `snowball_rs_*`) sınırı gösterdi: kapsayıcı başına ortalama 18,2 s, tek iş
+  1200 s'lik bütçeyi 66. vektör kapsayıcısında bitirdi; `npmlock`'un son çağrısı kalan bütçeyle kesildi, sonraki on iki
+  grubun 214 sonucu `not_run:time_budget` oldu. Koşan 92 sonucun 91'i canlı imzalı sonuçla bayt bayt aynı (92.'si
+  kesilen çağrı).
+- **Bütçe nerede, spec ne diyor.** `vectors.BUDGET_S` (1200 s) `VectorRun`'ın son tarihidir: E199 (b)'nin seçimi;
+  `test_the_vectors_leave_the_kos_job_half_its_time` onu koştuğu işin 60 dakikasının yarısıyla sınırlar. Spec bütçe
+  adlandırmaz: `29b` ve `29d` vektörlerin `koş`un kumunda koştuğunu söyler, sıra ya da iş sayısı söylemez; `18a`'nın
+  `operating{}` sınırları (`kos_wall_s`, `test_total_s`) döngünün okuyucularınındır (`run.contained`, `unit.verify`,
+  `deps.fetch`; `asama-0/12`), önyükleme hakeminin değil. Paralel koşuyu yasaklayan cümle yok. Spec değişmedi; bütçe
+  amacının söylediğidir: koştuğu işin yarısı. Her parça kendi 60 dakikalık işidir, bütçe parçanındır.
+- **Tasarım.** `kos_parca` dört bacaklı matristir (`fail-fast`); her bacak tek işin önceki adımlarını (üç artefakt
+  hash'le, kill switch, sabitli imaj) yapar ve `run-part K/4` koşar: kendi kumunda kırmızı kontroller; kontroller
+  doğruysa manifestin Aşama 0 testlerinden yeri K olanlar (yer mod 4), push'un vektör girdilerinden (yargıçların ilk
+  sorduğu sırayla) yeri K olanlar ve, gördüğü payda kırmızı yoksa, modülsüz koşulardan yeri K olanlar. Her girdi tek
+  parçada, tek işin `VectorRun` mantığıyla sorulur (aynı yeniden deneme, aynı hatırlanan cevap, parçanın kendi
+  bütçesi; `vectors.PartRun`). Parça yargılamaz: `part.json` test ve modülsüz kayıtlarını ve her vektör çağrısının
+  bandını yazar: cevabın son satırı, çıkış kodu ve hata metni, bir kaydın okuduğu her şey (`vectors.TAPE_FIELDS`).
+  `kos` (birleştirme) kapsayıcı koşturmaz: her parçanın artefaktını yalnız o parçanın iş çıktısındaki `part_sha_K`
+  hash'iyle açar (`join-parts --part TAR=SHA`), her kaydın yerini, parça sayısını, başı ve planın hash'ini (testler,
+  çağrı sırası, modülsüz koşular) kendisi yeniden hesaplar, her parçanın tam olarak kendi payını sırasıyla tuttuğunu
+  denetler, bantları tek işin çağrı sırasıyla birleştirir ve bütün yargıçları bunun üstünde yeniden oynatır
+  (`vectors.Replay`): her çağrı bandın sıradaki girdisini alır, girdi o çağrınınki değilse durur. Testler ve modülsüz
+  kayıtlar tek işin sırasına konur; modülsüz kayıtlar tek işte olduğu gibi yalnız push yeşilse girer. `run-tests` aynı
+  kodun tek parçalık hâlidir (parça 0/1, hemen birleştirilir). Sonraki işler, artefaktlar ve `decide` değişmedi.
+- **Neden hüküm değişmez.** Yargıçlar ve kayıt kodu aynıdır, yalnız çağrıyı kimin koşturduğu değişti. Yargıçların
+  çağrı sırası cevaplara bağlı değildir (planın ve yeniden oynatmanın girdi denetimi bunu her koşuda zorlar). Her girdi
+  tek parçada, tek işteki sırasıyla, aynı mantıkla sorulur: girdi başına sonuç dizisi tek işinkidir. Bant bir kaydın
+  okuduğu her şeyi taşır; ayrıştırılmış nesne değil satırın kendisi (alan sırası `json.dumps(out)`'ta görünür).
+  Testler ve modülsüz koşular birbirinden bağımsızdır. Bir parçanın kontrolleri bozuksa sonuç o kumdaki tek işin
+  sonucudur: bozuk kontroller (sıradaki ilk bozuk parçanınki) ve başka hiçbir şey; bütün kontroller doğru ama farklıysa
+  birleştirme durur.
+- **Sahtecilik ve kapalıya düşme.** Kurucu'nun kodu yalnız ağsız kapsayıcıda koşar: artefakt yükleyemez, iş çıktısı
+  yazamaz. Her parça yalnız kendi `part_sha_K`'sını yazar; birleştirme her parçayı o hash'le okur ve her kaydın kendi
+  yerini söylediğini denetler. Parça işi başarısızsa ilk adım (`test "$RESULT" = success`) durur; artefakt ya da hash
+  yoksa, kayıt eksik, fazla, sırası bozuk, başka parçanın, başka push'un ya da planın, yeşil push'ta modülsüz koşusu
+  eksikse `join-parts` durur: `kos:failure`, kesinti, yeniden denenir; asla kabul değil.
+- **Fark kanıtı.** (1) `test_parts`: aynı fikstür push'u `run-tests` ile ve `run-part K/N` + `join-parts` ile (her
+  parça kendi iş dizini ve kumunda, artefakt paketlenip hash'iyle), N = 2, 3, 4, 7; `run.json` ve `decide`'ın imzalı
+  sonucu bayt bayt aynı: dürüst push (306 sonuç, altı modülsüz koşu parçalara dağılmış, kabul), karışık cevaplar (doğru,
+  yanlış, sessiz, bir kez öldürülen, zaman aşımı, JSON olmayan, çok derin, gürültülü, liste; 147 vektör kırmızı),
+  kırmızı test, modülü olmadan yeşil kalan testler, docker arızası, bir parçanın bozuk kumu. Birleştirmenin redleri:
+  bant girdisi düşmüş, yinelenmiş, yer değiştirmiş, başka parçaya kaymış, tipi bozuk; parçalar yer değiştirmiş, eksik,
+  başka push'un ya da planın; test kaydı düşmüş, fazla, yer değiştirmiş; yeşil push'ta modülsüz koşu eksik, düşmüş, sırası
+  bozuk; kontroller farklı; yanlış hash, hash'siz ve artefaktsız parça. (2) Eski `main` (`9b35afa`) kodunun
+  `run-tests`'i ile yeni kodun tek işi, 3 ve 4 parçası altı fikstür push'ta (`run.json` ve imzalı sonuç) bayt bayt aynı
+  (oturumun kaydı, repoda değil). (3) Canlı push `aa46fee` yerelde gerçek kumda (sabitli imaj, `snowball_rs_*`) sekiz
+  parçada, her parça ayrı süreçte ve iş dizininde, sonra `join-parts`: kontroller ve 306 vektör sonucunun hepsi
+  Actions'taki tek işin `run.json`'uyla (koşu 41283511268) aynı; hiçbir parçanın bütçesi dolmadı (parça başına 29
+  kapsayıcı, 283–1017 s; ilk iki parça 1200 s'lik bütçeyle, kalanı yüklü makine yüzünden yalnız bu kopyada 7200 s'yle).
+  Testler bu koşuda yoktu (Actions'ta 398 s, burada saatler); test kayıtlarının birleşmesini (1) ve (2) sınar.
+  (4) `local/e2e.py` gerçek kapsayıcılarla: `run-tests` ile iki parça + `join-parts` aynı koşu (test süreleri
+  hariç), karar kabul.
+- **Hız tahmini (ölçülen sürelerden).** Parça süresi = 4 kontrol + yeri kendisine düşen testler + 58 kapsayıcı;
+  ayrıca parça işinin diğer adımları (9 s), işin başlaması (2–3 s) ve birleştirme işi (~12 s). 41283511268 ile
+  parçalar 180, 237, 270, 252 s: `kos` 923 s'den ~295 s'ye (3,1×), koşu 1012 s'den ~385 s'ye (~6,5 dk, 2,6×).
+  41286970870 ile parçalar 255, 339, 398, 357 s: `kos` 1323 s'den ~425 s'ye. N = 8 ilk koşuda ~205 s olurdu (en uzun
+  test T46 tabandır); N = 6 yalnız ~8 s kazandırır (T38 ile T48 aynı parçaya düşer). Kapasite: en kötü 5,0 s'lik
+  çağrıyla parça başına 240 kapsayıcı, push başına 960 (bugün 232). Tahmin parçaların aynı anda başladığını varsayar:
+  hesabın eşzamanlı iş sınırı (20) doluysa (aynı hesaptaki `snowball-mcp`'nin 20 parçalık mutasyon matrisi gibi)
+  sıraya girerler.
+- **Sınırlar.** (1) Değişen tek şey kapasitedir: tek işin bütçesini aşacak bir push'ta tek işin `not_run:time_budget`
+  yazacağı vektörler parçalarda koşar; hiçbir parçanın bütçesi dolmadıkça sonuç tek işinkiyle bayt bayt aynıdır (tek
+  işin bütçe dolumu zaten zamana bağlıdır). (2) Testler süreleri bilinmeden yer mod 4 ile bölünür. (3) Kırmızı bir
+  push'ta kendi payı temiz olan parça modülsüz payını boşuna koşabilir (tek iş hiç koşmazdı); birleştirme onları
+  sonuca koymaz, süre paraleldir. (4) Matris
+  bacaklarının ayrı adlı çıktılarının birleşmesi, `download-artifact`'ın `pattern` ile `merge-multiple`'ı ve
+  `strategy.job-total` yalnız GitHub'da sınanır; çıktı gelmezse birleştirme parçayı hash'siz bulur ve durur.
+- **Birleşme.** `gaps/activation-tooling` (E402) aynı satırlara dokunur: `run-tests`'in tablosu
+  `stagelock.open_table(root)`, testlerin süzgeci `stage <= table.stage`, modülsüz koşunun `by_id`'si
+  `stage == table.stage`. Hangisi ikinci gelirse bunlar `cli._kos`'a ve `moduleless.units`'e yazılır. E18'in testler
+  için ortak süresi gelirse, vektör bütçesi gibi parçanın olur.
+- **Ne zaman girer.** Paket ve iş akışı bir sonraki tohum döneminin hakem kopyasıyla (`seed/founder/README.md`
+  "Tohum teslimi" adım 3); önce atılacak bir hakem kopyasında uçtan uca.
+- **Doğrulama** (`a4fdde6`, `d629b7a`). Windows `seed/bootstrap` (`PYTHONPATH=.;tests`, Python 3.12): 654 test OK (20
+  atlandı). Linux (Docker `snowball_linux_test:git`, `git -c core.autocrlf=false archive` ile LF, salt okunur, ağsız,
+  `--cpus 2`): 674 test OK (6 atlandı), tatbikat yargıcı 71 OK; yeni testler 17 (`test_parts` 15, `KosPartsTest` 2).
+  `local/mutate.py` Linux'ta: 17 yeni mutantın 17'si ve çapası taşınan 5 mutantın 5'i öldü, her biri hedeflediği
+  testle; dokunulan dosyalardaki (`vectors.py`, `moduleless.py`, `cli.py`'nin `kos` satırları, iş akışı) 37 eski
+  mutantın 37'si öldü (veri yargıcının birkaçını artık önce `test_parts`'ın dürüst push'u öldürüyor). `MutationShardTest`: 605 mutant 20 parçada, parça başına
+  31 (en çok 40), CI'a parça eklenmedi. `local/system_map.py --check` temiz (harita `kos_parca` ve `parts` ile yeniden
+  çizildi). Spec sayfası değişmedi. Commit'lerin diff'inde CR baytı 0. actionlint koşulmadı (dış imaj; bu oturumda
+  izin yok).
 
 ## Doğrulanmış sağlam taraflar
 Kapsayıcı bayrakları ve kırmızı kontroller; host'ta kabuk enjeksiyonu yok; `$GITHUB_OUTPUT`'a serbest
