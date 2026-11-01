@@ -321,7 +321,8 @@ class BootstrapStatePageTest(unittest.TestCase):
                     lines.append(f"{hashlib.sha256(content).hexdigest()}  {member.name[len('referee/'):]}\n".encode())
         self.assertEqual(len(lines), 3)
         self.assertEqual(hashlib.sha256(b"".join(sorted(lines))).hexdigest(), m.group(2))
-        self.assertIn("`referee_tree_sha256`: `brain_sha`'nın `git archive`'ında `referee/` altındaki", page)
+        self.assertIn("`referee_tree_sha256`: `brain_sha`'nın ağacında, blob baytlarıyla (git öznitelikleri, filtreler ve "
+                      "satır sonu dönüşümü uygulanmadan), `referee/` altındaki", page)
         # A known-answer example, said so: no vector case applies it, the expected value is on the page alone.
         self.assertIn("bir vektör vakası değildir, hakem onu koşmaz", page)
         self.assertNotIn(m.group(1), (BOOT / "vectors" / "vectors.json").read_text(encoding="utf-8"))
