@@ -2403,6 +2403,12 @@ Testler `tests/test_rival_memory.py`'de, sınıf adları kalem numarasıyla. Dur
   kurulmuş dal 591); `local/system_map.py --check` temiz; hiçbir sayfa 80 satırı geçmiyor (`29b` 80, `26c` 80); 536
   mutantın çapası tek; yeni ve yeniden bağlanan 24 mutant hedef test modüllerinde öldürüldü (Windows'ta modül başına,
   CI'ın Linux mutasyon işi bütün listeyi koşar); karnenin açık sayfası aynı kayıt noktasında üretildi.
+- **Üçüncü tur ve birleştirme (2026-11-01).** `main`'e birleşimin Linux mutasyon koşusu dalın üçüncü turunun üç
+  mutantını sağ buldu: `foreign_commit_read_as_the_launchers` (yabancı commit hep başka e-postayla sınanıyordu; artık
+  başlatıcının e-postasını taşıyan başka bir ad da sınanır), `broken_record_line_stops_the_launcher` (eşdeğerdi: boş
+  satır da `ValueError`'dır, `line.strip()` sınaması gereksizdi ve kalktı; mutant artık yakalanan hatayı değiştirir) ve
+  `previous_note_reads_the_start_row` (çapası E381'in satırıyla kaymıştı, yeniden çapalandı). E381'in döngü testi
+  dalın açık rapor okumasını GitHub'a götürüyordu (Windows'ta `gh` çağrıldı, Linux'ta yoktu): sessiz başlatıcıyla koşar.
 
 ### E380–E387 (2026-11-01) · uzman incelemesinin operatör payı · dal `gaps/sota-review`
 - **Kaynak.** Sahip (2026-11-01): iddiaları bul, 6–7 ajanla tartış, testle ve kanıtla, gerekirse uygula; amaç bu işte

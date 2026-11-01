@@ -133,7 +133,8 @@ class ResultShadowTest(unittest.TestCase):  # E344: a noop on the launcher's own
     def test_a_noop_over_any_other_commit_is_mounted_as_it_is(self):
         launcher = (self.launch.LAUNCHER_NAME, self.launch.LAUNCHER_EMAIL)
         for committers in ([launcher, ("Founder", "founder@example.invalid")],
-                           [(self.launch.LAUNCHER_NAME, "someone@example.invalid")], []):
+                           [(self.launch.LAUNCHER_NAME, "someone@example.invalid")],
+                           [("Founder", self.launch.LAUNCHER_EMAIL)], []):
             got = self.mounted({"head": "c" * 40, "kind": "none", "verdict": "noop"},
                                {"head": "f" * 40, "kind": "code", "verdict": "accepted"}, committers)
             self.assertEqual(got["head"], "c" * 40, committers)
