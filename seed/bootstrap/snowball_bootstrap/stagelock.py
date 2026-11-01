@@ -28,6 +28,8 @@ What `stage-open` binds, before it writes anything (`02` 5: only the PASS row op
   import keeps left out, E471), so the lock opens on what the import pushed and the operator pulled; the counter and
   `setup/summary.json` are that commit's too, read from git and never from the working tree, whose bytes a checkout's
   settings change (E478).
+- the stage's rival brake: that commit's `policy.json` names ``stage_budgets.asama_1.rival_usd``, which the bootstrap
+  reads from the first run past the lock and stops without (`29b`, `26e`, `asama-1/10`; E492).
 - the PASS row itself: the referee's own row, not a player's proposal (`26`, `13`: those carry ``proposed_by`` and
   ``trust: inferred``) (E388), written after the toy's merge and naming the transfer the counter's last line is (the
   trust root `10a` #pass writes includes the operator transfer) (E405), and the owner's exception exactly as the signed
@@ -499,12 +501,19 @@ def _carries_the_exception(payload: dict[str, Any], exit_block: dict[str, Any]) 
 
 
 def _checkout_head(referee: Path) -> str:
-    """The commit the referee checkout is on: what `stage-open` reads (E471, E478)."""
+    """The commit the referee checkout is on: what `stage-open` reads (E471, E478). ``--referee`` is the top of its
+    checkout (E497): every path here, the lock it looks for in the commit and the file it writes, is read from the top,
+    and git reads a path argument from the directory it runs in, so a subdirectory would find no lock and write one
+    beneath itself."""
     try:
-        return gitio.git(referee, "rev-parse", "--verify", "--quiet", "HEAD^{commit}").decode().strip()
+        head = gitio.git(referee, "rev-parse", "--verify", "--quiet", "HEAD^{commit}").decode().strip()
+        prefix = gitio.git(referee, "rev-parse", "--show-prefix").decode().strip()
     except gitio.GitError as exc:
         raise LockStop(f"--referee {referee} holds no commit: clone the referee repository and pull main after the "
                        "import (E471)") from exc
+    if prefix:
+        raise LockStop(f"--referee {referee} is {prefix!r} inside its checkout: give the checkout's top (E497)")
+    return head
 
 
 def _committed(referee: Path, head: str, rel: str) -> bytes:
@@ -524,10 +533,21 @@ def _committed_summary(referee: Path, head: str) -> config.Summary:
         raise LockStop(f"setup/summary.json of the referee checkout's commit {head} is not JSON: {exc}") from exc
 
 
+def _committed_stage_brake(referee: Path, head: str, stage: int) -> None:
+    """The stage the lock opens has its rival brake in the commit's `policy.json` (`29b`, `26e`, `asama-1/10`; E492):
+    the bootstrap reads it on the first run past the lock and stops without it, so no lock opens on a policy that lacks
+    it."""
+    try:
+        config.policy_of(json.loads(_committed(referee, head, "policy.json").decode("utf-8"))).rival_usd_micros(stage)
+    except (UnicodeDecodeError, ValueError, RecursionError) as exc:  # ConfigError is a ValueError
+        raise LockStop(f"policy.json of the referee checkout's commit {head}: {exc} (write "
+                       f"stage_budgets.asama_{stage}.rival_usd before the lock, `26e`)") from exc
+
+
 def open_stage(referee: Path, toy: Path, copy: Path, ref: str, identity: str, sigstore_python: str,
                result: Path) -> dict[str, Any]:
     """Write ``setup/stage.json`` after Stage 0's PASS row; return what was written. Nothing is pushed. The counter, the
-    summary and the referee tree are the checkout's commit's, read from git (E471, E478)."""
+    summary, the policy and the referee tree are the checkout's commit's, read from git (E471, E478, E492)."""
     path = referee / SETUP / LOCK_FILE
     head = _checkout_head(referee)
     if path.exists() or gitio.git(referee, "ls-tree", "--name-only", head, "--", f"{SETUP}/{LOCK_FILE}").strip():
@@ -541,6 +561,7 @@ def open_stage(referee: Path, toy: Path, copy: Path, ref: str, identity: str, si
     exit_block = _signed_exit(result, transfer)
     _committed_is_transferred(referee, head, transfer)
     toy_target, copy_target = _targets(_committed_summary(referee, head))
+    _committed_stage_brake(referee, head, OPENS)
     toy_head, toy_rows, toy_root, toy_bundle = _state(toy, ref, "toy")
     copy_head, copy_rows, copy_root, copy_bundle = _state(copy, ref, "copy")
     toy_start = _genesis(toy_rows, "toy", toy_target, import_line, transfer)

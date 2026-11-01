@@ -37,7 +37,7 @@ WSL$ E=~/etkinlestirme; SHA=<2. adımdaki brain_sha>; ID=https://github.com/Okan
 |---|---|---|
 | Ö1 | (A) kabul: imzalı sonuç `kind: exit`, `verdict: accepted`, `exit.transferable: true` (`asama-0/10`); denetimi 2. adımda | beyinde `exit-request.json` yok |
 | Ö2 | Kurulumun birinci bölümünden kalanlar: oyuncak ve kopya repoları, kopyada Actions kapalı, özette kopyanın `identifiers`'ını taşıyan `targets[]`, `control.json`'un eksik alanları, #durustluk için sahibin kararı ([Ek A](#ek-a-birinci-bölümden-eksik-kalanlar)) | hiçbiri yok (E284, E287, E294) |
-| Ö3 | Hakemin `bootstrap/`'ındaki tohum araçları (yalnız tohum dönemiyle değişir) ve beynin döngüsü: K1 `import` `25a` 1–2'yi taşır; K2 `control` döngü arayüzünü taşır (`29p`); K3 `stage-open` var; K4 döngünün işleri bir devir koşar. Denetimi 2. adımda; tutmayana el yaması yapılmaz | K1 ve K3 snowball-mcp `gaps/activation-tooling-3` dalında (E370–E372, ikinci tur E374–E379, E388–E389, üçüncü tur E402–E406, dördüncü E411–E417, beşinci E470–E475, altıncı E478–E485; E100, E275, E331 kapandı: içe aktarma çalışma ağacına hiç dokunmaz, yeni `main`'i git nesneleriyle kurar, git'in nesne denetiminden geçirir ve okuduğu `main`'e kirayla iter (E470, E479, E482), `stage-open` kökü `sha256:<kök>` özetiyle doğrular, klonları, aktarımı, istisnayı, hakemin satırını ve merge'leri bağlar, PASS satırının biçimi `26d`'de, P1'in (A)'sı ve aktarımı aynı tohumla olur, kilit yokken Aşama 0'ın yargısı değişmez), K2 snowball-mcp `main`'inde (`e7b3b24`, E282); üçü de hakemde yok, tohum dönemi bekliyor; K4 yok, beyin `8c57160` (E332) |
+| Ö3 | Hakemin `bootstrap/`'ındaki tohum araçları (yalnız tohum dönemiyle değişir) ve beynin döngüsü: K1 `import` `25a` 1–2'yi taşır; K2 `control` döngü arayüzünü taşır (`29p`); K3 `stage-open` var; K4 döngünün işleri her `targets[]` hedefinde bir devir koşar, girdileri `29s`'teki gibi (değişken yok). Denetimi 2. adımda; tutmayana el yaması yapılmaz | K1 ve K3 snowball-mcp `gaps/activation-tooling-3` dalında (E370–E372, ikinci tur E374–E379, E388–E389, üçüncü tur E402–E406, dördüncü E411–E417, beşinci E470–E475, altıncı E478–E485, yedinci E494, E496–E498 `gaps/stage1-ready`'de; E100, E275, E331 kapandı: içe aktarma çalışma ağacına hiç dokunmaz, yeni `main`'i git nesneleriyle kurar, git'in nesne denetiminden geçirir ve okuduğu `main`'e kirayla iter (E470, E479, E482), `stage-open` kökü `sha256:<kök>` özetiyle doğrular, klonları, aktarımı, istisnayı, hakemin satırını ve merge'leri bağlar, PASS satırının biçimi `26d`'de, P1'in (A)'sı ve aktarımı aynı tohumla olur, kilit yokken Aşama 0'ın yargısı değişmez), K2 snowball-mcp `main`'inde (`e7b3b24`, E282); üçü de hakemde yok, tohum dönemi bekliyor; K4 yok, beyin `8c57160` (E332) |
 | Ö4 | Sahip 5. adım için ulaşılabilir (web arayüzü, yaklaşık yarım saat) | — |
 | Ö5 | 0. adım bir kez yapılmış | yapılmadı |
 
@@ -106,12 +106,13 @@ WSL$ cd $E/arac && python3 -m snowball_bootstrap licenses --root $E/referee --wh
 WSL$ $E/sig/bin/pip install -q --no-index --find-links $E/sigw --require-hashes --only-binary=:all: --no-deps -r $E/arac/requirements/sign.txt
 ```
 
-Kapı denetimleri (`$E/arac`'ta; ilk üçü bugün `YOK` basar):
+Kapı denetimleri (`$E/arac`'ta; ilk dördü bugün `YOK` basar):
 
 ```
 WSL$ python3 -m snowball_bootstrap control --help | grep -q -- --job && echo "K2 tamam" || echo "K2 YOK (E282)"
 WSL$ python3 -m snowball_bootstrap stage-open --help >/dev/null 2>&1 && echo "K3 tamam" || echo "K3 YOK (E331)"
 WSL$ git -C $E/brain grep -q 'reason="cycle_not_wired"' $SHA -- referee/loop/job.py && echo "K4 YOK (E332)" || echo "K4 tamam"
+WSL$ git -C $E/brain grep -qE 'vars\.(BRAIN_REPO|LOOP_TARGET)\b' $SHA -- referee/.github/workflows/loop.yml && echo "K4 YOK (29s, E490)" || echo "K4: girdiler 29s'teki gibi"
 WSL$ rm -rf $E/prova && mkdir $E/prova && git clone -q --bare $E/referee $E/prova/referee.git && git clone -q --bare $E/toy $E/prova/toy.git
 WSL$ python3 -m snowball_bootstrap import --result $E/a/result.json --bundle $E/a/result.json.sigstore.json --identity "$ID" --sigstore-python $E/sig/bin/python --brain $E/brain --referee $E/prova/referee.git --toy $E/prova/toy.git
 WSL$ git -C $E/prova/referee.git ls-tree -r --name-only main | grep -cE '^(bootstrap/|\.github/workflows/bootstrap\.yml$|control\.json$|setup/summary\.json$)'
@@ -126,13 +127,18 @@ zincirli). Komut hiçbir çalışma ağacını okumaz ve yazmaz: hakem reposunu 
 commit'ini oraya git'in nesne denetimiyle getirir, yeni `main`'i git nesneleriyle kurar (E470; dört şüpheci turunda dosya
 sistemi kopyası çürütüldü, E479). `referee/` ya da oyuncak ağacında `26c`'nin reddettiği bir ad, bir dosya sisteminin
 başka ad okuduğu bir ad (sonda nokta ya da boşluk, aygıt adı, `~` ve rakam), Windows'un tutamadığı bir ad (`|?*"<>`, 260
-karakterden uzun yol; E484), git'in kendi okuduğu bir ad (`.git`, `.gitattributes`, `.gitmodules`, harf duyarsız ve
+karakterden uzun yol; E484), 255 bayttan uzun tek ad (E496), git'in kendi okuduğu bir ad (`.git`, `.gitattributes`, `.gitmodules`, harf duyarsız ve
 HFS+ biçimiyle; E478, E479), oyuncakta `.github` (E480), korunan bir girdiyi harf duyarsız gösteren ya da harf duyarsız
 tek ad olan iki ad, bağ ya da alt modül, hiçbir nesne yazılmadan `stop: …` ile durur; `main` bir korunan adı başka harfle taşıyorsa da
-(`Bootstrap/`, `.GitHub/`). Son komut `loop.yml`'un adlandırdığı sırları ve değişkeni basar; beyin `8c57160`'ta:
+(`Bootstrap/`, `.GitHub/`). Son komut `loop.yml`'un adlandırdığı sırları ve değişkenleri basar; beyin `8c57160`'ta:
 `secrets.CLAUDE_CODE_OAUTH_TOKEN`, `secrets.WRITER_APP_ID`, `secrets.WRITER_APP_PRIVATE_KEY`, `vars.TARGET_OWNER`.
-Başka bir ad varsa 3. adıma geçme, sahibe sor (spec sessiz). İkinci yarısı: kill switch kapalıyken aynı komut durur
-(`25a` 1):
+Beyin `b099103`'te (2026-11-01) bunlara ek olarak `vars.BRAIN_REPO` ve `vars.LOOP_TARGET` (seed-041'in varsayımları) ile
+`vars.CANARY_MODEL` ve `vars.CLAUDE_CLI_SHA512` (seed-042'nin varsayımları) vardır. `29s`'i taşıyan tohum döneminden sonra
+`vars.BRAIN_REPO` ya da `vars.LOOP_TARGET` kaldıysa K4 tutmaz: döngünün beyni `bootstrap.json` `brain_repo`, hedefleri
+özetin `targets[]`'ıdır ve bir koşu iki hedefe de hizmet eder; operatör bu iki değişkeni yazmaz (her devirde değişken
+değiştirmek dokunuştur, E490). seed-042 açıkken `CANARY_MODEL` ve `CLAUDE_CLI_SHA512` için spec sessiz: yazmadan önce
+sahibe sor. Başka bir ad varsa 3. adıma geçme, sahibe sor (spec sessiz). İkinci yarısı: kill switch kapalıyken aynı komut
+durur (`25a` 1):
 
 ```
 WSL$ rm -rf $E/prova && mkdir $E/prova && git clone -q --bare $E/referee $E/prova/referee.git && git clone -q --bare $E/toy $E/prova/toy.git
@@ -145,8 +151,10 @@ dur ve `pilot-log.md`'ye yaz. *Geri dönüş:* `rm -rf $E/prova`; beklenecekse 1
 
 **3. İçe aktar** (operatör · `25a` 1–2: hakem kodu yalnız aktarımla değişir, `01a`; oyuncağın içeriği (A)'da
 yargılanandır). Komut iki reponun `main`'ine zorlamadan, okuduğu `main`'e kirayla (`--force-with-lease`) iter: önce
-oyuncak, sonra hakem (`25a` 1: git'in katı nesne denetimi dahil her denetim geçtikten sonra; `main` arada ilerlediyse
+oyuncak, sonra hakem (`25a` 1: her itmenin göndereceğini denetleyen git nesne denetimi dahil her denetim geçtikten sonra;
+başka daldaki ya da `main`'in zaten tuttuğu eski bir nesne durdurmaz, E494; `main` arada ilerlediyse
 ya da geri alındıysa itme reddedilir, hakemde hiçbir şey değişmez ve ret uzak `main`'in o anki başını adlandırır, E482).
+`--toy ""` gibi boş bir repo adı durdurur (E498); `stage-open`'ın `--referee`'si checkout'un tepesidir (E497).
 
 ```
 WSL$ cd $E/arac && python3 -m snowball_bootstrap import --result $E/a/result.json --bundle $E/a/result.json.sigstore.json --identity "$ID" --sigstore-python $E/sig/bin/python --brain $E/brain --referee https://github.com/$H.git --toy https://github.com/Okan-wqm/snowball-rehearsal-toy.git
@@ -246,7 +254,9 @@ PS> $S = gh api repos/Okan-wqm/snowball-rehearsal-toy/git/ref/heads/brain/state 
 
 Sıra (`asama-0/08`): 1 oyuncakta genesis ve kesim; 2 iyi aday merge, dört kötü aday kendi nedeniyle ret; 3 nöbetçi
 yeşil; 4 geri alma provası, üç `cause`; 5 `llm.call` kanaryası; oyuncağın 1–5'i yeşilse 6 kopyada genesis
-`targets[].base_sha`'da. Hangi devrin koşacağını döngü seçer; operatör yalnız tetikler ve denetler. *Denetim, her koşudan
+`targets[].base_sha`'da. Hangi devrin koşacağını döngü seçer; operatör yalnız tetikler ve denetler. Her tetik özetin
+`targets[]`'ındaki iki hedefte, dizinin sırasıyla birer devirdir (`29s`, E490): değişken ya da girdi yoktur; kopyanın devri
+oyuncağın 1–5'i yeşil olana kadar hiçbir şey yazmaz ve koşuyu kırmızı yapmaz. *Denetim, her koşudan
 sonra:* koşu yeşil; iki hedefin `main`'i değişmedi (`OYUNCAK_MAIN`, kopyanın `base_sha`'sı; #main); dallar yalnız `main`
 ve `brain/` altında; 1'den sonra oyuncağın `brain/integration`'ı ilk merge'e kadar `OYUNCAK_MAIN`'de, `brain/state`
 ağacında defter, kök zinciri ve `status.md` var; her devirde `status.md` yenilenmiş (#durum; okumak için ağaçtaki yolla
@@ -287,9 +297,13 @@ kopyala). Kopyanın `brain/state`'i küçük bir klondadır (yetim dal). Her hed
 `stage-open` o hedefin `brain/state` başından okur: döngü onu kök satırının yanında tutar,
 `.brain/chain/<kök>.sigstore.json` (`<state_root>` `01a`'nın `.brain/`'i: defter `.brain/ledger.jsonl`, kökler
 `.brain/chain/root.jsonl`; başka bir `state_root` adlandıran profil durdurur; `26d`, E414, E417); operatör paket indirmez.
-Kimlik döngünün iş akışınındır:
+Kimlik döngünün iş akışınındır. Önce Aşama 1'in rakip freni politikaya girer (`asama-1/10`: 15 USD; `18a`, `26e`, E492):
+önyükleme hakemi kilitten sonraki ilk push'ta `stage_budgets.asama_1.rival_usd`'yi okur ve onsuz durur; `stage-open` onu
+`--referee` klonunun commit'indeki `policy.json`'dan okur ve onsuz kilidi açmaz. Anahtar zaten varsa bu iki satır atlanır:
 
 ```
+WSL$ git -C $E/referee pull -q --ff-only && python3 -c "import json,sys; p=sys.argv[1]; d=json.load(open(p,encoding='utf-8')); d['constitutional']['stage_budgets'].setdefault('asama_1',{})['rival_usd']=15; open(p,'w',encoding='utf-8').write(json.dumps(d,indent=2)+'\n')" $E/referee/policy.json
+WSL$ git -C $E/referee commit -q -am "Aşama 1'in rakip freni (asama-1/10, tohum/26e)" && git -C $E/referee push -q origin main
 WSL$ git -C $E/referee pull -q --ff-only && git -C $E/toy fetch -q origin
 WSL$ rm -rf $E/kopya-durum && git -c core.autocrlf=false clone -q --no-checkout --single-branch --branch brain/state https://github.com/Okan-wqm/snowball-rehearsal-copy.git $E/kopya-durum
 WSL$ cd $E/arac && python3 -m snowball_bootstrap stage-open --referee $E/referee --toy $E/toy --copy $E/kopya-durum --identity "https://github.com/Okan-wqm/snowball-rehearsal-referee/.github/workflows/loop.yml@refs/heads/main" --sigstore-python $E/sig/bin/python --result $E/a/result.json
@@ -310,8 +324,8 @@ son genesis ile kendisi arasında oyuncağın merge satırı yok ya da sayacın 
 (`payload.copy_genesis_row_hash`, `payload.copy_merge_row_hashes`: her biri kopyanın bir `kind: merge` satırı; E376,
 E405), sahip istisnasını imzalı sonuçtaki gibi taşımıyor (`payload.owner_exception`, E379), defter `.brain/` altında
 yok ya da bir profil başka bir `state_root` adlandırıyor ya da düzenli dosyada tek bir JSON nesnesi değil (E417, E472,
-E481), sayaç ya da özet `--referee` klonunun commit'inde yok (çalışma ağacı okunmaz: önce `main`'i çek; E478), bir
-zincir kırık, son kök
+E481), sayaç ya da özet `--referee` klonunun commit'inde yok (çalışma ağacı okunmaz: önce `main`'i çek; E478), o
+commit'in `policy.json`'u `stage_budgets.asama_1.rival_usd`'yi adlandırmıyor (E492), bir zincir kırık, son kök
 defterin uçları değil, kök paketi `brain/state`'te yok (E414), paket satırın Rekor girdisi değil ya da girdi kökü
 kaydeden bir Rekor v1 `hashedrekord` değil (v2 gövdesi de; kök `sign --rekor-version 1` ile imzalanır, E406, E415),
 Sigstore `sha256:<kök>`'ü reddetti (E375) ya da kilit zaten var (E371). Kural ve alanlar Kurucu'nun okuduğu `spec/tohum/26d`'dedir (E404). Durursa itme, `pilot-log.md`'ye yaz.
@@ -436,6 +450,12 @@ Hepsi en dar seçimdir ve E330'dadır.
   sayaç satırı `{ts, stage, batch, brain_sha, referee_tree_sha256, result_sha256}`'dir; açık parti dışındaki ya da
   ikinci kez aktarılan parti durur. İsteğin hangi biçimi taşıdığını kilit söyler, istek değil (E402): kilit yokken
   `batch` anahtarlı istek eskisi gibi `exit_request_malformed`'dır ve Aşama 0'ın her yargısı kilitsiz değişmez.
+  P1'den sonra açık parti P2'dir (`stages/stage1-P2.json`, E491); aktarımı aynı komutla, `batch: "P2"`; P1 ve P2
+  aktarılınca açık tablo boştur. Çıkış partisinin tablosu bu tohumda yoktur (E495). Parti tabloları Kurucu'ya `26e`'de.
+- Aşama 1'in rakip freni `stage_budgets.asama_1.rival_usd` = 15 (`asama-1/10`'un başlangıç değeri; 9. adımda,
+  `stage-open`'dan önce; E492). Değeri sahip ya da operatör yükseltebilir (olağan iş frene takılırsa, `asama-1/10`).
+- Döngünün girdileri (E490): değişken yok; beyin `bootstrap.json` `brain_repo` (bugün `Okan-wqm/snowball-rehearsal-brain`),
+  hedefler özetin `targets[]`'ı (`toy`, `copy`), Sigstore hakemin `bootstrap/requirements/sign.txt`'i (`29s`).
 - Oyuncağın `identifiers`'ı `[]`, `unit_candidates`'i `["textkit"]` (`26c` ikisini kopya için tanımlar; tohumun genesis
   fikstürü oyuncağa da birim adayı verir). Parti aktarımında oyuncak itilmez (`26c` `toy_tree_sha256?`).
 

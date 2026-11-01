@@ -58,6 +58,7 @@ Okunma: sayfa ararken; görev seçmek için `tohum/00b-gorev-haritasi.md`
 | `tohum/26b-semalar-devam.md` | Şemalar, Devam: Bilgi, Organ, Profil, Politika | Aşama 0 inşasında ve her şema değişikliğinde |
 | `tohum/26c-semalar-asama-0.md` | Şemalar, Devam: Aşama 0'ın Dosyaları | Aşama 0 inşasında, kurulumda ve operatör dosyası yazılırken |
 | `tohum/26d-semalar-pass-satiri.md` | Şemalar, Devam: Aşama 0'ın PASS Satırı ve Kilidin Açılışı | Aşama 0'ın (B) devirlerini ve genesis, merge, PASS ve kök satırlarını yazan kod yazılırken; kilidin açılışından önce |
+| `tohum/26e-semalar-asama-1.md` | Şemalar, Devam: Aşama 1'in Parti Tabloları | Aşama 1'de her parti yazılırken ve parti çıkış isteğinden önce; kilidin açılışından önce |
 | `tohum/27-sozluk-ve-okuyucular.md` | Sözlük ve Okuyucular | yeni terim ya da dosya eklerken |
 | `tohum/27a-okuyucular-hedef-durumu.md` | Okuyucular, Devam: Hedefteki Durum Dosyaları | yeni durum dosyası, bölüm ya da görünüm eklerken |
 | `tohum/28-dondurma.md` | Dondurma: Ne Durur, Nasıl Kalkar | Gözcü kararlarında ve her dondurmada |
@@ -79,6 +80,7 @@ Okunma: sayfa ararken; görev seçmek için `tohum/00b-gorev-haritasi.md`
 | `tohum/29o-vektor-arayuzleri-mf14-18-son.md` | Vektör Arayüzleri, Son: `genesis` | Aşama 0'ın MF18'ini yazarken; bu grubun komutu, girdisi ya da çıktısı değişirken |
 | `tohum/29p-kontrol-komutu.md` | Kontrol Komutu: Döngü İşlerinin İlk Adımı | `loop.yml` yazılırken; döngünün her işinde |
 | `tohum/29r-is-akisi-yaml-altkumesi.md` | İş Akışı YAML Altkümesi | `loop.yml` yazılırken |
+| `tohum/29s-dongu-girdileri.md` | Döngü Girdileri: Beyin, Hedefler, Sigstore | `loop.yml` ve döngünün `çek` ve `yaz` işleri yazılırken |
 | `tohum/30-guvenlik-katalogu.md` | Güvenlik Kataloğu: İlkeler, Zamanlama, Ortak Kader | her güvenlik işinde, her bildirimde ve yeni bir hedefe bağlanırken |
 | `tohum/30a-katalog-erisim-ve-enjeksiyon.md` | Güvenlik Kataloğu I: Erişim, Kimlik, Enjeksiyon, Web | kapsam bu sınıflara dokunduğunda; güvenlik avcısı, Kurucu ve K6 düzeltme işinde |
 | `tohum/30b-katalog-kiracilik-ve-graphql.md` | Güvenlik Kataloğu II: Çok Kiracılık, GraphQL, Kaynak Tüketimi | profil `tenancy.model` `none` değilse ya da hedef GraphQL sunuyorsa; güvenlik avcısı ve K6 işinde |

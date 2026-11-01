@@ -30,8 +30,8 @@ from snowball_bootstrap.manifest import check_stage, parse_manifest
 from snowball_bootstrap.treehash import tree_hash
 
 import test_exit_checks
-from helpers import (GIT_IDENTITY, LOOP_YML, FakeRunner, bare_repo, commit, git_in, main_of, make_repo, plumbed,
-                     posix_only, sh, tree_files)
+from helpers import (GIT_IDENTITY, LOOP_YML, FakeRunner, bare_repo, commit, git_in, install_fake_claude, main_of,
+                     make_repo, ok_result, plumbed, posix_only, sh, submit, tree_files)
 from test_exit_checks import tar_of
 
 BOOT = Path(__file__).resolve().parents[1]
@@ -109,6 +109,20 @@ def lock_of(line, **over):
     """A well-formed lock naming the counter line ``line``."""
     return dict({"stage": 1, "pass_row_sha256": "1" * 64, "toy_state_head": "2" * 40, "copy_state_head": "3" * 40,
                  "import_line_sha256": hashlib.sha256(line).hexdigest()}, **over)
+
+
+# The operator's policy once Stage 1 opens: Stage 0's rival brake and Stage 1's (`asama-1/10`, `26e`; E492).
+STAGE1_POLICY = {"constitutional": {
+    "monthly_cap_usd": 300, "stage_params": {"rival_min_attempts": 2, "repeat_reject_limit": 3},
+    "stage_budgets": {"asama_0": {"rival_usd": 30}, "asama_1": {"rival_usd": 15}},
+    "license_allowlist": ["MIT", "Apache-2.0"], "license_exceptions": {}}}
+
+
+def without_stage1_brake(policy=STAGE1_POLICY):
+    """``policy`` as Stage 0 wrote it: Stage 1's block gone."""
+    out = json.loads(json.dumps(policy))
+    del out["constitutional"]["stage_budgets"]["asama_1"]
+    return out
 
 
 def locked(root, brain_sha="4" * 40, batches=()):
@@ -327,13 +341,14 @@ class ImportBuildsOnMainTest(ImportCase):
     def test_a_toy_main_that_moved_meanwhile_refuses_the_push(self):  # import_toy_push_forced
         """E482 (the eighth skeptic's A11): the toy's push carries a lease on the toy main the import read too; a commit
         that reached it after the fetch stays, and the referee is not pushed."""
-        real = importer._fsck
+        real = importer._check_pushed
         referee = main_of(self.referee)
 
-        def moved(bare, commits):
-            self.set_main({"later.py": "x\n"}, repo=self.toy)
-            return real(bare, commits)
-        with mock.patch.object(importer, "_fsck", side_effect=moved), self.assertRaises(ImportErrorStop) as caught:
+        def moved(bare, work, name, commit, held):
+            if name == "toy":
+                self.set_main({"later.py": "x\n"}, repo=self.toy)
+            return real(bare, work, name, commit, held)
+        with mock.patch.object(importer, "_check_pushed", side_effect=moved), self.assertRaises(ImportErrorStop) as caught:
             self.run_import()
         self.assertIn("later.py", tree_files(self.toy))
         self.assertIn(f"the toy's main is now {main_of(self.toy)}; the referee was not pushed", str(caught.exception))
@@ -381,6 +396,31 @@ class ImportBuildsOnMainTest(ImportCase):
         self.assertEqual(importer.located("git@example.invalid:o/r.git"), "git@example.invalid:o/r.git")
         self.assertTrue(Path(importer.located("referee.git")).samefile(self.referee))
         self.assertTrue(importer.located("./a:b").endswith("a:b") and importer.located("./a:b") != "./a:b")
+
+    @unittest.skipUnless(os.name == "nt", "a drive-relative path is Windows'")
+    def test_a_drive_relative_path_is_the_drives(self):
+        """E498 (the act10 skeptic): `C:rel` with the working directory on another drive is relative to C:'s own
+        directory; kept as it was, git read it from the import's temporary directory. Windows' alone, so no mutant of
+        the Linux mutation run measures it; red before the fix on Windows (register E498)."""
+        here = os.path.splitdrive(os.getcwd())[0].upper()
+        other = "D:" if here == "C:" else "C:"
+        found = importer.located(other + "rel.git")
+        self.assertTrue(os.path.isabs(found), found)
+        self.assertEqual((found[:2].upper(), Path(found).name), (other, "rel.git"))
+        self.assertEqual(importer.located(here + "rel.git"), os.path.join(os.getcwd(), "rel.git"))
+
+    def test_an_empty_repository_name_stops(self):  # import_empty_name_is_the_cwd import_empty_toy_is_no_toy
+        """E498: `--toy ""` (or an empty --brain or --referee) names nothing; read as a path it was the caller's working
+        directory, and the command line made it no toy at all. It stops before anything is read."""
+        for args in (("", str(self.referee), str(self.toy)), (str(self.brain), "", str(self.toy)),
+                     (str(self.brain), str(self.referee), "")):
+            with self.subTest(args=args), self.assertRaisesRegex(ImportErrorStop, "an empty repository name"):
+                run_import(self.result, self.bundle, "id", "py", *args)
+        argv = ["import", "--result", str(self.result), "--bundle", str(self.bundle), "--identity", "id",
+                "--sigstore-python", "py", "--brain", str(self.brain), "--referee", str(self.referee), "--toy", ""]
+        before = self.heads()
+        self.assertEqual(cli.main(argv), 2)
+        self.assertEqual((self.heads(), self.verified), (before, []))
 
 
 class ImportTheToyTest(ImportCase):
@@ -567,11 +607,23 @@ class ImportRefusesNamesTest(ImportCase):
     def test_windows_names_are_refused_on_every_system(self):  # import_windows_chars_allowed import_long_paths_allowed
         """E484 (the eighth skeptic's S9: on Linux the import pushed them, on Windows git stopped half way): names a
         Windows checkout cannot hold are refused by the rule, before any object, wherever the import runs."""
+        emoji = "\U0001f600" * 60  # 120 UTF-16 units, 60 code points, 240 bytes: a name within every limit
         for path in ("a|b.py", "x/q?.py", "s*.py", 'd".py', "l<.py", "g>.py", "x" * 250 + "/" + "y" * 250 + ".py",
-                     "\U0001f600" * 131):
+                     f"{emoji}/{emoji}/" + "\U0001f600" * 11):  # 264 units, 133 code points: Windows counts units
             with self.subTest(path=path[:20]), self.assertRaises(ImportErrorStop):
                 importer.refuse_names("referee", [path], importer.KEPT_PATHS)
-        importer.refuse_names("referee", ["x" * 260, "\U0001f600" * 130, "a-b_c.d/e f(1)+[2]{3}'4'.py"])
+        importer.refuse_names("referee", ["y" * 4 + "/" + "x" * 255, f"{emoji}/{emoji}/" + "\U0001f600" * 9,
+                                          "a-b_c.d/e f(1)+[2]{3}'4'.py"])  # 260 units each: the longest path
+
+    def test_a_name_longer_than_255_bytes_is_refused(self):  # import_long_names_allowed import_long_names_by_code_points import_long_names_by_utf16
+        """E496 (the act10 skeptic's Q5: a 256-unit name was pushed): NTFS holds 255 UTF-16 units in one name, ext4 (the
+        operator's WSL) 255 bytes; a name's UTF-8 bytes are never fewer than its units, so the byte count is the rule."""
+        for name in ("x" * 256, "d/" + "x" * 256, "ş" * 128, "\U0001f600" * 64):  # 256 bytes each
+            with self.subTest(name=name[:12]), self.assertRaisesRegex(ImportErrorStop, "a name longer than 255 bytes"):
+                importer.refuse_names("referee", [name], importer.KEPT_PATHS)
+        importer.refuse_names("referee", ["x" * 255, "d/" + "x" * 255, "ş" * 127, "\U0001f600" * 63])
+        self.use_tree({"referee/ledger/chain.py": "x = 1\n", "referee/" + "n" * 256: "y\n", f"{TOY_DIR}/app.py": "y\n"})
+        self.refused("a name longer than 255 bytes")
 
     def test_names_git_reads_for_itself_are_refused_in_any_form(self):  # import_gitattributes_allowed import_gitmodules_allowed import_git_names_unchecked import_hfs_names_allowed
         """E478, E479 (the eighth skeptic's S1, S2, F): `.gitattributes` (it changes a checkout's bytes: eol,
@@ -690,20 +742,83 @@ class ImportChecksObjectsTest(ImportCase):
                 said = self.refused("git fetch failed")
                 self.assertIn(kind, said)
 
-    def test_what_would_be_pushed_is_checked_before_the_first_push(self):  # import_unchecked_before_push import_fsck_not_strict
-        """The brain's objects reached the import's repository with the referee's clone (a branch of the referee
-        repository holds the brain commit), so the fetch checks nothing; git's strict check of the repository holding
-        both new commits refuses before anything is pushed: no object git refuses is pushed, whichever way it came."""
+    def test_what_would_be_pushed_is_checked_before_the_first_push(self):  # import_unchecked_before_push import_push_check_off import_push_check_by_option
+        """The second gate, for an object no fetch checked (here the brain's fetch is made to check nothing): what the
+        push would send is checked as a remote that checks what it receives does, and refused before anything is
+        pushed: no object git refuses is pushed, whichever way it came (E479, E494)."""
         for kind, other in (("treeNotSorted", "zeroPaddedFilemode"), ("zeroPaddedFilemode", "treeNotSorted")):
             with self.subTest(kind=kind):  # each its own referee repository: one bad object at a time
                 self.referee = bare_repo(self.work / f"referee-{kind}.git",
                                          dict(OPERATOR_FILES, **{"control.json": CONTROL_ON}))
-                git_in(self.referee, "config", "receive.fsckObjects", "true")
                 self.brain_with_a_bad_tree(kind)
-                git_in(self.referee, "fetch", "-q", str(self.brain), f"{self.sha}:refs/heads/brain-copy")
-                said = self.refused("git's object check refuses what the import would push (E479): nothing was pushed")
+                with mock.patch.object(importer, "FETCH_CHECKED", ()):
+                    said = self.refused("git's object check refuses an object the push to the referee's main would "
+                                        "send, one its main does not hold (E479, E494): nothing was pushed")
                 self.assertIn(kind, said)
                 self.assertNotIn(other, said)
+
+    def bad_side_branch(self, repo, branch):
+        """A commit whose tree git's object check refuses (a mode with a leading zero), on ``branch`` of ``repo``."""
+        blob = git_in(repo, "hash-object", "-w", "--stdin", data=b"x\n").decode().strip()
+        side = git_in(repo, "commit-tree", raw_tree(repo, [("0100644", "z", blob)]), data=b"side").decode().strip()
+        git_in(repo, "update-ref", f"refs/heads/{branch}", side)
+        return side
+
+    def test_a_bad_object_on_another_referee_branch_stops_nothing(self):
+        """The act10 skeptic's Q3 (E494): a legacy branch of the referee repository holds a tree git's strict check
+        refuses; no push sends it, so the import goes through (it stopped every import for good). Two layers hold it:
+        only main is cloned, and only what the push sends is checked; a mutant of either alone passes here and is
+        killed by the tests below."""
+        self.bad_side_branch(self.referee, "legacy")
+        row = self.run_import()
+        self.assertEqual(row["brain_sha"], self.sha)
+        self.assertIn("ledger/chain.py", tree_files(self.referee))
+
+    def test_a_bad_object_on_another_toy_branch_stops_nothing(self):
+        """Q4 (E494): the toy repository's other branch (the Founder can push branches there) holds the same."""
+        self.bad_side_branch(self.toy, "founder-side")
+        self.run_import()
+        self.assertEqual(tree_files(self.toy), {"README.md": b"toy\n", "app.py": b"import os\n"})
+
+    def test_an_object_main_already_holds_is_not_checked_again(self):  # import_push_check_unseeded import_checks_the_whole_repository
+        """E494: the remote holds its main's history, so a bad object there is never what the push sends: an old main
+        commit with a tree git now refuses stops nothing, while the new commit reaches it as a parent."""
+        old = self.bad_side_branch(self.referee, "old")
+        files = tree_files(self.referee)
+        git_in(self.referee, "update-ref", "refs/heads/main", plumbed(self.referee, files, parent=old))
+        git_in(self.referee, "update-ref", "-d", "refs/heads/old")
+        self.run_import()
+        self.assertEqual(git_in(self.referee, "rev-parse", "refs/heads/main^^").decode().strip(), old)
+
+    def test_the_import_reads_each_repository_s_main_alone(self):  # import_clone_every_branch import_toy_every_branch
+        """E494: the referee repository is cloned with its main alone and the toy's main alone is fetched; the import's
+        repository holds no other branch of either."""
+        self.bad_side_branch(self.referee, "legacy")
+        self.bad_side_branch(self.toy, "founder-side")
+        seen = []
+        real = importer._check_pushed
+
+        def record(bare, work, name, commit, held):
+            seen.append(sorted(gitio.git(bare, "for-each-ref", "--format=%(refname)").decode().split()))
+            return real(bare, work, name, commit, held)
+        with mock.patch.object(importer, "_check_pushed", side_effect=record):
+            self.run_import()
+        self.assertEqual(seen[0], ["refs/heads/main", "refs/toy/main"])
+
+    def test_a_toy_branch_whose_name_ends_in_main_is_not_main(self):  # import_toy_main_by_name_tail
+        """git's `ls-remote` matches a pattern against the end of a ref's name: a toy without main but with
+        `x/refs/heads/main` has no main to build on, so the toy's commit is its first (it was fetched and stopped)."""
+        git_in(self.toy, "update-ref", "refs/heads/x/refs/heads/main", main_of(self.toy))
+        git_in(self.toy, "update-ref", "-d", "refs/heads/main")
+        self.run_import()
+        self.assertEqual(git_in(self.toy, "rev-list", "--count", "refs/heads/main").decode().strip(), "1")
+
+    def test_an_empty_toy_is_fetched_as_none(self):
+        """The toy is empty until the first import (`25` 10): no main to fetch, the toy's first commit has no parent."""
+        self.toy = bare_repo(self.work / "empty-toy.git")  # no main, no commit
+        self.run_import()
+        self.assertEqual(tree_files(self.toy), {"app.py": b"import os\n", "README.md": b"toy\n"})
+        self.assertEqual(git_in(self.toy, "rev-list", "--count", "refs/heads/main").decode().strip(), "1")
 
 
 # ---------------------------------------------------------------- the batch transfer (`asama-1/13` 3, E378)
@@ -743,7 +858,11 @@ class BatchImportTest(ImportCase):
 
     def test_a_batch_is_transferred_once_and_only_the_open_one(self):  # import_batch_any
         self.run_import(toy=False)
-        self.refused("open batch is None", toy=False)  # P1 is done; the seed carries no later batch table
+        self.refused("open batch is 'P2'", toy=False)  # P1 is done; P2's table holds next (E491)
+        self.write_result(stage=1, batch="P2")
+        self.assertEqual(self.run_import(toy=False)["batch"], "P2")
+        self.write_result(stage=1, batch="P2")
+        self.refused("open batch is None", toy=False)  # P1 and P2 done; the seed carries no later batch table
 
     def test_a_batch_result_of_another_batch_or_stage_or_without_the_lock_is_refused(self):  # import_batch_stage_unchecked
         for fields, says in (({"stage": 1, "batch": "P2"}, "open batch is 'P1'"), ({"stage": 2, "batch": "P1"}, "Stage 2"),
@@ -835,6 +954,7 @@ class StageOpenCase(unittest.TestCase):
         make_repo(self.referee, dict(OPERATOR_FILES, **REFEREE_CODE))
         sh(self.referee, "git", "config", "core.autocrlf", "false")  # the bytes committed are the bytes written
         self.tree_sha = importer.committed_referee_hash(self.referee)  # what the transfer line names (E471)
+        self.commit_referee({"policy.json": json.dumps(STAGE1_POLICY)})  # Stage 1's rival brake written (E492)
         self.write_summary()
         self.result = self.work / "result.json"
         self.write_signed()
@@ -1079,6 +1199,20 @@ class StageOpenRefusesTest(StageOpenCase):
             self.open()
         self.assertIn("is already there", str(caught.exception))
         self.assertFalse(self.stage_file().exists())
+
+    def test_a_referee_inside_its_checkout_is_refused(self):  # stage_open_from_a_subdirectory
+        """E497 (the act10 skeptic): git reads a path argument from the directory it runs in, so `--referee` naming a
+        directory inside the checkout found no lock in the commit and wrote one beneath itself; it is refused, with the
+        lock committed or not, and nothing is written."""
+        sub = self.referee / "bootstrap"
+        for committed in (False, True):
+            if committed:
+                self.commit_referee({"setup/stage.json": '{"stage": 1}\n'})
+            with self.subTest(committed=committed), self.assertRaises(stagelock.LockStop) as caught:
+                stagelock.open_stage(sub, self.toy.path, self.copy.path, "refs/heads/brain/state", "loop-id", "py",
+                                     self.result)
+            self.assertIn("inside its checkout: give the checkout's top (E497)", str(caught.exception))
+            self.assertFalse((sub / "setup").exists())
 
 
 class StageOpenReadsTheCommitTest(StageOpenCase):
@@ -1748,7 +1882,11 @@ class ImportPageTest(unittest.TestCase):
                       "zorlamadan itilir", "oyuncak önce, hakem sonra itilir", "`main`'in `control.json`'ıdır",
                       # E478-E485: the sixth round's facts
                       "`.gitattributes`", "`.gitmodules`", "HFS+'ın yok saydığı kod noktaları olmadan", '`\\|?*"<>`',
-                      "260 karakterden uzun yol", "(`fetch.fsckObjects`)", "(`git fsck --strict`)",
+                      "260 karakterden uzun yol", "(`fetch.fsckObjects`)",
+                      # E494-E498: the act10 skeptic's
+                      "(`receive.fsckObjects`) her itmenin göndereceğini denetler", "yalnız `main`'i",
+                      "`main`'in zaten tuttuğu nesne durdurmaz", "255 bayttan uzun tek ad", "boş repo adı durdurur",
+                      "sürücüye göreli yol o sürücünün dizininden",
                       "(`--force-with-lease=refs/heads/main:<sha>`)", "ret uzak `main`'in o anki başını adlandırır",
                       "hiçbir derinlikte `.github` yok", "çağıranın dizininden okunur"):
             self.assertIn(words, page)
@@ -1924,15 +2062,18 @@ class StageOneTableTest(unittest.TestCase):
         self.assertTrue(wiring.due(self.TABLE, set()))
         self.assertFalse(wiring.due(stage0, set()))
 
-    def test_a_transferred_batch_is_finished_and_the_next_one_holds(self):  # stage1_batches_done_ignored
-        """E378: once the counter has P1's transfer, P1's micro-features are finished (its groups run, its tests stay
-        declared) and the next batch's table holds; this seed carries none after P1, so none is open: `done_mf` is
-        empty and Stage 1's own micro-features are the transferred referee's to judge (`asama-1/06`)."""
+    def test_a_transferred_batch_is_finished_and_the_next_one_holds(self):  # stage1_batches_done_ignored stage1_p2_not_carried
+        """E378, E491: once the counter has P1's transfer, P1's micro-features are finished (its groups run, its tests
+        stay declared) and P2's table holds; after P2's too, the seed carries no later table, so none is open: `done_mf`
+        is empty and Stage 1's own micro-features are the transferred referee's to judge (`asama-1/06`)."""
         after = stages.load(1, done=("P1",))
-        self.assertEqual((after.stage, after.batch, after.count), (1, None, 0))
+        self.assertEqual((after.stage, after.batch, after.label, after.count), (1, "P2", "stage1-P2", 2))
         self.assertEqual([t.label for t in after.before], ["stage0", "stage1-P1"])
         self.assertEqual(after.groups_of(()), self.TABLE.groups_of(range(1, 9)))
-        for done in (("P2",), ("P1", "P1"), ("P1", "P2")):
+        last = stages.load(1, done=("P1", "P2"))
+        self.assertEqual((last.stage, last.batch, last.count), (1, None, 0))
+        self.assertEqual([t.label for t in last.before], ["stage0", "stage1-P1", "stage1-P2"])
+        for done in (("P2",), ("P1", "P1"), ("P2", "P1"), ("P1", "P2", "P2")):
             with self.subTest(done=done), self.assertRaises(ConfigError):
                 stages.load(1, done=done)
         with self.assertRaises(ConfigError):
@@ -1942,6 +2083,90 @@ class StageOneTableTest(unittest.TestCase):
         """`03`: Stage 1 is the ladder's fixed root; what follows is the Founder's stage spec, not a seed table."""
         with self.assertRaises(ConfigError):
             stages.load(2)
+
+
+def tohum_page(prefix):
+    return next((ROOT / "spec" / "tohum").glob(f"{prefix}-*.md")).read_text(encoding="utf-8")
+
+
+def flat_text(text):
+    return " ".join(text.split())
+
+
+def page_26e_rows():
+    """`26e`'s table: {(batch, MF): (tests, groups, module, calls)}, as the page writes it."""
+    rows = {}
+    for line in tohum_page("26e").splitlines():
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if len(cells) == 6 and re.fullmatch(r"`P\d+`", cells[0]):
+            listed = lambda cell: [] if cell == "—" else cell
+            tests = [int(n) for n in cells[2].split(", ")]
+            groups = re.findall(r"`([a-z_]+)`", listed(cells[3]) or "")
+            calls = [int(n) for n in re.findall(r"\d+", listed(cells[5]) or "")]
+            rows[(cells[0].strip("`"), int(cells[1]))] = (tests, groups, cells[4].strip("`"), calls)
+    return rows
+
+
+class StageOneTablesPageTest(unittest.TestCase):
+    """E491 (E373's first item): the batch tables the Founder works to are on a page (`26e`), every field of them, the
+    ones `asama-1/13` leaves silent too (module paths, batch names, P2 MF1's test number); page, tables and code hold
+    one another, so none can drift. P2's rows are `asama-1/13`'s, its MF1's test is `30d`'s numbered profile test."""
+
+    def test_26e_is_every_row_of_every_table_the_seed_carries(self):  # stage1_p2_test_renumbered stage1_p2_module_moved
+        tables = {b: stages.load(1, done=stages.BATCHES[1][:i]) for i, b in enumerate(stages.BATCHES[1])}
+        from_tables = {(b, f.mf): (list(f.tests), list(f.groups), f.module, list(f.calls))
+                       for b, t in tables.items() for f in t.mfs}
+        self.assertEqual(page_26e_rows(), from_tables)
+        self.assertEqual(list(dict.fromkeys(b for b, _mf in page_26e_rows())), list(stages.BATCHES[1]))
+        self.assertEqual(stages.BATCHES[1], ("P1", "P2"))
+
+    def test_p2s_rows_are_asama_1_13s_and_mf1s_test_is_30ds_profile_test(self):  # stage1_p2_test_renumbered
+        rows = batch_rows("P2")
+        self.assertEqual(sorted(rows), [1, 2])
+        p2 = stages.load(1, done=("P1",))
+        self.assertEqual((list(p2.feature(2).tests), list(p2.feature(2).groups)), rows[2])
+        self.assertEqual(rows[1], (None, []))  # the page names the tests, `30d`'nin profil testleri, by no number
+        page13 = next((ROOT / "spec" / "asama-1").glob("13-*.md")).read_text(encoding="utf-8")
+        self.assertIn("| P2 | 1 | `security.derive` ve `security.run` (`tohum/30d`) | `30d`'nin profil testleri | — |", page13)
+        profile = next(b for b in re.split(r"\n\s*\n", tohum_page("30d")) if b.startswith("**Profil testi.**"))
+        number = int(re.search(r"devamı olarak (\d+) \(`26e`\)", flat_text(profile)).group(1))
+        self.assertEqual(list(p2.feature(1).tests), [number])
+        self.assertIn("\"`30d`'nin profil testleri\" tek testtir", flat_text(profile))
+        tests_page = (ROOT / "spec" / "asama-0" / "09-harness-in-kendi-testleri.md").read_text(encoding="utf-8")
+        numbered = [int(n) for n in re.findall(r"^\| (\d+) \|", tests_page, re.M)]
+        self.assertEqual(number, max(numbered) + 1)  # §0.9's numbers go on; none is reused (`asama-0/09`: kalıcıdır)
+        others = [n for t in [stages.load(0), stages.load(1)] for f in t.mfs for n in f.tests]
+        self.assertNotIn(number, others)
+        self.assertEqual(rows[2], ([22], []))
+        self.assertIn("| 22 | Dispatch kanaryası", tests_page)
+        self.assertTrue(re.search(r"^\| 22 \| .* \| P2 \|$", tests_page, re.M))
+
+    def test_module_paths_are_26as_first_tool_of_each_mechanism(self):  # stage1_p2_module_moved
+        """Spec sessiz (E372, E491): a module is its mechanism's first tool in `26a`, dots made slashes (`asama-0/14`
+        MF1 and MF13 take their first tool's); a mechanism with no tool there keeps E372's name."""
+        tools = set(re.findall(r"^\| `([a-z_]+\.[a-z_]+)` \|", tohum_page("26a"), re.M))
+        page13 = next((ROOT / "spec" / "asama-1").glob("13-*.md")).read_text(encoding="utf-8")
+        checked = 0
+        for line in page13.splitlines():
+            cells = [c.strip() for c in line.strip().strip("|").split("|")]
+            if len(cells) == 5 and cells[0] in stages.BATCHES[1] and cells[1].isdigit():
+                named = [t for t in re.findall(r"`([a-z_]+\.[a-z_]+)`", cells[2]) if t in tools]
+                module = page_26e_rows()[(cells[0], int(cells[1]))][2]
+                if named:
+                    checked += 1
+                    self.assertEqual(module, named[0].replace(".", "/") + ".py", line)
+        self.assertEqual(checked, 7)  # P1's 2, 3, 4, 6, 7 and P2's 1, 2 name a tool of 26a's
+
+    def test_the_exit_batch_is_no_table_of_this_seed_and_the_page_says_why(self):  # stage1_exit_judged_as_stage0
+        """E495: `asama-1/13`'s third batch comes with Stage 1's own exit, whose (A) this seed does not judge."""
+        self.assertEqual(page_batches()[2], "Aşama 1 çıkışı")
+        self.assertNotIn(page_batches()[2], stages.BATCHES[1])
+        exit_part = next(b for b in re.split(r"\n\s*\n", tohum_page("26e")) if b.startswith("**Çıkış partisi.**"))
+        for words in ("bu tohumda tablo değildir", "Aşama 1'in kendi çıkışının (A)'sıyla gelir",
+                      "(`batch`'siz istek `exit_request_wrong_stage`'dir)", "P1 ve P2 aktarılınca açık tablo boştur"):
+            self.assertIn(words, flat_text(exit_part))
+        self.assertIn("(`26e`)", flat_text(tohum_page("26c")))  # 26c's stage table paragraph points here
+        self.assertIn("`26e`", tohum_page("00b"))
 
 
 class StageOneManifestTest(unittest.TestCase):
@@ -2022,6 +2247,10 @@ class StageOnePullTest(unittest.TestCase):
         self.brain = base / "brain"
         self.seed_files = {"spec/tohum/00-cekirdek.md": "# core\n", "spec/asama-0/00-ozet.md": "# stage 0\n",
                            "spec/asama-1/00-ozet.md": "# stage 1\n",
+                           # the stage pages the rival reads beside a code push, Stage 0's and Stage 1's (E493)
+                           **{f"spec/{name}.md": f"# {name}\n" for name in (
+                               "asama-0/09-harness-in-kendi-testleri", "asama-0/14-sirali-mikro-ozellikler",
+                               "asama-1/06-sirali-mikro-ozellikler", "asama-1/13-aktarim-partileri")},
                            "referee/.github/workflows/loop.yml": LOOP_YML,
                            "snowball-tests.json": self.manifest_text(stage1_done=())}
         make_repo(self.brain, {"README.md": "brain\n"})
@@ -2041,10 +2270,7 @@ class StageOnePullTest(unittest.TestCase):
                           "per_run_cap_usd_micros": 3_000_000},
                 "limits": {"test_timeout_s": 600, "reproducer_timeout_s": 120, "max_prompt_chars": 600_000,
                            "max_tree_bytes": 50_000_000}}),
-            "policy.json": json.dumps({"constitutional": {
-                "monthly_cap_usd": 300, "stage_params": {"rival_min_attempts": 2, "repeat_reject_limit": 3},
-                "stage_budgets": {"asama_0": {"rival_usd": 30}},
-                "license_allowlist": ["MIT", "Apache-2.0"], "license_exceptions": {}}})})
+            "policy.json": json.dumps(STAGE1_POLICY)})
         self.write_counter()
         frozen = {d: tree_hash(tar, d, forbid_operator_names=False) for d in ("spec/asama-0", "spec/asama-1")}
         self.state = {"schema": "snowball-bootstrap-state/3", "origin": "artifact",
@@ -2177,8 +2403,8 @@ class StageOnePullTest(unittest.TestCase):
                 self.state["last_evaluated_sha"] = None
 
     def test_after_p1s_transfer_its_micro_features_are_finished(self):  # stage1_batches_done_ignored
-        """E378: the counter's P1 transfer finishes P1: its tests stay declared, `done_mf` is the next table's (none in
-        this seed), and a P1 request is the wrong batch."""
+        """E378: the counter's P1 transfer finishes P1: its tests stay declared, `done_mf` is the next table's (P2's,
+        E491), and a P1 request is the wrong batch."""
         self.write_counter(batches=("P1",))
         self.state["last_accepted_sha"] = commit(self.brain, {"snowball-tests.json": self.manifest_text(range(1, 9))},
                                                  "P1 done")
@@ -2186,7 +2412,7 @@ class StageOnePullTest(unittest.TestCase):
                "after P1")
         meta = self.pull()
         table = stagelock.open_table(self.referee)
-        self.assertEqual((table.stage, table.batch, [b.label for b in table.before]), (1, None, ["stage0", "stage1-P1"]))
+        self.assertEqual((table.stage, table.batch, [b.label for b in table.before]), (1, "P2", ["stage0", "stage1-P1"]))
         self.assertEqual(meta["pre_reasons"], [])
         commit(self.brain, {"snowball-tests.json": self.manifest_text([])}, "P1's tests dropped")
         self.assertIn("missing_test:stage1-P1:MF1:T51", self.pull()["pre_reasons"])
@@ -2212,6 +2438,140 @@ class StageOnePullTest(unittest.TestCase):
         meta = self.pull()
         self.assertEqual((stagelock.open_table(self.referee).label, "stage" in meta), ("stage0", False))
         self.assertNotIn("spec_not_frozen", meta["pre_reasons"])
+
+
+# ---------------------------------------------------------------- Stage 1's rival brake and pages (E492, E493)
+
+class StageOneRivalBrakeTest(unittest.TestCase):
+    """E492 (E373's second item): past the lock the rival's stage brake is the open stage's, `asama-1/10`'s 15 USD as
+    `stage_budgets.asama_1.rival_usd` (`29b`, `26e`, `18a`), and the stage's spend counts from the lock that opened it."""
+
+    def test_the_policy_names_a_brake_per_stage_stage_0s_required(self):  # stage1_brake_is_stage0s
+        policy = config.policy_of(STAGE1_POLICY)
+        self.assertEqual((policy.rival_usd_micros(0), policy.rival_usd_micros(1)), (30_000_000, 15_000_000))
+        bare = config.policy_of(without_stage1_brake())
+        self.assertEqual(bare.rival_usd_micros(0), 30_000_000)
+        with self.assertRaisesRegex(ConfigError, r"stage_budgets\.asama_1\.rival_usd is missing"):
+            bare.rival_usd_micros(1)
+        founder_only = json.loads(json.dumps(STAGE1_POLICY))
+        founder_only["constitutional"]["stage_budgets"]["asama_1"] = {"founder_usd": 150}  # another stage key only
+        with self.assertRaises(ConfigError):
+            config.policy_of(founder_only).rival_usd_micros(1)
+        for bad in (0, -1, "15", 1.5, True):
+            broken = json.loads(json.dumps(STAGE1_POLICY))
+            broken["constitutional"]["stage_budgets"]["asama_1"]["rival_usd"] = bad
+            with self.subTest(bad=bad), self.assertRaises(ConfigError):
+                config.policy_of(broken)
+        stage0_gone = json.loads(json.dumps(STAGE1_POLICY))
+        del stage0_gone["constitutional"]["stage_budgets"]["asama_0"]
+        with self.assertRaisesRegex(ConfigError, "asama_0"):
+            config.policy_of(stage0_gone)
+
+    def test_the_stages_spend_counts_from_its_lock(self):  # stage1_spend_not_reset stage1_spend_reset_every_run stage1_spend_stage_unchecked
+        from snowball_bootstrap import state as st
+        prev = {"stage_spend_usd_micros": 29_000_000, "x": 1}
+        self.assertIs(st.for_stage(prev, 0), prev)  # Stage 0: the state it always was, no new key
+        first = st.for_stage(prev, 1)
+        self.assertEqual((first["stage_spend_usd_micros"], first[st.SPEND_STAGE], first["x"]), (0, 1, 1))
+        later = dict(first, stage_spend_usd_micros=4_000_000)
+        self.assertIs(st.for_stage(later, 1), later)  # counted on, never reset again
+        self.assertIs(st.for_stage(later, 0), later)  # a reverted lock starts no stage's spend again (closed side)
+        valid = st.initial(config.summary_of({"seed_commit": "a" * 40, "seed_tree_sha256": "b" * 64}), "2026-11")
+        self.assertEqual(st.validate(dict(valid, spend_stage=1))["spend_stage"], 1)
+        st.validate(valid)
+        for bad in (0, -1, True, "1", None):
+            with self.subTest(bad=bad), self.assertRaises(ConfigError):
+                st.validate(dict(valid, spend_stage=bad))
+
+    def test_stage_open_opens_no_lock_on_a_policy_without_the_stage_1_brake(self):  # stage_open_brake_unchecked
+        case = StageOpenCase("run")
+        case.setUp()
+        self.addCleanup(case.doCleanups)
+        case.commit_referee({"policy.json": json.dumps(without_stage1_brake())})
+        with self.assertRaises(stagelock.LockStop) as caught:
+            case.open()
+        self.assertIn("stage_budgets.asama_1.rival_usd", str(caught.exception))
+        self.assertFalse(case.stage_file().exists())
+        case.commit_referee({"policy.json": json.dumps(STAGE1_POLICY)})
+        self.assertEqual(case.open()["stage"], 1)
+
+
+class StageOnePullBrakeTest(unittest.TestCase):
+    """The brake as `pull` and the rival read it once the lock is open (E492), and the stage pages beside a code push
+    (E493). StageOnePullTest's fixture, not its tests."""
+
+    setUp = StageOnePullTest.setUp
+    write_counter = StageOnePullTest.write_counter
+    manifest_text = staticmethod(StageOnePullTest.manifest_text)
+    pull = StageOnePullTest.pull
+
+    def test_stage_0s_spend_does_not_brake_stage_1_and_stage_1s_does(self):  # stage1_brake_is_stage0s stage1_spend_not_reset
+        self.state["stage_spend_usd_micros"] = 29_000_000  # Stage 0's, past Stage 1's whole 15 USD
+        commit(self.brain, {"referee/runner/organs.py": "x = 1\n"}, "P1 work")
+        meta = self.pull()
+        self.assertNotIn("budget", meta["pre_reasons"])
+        self.assertEqual((meta["state"]["stage_spend_usd_micros"], meta["state"]["spend_stage"]), (0, 1))
+        self.state.update(stage_spend_usd_micros=15_000_000, spend_stage=1)  # Stage 1's brake reached
+        commit(self.brain, {"referee/runner/organs.py": "x = 2\n"}, "more P1 work")
+        meta = self.pull()
+        self.assertIn("budget", meta["pre_reasons"])
+        self.assertEqual(meta["state"]["stage_spend_usd_micros"], 15_000_000)
+
+    def test_without_stage_1s_brake_the_run_stops(self):  # stage1_brake_is_stage0s
+        write(self.referee, {"policy.json": json.dumps(without_stage1_brake())})
+        commit(self.brain, {"referee/runner/organs.py": "x = 1\n"}, "P1 work")
+        self.pull(rc=2)
+
+    def rival(self, spend):
+        """The rival command on the last pull, with Stage 1's spend ``spend``: the CLI's argv and prompt."""
+        seats = self.referee / "seats"
+        seats.mkdir(exist_ok=True)
+        (seats / cli.SEATS_FILE).write_text(tohum_page("29"), encoding="utf-8")
+        bin_dir = Path(self.tmp.name) / f"bin{self.n}"
+        bin_dir.mkdir()
+        claude = install_fake_claude(bin_dir)
+        (bin_dir / "scenario.json").write_text(json.dumps({"calls": [submit()], "result": ok_result()}))
+        pulled = Path(self.tmp.name) / f"pulled{self.n}"
+        meta = json.loads((pulled / "meta.json").read_text(encoding="utf-8"))
+        meta["state"]["stage_spend_usd_micros"] = spend
+        (pulled / "meta.json").write_text(json.dumps(meta), encoding="utf-8")
+        gh_output = Path(self.tmp.name) / f"gh_output{self.n}"
+        with mock.patch.dict(os.environ, {"GITHUB_OUTPUT": str(gh_output)}):
+            self.assertEqual(cli.main(["rival", "--root", str(self.referee), "--pulled", str(pulled), "--work",
+                                       str(Path(self.tmp.name) / f"rwork{self.n}"), "--out",
+                                       str(Path(self.tmp.name) / f"rival{self.n}"), "--claude", str(claude)]), 0)
+        return json.loads((bin_dir / "seen.json").read_text())
+
+    def test_the_rival_gets_stage_1s_brake_and_stage_1s_pages(self):  # stage1_brake_is_stage0s stage1_rival_sees_stage0_pages
+        """E493: beside a Stage 1 code push the rival reads the pages the open table copies, `asama-0/09`, `asama-1/06`
+        and `asama-1/13`, not Stage 0's table page; its budget is Stage 1's brake less Stage 1's spend."""
+        commit(self.brain, {"referee/runner/organs.py": "x = 1\n"}, "P1 work")
+        self.pull()
+        seen = self.rival(spend=14_500_000)
+        self.assertEqual(seen["argv"][seen["argv"].index("--max-budget-usd") + 1], "0.500000")
+        for page in ("spec/asama-0/09-harness-in-kendi-testleri.md", "spec/asama-1/06-sirali-mikro-ozellikler.md",
+                     "spec/asama-1/13-aktarim-partileri.md"):
+            self.assertIn(f'seed page "{page}"', seen["stdin"])
+        self.assertNotIn("spec/asama-0/14-", seen["stdin"])
+
+
+class StagePagesTest(unittest.TestCase):
+    def test_the_rival_reads_the_pages_the_open_table_copies(self):  # stage1_rival_sees_stage0_pages
+        """E493, `26e`: Stage 0's table copies `asama-0/14` and `09` (as before the lock, unchanged); Stage 1's batch
+        tables copy `asama-1/13` and `09`, and Stage 1's own micro-features are `asama-1/06`'s."""
+        names = ["spec/asama-0/09-harness-in-kendi-testleri.md", "spec/asama-0/14-sirali-mikro-ozellikler.md",
+                 "spec/asama-1/06-sirali-mikro-ozellikler.md", "spec/asama-1/13-aktarim-partileri.md",
+                 "spec/asama-1/07-harness-olcumu.md", "spec/tohum/04-is-boyutu-ve-gercek-test.md"]
+        tar = tar_of({n: f"# {n}\n" for n in names})
+        stage_pages = lambda stage: sorted(p for p in cli._pages(tar, "code", stage) if not p.startswith("spec/tohum/"))
+        self.assertEqual(stage_pages(0), names[:2])
+        self.assertEqual(stage_pages(1), [names[0], names[2], names[3]])
+        self.assertEqual(sorted(cli._pages(tar, "spec", 1)), [])  # a spec request reads the seed's spec pages alone
+        page = flat_text(tohum_page("26e"))
+        self.assertIn("Aşama 0'da `asama-0/09` ve `asama-0/14`; Aşama 1'de `asama-0/09`, `asama-1/06` ve `asama-1/13`", page)
+        for stage, prefixes in stages.STAGE_PAGES.items():
+            for prefix in prefixes:
+                self.assertEqual(len(list((ROOT / "spec").glob(prefix + "*.md"))), 1, prefix)
 
 
 # ---------------------------------------------------------------- the batch's (A) (`02` 6, `asama-1/13` 2, E378)

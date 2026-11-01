@@ -10,8 +10,9 @@ accepted and transferable; it is Stage 0's exit while that ``main`` holds no loc
 checks on (``fetch.fsckObjects``, E479). Then, before any object is written, every name of the new parts (``referee/``
 and, at Stage 0's exit, ``tests/fixtures/toy-repo/``) is one the spec allows (`26c`) and one no file system reads as
 another: no control character, backslash, colon, ``..`` or ``.git`` (case-folded); no name ending in a dot or a space,
-no reserved device name, no ``~`` and a digit (an 8.3 short name's shape), none of ``|?*"<>`` and no path longer than
-260 characters (Windows holds none of them, on whatever system the import runs, E484); no ``.git``, ``.gitattributes``
+no reserved device name, no ``~`` and a digit (an 8.3 short name's shape), none of ``|?*"<>``, no path longer than
+260 characters (Windows holds none of them, on whatever system the import runs, E484) and no name longer than 255 bytes
+(ext4's limit on one name; NTFS's is 255 UTF-16 units, never more bytes, E496); no ``.git``, ``.gitattributes``
 or ``.gitmodules``, folded (any case, and without the code points HFS+ ignores, as git reads its own names), so nothing
 of the brain changes what a checkout's bytes are or fetches from elsewhere (E478, E479), and in the toy no ``.github``
 (`25a` 6: the toy holds no workflow, E480); no two names one name folded; and none that is, holds or leads to, folded,
@@ -27,9 +28,12 @@ then does the counter get its row (`26c:39-40`), ``{ts, stage, batch?, brain_sha
 toy_tree_sha256?}`` in that order, chained (`26`), one line of compact JSON ended by LF, appended to ``main``'s
 ``setup/imports.jsonl`` (a plain file, mode 100644) in the same commit, the only entry that differs from the checked
 tree. At Stage 0's exit the toy repository's ``main`` gets a commit whose tree is the signed toy tree (`25a` 2); a batch
-transfer leaves the toy as it is (`asama-1/13`). Before anything is pushed, git's strict object check runs on the bare
-repository that holds both new commits (``git fsck --strict``: what a remote with ``receive.fsckObjects`` refuses stops
-here, E479), so a toy is never pushed beside a referee commit its remote refuses. The toy is pushed first, the referee
+transfer leaves the toy as it is (`asama-1/13`). Only ``main`` of the referee repository is cloned and only ``main``
+of the toy's fetched (E494). Before anything is pushed, git's object check runs on exactly what each push sends: the
+objects the new commit reaches and the main the import read does not (``receive.fsckObjects`` in a repository of the
+import's own that holds that main, `_check_pushed`): what a remote that checks what it receives refuses stops here
+(E479), while an object of another branch, or one main already holds, stops nothing (E494). So a toy is never pushed
+beside a referee commit its remote refuses. The toy is pushed first, the referee
 commit last, each with a lease on the ``main`` the import read (``--force-with-lease=refs/heads/main:<sha>``, a
 fast-forward a ``main`` that moved or was rewound since refuses, E482); a refused push names that remote's ``main`` as
 ``ls-remote`` reads it then (a rerun leaves a toy that already holds the tree as it is). The operator then pulls
@@ -42,7 +46,8 @@ the lock; one with it is a batch's, imported only while that batch is the lock's
 (`stagelock.open_table`), with ``stage`` and ``batch`` from the signed result and no toy; ``result_sha256`` is sha256
 of the signed result file's bytes; ``ts`` is UTC to the second (`26c` vectors); the commit's author is the operator's git
 identity; a ``main`` without ``bootstrap/``, ``.github/workflows/bootstrap.yml`` or ``control.json``, or with a case
-variant of a kept name, stops; a repository given as a local path is read from the caller's working directory (E485).
+variant of a kept name, stops; a repository given as a local path is read from the caller's working directory (E485),
+a drive-relative one as the system resolves it, and an empty name stops (E498).
 """
 
 from __future__ import annotations
@@ -82,6 +87,10 @@ DEVICES = frozenset({"CON", "PRN", "AUX", "NUL", "CONIN$", "CONOUT$"}
 SHORT_NAME = re.compile(r"~[0-9]")
 WINDOWS_CHARS = frozenset('|?*"<>')
 MAX_PATH = 260
+# One name's limit where the repository is checked out (E496): NTFS holds 255 UTF-16 units, ext4 (the operator's WSL)
+# 255 bytes. A name's UTF-8 bytes are never fewer than its UTF-16 units, so the byte count holds both: a longer name
+# stops here, not in a checkout half way.
+MAX_NAME = 255
 # The code points HFS+ leaves out of a name when it compares two, as git's `is_hfs_dotgit` reads its own names (E479).
 HFS_IGNORED = dict.fromkeys((0x200C, 0x200D, 0x200E, 0x200F, 0x202A, 0x202B, 0x202C, 0x202D, 0x202E, 0x206A, 0x206B,
                              0x206C, 0x206D, 0x206E, 0x206F, 0xFEFF))
@@ -126,6 +135,8 @@ def windows_problem(path: str) -> str | None:
     if len(path.encode("utf-16-le", "surrogatepass")) // 2 > MAX_PATH:
         return f"a path longer than Windows' {MAX_PATH} characters"
     for part in path.split("/"):
+        if len(part.encode("utf-8", "surrogatepass")) > MAX_NAME:
+            return f"a name longer than {MAX_NAME} bytes (ext4's limit; NTFS's {MAX_NAME} UTF-16 units are never more)"
         if WINDOWS_CHARS.intersection(part):
             return 'a character a Windows name cannot hold (|?*"<>)'
         if part.endswith((".", " ")):
@@ -190,12 +201,19 @@ def _git(cwd: Path, *args: str, stdin: bytes | None = None, index: Path | None =
 def located(repo: str) -> str:
     """A repository the operator names: a URL as it is, a local path made absolute from the caller's working directory
     (git runs in the import's temporary directory, E485). A URL is git's: ``scheme://``, or ``host:path`` with no slash
-    before the colon (a Windows drive letter is a path there)."""
+    before the colon (a Windows drive letter is a path there). A Windows drive-relative ``C:rel`` is made absolute as the
+    system reads it (``os.path.abspath``: that drive's own directory), not kept relative for git to read from the
+    temporary directory (E498). An empty name names nothing: it stops, it is no default."""
+    if not repo:
+        raise ImportErrorStop("an empty repository name (--brain, --referee or --toy \"\"): give the repository or "
+                              "leave the option out (E498)")
     colon, slash = repo.find(":"), repo.find("/")
     drive = os.name == "nt" and DOS_DRIVE.match(repo)
     if "://" in repo or (colon >= 0 and (slash < 0 or colon < slash) and not drive):
         return repo
-    return os.path.normpath(os.path.join(os.getcwd(), repo))
+    if os.path.splitdrive(repo)[0] and not os.path.isabs(repo):  # Windows' `C:rel`: that drive's own directory
+        return os.path.abspath(repo)
+    return os.path.normpath(os.path.join(os.getcwd(), repo))  # `./a:b` stays a name (abspath's normpath makes `a:` a drive)
 
 
 def _rev(bare: Path, rev: str) -> str | None:
@@ -325,14 +343,42 @@ def _check_composed(bare: Path, tree: str, main: str, expected: str) -> None:
                               "(`25a` 1): nothing was written")
 
 
-def _fsck(bare: Path, commits: list[str]) -> None:
-    """E479: git's strict object check on the bare repository holding the commits to push, before the first push: what a
-    remote that checks what it receives would refuse stops here, while neither main has moved."""
+def _check_pushed(bare: Path, work: Path, name: str, commit: str, held: str | None) -> None:
+    """E479, E494: git's object check of exactly what the push to ``name`` would send, before the first push: the
+    objects reachable from ``commit`` that the main the import read (``held``, None for an empty repository) does not
+    reach. A fresh bare repository of the import's own holds that main, copied unchecked (its remote holds it already),
+    and receives ``commit`` with ``receive.fsckObjects`` in its own configuration, as a remote that checks what it
+    receives does (a ``-c`` on the push does not reach a local receive-pack); no hook runs there. An object of another
+    branch, or one main already holds, is never what this push sends, so it stops nothing (E479 checked the whole
+    repository: a bad object on any branch stopped every import for good)."""
+    check = work / f"check-{name}.git"
+    _git(work, "init", "--bare", "--quiet", "--template=", str(check))
+    for key, value in (("core.hooksPath", "/dev/null"), ("receive.fsckObjects", "false")):
+        _git(check, "config", key, value)
+    if held is not None:
+        _git(bare, "push", "--quiet", str(check), f"{held}:refs/heads/held")
+    _git(check, "config", "receive.fsckObjects", "true")
     try:
-        _git(bare, "fsck", "--strict", "--no-dangling", "--no-progress", *commits)
+        _git(bare, "push", "--quiet", str(check), f"{commit}:refs/heads/new")
     except ImportErrorStop as exc:
-        raise ImportErrorStop(f"{exc}: git's object check refuses what the import would push (E479): nothing was "
-                              "pushed") from exc
+        raise ImportErrorStop(f"{exc}: git's object check refuses an object the push to the {name}'s main would send, "
+                              f"one its main does not hold (E479, E494): nothing was pushed") from exc
+
+
+def _has_main(cwd: Path, repo: str) -> bool:
+    """Whether the remote has a branch named exactly main (`ls-remote` matches a pattern against a name's end, so a
+    ``x/refs/heads/main`` answers too: the name is compared whole)."""
+    listed = _git(cwd, "ls-remote", "--heads", repo, f"refs/heads/{BRANCH}").splitlines()
+    return any(line.split(b"\t")[-1] == f"refs/heads/{BRANCH}".encode() for line in listed)
+
+
+def _fetch_main(bare: Path, repo: str, ref: str) -> str | None:
+    """The remote's main alone into ``ref`` (E494: no other branch of it is read); None for a repository without one
+    (the toy is empty until the first import, `25` 10). A main that appears after `ls-remote` meets the push's lease."""
+    if not _has_main(bare, repo):
+        return None
+    _git(bare, "fetch", "--quiet", "--no-tags", repo, f"+refs/heads/{BRANCH}:{ref}")
+    return _rev(bare, f"{ref}^{{commit}}")
 
 
 def _remote_main(bare: Path, repo: str) -> str:
@@ -365,7 +411,13 @@ def run_import(result_path: Path, bundle_path: Path, identity: str, sigstore_pyt
 def _run(result_path: Path, bundle_path: Path, identity: str, sigstore_python: str, brain_repo: str,
          referee_repo: str, toy_repo: str | None, work: Path) -> dict:
     bare = work / "work.git"
-    _git(work, "clone", "--bare", "--quiet", "--no-tags", referee_repo, str(bare))
+    try:  # main alone (E494): another branch's objects are no push's, and none of them can stop an import
+        _git(work, "clone", "--bare", "--quiet", "--no-tags", "--single-branch", "--branch", BRANCH, referee_repo,
+             str(bare))
+    except ImportErrorStop as exc:
+        if not _has_main(work, referee_repo):
+            raise ImportErrorStop(f"the referee repository has no {BRANCH} to build on") from exc
+        raise
     main = _rev(bare, f"refs/heads/{BRANCH}^{{commit}}")
     if main is None:
         raise ImportErrorStop(f"the referee repository has no {BRANCH} to build on")
@@ -440,14 +492,15 @@ def _run(result_path: Path, bundle_path: Path, identity: str, sigstore_python: s
 
     toy_commit = toy_main = None
     if toy_tree is not None:
-        _git(bare, "fetch", "--quiet", "--no-tags", toy_repo, "+refs/heads/*:refs/toy/*")
-        toy_main = _rev(bare, f"refs/toy/{BRANCH}^{{commit}}")
+        toy_main = _fetch_main(bare, toy_repo, f"refs/toy/{BRANCH}")
         if toy_main is None or _rev(bare, f"{toy_main}^{{tree}}") != toy_tree:
             parents = ["-p", toy_main] if toy_main else []
             toy_commit = _git(bare, "commit-tree", toy_tree, *parents,
                               stdin=f"Oyuncak: imzalı oyuncak ağacı, beyin {sha} (`25a` 2)\n".encode("utf-8")
                               ).decode().strip()
-    _fsck(bare, [commit] + ([toy_commit] if toy_commit else []))
+    _check_pushed(bare, work, "referee", commit, main)  # both before either push: no toy beside a refused referee
+    if toy_commit:
+        _check_pushed(bare, work, "toy", toy_commit, toy_main)
     if toy_commit:
         try:
             _push(bare, toy_repo, toy_commit, toy_main)

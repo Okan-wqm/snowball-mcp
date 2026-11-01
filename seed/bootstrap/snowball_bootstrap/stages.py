@@ -12,16 +12,25 @@ micro-features (`asama-1/06`, `lint.discover` first) are the Founder's, and its 
 (`06`: "Partiler numarasızdır"). `stages/stage1-P1.json` is `{stage: 1, batch: "P1", mfs}`, `asama-1/13`'s P1 rows.
 Once the operator's lock opened Stage 1 (`setup/stage.json`, `asama-0/10a`), the table that holds is the open batch's:
 the first of `BATCHES[1]` the counter has no transfer of (`stagelock.batches_done`). Each batch has its own numbering,
-so P2's table joins with the seed epoch that numbers its tests (E373) and renumbers nothing. With every batch the seed
-carries transferred, the open table is empty: no micro-feature of the seed is open, `done_mf` is `[]` (Stage 1's own
-micro-features are judged live by the transferred referee, `06`). Stage 1 is the ladder's fixed root (`03`), so none of
-this is a default to deviate from.
+so P2's table (`stages/stage1-P2.json`) joined without renumbering P1's (E491). With every batch the seed carries
+transferred, the open table is empty: no micro-feature of the seed is open, `done_mf` is `[]` (Stage 1's own
+micro-features are judged live by the transferred referee, `06`). The exit batch of `asama-1/13` is no table here: it
+comes with Stage 1's own exit, whose (A) this seed does not judge (E378, E495). Stage 1 is the ladder's fixed root
+(`03`), so none of this is a default to deviate from. `tohum/26e` is the tables' page: every row, the batch names, the
+module paths and P2 MF1's test number (53, `30d` "Profil testi": `asama-1/13`'s "`30d`'nin profil testleri").
 
 The open table carries what is finished as ``before``: Stage 0 and every transferred batch. All their micro-features
 are done, so their vector groups run on every push (`asama-0/14`: a finished micro-feature's group runs on every later
 push) and their tests stay declared. Spec sessiz (E372, E378): the batch table's name and its ``batch`` field; the
 module paths, from `26a`'s tool names as `asama-0/14`'s are (``snapshot.make`` is ``snapshot/make.py``) and, for the
-three mechanisms `26a` names no tool for, from the mechanism; ``calls`` empty, as the page names none.
+three mechanisms `26a` names no tool for, from the mechanism; a micro-feature of two tools takes the first one's path
+(`asama-0/14` MF1 ``ledger.chain``, MF13 ``gate.revert``): P2 MF1 is ``security/derive.py``; ``calls`` empty, as the
+page names none.
+
+The pages a table copies are the stage pages the seed rival reads beside a code push (`STAGE_PAGES`, `26e`, E493): the
+rows and their tests, so the rival measures the push against the micro-features the referee judges it by. Stage 0's
+table copies `asama-0/14` and `09`; past the lock the batch tables copy `asama-1/13` and `asama-0/09`, and Stage 1's own
+micro-features, judged by the same pushes, are `asama-1/06`'s.
 """
 
 from __future__ import annotations
@@ -42,7 +51,10 @@ GROUP_RE = re.compile(r"^[a-z][a-z0-9_]{0,40}\Z")
 MAX_TEST = 999  # the manifest's test ids are T1..T999 (`manifest.TEST_ID_RE`)
 MAX_MFS = 100
 # The batches whose tables this seed carries, per stage, in `asama-1/13`'s order (P1 before P2 before the exit batch).
-BATCHES: dict[int, tuple[str, ...]] = {1: ("P1",)}
+BATCHES: dict[int, tuple[str, ...]] = {1: ("P1", "P2")}
+# The stage pages the rival reads beside a code push, per open stage (`26e`, E493): the pages its table copies.
+STAGE_PAGES: dict[int, tuple[str, ...]] = {0: ("asama-0/09-", "asama-0/14-"),
+                                           1: ("asama-0/09-", "asama-1/06-", "asama-1/13-")}
 BATCH_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,39}\Z")  # a batch's name as a request and a counter row carry it
 
 

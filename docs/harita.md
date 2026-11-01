@@ -368,12 +368,12 @@ Every subcommand of `cli.py`, the jobs that run it, and the package modules its 
 | `poll` | `cek` | `cmd_poll` | `config`, `decide`, `ghapi`, `gitio`, `treehash` |
 | `licenses` | `cek`, `yaz` | `cmd_licenses` | `canon`, `config`, `licenses` |
 | `fetch-state` | `cek` | `cmd_fetch_state` | `canon`, `config`, `decide`, `ghapi`, `importer`, `state` |
-| `pull` | `cek` | `cmd_pull` | `canon`, `classify`, `config`, `decide`, `exitchecks`, `gitio`, `ledgercheck`, `manifest`, `rival`, `stagelock`, `stages`, `treehash`, `wiring` |
+| `pull` | `cek` | `cmd_pull` | `canon`, `classify`, `config`, `decide`, `exitchecks`, `gitio`, `ledgercheck`, `manifest`, `rival`, `stagelock`, `stages`, `state`, `treehash`, `wiring` |
 | `fetch-deps` | `getir` | `cmd_fetch_deps` | `canon`, `manifest`, `treehash` |
 | `run-tests` | operator / local | `cmd_run_tests` | `canon`, `config`, `container`, `licenses`, `moduleless`, `parts`, `stagelock`, `treehash`, `vectors` |
 | `run-part` | `kos_parca` | `cmd_run_part` | `canon`, `config`, `container`, `licenses`, `moduleless`, `parts`, `stagelock`, `treehash`, `vectors` |
 | `join-parts` | `kos` | `cmd_join_parts` | `canon`, `config`, `licenses`, `moduleless`, `parts`, `stagelock`, `treehash`, `vectors` |
-| `rival` | `cagir` | `cmd_rival` | `canon`, `config`, `rival`, `treehash` |
+| `rival` | `cagir` | `cmd_rival` | `canon`, `config`, `rival`, `stagelock`, `stages`, `treehash` |
 | `reproduce` | `yeniden` | `cmd_reproduce` | `canon`, `config`, `container`, `reproduce`, `treehash`, `vectors` |
 | `decide` | `yaz` | `cmd_decide` | `canon`, `config`, `decide`, `stagelock` |
 | `pack` | `cek`, `getir`, `kos_parca`, `kos`, `cagir`, `yeniden` | `cmd_pack` | - |

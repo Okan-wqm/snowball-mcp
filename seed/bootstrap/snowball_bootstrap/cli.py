@@ -39,8 +39,7 @@ SEATS_FILE = "29-tohum-koltuklari.md"
 PIP_PLATFORMS = ("manylinux_2_39_x86_64", "manylinux_2_34_x86_64", "manylinux_2_28_x86_64",
                  "manylinux_2_17_x86_64", "manylinux2014_x86_64", "any")
 SPEC_PAGES = ("00-", "00a-", "02-", "03-")
-CODE_PAGES = ("00-", "00a-", "04-", "04a-", "08-", "29a-", "29b-", "29c-")
-CODE_STAGE_PAGES = ("asama-0/09-", "asama-0/14-")
+CODE_PAGES = ("00-", "00a-", "04-", "04a-", "08-", "29a-", "29b-", "29c-")  # and the open stage's (`stages.STAGE_PAGES`)
 
 
 # ---------------------------------------------------------------- helpers
@@ -111,9 +110,11 @@ def tar_page(tar_bytes: bytes, prefix: str) -> tuple[str, str] | None:
     return None
 
 
-def remaining_budget(policy: config.Policy, prev: dict[str, Any]) -> int:
+def remaining_budget(policy: config.Policy, prev: dict[str, Any], stage: int) -> int:
+    """What the rival may still spend: the month's cap and the open stage's brake (`29b`, `26e`, E492), the stage's
+    spend counted from its lock (``prev`` is `state.for_stage`'s)."""
     return min(policy.monthly_cap_usd_micros - prev["month_spend_usd_micros"],
-               policy.stage0_rival_usd_micros - prev["stage_spend_usd_micros"])
+               policy.rival_usd_micros(stage) - prev["stage_spend_usd_micros"])
 
 
 # ---------------------------------------------------------------- commands
@@ -299,7 +300,11 @@ def cmd_pull(args: argparse.Namespace) -> int:
     # (`stagelock.open_table`): Stage 0's before the operator's lock (`setup/stage.json`, `asama-0/10a`), then the open
     # batch's; a lock that does not match its counter stops the run too (`asama-0/09` test 29).
     table = stagelock.open_table(root)
-    prev = read_json(Path(args.state))
+    # The open stage's rival brake, read here, outside the content guard below: a policy without it stops the run (the
+    # operator's to write), never the Founder's `pull_error` (E492). Past the lock the stage's spend counts from the
+    # lock (`26e`); Stage 0's state is the one it always was.
+    policy.rival_usd_micros(table.stage)
+    prev = st.for_stage(read_json(Path(args.state)), table.stage)
     repo = Path(args.work) / "brain.git"
     remote = args.remote or f"https://github.com/{boot.brain_repo}.git"
     base = prev["last_accepted_sha"]
@@ -632,7 +637,7 @@ def _pull_classify(boot: config.Bootstrap, policy: config.Policy, summary_cfg: c
     # A valid rival result whose reproducers never ran is reused for the same head, not asked for again (E20).
     pending = prev.get("pending_rival")
     reuse = needs_rival and isinstance(pending, dict) and pending.get("sha") == head
-    if needs_rival and not reuse and remaining_budget(policy, prev) <= 0:
+    if needs_rival and not reuse and remaining_budget(policy, prev, table.stage) <= 0:
         # Recorded once for this commit; re-evaluating it every poll would only churn signatures.
         # The founder pushes again after the month or the stage budget changes.
         pre.append("budget")
@@ -775,11 +780,13 @@ def cmd_join_parts(args: argparse.Namespace) -> int:
     return _write_run(Path(args.out), parts.join(kos.push, records))
 
 
-def _pages(tar_bytes: bytes, kind: str) -> dict[str, str]:
+def _pages(tar_bytes: bytes, kind: str, stage: int) -> dict[str, str]:
+    """The pages beside the rival's diff: the seed's for the kind of push and, beside code, the stage pages the open
+    table copies (`stages.STAGE_PAGES`, `26e`; E493): Stage 0's before the lock, Stage 1's past it."""
     pages: dict[str, str] = {}
     prefixes = [f"spec/tohum/{p}" for p in (SPEC_PAGES if kind == "spec" else CODE_PAGES)]
     if kind != "spec":
-        prefixes += [f"spec/{p}" for p in CODE_STAGE_PAGES]
+        prefixes += [f"spec/{p}" for p in stages.STAGE_PAGES[stage]]
     for prefix in prefixes:
         found = tar_page(tar_bytes, prefix)
         if found:
@@ -791,6 +798,7 @@ def cmd_rival(args: argparse.Namespace) -> int:
     root, pulled, out = Path(args.root), Path(args.pulled), Path(args.out)
     boot = config.load_bootstrap(root)
     policy = config.load_policy(root)
+    stage = stagelock.open_table(root).stage  # the snapshot's lock, as `pull` read it: the brake and the stage pages
     meta = read_json(pulled / "meta.json")
     tar_bytes = (pulled / "brain.tar").read_bytes()
     tree = Path(args.work) / "tree"
@@ -798,12 +806,12 @@ def cmd_rival(args: argparse.Namespace) -> int:
     seat = extract_seat_prompt((root / "seats" / SEATS_FILE).read_text(encoding="utf-8"))
     changed = [p for p in meta["changed"] if not hidden(p)]  # the Founder's ledger is not the rival's to see (E10)
     context = build_context(meta["kind"], meta["base"], meta["head"], changed,
-                            (pulled / "diff.patch").read_text(encoding="utf-8"), _pages(tar_bytes, meta["kind"]),
+                            (pulled / "diff.patch").read_text(encoding="utf-8"), _pages(tar_bytes, meta["kind"], stage),
                             open_claims=meta["state"].get("open_claims", []))
     outcome = RivalOutcome()
     try:
         run_rival(boot.rival, claude_bin=resolve_claude(args.claude), seat_prompt=seat, context=context,
-                  tree_root=tree, budget_usd_micros=remaining_budget(policy, meta["state"]),
+                  tree_root=tree, budget_usd_micros=remaining_budget(policy, meta["state"], stage),
                   max_prompt_chars=boot.limits.max_prompt_chars, out=outcome)
     finally:  # on every path, an interrupt too: what the run spent must reach `decide` (E13)
         result = outcome.as_dict()
@@ -939,7 +947,7 @@ def cmd_seed_epoch(args: argparse.Namespace) -> int:
 
 def cmd_import(args: argparse.Namespace) -> int:
     log = run_import(Path(args.result), Path(args.bundle), args.identity, args.sigstore_python,
-                     args.brain, args.referee, args.toy or None)
+                     args.brain, args.referee, args.toy)  # `--toy ""` stops (E498)
     print(json.dumps(log, indent=2, sort_keys=True))
     return 0
 
