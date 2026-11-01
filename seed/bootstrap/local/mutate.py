@@ -1919,7 +1919,7 @@ MUTANTS = [
     ("kept_state_added_unseen", f"{PKG}/importer.py", "for rel in set(before) | set(after) if",
      "for rel in set(before) if", "E403: an entry the copy added to what is kept is not a change"),
     ("kept_state_bytes_unread", f"{PKG}/importer.py",
-     "(hashlib.sha256(child.read_bytes()).hexdigest() if child.is_file()", '("file" if child.is_file()',
+     "_file_sha256(child) if child.is_file()", '"file" if child.is_file()',
      "E403: a kept file whose bytes the copy changed reads the same"),
     ("kept_state_links_ignored", f"{PKG}/importer.py",
      '                    found[child_rel.as_posix()] = "link:" + os.readlink(child)', "                    pass",

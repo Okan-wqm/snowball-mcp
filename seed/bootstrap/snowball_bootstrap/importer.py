@@ -166,9 +166,13 @@ def kept_state(checkout: Path, keep: Callable[[PurePosixPath], bool],
                 if whole or holds(child_rel):
                     stack.append((child, child_rel, whole))
             elif whole:
-                found[child_rel.as_posix()] = (hashlib.sha256(child.read_bytes()).hexdigest() if child.is_file()
-                                               else "special")
+                found[child_rel.as_posix()] = _file_sha256(child) if child.is_file() else "special"
     return found
+
+
+def _file_sha256(path: Path) -> str:
+    with open(path, "rb") as handle:  # in chunks: a kept git directory may hold large packs
+        return hashlib.file_digest(handle, "sha256").hexdigest()
 
 
 def _kept_unchanged(before: dict[str, str], after: dict[str, str], what: str) -> None:
