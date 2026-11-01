@@ -886,9 +886,8 @@ def cmd_seed_epoch(args: argparse.Namespace) -> int:
 
 def cmd_import(args: argparse.Namespace) -> int:
     log = run_import(Path(args.result), Path(args.bundle), args.identity, args.sigstore_python,
-                     Path(args.brain), Path(args.referee), Path(args.toy) if args.toy else None)
+                     args.brain, args.referee, args.toy or None)
     print(json.dumps(log, indent=2, sort_keys=True))
-    print("Review `git status` in the referee and toy checkouts, then commit and push them yourself.")
     return 0
 
 
@@ -935,7 +934,10 @@ def build_parser() -> argparse.ArgumentParser:
         ("--source", {"help": "repository whose seed/bootstrap/ the referee runs (default: the brain)"}),
         ("--source-commit", {"help": "commit of --source (default: --commit)"}))
     add("import", cmd_import, ("--result", req), ("--bundle", req), ("--identity", req),
-        ("--sigstore-python", req), ("--brain", req), ("--referee", req), ("--toy", {}))
+        ("--sigstore-python", req), ("--brain", dict(req, help="the brain repository (URL or path) the commit is in")),
+        ("--referee", dict(req, help="the referee repository (URL or path): its main is cloned bare, built on and "
+                                     "pushed to; no checkout is read or written")),
+        ("--toy", {"help": "the toy target's repository (URL or path), at Stage 0's exit"}))
     add("stage-open", cmd_stage_open, ("--referee", dict(req, help="the referee repository's local checkout")),
         ("--toy", dict(req, help="a local clone of the toy target")),
         ("--copy", dict(req, help="a local clone of the copy target")),

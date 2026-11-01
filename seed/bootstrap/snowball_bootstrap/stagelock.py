@@ -21,8 +21,11 @@ What `stage-open` binds, before it writes anything (`02` 5: only the PASS row op
   row, and only the rows after it count: a transfer after the one (B) ran on opens nothing (E377), and a re-transfer
   does not lock the targets for good (E411).
 - the two targets: each ledger opens with its target's genesis, and the last genesis names its `setup/summary.json`
-  ``targets[]`` row, the toy's and the copy's, the copy's on its ``base_sha`` (`29o`); the PASS row carries the copy's
-  last genesis and merge rows' hashes (`10a` #pass), and they are rows of the copy clone it is given (E376).
+  ``targets[]`` row, the toy's and the copy's, the copy's on its ``base_sha``, which a copy has (`29o`, E473), and the
+  line's referee tree and signed result (E471); the PASS row carries the copy's last genesis and merge rows' hashes
+  (`10a` #pass), and they are rows of the copy clone it is given (E376).
+- the referee checkout: its commit holds the referee tree the last transfer line names (`26c`'s hash from git, what the
+  import keeps left out, E471), so the lock opens on what the import pushed and the operator pulled.
 - the PASS row itself: the referee's own row, not a player's proposal (`26`, `13`: those carry ``proposed_by`` and
   ``trust: inferred``) (E388), written after the toy's merge and naming the transfer the counter's last line is (the
   trust root `10a` #pass writes includes the operator transfer) (E405), and the owner's exception exactly as the signed
@@ -54,14 +57,17 @@ sessiz, the narrowest choice each time (register E371, E375-E379, E388, E411, E4
   ``payload.import_line_sha256`` is the counter's last transfer line's, as the last genesis rows'. The owner's
   exception: ``payload.owner_exception`` is the signed result's ``exit.owner_exception``, canonically the same, and is
   absent when that is.
+- Every `profile.json` of a target's commit is one plain JSON object (no byte order mark, no key twice); one that is not
+  stops, as skipped it could hide one naming another ``state_root`` (E472).
 - A chained file (`26`): every line ends with LF and has no CR, is one JSON object with no key twice, and its
   ``row_hash`` is `canon.row_hash`'s with ``prev_hash`` the previous row's, 64 zeros first.
 - A root (`13`, `29j`): the last ``chain/root.jsonl`` row's ``root`` is sha256 of the RFC 8785 bytes of the ledger's
   tips (each part's last ``row_hash``) at the head. Its bundle, signed by ``--identity`` (the loop workflow's), is a
   regular file of the same commit (E414); its one log entry is the one the row names: its leaf hash, sha256(0x00 ‖
-  canonicalized body), is ``rekor_uuid`` (the last 64 characters when a 16-character tree id leads), and the body is a
-  Rekor v1 ``hashedrekord`` whose ``spec.data.hash`` is ``{algorithm: sha256, value: <root>}`` (pinned sigstore 4.5.0
-  signs one with ``sign --rekor-version 1``; without it, the highest version the TUF signing config lists, E415).
+  canonicalized body, strict base64), is ``rekor_uuid`` (the last 64 characters when a 16-character tree id leads), and
+  the body is a Rekor v1 ``hashedrekord`` (``apiVersion`` 0.0.1) whose ``spec.data.hash`` is ``{algorithm: sha256,
+  value: <root>}``: the root itself (E474; pinned sigstore 4.5.0 picks the highest version the TUF signing config lists
+  unless ``--rekor-version`` says otherwise, E415).
 - Stage 0 → 1 is the only lock this seed opens (`03`: Stages 0 and 1 are the ladder's fixed root); a lock already in
   place is never written over. Past the lock's line, every transfer is a batch transfer of the lock's stage.
 """
@@ -275,16 +281,22 @@ def _state(repo: Path, ref: str, name: str) -> tuple[str, list[tuple[bytes, dict
 
 def _one_state_root(repo: Path, head: str, name: str) -> None:
     """E417: this seed reads `<state_root>` at ``.brain/`` alone (`01a`'s default). A profile in the commit (`26b`: its
-    ``state_root``) that names another directory stops, named: reading it needs a seed epoch."""
+    ``state_root``) that names another directory stops, named: reading it needs a seed epoch. A profile this check cannot
+    read as one plain JSON object (a byte order mark, a key twice, not UTF-8 or not JSON) stops too: skipped, it could
+    hide the one that names another directory (E472)."""
     for path in gitio.tree_paths(repo, head):
         if path.rsplit("/", 1)[-1] != "profile.json":
             continue
         data = gitio.file_at(repo, head, path)
         try:
-            profile = json.loads(data.decode("utf-8")) if data is not None else None
-        except (UnicodeDecodeError, ValueError, RecursionError):
-            continue  # no profile this check can read; the loop's own checks are its
-        if isinstance(profile, dict) and "state_root" in profile                 and profile["state_root"] not in (STATE_ROOT, STATE_ROOT.rstrip("/")):
+            if data is None:
+                raise ValueError("not a regular file")
+            profile = json.loads(data.decode("utf-8"), object_pairs_hook=_unique, parse_constant=_constant)
+        except (UnicodeDecodeError, ValueError, RecursionError) as exc:
+            raise LockStop(f"{name} brain/state {head}: {path} is not a profile this seed can read ({exc}; `26b`, "
+                           "E472)") from exc
+        if isinstance(profile, dict) and "state_root" in profile \
+                and profile["state_root"] not in (STATE_ROOT, STATE_ROOT.rstrip("/")):
             raise LockStop(f"{name} brain/state {head}: {path} names state_root {profile['state_root']!r}: a state_root "
                            f"other than {STATE_ROOT} needs a seed epoch (`01a`, `26d`, E417)")
 
@@ -306,7 +318,8 @@ def _entry_hash(body: bytes) -> Any:
     """The hash a `hashedrekord` log entry records (`spec.data.hash`), or None when the body is not one."""
     try:
         data = json.loads(body.decode("utf-8"))
-        return data["spec"]["data"]["hash"] if data.get("kind") == "hashedrekord" else None
+        v1 = data.get("kind") == "hashedrekord" and data.get("apiVersion") == "0.0.1"  # Rekor v1's body (E474)
+        return data["spec"]["data"]["hash"] if v1 else None
     except (UnicodeDecodeError, ValueError, RecursionError, KeyError, TypeError, AttributeError):
         return None
 
@@ -383,13 +396,19 @@ def _targets(summary: config.Summary) -> tuple[Target, Target]:
     kinds = {kind: [t for t in summary.targets or () if t.kind == kind] for kind in ("toy", "copy")}
     if any(len(found) != 1 for found in kinds.values()):
         raise LockStop("setup/summary.json targets[] must name one toy and one copy target (`26c`, `25` 10a)")
-    return kinds["toy"][0], kinds["copy"][0]
+    copy = kinds["copy"][0]
+    if not isinstance(copy.base_sha, str) or not SHA.match(copy.base_sha):
+        raise LockStop("setup/summary.json's copy target has no base_sha: a copy is made from a base (`26c`, `29o`, "
+                       "E473)")
+    return kinds["toy"][0], copy
 
 
-def _genesis(rows: list[tuple[bytes, dict[str, Any]]], name: str, target: Target, import_line: str) -> int:
+def _genesis(rows: list[tuple[bytes, dict[str, Any]]], name: str, target: Target, import_line: str,
+             transfer: dict[str, Any]) -> int:
     """Where the target's last genesis row is. The ledger opens with the target's genesis (`25a` 7); (B) ran from its
-    last genesis, which is bound to the target's ``targets[]`` row and to the transfer the lock records (`29o`): a
-    re-transfer after a red (B) runs (B) again from a new one (`asama-0/10a` "Başarısızlık", `25a` 3, E411)."""
+    last genesis, which is bound to the target's ``targets[]`` row and to the transfer the lock records (`29o`: the
+    line's hash, and the referee tree and signed result it names, E471): a re-transfer after a red (B) runs (B) again
+    from a new one (`asama-0/10a` "Başarısızlık", `25a` 3, E411)."""
     first = rows[0][1]
     if not _is_genesis(first) or _payload(first).get("target") != target.id:
         raise LockStop(f"{name} brain/state: the first ledger row is not the genesis of setup/summary.json's {name} "
@@ -406,6 +425,10 @@ def _genesis(rows: list[tuple[bytes, dict[str, Any]]], name: str, target: Target
         raise LockStop(f"{name} brain/state: the last genesis row names another transfer than the counter's last one "
                        "(payload.import_line_sha256, `29o`): the lock binds the referee (B) ran on; after a "
                        "re-transfer (B) runs again from a new genesis row in both targets (`26d`)")
+    for key in ("referee_tree_sha256", "result_sha256"):
+        if payload.get(key) != transfer.get(key):
+            raise LockStop(f"{name} brain/state: the last genesis row's {key} is not the counter's last transfer "
+                           f"line's (payload.{key}, `29o`, E471)")
     return start
 
 
@@ -423,6 +446,19 @@ def _carries_the_copy(payload: dict[str, Any], copy_rows: list[tuple[bytes, dict
         raise LockStop("the PASS row does not name the copy's merge rows, each once and each a merge row of the "
                        "copy's ledger after its last genesis (an events row of kind merge, the referee's own; "
                        "payload.copy_merge_row_hashes, `10a` #pass, `26d`)")
+
+
+def _committed_is_transferred(referee: Path, transfer: dict[str, Any]) -> None:
+    """E471: the referee tree the checkout's commit holds, what the import keeps left out, read from git (`26c`'s rule),
+    is the one the counter's last transfer line names: the lock opens on the referee that transfer wrote."""
+    from . import importer  # it reads this module
+    try:
+        committed = importer.committed_referee_hash(referee)
+    except (gitio.GitError, importer.ImportErrorStop) as exc:
+        raise LockStop(f"--referee {referee} holds no commit whose referee tree this seed can read: {exc}") from exc
+    if committed != transfer.get("referee_tree_sha256"):
+        raise LockStop("the referee tree the checkout's commit holds is not the one the counter's last transfer line "
+                       "names (its referee_tree_sha256; pull main after the import, E471)")
 
 
 def _signed_exit(result: Path, transfer: dict[str, Any]) -> dict[str, Any]:
@@ -473,11 +509,12 @@ def open_stage(referee: Path, toy: Path, copy: Path, ref: str, identity: str, si
                        "exit (import it first)")
     import_line, transfer = line_sha256(transfers[-1][0]), transfers[-1][1]
     exit_block = _signed_exit(result, transfer)
+    _committed_is_transferred(referee, transfer)
     toy_target, copy_target = _targets(config.load_summary(referee))
     toy_head, toy_rows, toy_root, toy_bundle = _state(toy, ref, "toy")
     copy_head, copy_rows, copy_root, copy_bundle = _state(copy, ref, "copy")
-    toy_start = _genesis(toy_rows, "toy", toy_target, import_line)
-    copy_start = _genesis(copy_rows, "copy", copy_target, import_line)
+    toy_start = _genesis(toy_rows, "toy", toy_target, import_line, transfer)
+    copy_start = _genesis(copy_rows, "copy", copy_target, import_line, transfer)
     pass_line, pass_row = _pass_line(toy_rows, toy_start, import_line)
     _carries_the_copy(pass_row["payload"], copy_rows, copy_start)
     _carries_the_exception(pass_row["payload"], exit_block)

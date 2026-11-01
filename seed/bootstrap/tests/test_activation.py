@@ -1,6 +1,7 @@
 """The operator's activation tools (`tohum/25a` 1, 2 and 9; `asama-0/10a` #aktarim, #oyuncak, "Kilidin açılışı"; `26c`):
-the import (K1 of `seed/founder/ETKINLESTIRME.md`: E100, E275, E370, E374), `stage-open`, the stage lock the bootstrap
-reads on every pull, and Stage 1's batch tables, batch exit and batch transfer (K3: E331, E371-E373, E375-E379, E388).
+the import (K1 of `seed/founder/ETKINLESTIRME.md`: E100, E275, E370; on git objects alone since E470), `stage-open`,
+the stage lock the bootstrap reads on every pull, and Stage 1's batch tables, batch exit and batch transfer (K3: E331,
+E371-E373, E375-E379, E388).
 
 Nothing here signs or verifies with Sigstore: the seed's one call into it (`importer.verify_signature`) is replaced by a
 recorder, as `test_flow` and `test_exit_checks` do. Every git repository is a local one. The trailing comment on a test
@@ -8,15 +9,12 @@ names the mutants it kills (`local/mutate.py`).
 """
 
 import base64
-import contextlib
-import ctypes
 import hashlib
-import io
 import json
 import os
 import re
 import shutil
-import tarfile
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -116,34 +114,101 @@ def locked(root, brain_sha="4" * 40, batches=()):
     return rows
 
 
+GIT_IDENTITY = {"GIT_AUTHOR_NAME": "operator", "GIT_AUTHOR_EMAIL": "operator@example.invalid",
+                "GIT_COMMITTER_NAME": "operator", "GIT_COMMITTER_EMAIL": "operator@example.invalid"}
+
+
+def git_in(repo, *argv, data=None, index=None):
+    """A git command in ``repo`` (bare or not); its stdout."""
+    env = dict(os.environ, **({"GIT_INDEX_FILE": str(index)} if index else {}))
+    return subprocess.run(["git", "-c", "core.protectNTFS=false", *argv], cwd=repo, input=data, env=env,
+                          capture_output=True, check=True).stdout
+
+
+def plumbed(repo, files, parent=None, message="tree"):
+    """A commit of ``files`` ({path: text, bytes or (mode, bytes)}) made from objects alone, so a test can hold names
+    no checkout could (`nul`, `a.`, `BOOTST~1`) and links; its sha."""
+    index = Path(tempfile.mkdtemp()) / "index"
+    lines = []
+    for path, content in files.items():
+        mode, data = content if isinstance(content, tuple) else ("100644", content)
+        data = data if isinstance(data, bytes) else data.encode("utf-8")
+        if mode == "160000":
+            lines.append(f"160000 commit {data.decode()}\t{path}")
+            continue
+        blob = git_in(repo, "hash-object", "-w", "--stdin", data=data).decode().strip()
+        lines.append(f"{mode} blob {blob}\t{path}")
+    git_in(repo, "update-index", "-z", "--index-info", data="".join(f"{l}\0" for l in lines).encode("utf-8"),
+           index=index)
+    tree = git_in(repo, "write-tree", index=index).decode().strip()
+    shutil.rmtree(index.parent)
+    argv = ["commit-tree", tree] + (["-p", parent] if parent else [])
+    return git_in(repo, *argv, data=message.encode()).decode().strip()
+
+
+def bare_repo(path, files=None):
+    """A bare repository standing for the operator's remote; ``files`` its first main."""
+    path.mkdir(parents=True)
+    git_in(path, "init", "-q", "--bare", "-b", "main")
+    if files is not None:
+        git_in(path, "update-ref", "refs/heads/main", plumbed(path, files))
+    return path
+
+
+def tree_files(repo, rev="refs/heads/main"):
+    """Every leaf of ``rev``'s tree as {path: bytes}, a link as ("link", target), a submodule as ("submodule", sha)."""
+    found = {}
+    for mode, sha, path in gitio._entries(repo, rev):
+        data = git_in(repo, "cat-file", "-p", sha) if mode != "160000" else sha.encode()
+        found[path] = data if mode in ("100644", "100755") else ({"120000": "link", "160000": "submodule"}[mode], data)
+    return found
+
+
+def main_of(repo):
+    try:
+        return git_in(repo, "rev-parse", "--verify", "--quiet", "refs/heads/main").decode().strip()
+    except subprocess.CalledProcessError:
+        return None
+
+
 class ImportCase(unittest.TestCase):
-    """A brain with a referee tree and a toy, the signed result of its (A) and an operator's referee and toy checkout."""
+    """A brain with a referee tree and a toy, the signed result of its (A), and the operator's two repositories as their
+    remotes: the referee repository, whose main holds the operator's files and the bootstrap referee, and the toy's.
+    The import clones them bare, builds on their main and pushes; no working tree is involved (E470)."""
 
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.work = Path(self.tmp.name)
+        identity = mock.patch.dict(os.environ, GIT_IDENTITY)
+        identity.start()
+        self.addCleanup(identity.stop)
         self.brain = self.work / "brain"
         make_repo(self.brain, {"README.md": "brain\n"})
         write(self.brain, BRAIN_FILES)
         self.sha = commit(self.brain, {}, "referee and toy")
-        tar = gitio.archive(self.brain, self.sha)
-        self.referee_hash = tree_hash(tar, "referee")
-        self.toy_hash = tree_hash(tar, TOY_DIR, forbid_operator_names=False, fold_case=True)
+        self.hashes()
         self.result = self.work / "result.json"
         self.write_result()
         self.bundle = self.work / "result.json.sigstore.json"
         self.bundle.write_text("{}")
-        self.referee = self.work / "referee"
-        write(self.referee, OPERATOR_FILES)
-        write(self.referee, {"control.json": '{"kill_switch": true, "budget_state": "ok"}\n'})
-        self.toy = self.work / "toy"
-        self.toy.mkdir()
+        self.referee = bare_repo(self.work / "referee.git", dict(OPERATOR_FILES, **{"control.json": CONTROL_ON}))
+        self.toy = bare_repo(self.work / "toy.git", {"README.md": "toy main\n"})
         self.verified = []
         patcher = mock.patch.object(importer, "verify_signature",
                                     side_effect=lambda *a: self.verified.append(a))
         patcher.start()
         self.addCleanup(patcher.stop)
+
+    def hashes(self):
+        """The signed hashes of the brain commit's two parts (a placeholder where the spec gives a part none)."""
+        def of(prefix, **rule):
+            try:
+                return tree_hash(gitio.archive(self.brain, self.sha, (prefix,)), prefix, **rule)
+            except Exception:  # noqa: BLE001 - a tree the spec refuses: the import must refuse it before any hash
+                return "0" * 64
+        self.referee_hash = of("referee")
+        self.toy_hash = of(TOY_DIR, forbid_operator_names=False, fold_case=True)
 
     def write_result(self, **exit_fields):
         exit_block = {"transferable": True, "brain_sha": self.sha, "referee_tree_sha256": self.referee_hash,
@@ -153,113 +218,157 @@ class ImportCase(unittest.TestCase):
                                             "exit": exit_block}, indent=2).encode("utf-8") + b"\n")
 
     def use_tree(self, files):
-        """The brain's archive replaced by a stand-in holding ``files`` (a patch to enter), with the signed result
+        """The brain commit becomes one holding exactly ``files`` (made from objects, any names), the signed result
         naming its hashes."""
-        tar = tar_of(files)
-        self.referee_hash, self.toy_hash = tree_hash(tar, "referee"), tree_hash(tar, TOY_DIR, False, True)
+        self.sha = plumbed(self.brain, files)
+        self.hashes()
         self.write_result()
-        return mock.patch.object(importer.gitio, "archive", return_value=tar)
+
+    def set_main(self, changes, repo=None):
+        """A new main for ``repo`` (the referee's by default): its files with ``changes`` (None removes a path)."""
+        repo = repo or self.referee
+        files = tree_files(repo)
+        for path, content in changes.items():
+            if content is None:
+                files.pop(path, None)
+            else:
+                files[path] = content
+        git_in(repo, "update-ref", "refs/heads/main", plumbed(repo, files, parent=main_of(repo)))
 
     def run_import(self, toy=True):
-        return run_import(self.result, self.bundle, "id", "py", self.brain, self.referee, self.toy if toy else None)
+        return run_import(self.result, self.bundle, "id", "py", str(self.brain), str(self.referee),
+                          str(self.toy) if toy else None)
 
     def imports(self):
-        path = self.referee / "setup" / "imports.jsonl"
-        return path.read_bytes() if path.exists() else b""
+        return tree_files(self.referee).get("setup/imports.jsonl", b"")
+
+    def heads(self):
+        return main_of(self.referee), main_of(self.toy)
+
+    def refused(self, says, toy=True):
+        """The import stops naming ``says``, and neither repository's main moved."""
+        before = self.heads()
+        with self.assertRaises(ImportErrorStop) as caught:
+            self.run_import(toy=toy)
+        self.assertIn(says, str(caught.exception))
+        self.assertEqual(self.heads(), before)
+        return str(caught.exception)
 
 
-class ImportKeepsTheBootstrapTest(ImportCase):
-    def test_the_bootstrap_its_workflow_and_the_operator_files_stay_as_they_were(self):
-        """E100, `25a` 1, `asama-0/10a` #aktarim: the push judge stays; `loop.yml` lands beside `bootstrap.yml`."""
-        before = read_all(self.referee)
+CONTROL_ON = '{"kill_switch": true, "budget_state": "ok"}\n'
+
+
+class ImportBuildsOnMainTest(ImportCase):
+    """E470: the import builds the referee's next main from git objects: the brain's `referee/` tree at the top and what
+    it keeps taken from main by exact name (`25a` 1; E100: the push judge stays)."""
+
+    def test_the_bootstrap_its_workflow_and_the_operator_files_stay_as_they_were(self):  # import_keeps_no_bootstrap import_deletes_bootstrap_yml
+        before, old_main = tree_files(self.referee), main_of(self.referee)
         self.run_import()
-        after = read_all(self.referee)
+        after = tree_files(self.referee)
         for rel, content in before.items():
             self.assertEqual(after.get(rel), content, rel)
         self.assertEqual(after[".github/workflows/loop.yml"], LOOP_YML.encode("utf-8"))
-        self.assertEqual(after["ledger/chain.py"], b"x = 1\n")
         self.assertEqual(sorted(set(after) - set(before)),
                          [".github/workflows/loop.yml", "gate/check.py", "ledger/chain.py", "setup/imports.jsonl"])
-        self.assertEqual(read_all(self.toy), {"README.md": b"toy\n", "app.py": b"import os\n"})
+        self.assertEqual(git_in(self.referee, "rev-parse", "refs/heads/main^").decode().strip(), old_main)
+        self.assertEqual(tree_files(self.toy), {"README.md": b"toy\n", "app.py": b"import os\n"})
 
     def test_a_second_import_leaves_no_file_of_the_first_referee_tree(self):
-        """`ETKINLESTIRME` 3: every referee file is the signed commit's `referee/` blob; the bootstrap still stays."""
         self.run_import()
-        commit(self.brain, {"referee/gate/check.py": None, "referee/gate/other.py": "z = 3\n"}, "next batch")
-        self.sha = sh(self.brain, "git", "rev-parse", "HEAD")
-        self.referee_hash = tree_hash(gitio.archive(self.brain, self.sha), "referee")
+        self.sha = commit(self.brain, {"referee/gate/check.py": None, "referee/gate/other.py": "z = 3\n"}, "next batch")
+        self.hashes()
         self.write_result()
         self.run_import()
-        after = read_all(self.referee)
+        after = tree_files(self.referee)
         self.assertNotIn("gate/check.py", after)
         self.assertEqual(after["gate/other.py"], b"z = 3\n")
         self.assertEqual(after[".github/workflows/bootstrap.yml"], b"name: snowball-bootstrap\n")
         self.assertEqual(after["bootstrap/snowball_bootstrap/__init__.py"], b"seed\n")
+        self.assertEqual(len(self.imports().splitlines()), 2)
 
     def test_github_is_cleared_around_the_bootstraps_workflow(self):  # SK_github_not_descended
-        """E389: `.github/` holds `bootstrap.yml`, so the clearing goes down into it: an earlier tree's workflow, or any
-        other file there, does not survive the import to run beside the push judge."""
-        write(self.referee, {".github/workflows/old.yml": "name: stale\n", ".github/CODEOWNERS": "* @x\n"})
+        self.set_main({".github/workflows/old.yml": "name: stale\n", ".github/CODEOWNERS": "* @x\n", "old/x.py": "x\n"})
         self.run_import()
-        after = read_all(self.referee)
-        self.assertNotIn(".github/workflows/old.yml", after)
-        self.assertNotIn(".github/CODEOWNERS", after)
+        after = tree_files(self.referee)
+        self.assertEqual([p for p in ("old/x.py", ".github/workflows/old.yml", ".github/CODEOWNERS") if p in after], [])
         self.assertEqual(after[".github/workflows/bootstrap.yml"], b"name: snowball-bootstrap\n")
 
-    def test_a_referee_tree_that_carries_the_bootstraps_workflow_is_refused(self):
-        """`25a` 1: the import never touches `bootstrap.yml`, in any spelling (E130, E289: the operator's file system
-        folds case): nothing is written. (A)'s wiring check refuses such a tree first (`workflow_extra_file`); the
-        import does not lean on it. The brain's archive is a stand-in, so no file system folds it before the check."""
-        for name in (".github/workflows/bootstrap.yml", ".GitHub/Workflows/BOOTSTRAP.yml"):  # import_overwrites_bootstrap_yml import_kept_case_sensitive
-            with self.subTest(name=name):
-                tar = tar_of({"referee/a.py": "x\n", f"referee/{name}": "name: evil\n", f"{TOY_DIR}/app.py": "y\n"})
-                self.referee_hash, self.toy_hash = tree_hash(tar, "referee"), tree_hash(tar, TOY_DIR, False, True)
-                self.write_result()
-                before = read_all(self.referee)
-                with mock.patch.object(importer.gitio, "archive", return_value=tar), \
-                        self.assertRaises(ImportErrorStop) as caught:
-                    self.run_import()
-                self.assertIn("would land on what the import keeps", str(caught.exception))
-                self.assertEqual(read_all(self.referee), before)
-                self.assertEqual(read_all(self.toy), {})
+    def test_the_commit_changes_only_the_counter_after_the_checked_tree(self):  # import_counter_in_another_commit
+        """`26c:39-40`: the counter's row is in the same commit, appended to main's file; nothing else in `setup/`."""
+        self.set_main({"setup/notes.txt": "operator's\n"})
+        self.run_import()
+        main = main_of(self.referee)
+        changed = git_in(self.referee, "diff-tree", "-r", "--name-only", "--no-commit-id", main).decode().split()
+        self.assertIn("setup/imports.jsonl", changed)
+        self.assertEqual([c for c in changed if c.startswith(("setup/", "bootstrap/", "policy", "seats/"))],
+                         ["setup/imports.jsonl"])
+        self.assertEqual(tree_files(self.referee)["setup/notes.txt"], b"operator's\n")
 
-    def test_the_checkout_is_hashed_again_before_the_row_is_written(self):  # import_checkout_not_rehashed
-        """`25a` 1: the referee checkout, what the import keeps left out, is the signed tree once the files are in
-        place; a checkout that is not (here: a file the clearing left behind) gets no counter row."""
-        real = importer._clear
+    def test_the_composed_tree_is_checked_before_anything_is_written(self):  # import_composed_unchecked import_composed_kept_unchecked
+        real = importer._compose
+        for label, extra in (("a stray file", "stray.py"), ("a kept file changed", "policy.json")):
+            def compose(bare, work, referee_tree, kept, extra=extra):
+                index, _tree = real(bare, work, referee_tree, kept)
+                blob = git_in(bare, "hash-object", "-w", "--stdin", data=b"EVIL\n").decode().strip()
+                git_in(bare, "update-index", "--add", "--cacheinfo", f"100644,{blob},{extra}", index=index)
+                return index, git_in(bare, "write-tree", index=index).decode().strip()
+            with self.subTest(label), mock.patch.object(importer, "_compose", side_effect=compose):
+                self.refused("the composed tree")
 
-        def leave_one(directory, keep, holds, *rest):
-            kept = real(directory, keep, holds, *rest)
-            write(self.referee, {"old/stale.py": "from an earlier tree\n"})
-            return kept
-        with mock.patch.object(importer, "_clear", side_effect=leave_one), self.assertRaises(ImportErrorStop) as caught:
+    def test_the_import_reads_and_writes_no_working_tree(self):  # import_temp_left_behind
+        """E470: it clones bare into a temporary directory of its own and removes it; a checkout of the referee
+        repository, wherever one is, is never read or written (here the operator's checkout stands beside it)."""
+        checkout = self.work / "checkout"
+        sh(self.work, "git", "clone", "-q", str(self.referee), str(checkout))
+        before = read_all(checkout, skip=())
+        temps = self.work / "temps"
+        temps.mkdir()
+        with mock.patch.object(importer.tempfile, "tempdir", str(temps)):
             self.run_import()
-        self.assertIn("checkout on disk", str(caught.exception))
-        self.assertEqual(self.imports(), b"")
+        self.assertEqual(list(temps.iterdir()), [])
+        self.assertEqual(read_all(checkout, skip=()), before)
+
+    def test_main_that_moved_meanwhile_refuses_the_push(self):  # import_push_forced
+        """The push is never forced: a commit that reached main after the clone (here while Sigstore is asked) stays,
+        the import's is refused, and no counter row lands."""
+        def another_push(*_args):
+            self.set_main({"policy.json": '{"x": 1}\n'})
+        importer.verify_signature.side_effect = another_push
+        moved = None
+        with self.assertRaises(ImportErrorStop) as caught:
+            self.run_import(toy=False if False else True)
+        moved = main_of(self.referee)
+        self.assertIn("the referee's main is as it was", str(caught.exception))
+        self.assertEqual(tree_files(self.referee)["policy.json"], b'{"x": 1}\n')
+        self.assertNotIn("setup/imports.jsonl", tree_files(self.referee))
+        self.assertIsNotNone(moved)
 
 
 class ImportTheToyTest(ImportCase):
-    """`25a` 2, `asama-0/10a` #oyuncak: the toy checkout becomes the signed toy subtree, nothing else (E389)."""
+    """`25a` 2, `asama-0/10a` #oyuncak: the toy's main gets a commit whose tree is the signed toy tree (E389, E470)."""
 
-    def test_an_earlier_toy_file_is_cleared_and_the_git_directory_kept(self):  # SK_toy_not_cleared
-        write(self.toy, {"stale.py": "from an earlier toy\n", "old/x.txt": "x\n", ".git/HEAD": "ref: refs/heads/main\n"})
+    def test_the_toys_main_becomes_the_signed_toy_tree(self):  # SK_toy_not_cleared
+        self.set_main({"stale.py": "from an earlier toy\n", "old/x.txt": "x\n"}, repo=self.toy)
+        old = main_of(self.toy)
         self.run_import()
-        self.assertEqual(read_all(self.toy), {"README.md": b"toy\n", "app.py": b"import os\n"})
-        self.assertEqual((self.toy / ".git" / "HEAD").read_bytes(), b"ref: refs/heads/main\n")
+        self.assertEqual(tree_files(self.toy), {"README.md": b"toy\n", "app.py": b"import os\n"})
+        self.assertEqual(git_in(self.toy, "rev-parse", "refs/heads/main^").decode().strip(), old)
 
-    def test_the_toy_checkout_is_hashed_again_before_the_row_is_written(self):  # SK_toy_final_rehash_off
-        """A toy checkout that is not the signed toy tree once the files are in place (here: the clearing of the toy
-        left a file behind) gets no counter row."""
-        write(self.toy, {"stale.py": "from an earlier toy\n"})
-        real = importer._clear
+    def test_an_empty_toy_repository_gets_its_first_commit(self):
+        shutil.rmtree(self.toy, onerror=lambda f, p, _e: (os.chmod(p, 0o700), f(p)))
+        self.toy = bare_repo(self.work / "toy.git")
+        self.run_import()
+        self.assertEqual(tree_files(self.toy), {"README.md": b"toy\n", "app.py": b"import os\n"})
 
-        def referee_only(directory, keep, holds, *rest):
-            return real(directory, keep, holds, *rest) if Path(directory) != self.toy else {}
-        with mock.patch.object(importer, "_clear", side_effect=referee_only), \
-                self.assertRaises(ImportErrorStop) as caught:
-            self.run_import()
-        self.assertIn("toy checkout on disk", str(caught.exception))
-        self.assertEqual(self.imports(), b"")
+    def test_a_toy_that_holds_the_tree_already_is_left_as_it_is(self):  # import_toy_pushed_again
+        self.run_import()
+        toy = main_of(self.toy)
+        self.sha = commit(self.brain, {"referee/gate/other.py": "z = 3\n"}, "the referee only")
+        self.hashes()
+        self.write_result()
+        self.run_import()
+        self.assertEqual(main_of(self.toy), toy)
 
 
 class ImportRowTest(ImportCase):
@@ -288,145 +397,54 @@ class ImportRowTest(ImportCase):
         _rows, data = chained([{"ts": "2026-10-30T12:00:00Z", "stage": 0}])
         _rows, other = chained([{"ts": "2026-10-30T13:00:00Z", "stage": 0}])
         for broken in (data.replace(b'"stage":0', b'"stage":1'), data[:-1], b"not json\n", data + b"\n",
-                       data.replace(b"\n", b"\r\n"), data + other,  # the second row does not link to the first
-                       data.replace(b'"stage":0', b'"stage":0,"stage":0')):  # a key twice hides one value
-            # import_counter_hash_unchecked import_counter_link_unchecked import_counter_cr_allowed
+                       data.replace(b"\n", b"\r\n"), data + other,
+                       data.replace(b'"stage":0', b'"stage":0,"stage":0')):
             with self.subTest(broken=broken[:40]):
-                write(self.referee, {"setup/imports.jsonl": broken})
+                self.set_main({"setup/imports.jsonl": broken})
+                before = self.heads()
                 with self.assertRaises(ConfigError):
                     self.run_import()
-                self.assertEqual(self.imports(), broken)
-                self.assertFalse((self.referee / "ledger").exists())
+                self.assertEqual(self.heads(), before)
 
     def test_a_non_transfer_touch_row_of_the_counter_is_chained_on(self):
         """`29n`, E277: the counter holds touches that are no transfer; the next row chains on its hash."""
         rows, data = chained([{"ts": "2026-10-30T12:00:00Z", "stage": 0}])
-        write(self.referee, {"setup/imports.jsonl": data})
+        self.set_main({"setup/imports.jsonl": data})
         row = self.run_import()
         self.assertEqual(row["prev_hash"], rows[0]["row_hash"])
+        self.assertEqual(self.imports().split(b"\n")[0], data.split(b"\n")[0])
 
 
 class ImportRefusesTest(ImportCase):
-    def assert_nothing_written(self, before):
-        self.assertEqual(read_all(self.referee), before)
-        self.assertEqual(read_all(self.toy), {})
-
     def test_the_kill_switch_must_be_on(self):  # import_without_kill_switch
-        """`25a` 1, `asama-0/10a` #aktarim: "Kill switch açık değilse çalışmaz". On means exactly true here (spec
-        sessiz, E370): the import's most restrictive reading of `26c`'s fail-closed rule is not to run."""
+        """`25a` 1, `asama-0/10a` #aktarim: "Kill switch açık değilse çalışmaz", read from the main the import builds on;
+        on means exactly true (E370)."""
         for control in ('{"kill_switch": false, "budget_state": "ok"}\n', '{"budget_state": "ok"}\n',
                         '{"kill_switch": "true"}\n', '{"kill_switch": 1}\n', "[true]\n", "not json\n", None):
             with self.subTest(control=control):
-                path = self.referee / "control.json"
-                if control is None:
-                    path.unlink(missing_ok=True)
-                else:
-                    path.write_text(control, encoding="utf-8", newline="\n")
-                before = read_all(self.referee)
-                with self.assertRaises(ImportErrorStop) as caught:
-                    self.run_import()
-                self.assertIn("kill switch", str(caught.exception))
+                self.set_main({"control.json": control})
+                self.refused("kill switch")
                 self.assertEqual(self.verified, [])  # checked first, before anything else
-                self.assert_nothing_written(before)
 
     def test_the_cli_stops_with_exit_2_when_the_kill_switch_is_off(self):
-        (self.referee / "control.json").write_text('{"kill_switch": false}\n', encoding="utf-8")
+        self.set_main({"control.json": '{"kill_switch": false}\n'})
         argv = ["import", "--result", str(self.result), "--bundle", str(self.bundle), "--identity", "id",
                 "--sigstore-python", "py", "--brain", str(self.brain), "--referee", str(self.referee),
                 "--toy", str(self.toy)]
+        before = self.heads()
         self.assertEqual(cli.main(argv), 2)
-        self.assertEqual(self.imports(), b"")
-
-    def test_the_disk_tree_is_hashed_again_before_anything_is_written(self):  # import_disk_not_rehashed
-        """`25a` 1: opened into a sibling temporary directory first, hashed there as it lies on disk; a tree the file
-        system changed (here: an extraction that adds a file) stops the import before the checkouts are touched."""
-        real = importer.extract
-
-        def extract_and_add(tar_bytes, dest, max_bytes, prefix=""):
-            total = real(tar_bytes, dest, max_bytes, prefix)
-            if prefix == "referee":
-                (dest / "ledger" / "extra.py").write_text("planted\n")
-            return total
-        before = read_all(self.referee)
-        with mock.patch.object(importer, "extract", side_effect=extract_and_add), \
-                self.assertRaises(ImportErrorStop) as caught:
-            self.run_import()
-        self.assertIn("on disk", str(caught.exception))
-        self.assert_nothing_written(before)
-        self.assertEqual([p.name for p in self.work.iterdir() if p.name.startswith(".snowball-import")], [])
-
-    @posix_only
-    def test_a_link_or_a_special_file_on_disk_is_never_hashed_through(self):  # SK_disk_links_allowed
-        """E389: what lies on disk is hashed as regular files only; a link (to a file or a directory) or a FIFO the
-        extraction left stops the import before the checkouts are touched, whatever it points at."""
-        real = importer.extract
-        for plant in ("file_link", "dir_link", "fifo"):
-            def extract_and_plant(tar_bytes, dest, max_bytes, prefix="", plant=plant):
-                total = real(tar_bytes, dest, max_bytes, prefix)
-                if prefix == "referee":
-                    target = dest / "ledger" / "chain.py"
-                    if plant == "file_link":
-                        os.symlink(target, dest / "gate" / "linked.py")
-                    elif plant == "dir_link":
-                        os.symlink(dest / "ledger", dest / "linked")
-                    else:
-                        os.mkfifo(dest / "gate" / "pipe")
-                return total
-            with self.subTest(plant=plant):
-                before = read_all(self.referee)
-                with mock.patch.object(importer, "extract", side_effect=extract_and_plant), \
-                        self.assertRaises(ImportErrorStop) as caught:
-                    self.run_import()
-                self.assertRegex(str(caught.exception), "is a link|not a regular file")
-                self.assert_nothing_written(before)
-
-    def test_the_temporary_tree_is_a_sibling_of_the_referee_checkout(self):  # import_temp_not_sibling
-        seen = []
-        real = importer.extract
-
-        def record(tar_bytes, dest, max_bytes, prefix=""):
-            seen.append(Path(dest).parent.resolve())
-            return real(tar_bytes, dest, max_bytes, prefix)
-        with mock.patch.object(importer, "extract", side_effect=record):
-            self.run_import()
-        self.assertTrue(seen)
-        for parent in seen:
-            self.assertEqual(parent, self.referee.parent.resolve())
+        self.assertEqual(self.heads(), before)
 
     def test_the_toy_tree_must_be_the_signed_toy_tree(self):  # import_toy_hash_unchecked
-        """`25a` 2, `asama-0/10a` #oyuncak (E131): its hash is the signed result's `toy_tree_sha256`."""
         self.write_result(toy_tree_sha256="1" * 64)
-        before = read_all(self.referee)
-        with self.assertRaises(ImportErrorStop) as caught:
-            self.run_import()
-        self.assertIn("toy tree hash", str(caught.exception))  # from the brain's archive, before anything is opened
-        self.assert_nothing_written(before)
+        self.refused("toy tree hash")
 
-    def test_the_toy_disk_tree_is_hashed_again(self):  # import_toy_disk_not_rehashed
-        real = importer.extract
-
-        def extract_and_add(tar_bytes, dest, max_bytes, prefix=""):
-            total = real(tar_bytes, dest, max_bytes, prefix)
-            if prefix == TOY_DIR:
-                (dest / "planted.py").write_text("x\n")
-            return total
-        before = read_all(self.referee)
-        with mock.patch.object(importer, "extract", side_effect=extract_and_add), self.assertRaises(ImportErrorStop):
-            self.run_import()
-        self.assert_nothing_written(before)
-
-    def test_a_result_with_a_toy_hash_needs_the_toy_checkout(self):  # import_without_toy
-        before = read_all(self.referee)
-        with self.assertRaises(ImportErrorStop):
-            self.run_import(toy=False)
-        self.assert_nothing_written(before)
+    def test_a_result_with_a_toy_hash_needs_the_toy_repository(self):  # import_without_toy
+        self.refused("give --toy", toy=False)
 
     def test_the_referee_tree_must_be_the_signed_referee_tree(self):
         self.write_result(referee_tree_sha256="2" * 64)
-        before = read_all(self.referee)
-        with self.assertRaises(ImportErrorStop):
-            self.run_import()
-        self.assert_nothing_written(before)
+        self.refused("referee tree hash")
 
     def test_a_result_that_is_not_accepted_and_transferable_is_refused(self):
         for exit_fields, verdict in (({"transferable": False}, "accepted"), ({}, "rejected"),  # I3_transferable_truthy
@@ -437,514 +455,105 @@ class ImportRefusesTest(ImportCase):
                     data = json.loads(self.result.read_text())
                     data["verdict"] = verdict
                     self.result.write_text(json.dumps(data))
-                before = read_all(self.referee)
-                with self.assertRaises(ImportErrorStop):
-                    self.run_import()
-                self.assert_nothing_written(before)
+                self.refused("transferable")
 
     def test_an_open_stage_lock_refuses_a_stage_0_import(self):  # import_after_the_lock_opened
-        """Spec sessiz (E370): with `setup/stage.json` in place, a result without a batch is Stage 0's, and the lock it
-        opened is not undone by importing it again (a batch's result is another matter, `BatchImportTest`)."""
-        write(self.referee, {"setup/stage.json": "{}\n"})
-        before = read_all(self.referee)
-        with self.assertRaises(ImportErrorStop):
-            self.run_import()
-        self.assert_nothing_written(before)
+        self.set_main({"setup/stage.json": "{}\n"})
+        self.refused("the lock this Stage 0 result opened")
 
+    def test_the_brain_commit_must_be_there(self):
+        self.write_result(brain_sha="9" * 40)
+        self.refused("git fetch failed")
 
-# ---------------------------------------------------------------- K1's trust root: names the file system resolves
+    def test_a_link_or_a_submodule_in_a_part_stops(self):  # import_part_links_allowed
+        """`26c`: no hash where a link or a special entry is; a link is never written into the referee's main."""
+        for files, says in (({"referee/a.py": "x\n", "referee/l": ("120000", "../bootstrap"), f"{TOY_DIR}/app.py": "y\n"},
+                             "referee/l is a link or a submodule"),
+                            ({"referee/a.py": "x\n", "referee/m": ("160000", self.sha), f"{TOY_DIR}/app.py": "y\n"},
+                             "referee/m is a link or a submodule"),
+                            ({"referee/a.py": "x\n", f"{TOY_DIR}/app.py": "y\n", f"{TOY_DIR}/l": ("120000", "/etc")},
+                             f"{TOY_DIR}/l is a link or a submodule")):
+            with self.subTest(says=says):
+                self.use_tree(files)
+                self.refused(says)
 
-def short_name(path):
-    """The 8.3 short name Windows gave ``path`` (its last part), or None (another system, or short names off there)."""
-    if os.name != "nt":
-        return None
-    buf = ctypes.create_unicode_buffer(1024)
-    if not ctypes.windll.kernel32.GetShortPathNameW(str(path), buf, len(buf)):
-        return None
-    name = Path(buf.value).name
-    return name if name.upper() != path.name.upper() else None
-
-
-class ImportAliasTest(ImportCase):
-    """E374 (E130's 8.3 rule): on the operator's Windows file system a name can reach an existing entry under another
-    name: `BOOTST~1` is `bootstrap/`, `POLICY~1.JSO` `policy.json`, `GIT~1` `.git/`. Such a referee tree has none of
-    the reserved names in any case, so `tree_hash`, `_lands_on_kept` and the re-hash of the sibling temporary tree (where
-    nothing is there to alias) all pass it; the copy into the checkout would write the Founder's bytes over the trust
-    root. The import asks the file system where each path lands before anything is written."""
-
-    @staticmethod
-    def aliased(aliases):
-        """The file system as the operator's Windows has it (patches to enter): each ``{checkout: {alias: entry}}``
-        alias exists and is that entry, though no directory lists the alias."""
-        real_lexists, real_samefile = os.path.lexists, os.path.samefile
-        names = {str(Path(base) / alias): str(Path(base) / entry) for base, pairs in aliases.items()
-                 for alias, entry in pairs.items()}
-
-        def lexists(path):
-            return str(Path(path)) in names or real_lexists(path)
-
-        def samefile(a, b):
-            a, b = str(Path(a)), str(Path(b))
-            if a in names:
-                return names[a] == b
-            return real_samefile(a, b)
-        stack = contextlib.ExitStack()
-        stack.enter_context(mock.patch.object(importer.os.path, "lexists", side_effect=lexists))
-        stack.enter_context(mock.patch.object(importer.os.path, "samefile", side_effect=samefile))
-        return stack
-
-    def assert_refused_untouched(self, says="under another name"):
-        before, toy_before = read_all(self.referee, skip=()), read_all(self.toy, skip=())
+    def test_the_referee_repository_needs_a_main(self):
+        git_in(self.referee, "update-ref", "-d", "refs/heads/main")
         with self.assertRaises(ImportErrorStop) as caught:
             self.run_import()
-        self.assertIn(says, str(caught.exception))
-        self.assertEqual(read_all(self.referee, skip=()), before)
-        self.assertEqual(read_all(self.toy, skip=()), toy_before)
-        self.assertEqual(self.imports(), b"")
-        return str(caught.exception)
+        self.assertIn("no main", str(caught.exception))
 
-    def test_a_short_name_of_what_the_referee_checkout_keeps_is_refused(self):  # import_alias_unchecked import_alias_kept_only_exact
-        for alias, entry, path in (("BOOTST~1", "bootstrap", "BOOTST~1/snowball_bootstrap/__init__.py"),
-                                   ("POLICY~1.JSO", "policy.json", "POLICY~1.JSO"),
-                                   ("CONTRO~1.JSO", "control.json", "CONTRO~1.JSO"),
-                                   ("GIT~1", ".git", "GIT~1/hooks/post-checkout")):
-            with self.subTest(alias=alias):
-                write(self.referee, {".git/HEAD": "ref: refs/heads/main\n"})
-                with self.use_tree({"referee/ledger/chain.py": "x = 1\n",
-                                    "referee/.github/workflows/loop.yml": LOOP_YML, f"referee/{path}": "EVIL\n",
-                                    f"{TOY_DIR}/app.py": "y\n"}), self.aliased({self.referee: {alias: entry}}):
-                    said = self.assert_refused_untouched()
-                self.assertIn(f"would land on {entry}", said)
 
-    def test_a_short_name_on_the_way_to_the_bootstraps_workflow_is_refused(self):  # import_alias_holds_unchecked
-        """`GITHUB~1/workflows/` is `.github/workflows/`: an alias of `.github/` is refused, whether the path under it
-        would reach `bootstrap.yml` or land beside it."""
-        for path in ("GITHUB~1/workflows/bootstrap.yml", "GITHUB~1/workflows/other.yml"):
+class ImportRefusesNamesTest(ImportCase):
+    """E470 (the third skeptic's case variants, short names, devices and trailing dots, four rounds of them on a file
+    system): every name of a new part is refused at tree level, before any object is written, when the spec refuses it,
+    when a file system reads it as another, when it is, holds or leads to what the import keeps in some case, or when
+    two of them are one name case-folded. Each is refused because it is dangerous wherever the repository is checked out
+    later; the import itself touches no disk."""
+
+    def refuse_tree(self, paths, says, prefix="referee/"):
+        files = {"referee/ledger/chain.py": "x = 1\n", f"{TOY_DIR}/app.py": "y\n"}
+        files.update({prefix + p: "EVIL\n" for p in paths})
+        self.use_tree(files)
+        return self.refused(says)
+
+    def test_a_name_that_is_holds_or_leads_to_a_kept_entry_in_some_case_is_refused(self):  # import_kept_case_sensitive import_overwrites_bootstrap_yml
+        for path in (".github/workflows/bootstrap.yml", ".GitHub/Workflows/BOOTSTRAP.yml",
+                     ".github/workflows/bootstrap.yml/x", ".github/workflows", ".github", "Bootstrap/x.py",
+                     "BOOTSTRAP/snowball_bootstrap/__init__.py", "Control.json", "Setup/summary.json", "SEATS/x.md",
+                     "Policy.json"):
             with self.subTest(path=path):
-                with self.use_tree({"referee/ledger/chain.py": "x = 1\n", f"referee/{path}": "name: evil\n",
-                                    f"{TOY_DIR}/app.py": "y\n"}), self.aliased({self.referee: {"GITHUB~1": ".github"}}):
-                    self.assertIn("would land on .github", self.assert_refused_untouched())
+                self.refuse_tree([path], "what the import keeps, in some case")
 
-    def test_a_short_name_below_the_top_is_refused(self):  # A1_alias_top_only alias_walk_top_only
-        """E403 (the second skeptic's A1): the file system is asked at every depth, not of the first part alone.
-        `.github/` is listed under its own name, but `workflows/` is reached as `WORKFL~1` and `bootstrap.yml` as
-        `BOOTST~1.YML`: a check of the first part passes both, and the copy writes the Founder's file over the push
-        judge (the skeptic did it on C:). `GIT~1/hooks/...` is the top-level case beside them."""
-        github = self.referee / ".github"
-        for path, aliases, entry in (
-                (".github/workflows/BOOTST~1.YML", {github / "workflows": {"BOOTST~1.YML": "bootstrap.yml"}},
-                 ".github/workflows/bootstrap.yml"),
-                (".github/WORKFL~1/bootstrap.yml", {github: {"WORKFL~1": "workflows"}}, ".github/workflows"),
-                (".github/WORKFL~1/other.yml", {github: {"WORKFL~1": "workflows"}}, ".github/workflows"),
-                ("GIT~1/hooks/post-checkout", {self.referee: {"GIT~1": ".git"}}, ".git")):
+    def test_names_a_windows_file_system_reads_as_others_are_refused(self):  # import_windows_names_allowed
+        for path, says in (("x/a.", "a dot or a space"), ("x/a ", "a dot or a space"), ("x./a", "a dot or a space"),
+                           ("x /a", "a dot or a space"), ("x/nul", "device"), ("x/NUL.txt", "device"),
+                           ("x/con.py", "device"), ("x/aux", "device"), ("x/CONIN$", "device"),
+                           ("x/COM¹", "device"), ("x/PRN.log", "device"), ("x/lpt9.c", "device"),
+                           ("x/nul .txt", "device"), ("BOOTST~1/x.py", "8.3"), ("x/GIT~1", "8.3"),
+                           ("x/foo~2.txt", "8.3")):
             with self.subTest(path=path):
-                write(self.referee, dict(OPERATOR_FILES, **{".git/HEAD": "ref: refs/heads/main\n"}))  # as it was
-                # No `workflows/` beside `WORKFL~1/` in the tree: on a volume with 8.3 names the two would already be one
-                # directory in the sibling temporary tree, and its re-hash would stop the import first.
-                with self.use_tree({"referee/ledger/chain.py": "x = 1\n", f"referee/{path}": "EVIL\n",
-                                    f"{TOY_DIR}/app.py": "y\n"}), self.aliased(aliases):
-                    said = self.assert_refused_untouched()
-                self.assertIn(f"would land on {entry} ", said)
+                self.refuse_tree([path], says)
 
-    def test_a_short_name_of_the_toys_git_directory_is_refused(self):  # import_toy_alias_unchecked
-        """The toy checkout keeps `.git/`; `GIT~1/hooks/post-checkout` would plant a hook the operator's next git
-        command runs (E04)."""
-        write(self.toy, {".git/HEAD": "ref: refs/heads/main\n"})
-        with self.use_tree({"referee/ledger/chain.py": "x = 1\n", "referee/.github/workflows/loop.yml": LOOP_YML,
-                            f"{TOY_DIR}/app.py": "y\n", f"{TOY_DIR}/GIT~1/hooks/post-checkout": "#!/bin/sh\nevil\n"}), \
-                self.aliased({self.toy: {"GIT~1": ".git"}}):
-            self.assertIn("would land on .git", self.assert_refused_untouched())
+    def test_names_one_name_case_folded_are_refused(self):  # import_case_collision_allowed
+        for paths in (["ledger/A.py", "ledger/a.py"], ["Ledger/x.py", "ledger/y.py"], [".GitHub/x.yml"],
+                      [".github/Workflows/x.yml"]):
+            with self.subTest(paths=paths):
+                self.refuse_tree(paths, "one name case-folded")
 
-    def test_a_name_no_entry_is_listed_under_is_refused(self):  # import_alias_unlisted_allowed
-        """A name the file system finds though its directory lists nothing it could be (on Windows a device name such
-        as `NUL`; here a stand-in, `ghost`) is not written into."""
-        real = os.path.lexists
-        with self.use_tree({"referee/ledger/chain.py": "x = 1\n", "referee/ghost/x.py": "y\n",
-                            f"{TOY_DIR}/app.py": "y\n"}), \
-                mock.patch.object(importer.os.path, "lexists",
-                                  side_effect=lambda p: Path(p) == self.referee / "ghost" or real(p)):
-            self.assertIn("would land on ghost", self.assert_refused_untouched())
-
-    def test_an_alias_of_an_earlier_trees_entry_is_cleared_like_it(self):  # import_alias_refuses_any
-        """What is not kept is cleared before the copy, so a name that reaches an earlier referee tree's entry (here
-        `LEDGER~1` is the old `ledger_v1/`) lands on nothing kept: the import goes on."""
-        write(self.referee, {"ledger_v1/old.py": "old\n"})
-        with self.use_tree({"referee/LEDGER~1/new.py": "x = 1\n", "referee/.github/workflows/loop.yml": LOOP_YML,
-                            f"{TOY_DIR}/app.py": "y\n"}), self.aliased({self.referee: {"LEDGER~1": "ledger_v1"}}):
-            self.run_import()
-        self.assertEqual(read_all(self.referee)["bootstrap/snowball_bootstrap/__init__.py"], b"seed\n")
-        self.assertNotIn("ledger_v1/old.py", read_all(self.referee))
-
-    def test_on_a_volume_with_short_names_the_trust_root_is_not_written(self):
-        """The repro on a real file system: where Windows makes 8.3 names (the system volume by default), the alias of
-        `bootstrap/`, of `policy.json` and of the toy's `.git/` each stops the import with nothing written."""
-        write(self.toy, {".git/HEAD": "ref: refs/heads/main\n"})
-        names = {"bootstrap": short_name(self.referee / "bootstrap"),
-                 "policy.json": short_name(self.referee / "policy.json"),
-                 "toy .git": short_name(self.toy / ".git")}
-        if not all(names.values()):
-            self.skipTest("this volume makes no 8.3 short names (or this is not Windows)")
-        for label, path in (("bootstrap", f"referee/{names['bootstrap']}/snowball_bootstrap/__init__.py"),
-                            ("policy.json", f"referee/{names['policy.json']}"),
-                            ("toy .git", f"{TOY_DIR}/{names['toy .git']}/hooks/post-checkout")):
-            with self.subTest(label=label):
-                files = {"referee/ledger/chain.py": "x = 1\n", f"{TOY_DIR}/app.py": "y\n", path: "EVIL = 1\n"}
-                with self.use_tree(files):
-                    self.assert_refused_untouched()
-                self.assertEqual((self.referee / "bootstrap" / "snowball_bootstrap" / "__init__.py").read_bytes(),
-                                 b"seed\n")
-                self.assertEqual((self.referee / "policy.json").read_bytes(), b"{}\n")
-
-    def short_names_below_the_top(self):
-        """The real alias paths of a kept entry below the top, or of the git directory, on this volume (skip if none)."""
-        write(self.referee, {".git/HEAD": "ref: refs/heads/main\n", ".git/config": "[core]\n"})
-        workflow = self.referee / ".github" / "workflows" / "bootstrap.yml"
-        names = {"bootstrap.yml": short_name(workflow), "workflows": short_name(workflow.parent),
-                 ".github": short_name(workflow.parent.parent), ".git": short_name(self.referee / ".git")}
-        if not all(names.values()):
-            self.skipTest("this volume makes no 8.3 short names (or this is not Windows)")
-        return {".github/workflows/bootstrap.yml": f".github/workflows/{names['bootstrap.yml']}",
-                ".github/workflows": f".github/{names['workflows']}/bootstrap.yml",
-                ".github": f"{names['.github']}/workflows/bootstrap.yml",
-                ".git": f"{names['.git']}/hooks/post-checkout"}
-
-    def test_on_a_volume_with_short_names_nothing_kept_below_the_top_is_written(self):  # A1_alias_top_only
-        """E403, the skeptic's repro: `.github/workflows/BOOTST~1.YML`, `.github/WORKFL~1/bootstrap.yml`,
-        `GITHUB~1/workflows/bootstrap.yml` and `GIT~1/hooks/...` on a volume that makes 8.3 names stop the import with
-        nothing written: the push judge and the git directory stay as they were."""
-        for entry, path in self.short_names_below_the_top().items():
-            with self.subTest(entry=entry, path=path):
-                write(self.referee, OPERATOR_FILES)  # each case on the checkout as it was, whatever the last one did
-                files = {"referee/ledger/chain.py": "x = 1\n", f"{TOY_DIR}/app.py": "y\n", f"referee/{path}": "EVIL\n"}
-                with self.use_tree(files):
-                    self.assertIn(f"would land on {entry} ", self.assert_refused_untouched())
-                self.assertEqual(workflow_bytes(self.referee), b"name: snowball-bootstrap\n")
-
-    def test_on_a_volume_with_short_names_the_copy_writes_through_nothing_it_did_not_make(self):  # copy_through_existing_dir copy_files_not_exclusive
-        """E412 (the third skeptic's `second_layer.py`): with the name check taken away, an alias the file system
-        resolves onto a kept entry (here the real 8.3 names) is still not written through: the copy makes every
-        directory and file new, so it stops at the alias; what the checkout keeps, `.git/config` too, is byte for byte
-        as it was, and the stop says the checkout may be reset (its git directory is untouched)."""
-        for entry, path in dict(self.short_names_below_the_top(), **{".git/config": None}).items():
-            if path is None:
-                path = f"{short_name(self.referee / '.git')}/config"  # `second_layer.py`: a live core.fsmonitor
-            with self.subTest(entry=entry, path=path):
-                write(self.referee, dict(OPERATOR_FILES, **{".git/config": "[core]\n"}))
-                shutil.rmtree(self.referee / ".git" / "hooks", ignore_errors=True)
-                before = importer.kept_state(self.referee, importer.kept, importer._holds_kept)
-                files = {"referee/ledger/chain.py": "x = 1\n", f"{TOY_DIR}/app.py": "y\n",
-                         f"referee/{path}": "[core]\n\tfsmonitor = \"echo ran > ran.txt\"\n"}
-                with self.use_tree(files), mock.patch.object(importer, "_refuse_aliases"), \
-                        self.assertRaises(ImportErrorStop) as caught:
-                    self.run_import()
-                said = str(caught.exception)
-                self.assertIn(f"referee/{path.split('/')[0] if entry != '.github/workflows/bootstrap.yml' else path}",
-                              said)
-                self.assertIn("would be written through an entry already in the checkout", said)
-                self.assertIn("keeps is as it was: reset the checkout", said)
-                self.assertEqual(importer.kept_state(self.referee, importer.kept, importer._holds_kept), before)
-                self.assertEqual((self.referee / ".git" / "config").read_bytes(), b"[core]\n")
-                self.assertEqual(self.imports(), b"")
-
-
-def workflow_bytes(referee):
-    return (referee / ".github" / "workflows" / "bootstrap.yml").read_bytes()
-
-
-class ImportCopyMakesEverythingNewTest(ImportCase):
-    """E412: the copy cannot write through an existing entry it did not make. Here the name checks (`_lands_on_kept`,
-    `_refuse_aliases`) are taken away, so a path reaches what the checkout keeps as an alias they did not foresee would:
-    by its own name (`.github/workflows/bootstrap.yml`: only those checks refuse it), or through a stand-in for an alias
-    made after the clear (a junction on Windows, a symbolic link elsewhere: a name that is an existing entry). A kept
-    file is never opened (``O_EXCL``), an entry not made by the copy is never entered, and a directory on the way is
-    entered only under its exact name while it is the one the clear left."""
-
-    def unguarded(self, files, alias=None):
-        """The import with ``files`` as the tree and no name check; ``alias`` ``(checkout, name, entry)``: after the
-        clear, ``name`` in ``checkout`` is ``entry`` under another name."""
-        stack = contextlib.ExitStack()
-        stack.enter_context(self.use_tree(files))
-        stack.enter_context(mock.patch.object(importer, "_lands_on_kept", return_value=False))
-        stack.enter_context(mock.patch.object(importer, "_refuse_aliases"))
-        if alias:
-            checkout, name, entry = alias
-            real = importer._clear
-
-            def clear_then_alias(directory, keep, holds, *rest):
-                kept = real(directory, keep, holds, *rest)
-                if Path(directory) == checkout and not rest:
-                    make_junction(checkout / name, checkout / entry)
-                return kept
-            stack.enter_context(mock.patch.object(importer, "_clear", side_effect=clear_then_alias))
-        return stack
-
-    def refused(self, files, says, alias=None):
-        write(self.referee, dict(OPERATOR_FILES, **{".git/config": "[core]\n"}))
-        write(self.toy, {".git/config": "[core]\n"})
-        before = (importer.kept_state(self.referee, importer.kept, importer._holds_kept),
-                  importer.kept_state(self.toy, importer._git_dir, importer._nothing))
-        with self.unguarded(files, alias), self.assertRaises(ImportErrorStop) as caught:
-            self.run_import()
-        said = str(caught.exception)
-        self.assertIn(f"{says} would be written through an entry already in the checkout", said)
-        self.assertIn("keeps is as it was: reset the checkout", said)
-        self.assertEqual((importer.kept_state(self.referee, importer.kept, importer._holds_kept),
-                          importer.kept_state(self.toy, importer._git_dir, importer._nothing)), before)
-        self.assertEqual(self.imports(), b"")
-
-    def test_a_kept_file_is_never_opened(self):  # copy_files_not_exclusive
-        self.refused({"referee/ledger/chain.py": "x = 1\n", "referee/.github/workflows/bootstrap.yml": "name: evil\n",
-                      f"{TOY_DIR}/app.py": "y\n"}, "referee/.github/workflows/bootstrap.yml")
-        self.assertEqual(workflow_bytes(self.referee), b"name: snowball-bootstrap\n")
-
-    def test_an_entry_the_copy_did_not_make_is_never_entered(self):  # copy_through_existing_dir
-        """`second_layer.py`'s path, `<alias of .git>/config`, would write a live `core.fsmonitor` that the operator's
-        next git command runs; the others reach the push judge's package and its workflow's directory, and the toy's git
-        directory. (The stand-ins have names of their own: on a volume with 8.3 names `GIT~1` already is `.git`.)"""
-        referee, toy = self.referee, self.toy
-        for alias, path, says in (((referee, "gitalias", ".git"), "referee/gitalias/config", "referee/gitalias"),
-                                  ((referee, "bootalias", "bootstrap"), "referee/bootalias/snowball_bootstrap/__init__.py",
-                                   "referee/bootalias"),
-                                  ((referee, ".github/wfalias", ".github/workflows"),
-                                   "referee/.github/wfalias/bootstrap.yml", "referee/.github/wfalias"),
-                                  ((toy, "gitalias", ".git"), f"{TOY_DIR}/gitalias/hooks/post-checkout",
-                                   f"{TOY_DIR}/gitalias")):
+    def test_names_the_spec_refuses_are_refused(self):
+        for path in ("x/a\tb", "x\\y", "x/c:d"):
             with self.subTest(path=path):
-                self.refused({"referee/ledger/chain.py": "x = 1\n", f"{TOY_DIR}/app.py": "y\n",
-                              path: "[core]\n\tfsmonitor = \"echo ran > ran.txt\"\n"}, says, alias)
-                os.unlink(alias[0] / alias[1])
-        self.assertEqual((self.referee / ".git" / "config").read_bytes(), b"[core]\n")
-        self.assertEqual(workflow_bytes(self.referee), b"name: snowball-bootstrap\n")
-        self.assertFalse((self.toy / ".git" / "hooks").exists())
+                self.refuse_tree([path], "(`26c`, E470)")
+        for path in (".Git/config", "x/.git/hooks/h", "../x", "/x"):  # git builds no tree with these: the rule alone
+            with self.subTest(path=path), self.assertRaises(ImportErrorStop):
+                importer.refuse_names("referee", [path], importer.KEPT_PATHS)
 
-    def test_a_copy_stopped_part_way_still_reads_what_is_kept(self):  # copy_in_kept_unread
-        """The copy's stop says the checkout may be reset only when what it keeps is as it was: here something else
-        (another process) changed `.git/config` before the copy stopped, so the stop is the kept state's: no git
-        command, delete the checkout and clone it again."""
-        def change_then_stop(tree, checkout, *rest):
-            if Path(checkout) == self.referee:
-                write(self.referee, {".git/config": "[core]\n\tfsmonitor = evil\n"})
-                raise importer._through("referee", importer.PurePosixPath("x"))
-        write(self.referee, {".git/config": "[core]\n"})
-        with mock.patch.object(importer, "_copy_new", side_effect=change_then_stop), \
-                self.assertRaises(ImportErrorStop) as caught:
-            self.run_import()
-        said = str(caught.exception)
-        self.assertIn("the copy changed what the referee checkout keeps: .git/config", said)
-        self.assertIn("run no git command in it", said)
-        self.assertNotIn("reset the checkout", said)
-        self.assertEqual(self.imports(), b"")
+    def test_the_toys_names_are_held_to_the_same_rules(self):  # import_toy_names_unchecked
+        for paths, says in ((["a."], "a dot or a space"), (["Nul"], "device"), (["A.py", "a.py"], "case-folded"),
+                            (["GIT~1/hooks/post-checkout"], "8.3")):
+            with self.subTest(paths=paths):
+                self.refuse_tree(paths, says, prefix=f"{TOY_DIR}/")
 
-    def test_a_directory_on_the_way_is_entered_only_as_the_clear_left_it(self):  # copy_kept_dir_any
-        """`.github/workflows/` is entered under its exact name (`loop.yml` lands beside `bootstrap.yml`), but not once
-        another directory stands there, even one holding the same bytes (here swapped in after the clear)."""
-        self.run_import()
-        self.assertEqual(read_all(self.referee)[".github/workflows/loop.yml"], LOOP_YML.encode("utf-8"))
-        real = importer._clear
-
-        def clear_and_swap(directory, keep, holds, *rest):
-            kept = real(directory, keep, holds, *rest)
-            if Path(directory) == self.referee and not rest:
-                workflows = self.referee / ".github" / "workflows"
-                workflows.rename(self.work / "swapped")
-                write(self.referee, {".github/workflows/bootstrap.yml": "name: snowball-bootstrap\n"})
-            return kept
-        with mock.patch.object(importer, "_clear", side_effect=clear_and_swap), \
-                self.assertRaises(ImportErrorStop) as caught:
-            self.run_import()
-        self.assertIn("referee/.github/workflows would be written through", str(caught.exception))
-        self.assertEqual(sorted(p.name for p in (self.referee / ".github" / "workflows").iterdir()), ["bootstrap.yml"])
-
-    def test_the_copy_keeps_the_trees_file_modes(self):
-        if os.chmod not in os.supports_fd:
-            self.skipTest("no file modes beyond read-only here")
-        buf = io.BytesIO()
-        with tarfile.open(fileobj=buf, mode="w:", format=tarfile.PAX_FORMAT) as archive:
-            for name, data, mode in (("referee/run.sh", b"#!/bin/sh\n", 0o755), ("referee/a.py", b"x\n", 0o644),
-                                     (f"{TOY_DIR}/app.py", b"y\n", 0o644)):
-                info = tarfile.TarInfo(name)
-                info.size, info.mode = len(data), mode
-                archive.addfile(info, io.BytesIO(data))
-        tar = buf.getvalue()
-        self.referee_hash, self.toy_hash = tree_hash(tar, "referee"), tree_hash(tar, TOY_DIR, False, True)
-        self.write_result()
-        with mock.patch.object(importer.gitio, "archive", return_value=tar):
-            self.run_import()
-        self.assertEqual(((self.referee / "run.sh").stat().st_mode & 0o777, (self.referee / "a.py").stat().st_mode & 0o777),
-                         (0o755, 0o644))
-
-
-# ---------------------------------------------------------------- E413: a junction is a link
-@contextlib.contextmanager
-def junction_stand_ins(*links):
-    """POSIX stand-ins for Windows junctions (E413): each of ``links`` is a symbolic link that `Path.is_symlink` does
-    not see and `Path.is_junction` does, as a junction is on Windows (whatever reads it with `is_symlink` alone, or
-    `is_dir`, goes through)."""
-    names = {str(Path(link)) for link in links}
-    real_symlink, real_junction = Path.is_symlink, Path.is_junction
-    with mock.patch.object(Path, "is_symlink", lambda self: str(self) not in names and real_symlink(self)), \
-            mock.patch.object(Path, "is_junction", lambda self: str(self) in names or real_junction(self)):
-        yield
-
-
-def make_junction(link, target):
-    """A real junction on Windows (no privilege needed), else a symbolic link to stand in for one."""
-    if os.name == "nt":
-        import _winapi
-        _winapi.CreateJunction(str(target), str(link))
-    else:
-        os.symlink(target, link, target_is_directory=True)
-
-
-class ImportJunctionTest(ImportCase):
-    """E413 (the third skeptic's `junction_kept.py`): `Path.is_junction` is a link (`Path.is_symlink` is false for a
-    junction, `is_dir` true): what the import keeps is never read through one, the clear never deletes through one,
-    and the disk hash never hashes through one."""
-
-    def setUp(self):
-        super().setUp()
-        self.outside = self.work / "outside"
-        write(self.outside, {"secret.txt": "outside the checkout\n"})
-
-    def stand_in(self, *links):
-        return contextlib.nullcontext() if os.name == "nt" else junction_stand_ins(*links)
-
-    def test_what_is_kept_is_not_read_through_a_junction(self):  # kept_state_junction_followed
-        write(self.referee, {".git/HEAD": "ref\n"})
-        link = self.referee / ".git" / "jx"
-        make_junction(link, self.outside)
-        with self.stand_in(link):
-            state = importer.kept_state(self.referee, importer.kept, importer._holds_kept)
-        self.assertEqual([k for k in state if k.startswith(".git/jx")], [".git/jx"])
-        self.assertTrue(state[".git/jx"].startswith("link:"))
-
-    def test_a_junction_on_the_way_to_what_is_kept_stops_the_import(self):  # kept_state_link_on_the_way
-        shutil.rmtree(self.referee / ".github")
-        write(self.outside, {"workflows/bootstrap.yml": "name: snowball-bootstrap\n"})
-        make_junction(self.referee / ".github", self.outside)
-        before = read_all(self.outside)
-        with self.stand_in(self.referee / ".github"), self.assertRaises(ImportErrorStop) as caught:
-            self.run_import()
-        self.assertIn(".github in the checkout is a link on the way to what the import keeps", str(caught.exception))
-        self.assertEqual(read_all(self.outside), before)
-        self.assertEqual(self.imports(), b"")
-
-    def test_the_clear_removes_a_junction_and_nothing_it_points_at(self):  # clear_junction_followed
-        link = self.referee / "old"
-        make_junction(link, self.outside)
-        with self.stand_in(link):
-            self.run_import()
-        self.assertFalse(os.path.lexists(link))
-        self.assertEqual(read_all(self.outside), {"secret.txt": b"outside the checkout\n"})
-
-    def test_the_disk_hash_does_not_go_through_a_junction(self):  # disk_hash_junction_followed
-        tree = self.work / "tree"
-        write(tree, {"a.py": "x\n"})
-        make_junction(tree / "linked", self.outside)
-        with self.stand_in(tree / "linked"), self.assertRaises(ImportErrorStop) as caught:
-            importer.disk_hash(tree)
-        self.assertIn("linked on disk is a link", str(caught.exception))
-
-
-class ImportKeptStateTest(ImportCase):
-    """E403: whatever name the file system resolves, a path of the signed tree that reaches a kept entry changes it.
-    What each checkout keeps (`bootstrap/`, `.github/workflows/bootstrap.yml`, the operator's files, the git directory;
-    the toy's git directory) is read with its bytes before anything is written and after the copy; a difference stops
-    the import before the counter row. Here the copy itself is made to write where a resolved alias would."""
-
-    def copy_and_also(self, target, change):
-        """The import's copy, but the copy into ``target`` also does ``change`` (what a file system that resolved some
-        name onto a kept entry would do, had the copy not prevented it; or another process, a git command, at work)."""
-        real = importer._copy_new
-
-        def copy(tree, checkout, *args):
-            done = real(tree, checkout, *args)
-            if Path(checkout) == target:
-                change()
-            return done
-        return mock.patch.object(importer, "_copy_new", side_effect=copy)
-
-    def test_a_change_to_any_kept_entry_stops_the_import(self):
-        write(self.referee, {".git/HEAD": "ref: refs/heads/main\n", ".git/config": "[core]\n"})
-        write(self.toy, {".git/HEAD": "ref: refs/heads/main\n", ".git/config": "[core]\n"})
-        referee, toy = self.referee, self.toy
-        cases = {  # what the copy also does -> the entry the stop names
-            "bootstrap/ file": (referee, lambda: write(referee, {"bootstrap/snowball_bootstrap/__init__.py": "EVIL\n"}),
-                                "referee", "bootstrap/snowball_bootstrap/__init__.py"),
-            "bootstrap/ new file": (referee, lambda: write(referee, {"bootstrap/snowball_bootstrap/x.py": "EVIL\n"}),
-                                    "referee", "bootstrap/snowball_bootstrap/x.py"),
-            "push judge": (referee, lambda: write(referee, {".github/workflows/bootstrap.yml": "name: evil\n"}),
-                           "referee", ".github/workflows/bootstrap.yml"),
-            "operator file": (referee, lambda: write(referee, {"policy.json": "{\"x\": 1}\n"}), "referee", "policy.json"),
-            "operator file gone": (referee, lambda: (referee / "seats" / "29-tohum-koltuklari.md").unlink(), "referee",
-                                   "seats/29-tohum-koltuklari.md"),
-            "git config": (referee, lambda: write(referee, {".git/config": "[core]\n\tfsmonitor = evil\n"}), "referee",
-                           ".git/config"),
-            "git hook": (referee, lambda: write(referee, {".git/hooks/post-checkout": "#!/bin/sh\nevil\n"}), "referee",
-                         ".git/hooks/post-checkout"),
-            "toy git hook": (toy, lambda: write(toy, {".git/hooks/post-checkout": "#!/bin/sh\nevil\n"}), "toy",
-                             ".git/hooks/post-checkout"),
-            "toy git config": (toy, lambda: write(toy, {".git/config": "[core]\n\thooksPath = x\n"}), "toy", ".git/config"),
-        }
-        for label, (target, change, what, entry) in cases.items():
-            with self.subTest(label):
-                write(self.referee, dict(OPERATOR_FILES, **{".git/config": "[core]\n"}))
-                write(self.toy, {".git/config": "[core]\n"})
-                for stray in (self.referee / ".git" / "hooks", self.toy / ".git" / "hooks"):
-                    shutil.rmtree(stray, ignore_errors=True)
-                (self.referee / "bootstrap" / "snowball_bootstrap" / "x.py").unlink(missing_ok=True)
-                with self.copy_and_also(target, change), self.assertRaises(ImportErrorStop) as caught:
-                    self.run_import()
-                said = str(caught.exception)
-                self.assertIn(f"the copy changed what the {what} checkout keeps: ", said)
-                self.assertIn(entry, said)
-                self.assertIn("another process", said)  # E412: an alias is not the only cause
-                if entry.startswith(".git/"):  # E412: its config runs commands, so no git command may reset it
-                    self.assertIn("run no git command in it", said)
-                    self.assertIn("delete the checkout and clone it again", said)
-                    self.assertNotIn("reset the checkout", said)
-                else:
-                    self.assertIn("reset the checkout before anything is pushed", said)
-                    self.assertNotIn("delete the checkout", said)
-                self.assertEqual(self.imports(), b"")
-
-    def test_an_import_that_reaches_nothing_kept_passes_and_keeps_every_entry(self):
-        write(self.referee, {".git/HEAD": "ref: refs/heads/main\n", ".git/hooks/README": "hooks\n"})
-        write(self.toy, {".git/HEAD": "ref: refs/heads/main\n"})
-        before = (importer.kept_state(self.referee, importer.kept, importer._holds_kept),
-                  importer.kept_state(self.toy, importer._git_dir, importer._nothing))
-        self.run_import()
-        after = importer.kept_state(self.referee, importer.kept, importer._holds_kept)
-        self.assertEqual(after.pop("setup/imports.jsonl")[:0], "")  # the counter row, written after the check
-        self.assertEqual(after, before[0])
-        self.assertEqual(importer.kept_state(self.toy, importer._git_dir, importer._nothing), before[1])
-        self.assertIn(".github/workflows/bootstrap.yml", before[0])  # held below the top, read there
-        self.assertIn(".git/hooks/README", before[0])  # a kept directory is read whole
-        self.assertNotIn(".github/workflows/loop.yml", before[0] | importer.kept_state(self.referee, importer.kept,
-                                                                                         importer._holds_kept))
-
-    def test_the_kept_state_names_each_entry_with_what_it_is(self):  # kept_state_files_only kept_state_no_descent
-        write(self.referee, {".git/hooks/README": "hooks\n", "ledger/x.py": "not kept\n"})
-        state = importer.kept_state(self.referee, importer.kept, importer._holds_kept)
-        self.assertEqual(state[".git"], "dir")
-        self.assertEqual(state[".git/hooks"], "dir")
-        self.assertEqual(state[".git/hooks/README"], hashlib.sha256(b"hooks\n").hexdigest())
-        self.assertEqual(state["policy.json"], hashlib.sha256(b"{}\n").hexdigest())
-        self.assertNotIn("ledger/x.py", state)
-        self.assertNotIn(".github", state)  # on the way, not kept: its other entries are cleared, not compared
-        self.assertEqual(sorted(k for k in state if k.startswith(".github")), [".github/workflows/bootstrap.yml"])
-
-    @posix_only
-    def test_a_link_or_a_special_entry_in_what_is_kept_is_compared_as_what_it_is(self):  # kept_state_links_ignored
-        write(self.referee, {".git/HEAD": "ref: refs/heads/main\n"})
-        os.symlink("HEAD", self.referee / ".git" / "link")
-        os.mkfifo(self.referee / ".git" / "fifo")
-        state = importer.kept_state(self.referee, importer.kept, importer._holds_kept)
-        self.assertEqual((state[".git/link"], state[".git/fifo"]), ("link:HEAD", "special"))
-        (self.referee / ".git" / "link").unlink()
-        os.symlink("config", self.referee / ".git" / "link")
-        self.assertEqual(importer.kept_state(self.referee, importer.kept, importer._holds_kept)[".git/link"],
-                         "link:config")
+    def test_a_main_with_a_case_variant_of_a_kept_name_stops(self):  # import_main_case_variant
+        """The third skeptic's `cv_detail.py` in git: a main whose `bootstrap/`, `.github/`, `setup/` or the push judge
+        is under another case is refused, not dropped; a missing push judge or kill switch stops too."""
+        files = tree_files(self.referee)
+        for old, new in (("bootstrap/snowball_bootstrap/__init__.py", "Bootstrap/snowball_bootstrap/__init__.py"),
+                         (".github/workflows/bootstrap.yml", ".GitHub/workflows/bootstrap.yml"),
+                         ("setup/summary.json", "Setup/summary.json"),
+                         (".github/workflows/bootstrap.yml", ".github/workflows/Bootstrap.yml")):
+            with self.subTest(new=new):
+                changed = dict(files)
+                changed[new] = changed.pop(old)
+                git_in(self.referee, "update-ref", "refs/heads/main", plumbed(self.referee, changed))
+                self.refused("case variant")
+        for gone, says in (("bootstrap/", "main has no bootstrap"),
+                           (".github/workflows/bootstrap.yml", "main has no .github/workflows/bootstrap.yml")):
+            with self.subTest(gone=gone):
+                changed = {p: c for p, c in files.items() if not (p == gone or p.startswith(gone))}
+                git_in(self.referee, "update-ref", "refs/heads/main", plumbed(self.referee, changed))
+                self.refused(says)
 
 
 # ---------------------------------------------------------------- the batch transfer (`asama-1/13` 3, E378)
@@ -958,54 +567,46 @@ class BatchImportTest(ImportCase):
         self.stage0_rows, data = chained([{"ts": "2026-10-31T08:00:00Z", "stage": 0, "brain_sha": "c" * 40,
                                            "referee_tree_sha256": "d" * 64, "result_sha256": "e" * 64,
                                            "toy_tree_sha256": "f" * 64}])
-        write(self.referee, {"setup/imports.jsonl": data,
-                             "setup/stage.json": json.dumps(lock_of(data.split(b"\n")[0]))})
+        self.set_main({"setup/imports.jsonl": data, "setup/stage.json": json.dumps(lock_of(data.split(b"\n")[0]))})
         self.write_result(stage=1, batch="P1")
+
+    def snapshot(self):
+        """Main's lock and counter in a directory, as stagelock reads them."""
+        snap = self.work / f"snap{len(list(self.work.glob('snap*')))}"
+        files = tree_files(self.referee)
+        write(snap, {p: files[p] for p in ("setup/imports.jsonl", "setup/stage.json") if p in files})
+        return snap
 
     def test_the_open_batchs_result_is_transferred_and_its_row_names_the_batch(self):  # import_batch_refused import_batch_row_unnamed
         """`26c:39`: `{ts, stage, batch, brain_sha, referee_tree_sha256, result_sha256}` chained on, no toy hash."""
+        toy = main_of(self.toy)
         row = self.run_import(toy=False)
         self.assertEqual(list(row), BATCH_KEYS)
         self.assertEqual((row["stage"], row["batch"], row["brain_sha"], row["referee_tree_sha256"]),
                          (1, "P1", self.sha, self.referee_hash))
         self.assertEqual(row["result_sha256"], hashlib.sha256(self.result.read_bytes()).hexdigest())
         self.assertEqual(row["prev_hash"], self.stage0_rows[-1]["row_hash"])
-        self.assertEqual(read_all(self.toy), {})
-        self.assertEqual(read_all(self.referee)["ledger/chain.py"], b"x = 1\n")
-        self.assertEqual(stagelock.batches_done(self.referee, stagelock.load(self.referee)), ("P1",))
+        self.assertEqual(main_of(self.toy), toy)
+        self.assertEqual(tree_files(self.referee)["ledger/chain.py"], b"x = 1\n")
+        snap = self.snapshot()
+        self.assertEqual(stagelock.batches_done(snap, stagelock.load(snap)), ("P1",))
 
     def test_a_batch_is_transferred_once_and_only_the_open_one(self):  # import_batch_any
         self.run_import(toy=False)
-        before = read_all(self.referee)
-        with self.assertRaises(ImportErrorStop) as caught:  # P1 is done; the seed carries no later batch table
-            self.run_import(toy=False)
-        self.assertIn("open batch is None", str(caught.exception))
-        self.assertEqual(read_all(self.referee), before)
+        self.refused("open batch is None", toy=False)  # P1 is done; the seed carries no later batch table
 
     def test_a_batch_result_of_another_batch_or_stage_or_without_the_lock_is_refused(self):  # import_batch_stage_unchecked
         for fields, says in (({"stage": 1, "batch": "P2"}, "open batch is 'P1'"), ({"stage": 2, "batch": "P1"}, "Stage 2"),
                              ({"stage": True, "batch": "P1"}, "Stage True"), ({"batch": "P1"}, "Stage None")):
             with self.subTest(fields=fields):
                 self.write_result(**fields)
-                before = read_all(self.referee)
-                with self.assertRaises(ImportErrorStop) as caught:
-                    self.run_import(toy=False)
-                self.assertIn(says, str(caught.exception))
-                self.assertEqual(read_all(self.referee), before)
-        (self.referee / "setup" / "stage.json").unlink()
+                self.refused(says, toy=False)
+        self.set_main({"setup/stage.json": None})
         self.write_result(stage=1, batch="P1")
-        with self.assertRaises(ImportErrorStop) as caught:
-            self.run_import(toy=False)
-        self.assertIn("only once setup/stage.json opened", str(caught.exception))
+        self.refused("only once setup/stage.json opened", toy=False)
 
     def test_a_batch_transfer_leaves_the_toy_alone(self):  # import_batch_touches_the_toy
-        write(self.toy, {"app.py": "the live toy\n"})
-        before = read_all(self.referee)
-        with self.assertRaises(ImportErrorStop) as caught:
-            self.run_import(toy=True)
-        self.assertIn("without --toy", str(caught.exception))
-        self.assertEqual(read_all(self.referee), before)
-        self.assertEqual(read_all(self.toy), {"app.py": b"the live toy\n"})
+        self.refused("without --toy", toy=True)
 
 
 # ---------------------------------------------------------------- stage-open
@@ -1068,16 +669,21 @@ def event(kind, payload, part="events"):
             "derivation": "tool", "trust": "verified", "snapshot_id": "0" * 40, "evidence_refs": []}
 
 
+REFEREE_CODE = {"ledger/chain.py": "x = 1\n", "gate/check.py": "y = 2\n", ".github/workflows/loop.yml": LOOP_YML}
+
+
 class StageOpenCase(unittest.TestCase):
-    """The referee checkout after Stage 0's transfer, the signed (A) result it imported, and the two targets' state
-    clones after (B): genesis rows naming the transfer, a copy merge, the PASS row on the toy carrying the copy's rows."""
+    """The referee checkout after Stage 0's transfer (its commit holds the transferred referee tree beside what the
+    import keeps), the signed (A) result it imported, and the two targets' state clones after (B): genesis rows naming
+    the transfer, a copy merge, the PASS row on the toy carrying the copy's rows."""
 
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.work = Path(self.tmp.name)
         self.referee = self.work / "referee"
-        write(self.referee, OPERATOR_FILES)
+        make_repo(self.referee, dict(OPERATOR_FILES, **REFEREE_CODE))
+        self.tree_sha = importer.committed_referee_hash(self.referee)  # what the transfer line names (E471)
         self.write_summary()
         self.result = self.work / "result.json"
         self.write_signed()
@@ -1101,19 +707,25 @@ class StageOpenCase(unittest.TestCase):
     def write_signed(self, **exit_fields):
         """The (A) result the import verified; its bytes' hash is the transfer row's `result_sha256`."""
         exit_block = edited({"requested": True, "transferable": True, "brain_sha": "c" * 40,
-                             "referee_tree_sha256": "d" * 64, "toy_tree_sha256": "f" * 64}, exit_fields)
+                             "referee_tree_sha256": self.tree_sha, "toy_tree_sha256": "f" * 64}, exit_fields)
         self.result.write_bytes(json.dumps({"kind": "exit", "verdict": "accepted", "exit": exit_block},
                                            indent=2).encode("utf-8") + b"\n")
 
     def write_counter(self, later=()):
         """Stage 0's transfer of the signed result, a touch that is no transfer (`29n`), then ``later`` rows."""
         self.import_rows, data = chained([
-            {"ts": "2026-10-31T08:00:00Z", "stage": 0, "brain_sha": "c" * 40, "referee_tree_sha256": "d" * 64,
+            {"ts": "2026-10-31T08:00:00Z", "stage": 0, "brain_sha": "c" * 40, "referee_tree_sha256": self.tree_sha,
              "result_sha256": hashlib.sha256(self.result.read_bytes()).hexdigest(), "toy_tree_sha256": "f" * 64},
             {"ts": "2026-10-31T08:30:00Z", "stage": 0}, *later])
         write(self.referee, {"setup/imports.jsonl": data})
         self.import_line = data.split(b"\n")[0]
         self.line_sha = hashlib.sha256(self.import_line).hexdigest()
+        self.result_sha = self.import_rows[0]["result_sha256"]
+
+    def bound(self, **over):
+        """What a genesis row's payload binds of the transfer line (`29o`): its hash, its referee tree, its result."""
+        return dict({"import_line_sha256": self.line_sha, "referee_tree_sha256": self.tree_sha,
+                     "result_sha256": self.result_sha}, **over)
 
     def fresh(self, name):
         """A new directory for a target (a git repository's objects are read-only on Windows: none is removed)."""
@@ -1121,8 +733,7 @@ class StageOpenCase(unittest.TestCase):
         return self.work / f"{name}{self.made}"
 
     def copy_rows(self, genesis=None):
-        return [event("genesis", edited({"target": "copy-t", "base_sha": COPY_BASE,
-                                         "import_line_sha256": self.line_sha}, genesis)),
+        return [event("genesis", edited(dict(self.bound(), target="copy-t", base_sha=COPY_BASE), genesis)),
                 event("merge", {"c": 2}), event("status", {"b": 3})]
 
     def make_copy(self, rows=None, **kw):
@@ -1132,7 +743,7 @@ class StageOpenCase(unittest.TestCase):
         passed = event("pass", edited({"stage": 0, "verdict": "PASS", "import_line_sha256": self.line_sha,
                                        "copy_genesis_row_hash": self.copy.rows[0]["row_hash"],
                                        "copy_merge_row_hashes": [self.copy.rows[1]["row_hash"]]}, payload))
-        return [event("genesis", edited({"target": "toy-t", "import_line_sha256": self.line_sha}, genesis)),
+        return [event("genesis", edited(dict(self.bound(), target="toy-t"), genesis)),
                 event("merge", {"c": 1}), event("cost", {"usd": 1}, part="cost"), edited(passed, row),
                 event("status", {"b": 2})]
 
@@ -1373,7 +984,7 @@ class StageOpenBindsTheTransferTest(StageOpenCase):
         row is the counter's last, and its own signed result in hand does not open the lock either."""
         first = [{k: v for k, v in row.items() if k not in ("prev_hash", "row_hash")} for row in self.import_rows]
         self.write_signed(brain_sha="7" * 40)
-        second = {"ts": "2026-10-31T12:00:00Z", "stage": 0, "brain_sha": "7" * 40, "referee_tree_sha256": "8" * 64,
+        second = {"ts": "2026-10-31T12:00:00Z", "stage": 0, "brain_sha": "7" * 40, "referee_tree_sha256": self.tree_sha,
                   "result_sha256": hashlib.sha256(self.result.read_bytes()).hexdigest(), "toy_tree_sha256": "5" * 64}
         write(self.referee, {"setup/imports.jsonl": chained(first + [second])[1]})
         self.refused("toy brain/state: the last genesis row names another transfer than the counter's last one")
@@ -1389,13 +1000,14 @@ class StageOpenAfterARetransferTest(StageOpenCase):
         """The fixed SHA's transfer is now the counter's only one; the first transfer's line hash is returned."""
         old = self.line_sha
         self.write_signed(brain_sha="9" * 40)
-        _rows, data = chained([{"ts": "2026-11-01T08:00:00Z", "stage": 0, "brain_sha": "9" * 40,
-                                "referee_tree_sha256": "d" * 64,
-                                "result_sha256": hashlib.sha256(self.result.read_bytes()).hexdigest(),
-                                "toy_tree_sha256": "f" * 64}])
+        rows, data = chained([{"ts": "2026-11-01T08:00:00Z", "stage": 0, "brain_sha": "9" * 40,
+                               "referee_tree_sha256": self.tree_sha,
+                               "result_sha256": hashlib.sha256(self.result.read_bytes()).hexdigest(),
+                               "toy_tree_sha256": "f" * 64}])
         write(self.referee, {"setup/imports.jsonl": data})
         self.import_line = data.split(b"\n")[0]
         self.line_sha = hashlib.sha256(self.import_line).hexdigest()
+        self.result_sha = rows[0]["result_sha256"]
         return old
 
     @staticmethod
@@ -1408,10 +1020,10 @@ class StageOpenAfterARetransferTest(StageOpenCase):
         self.copy = self.make_copy([
             event("genesis", {"target": "copy-t", "base_sha": COPY_BASE, "import_line_sha256": old}),
             event("merge", {"c": 1}),
-            self.again(event("genesis", {"target": "copy-t", "base_sha": COPY_BASE, "import_line_sha256": self.line_sha})),
+            self.again(event("genesis", dict(self.bound(), target="copy-t", base_sha=COPY_BASE))),
             self.again(event("merge", {"c": 2}))])
         return [event("genesis", {"target": "toy-t", "import_line_sha256": old}), event("merge", {"c": 3}),
-                self.again(event("genesis", {"target": "toy-t", "import_line_sha256": self.line_sha})),
+                self.again(event("genesis", dict(self.bound(), target="toy-t"))),
                 self.again(event("merge", {"c": 4}))]
 
     def passed(self, **over):
@@ -1561,6 +1173,122 @@ class StageOpenReadsTheStateRootTest(StageOpenCase):
             with self.subTest(value=value):
                 self.toy = self.make_toy(extra={".brain/profile.json": json.dumps({"state_root": value}),
                                                 ".brain/security/profile.json": json.dumps({"classes": []})})
+                self.open()
+                self.stage_file().unlink()
+
+
+class StageOpenBindsTheCommittedTreeTest(StageOpenCase):
+    """E471 (the fourth skeptic's so06, so07): the lock opens on the referee the counter's last transfer wrote. The
+    checkout's commit holds that referee tree (`26c`'s hash of its tree, what the import keeps left out, from git), and
+    the last genesis rows bind the line's referee tree and signed result too (`29o`)."""
+
+    def test_the_checkouts_commit_holds_the_transferred_referee_tree(self):  # stage_open_committed_tree_unread
+        commit(self.referee, {"ledger/chain.py": "x = 2\n"}, "another referee tree")
+        self.refused("the referee tree the checkout's commit holds is not the one the counter's last transfer line names")
+        sh(self.referee, "git", "reset", "-q", "--hard", "HEAD~1")
+        self.write_summary()
+        self.write_counter()
+        write(self.referee, {"ledger/chain.py": "edited, not committed\n"})  # the commit is read, not the disk
+        self.open()
+        self.stage_file().unlink()
+        shutil.rmtree(self.referee / ".git", onerror=lambda f, p, _e: (os.chmod(p, 0o700), f(p)))
+        self.refused("holds no commit whose referee tree this seed can read")
+
+    def test_the_last_genesis_binds_the_lines_tree_and_result(self):  # stage_open_genesis_tree_unbound stage_open_genesis_result_unbound
+        for key in ("referee_tree_sha256", "result_sha256"):
+            for value in ("0" * 64, DROP):
+                for name in ("toy", "copy"):
+                    with self.subTest(key=key, value=value, name=name):
+                        if name == "toy":
+                            self.toy = self.make_toy(self.toy_rows(genesis={key: value}))
+                        else:
+                            self.copy = self.make_copy(self.copy_rows(genesis={key: value}))
+                            self.toy = self.make_toy()
+                        self.refused(f"{name} brain/state: the last genesis row's {key} is not the counter's last")
+                        self.copy = self.make_copy()
+                        self.toy = self.make_toy()
+
+    def test_a_copy_without_a_base_opens_nothing(self):  # stage_open_copy_base_any
+        """so08: a copy target without `base_sha`, and its genesis without one, are no copy (`26c`, `29o`)."""
+        for base, says in ((None, "copy target has no base_sha"), ("", "base_sha must be"), ("ab" * 19, "base_sha must be")):
+            with self.subTest(base=base):
+                self.write_summary(targets=(TOY_TARGET, dict(COPY_TARGET, base_sha=base)))
+                self.copy = self.make_copy(self.copy_rows(genesis={"base_sha": base if base else DROP}))
+                self.toy = self.make_toy()
+                self.refused(says)
+
+
+class StageOpenReadsTheProfilesTest(StageOpenCase):
+    """E472 (so01, so02, so04; X1, X2): every `profile.json` of each target's commit is read as one plain JSON object,
+    the copy's too; one that cannot be (a byte order mark, a key twice, not JSON) stops instead of being skipped, as
+    skipped it could hide one naming another `state_root`."""
+
+    def test_an_unreadable_profile_stops_on_either_target(self):  # stage_open_profile_unreadable_skipped
+        for content, says in ((b"\xef\xbb\xbf" + json.dumps({"state_root": "state/"}).encode(), "BOM"),
+                              (b'{"state_root":"state/","state_root":".brain/"}', "key 'state_root' twice"),
+                              (b"not json", "is not a profile this seed can read"),
+                              (b"\xff\xfe", "is not a profile this seed can read")):
+            for name in ("toy", "copy"):
+                with self.subTest(says=says, name=name):
+                    target = (self.make_toy if name == "toy" else self.make_copy)(
+                        extra={".brain/a/profile.json": content, "state/profile.json": json.dumps({"state_root": "x/"})})
+                    setattr(self, name, target)
+                    if name == "copy":
+                        self.toy = self.make_toy()
+                    self.refused(says)
+                    self.copy = self.make_copy()
+                    self.toy = self.make_toy()
+
+    def test_the_copys_profile_is_read_too(self):  # stage_open_copy_profile_unread
+        self.copy = self.make_copy(state_root="state/", extra={"state/profile.json": json.dumps({"state_root": "state/"})})
+        self.toy = self.make_toy()
+        self.refused("copy brain/state")
+        self.refused("names state_root 'state/': a state_root other than .brain/ needs a seed epoch")
+
+
+class StageOpenReadsTheLogEntryTest(StageOpenCase):
+    """E474 (so09, so10; X4, X5, X6): the bundle has one log entry, its body is strict base64 of a Rekor v1
+    `hashedrekord` (`apiVersion` 0.0.1) whose `spec.data.hash` is `{algorithm: sha256, value: <root>}`: the root itself
+    (`26d`). A player's genesis after the PASS row is no genesis (so05, Z1)."""
+
+    def test_a_bundle_with_more_than_one_entry_stops(self):  # stage_open_log_entries_many
+        one = json.loads(self.make_toy().bundle)["verificationMaterial"]["tlogEntries"][0]
+        self.toy = self.make_toy(bundle=json.dumps({"verificationMaterial": {"tlogEntries": [one, one]}}).encode())
+        self.refused("not one log entry")
+        self.assertEqual(self.verified, [])
+
+    def test_a_body_that_is_not_strict_base64_stops(self):  # stage_open_log_body_lenient
+        made = self.make_toy()
+        good = json.loads(made.bundle)["verificationMaterial"]["tlogEntries"][0]["canonicalizedBody"]
+        for bad in (good[:4] + "*" + good[4:], good[:8] + "\n" + good[8:]):
+            with self.subTest(bad=bad[:12]):
+                self.toy = self.make_toy(bundle=json.dumps({"verificationMaterial": {"tlogEntries": [
+                    {"canonicalizedBody": bad}]}}).encode())
+                self.refused("is not a Sigstore bundle with one log entry")
+        self.assertEqual(self.verified, [])
+
+    def test_the_entry_records_the_root_with_sha256_in_a_v1_body(self):  # stage_open_entry_algorithm_any stage_open_api_version_any
+        bodies = {
+            "sha512 with the root's value": lambda root, sig: {"apiVersion": "0.0.1", "kind": "hashedrekord", "spec": {
+                "data": {"hash": {"algorithm": "sha512", "value": root}}, "signature": sig}},
+            "apiVersion 0.0.2 in the v1 shape": lambda root, sig: {"apiVersion": "0.0.2", "kind": "hashedrekord",
+                                                                    "spec": {"data": {"hash": {"algorithm": "sha256",
+                                                                                               "value": root}},
+                                                                             "signature": sig}},
+            "no apiVersion": lambda root, sig: {"kind": "hashedrekord", "spec": {
+                "data": {"hash": {"algorithm": "sha256", "value": root}}, "signature": sig}},
+        }
+        for label, body in bodies.items():
+            with self.subTest(label):
+                self.toy = self.make_toy(body=body)
+                self.refused("entry_root_mismatch")
+        self.assertEqual(self.verified, [])
+
+    def test_a_players_genesis_after_the_pass_row_is_no_genesis(self):  # stage_open_last_genesis_any_row
+        rows = self.toy_rows()
+        for over in ({"proposed_by": "founder", "trust": "inferred", "row_id": "p"}, {"trust": "inferred", "row_id": "i"}):
+            with self.subTest(over=over):
+                self.toy = self.make_toy(rows + [edited(rows[0], dict(over, payload={"target": "toy-t"}))])
                 self.open()
                 self.stage_file().unlink()
 
@@ -1765,7 +1493,9 @@ class PassRowPageTest(unittest.TestCase):
                       "`.brain/chain/<kök>.sigstore.json`", "Paketi döngü yazar ve kök satırının yanında tutar",
                       "sonuncusu da, LF ile biter", "CR yoktur", "hiçbir anahtar iki kez geçmez",
                       "`proposed_by`'ı boş olmayan bir dizgi olan satır oyuncunun önerisidir", "`proposed_by: null`",
-                      "Rekor v1 `hashedrekord`", "`sign --rekor-version 1`", "en yüksek Rekor sürümünü seçer",
+                      "Rekor v1 `hashedrekord`", "verinin hash'i kökün kendisidir", "en yüksek sürümü seçer",
+                      "`--referee` klonunun commit'indeki hakem ağacı", "`payload.referee_tree_sha256`",
+                      "kopyanın bir tabanı vardır", "okunamayan profil de durdurur", "katı base64",
                       "ardında hiçbir şey olamaz"):
             self.assertIn(words, page)
         self.assertEqual(stagelock.ROOT_BUNDLE, ".brain/chain/{root}.sigstore.json")  # `.brain/chain/<kök>.sigstore.json`
@@ -1785,6 +1515,23 @@ class PassRowPageTest(unittest.TestCase):
         self.assertIn("PASS satırı ve kilidin açılışı `26d`'de", self.flat("tohum/26-semalar.md"))
         self.assertIn("`26b`, `26c`, `26d`", self.flat("tohum/26-semalar.md"))  # the sources of field names
         self.assertIn("PASS satırının alanları ve komutun kuralı `26d`", self.flat("tohum/25a-kurulum-etkinlestirme.md"))
+
+
+class ImportPageTest(unittest.TestCase):
+    """E470: the operator reads `25a` 1-2, so they say what the import does, on git objects alone; and the copy into a
+    checkout, its clearing, kept-state reading and junction handling are gone from the code with nothing using them."""
+
+    def test_25a_says_the_git_object_procedure(self):
+        page = PassRowPageTest.flat("tohum/25a-kurulum-etkinlestirme.md")
+        for words in ("hiçbir çalışma ağacını okumaz ve yazmaz", "kendi geçici dizinine çıplak klonlar",
+                      "`main`'den tam adıyla alınan korunanlardır", "sonda nokta ya da boşluk, aygıt adı, `~` ve rakam",
+                      "harf duyarsız tek ad olan iki ad", "aynı commit'te `setup/imports.jsonl`'a bir satır ekler",
+                      "zorlamadan itilir", "oyuncak önce, hakem sonra itilir", "`main`'in `control.json`'ıdır"):
+            self.assertIn(words, page)
+        source = Path(importer.__file__).read_text(encoding="utf-8")
+        for gone in ("def _clear", "def kept_state", "O_EXCL", "samestat", "is_junction", "def disk_hash", "copytree"):
+            self.assertNotIn(gone, source)
+        self.assertLessEqual({"CON", "PRN", "AUX", "NUL", "COM1", "LPT9", "CONIN$", "CONOUT$"}, importer.DEVICES)
 
 
 # ---------------------------------------------------------------- the lock the bootstrap reads on every pull

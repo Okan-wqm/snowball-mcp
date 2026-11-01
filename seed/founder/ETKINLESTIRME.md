@@ -37,7 +37,7 @@ WSL$ E=~/etkinlestirme; SHA=<2. adımdaki brain_sha>; ID=https://github.com/Okan
 |---|---|---|
 | Ö1 | (A) kabul: imzalı sonuç `kind: exit`, `verdict: accepted`, `exit.transferable: true` (`asama-0/10`); denetimi 2. adımda | beyinde `exit-request.json` yok |
 | Ö2 | Kurulumun birinci bölümünden kalanlar: oyuncak ve kopya repoları, kopyada Actions kapalı, özette kopyanın `identifiers`'ını taşıyan `targets[]`, `control.json`'un eksik alanları, #durustluk için sahibin kararı ([Ek A](#ek-a-birinci-bölümden-eksik-kalanlar)) | hiçbiri yok (E284, E287, E294) |
-| Ö3 | Hakemin `bootstrap/`'ındaki tohum araçları (yalnız tohum dönemiyle değişir) ve beynin döngüsü: K1 `import` `25a` 1–2'yi taşır; K2 `control` döngü arayüzünü taşır (`29p`); K3 `stage-open` var; K4 döngünün işleri bir devir koşar. Denetimi 2. adımda; tutmayana el yaması yapılmaz | K1 ve K3 snowball-mcp `gaps/activation-tooling-3` dalında (E370–E372, ikinci tur E374–E379, E388–E389, üçüncü tur E402–E406; E100, E275, E331 kapandı: 8.3 takma adı güven kökünü hiçbir derinlikte ezmez ve korunanı değiştiren kopya durur, `stage-open` kökü `sha256:<kök>` özetiyle doğrular, klonları, aktarımı, istisnayı, hakemin satırını ve merge'leri bağlar, PASS satırının biçimi `26d`'de, P1'in (A)'sı ve aktarımı aynı tohumla olur, kilit yokken Aşama 0'ın yargısı değişmez), K2 snowball-mcp `main`'inde (`e7b3b24`, E282); üçü de hakemde yok, tohum dönemi bekliyor; K4 yok, beyin `8c57160` (E332) |
+| Ö3 | Hakemin `bootstrap/`'ındaki tohum araçları (yalnız tohum dönemiyle değişir) ve beynin döngüsü: K1 `import` `25a` 1–2'yi taşır; K2 `control` döngü arayüzünü taşır (`29p`); K3 `stage-open` var; K4 döngünün işleri bir devir koşar. Denetimi 2. adımda; tutmayana el yaması yapılmaz | K1 ve K3 snowball-mcp `gaps/activation-tooling-3` dalında (E370–E372, ikinci tur E374–E379, E388–E389, üçüncü tur E402–E406, dördüncü E411–E417, beşinci E470–E475; E100, E275, E331 kapandı: içe aktarma çalışma ağacına hiç dokunmaz, yeni `main`'i git nesneleriyle kurar ve iter (E470), `stage-open` kökü `sha256:<kök>` özetiyle doğrular, klonları, aktarımı, istisnayı, hakemin satırını ve merge'leri bağlar, PASS satırının biçimi `26d`'de, P1'in (A)'sı ve aktarımı aynı tohumla olur, kilit yokken Aşama 0'ın yargısı değişmez), K2 snowball-mcp `main`'inde (`e7b3b24`, E282); üçü de hakemde yok, tohum dönemi bekliyor; K4 yok, beyin `8c57160` (E332) |
 | Ö4 | Sahip 5. adım için ulaşılabilir (web arayüzü, yaklaşık yarım saat) | — |
 | Ö5 | 0. adım bir kez yapılmış | yapılmadı |
 
@@ -112,76 +112,68 @@ Kapı denetimleri (`$E/arac`'ta; ilk üçü bugün `YOK` basar):
 WSL$ python3 -m snowball_bootstrap control --help | grep -q -- --job && echo "K2 tamam" || echo "K2 YOK (E282)"
 WSL$ python3 -m snowball_bootstrap stage-open --help >/dev/null 2>&1 && echo "K3 tamam" || echo "K3 YOK (E331)"
 WSL$ git -C $E/brain grep -q 'reason="cycle_not_wired"' $SHA -- referee/loop/job.py && echo "K4 YOK (E332)" || echo "K4 tamam"
-WSL$ rm -rf $E/prova && mkdir $E/prova && cp -a $E/referee $E/toy $E/prova/
-WSL$ python3 -m snowball_bootstrap import --result $E/a/result.json --bundle $E/a/result.json.sigstore.json --identity "$ID" --sigstore-python $E/sig/bin/python --brain $E/brain --referee $E/prova/referee --toy $E/prova/toy
-WSL$ git -C $E/prova/referee status --porcelain | grep -E '^( D|D )'
-WSL$ tail -n 1 $E/prova/referee/setup/imports.jsonl | python3 -c "import json,sys; print(sorted(json.load(sys.stdin)))"
+WSL$ rm -rf $E/prova && mkdir $E/prova && git clone -q --bare $E/referee $E/prova/referee.git && git clone -q --bare $E/toy $E/prova/toy.git
+WSL$ python3 -m snowball_bootstrap import --result $E/a/result.json --bundle $E/a/result.json.sigstore.json --identity "$ID" --sigstore-python $E/sig/bin/python --brain $E/brain --referee $E/prova/referee.git --toy $E/prova/toy.git
+WSL$ git -C $E/prova/referee.git ls-tree -r --name-only main | grep -cE '^(bootstrap/|\.github/workflows/bootstrap\.yml$|control\.json$|setup/summary\.json$)'
+WSL$ git -C $E/prova/referee.git show main:setup/imports.jsonl | tail -n 1 | python3 -c "import json,sys; print(sorted(json.load(sys.stdin)))"
+WSL$ git -C $E/prova/referee.git show main:.github/workflows/loop.yml | grep -oE '(secrets|vars)\.[A-Za-z_][A-Za-z0-9_]*' | sort -u
 ```
 
-K1'in ilk yarısı: içe aktarma 0 ile biter; silinen dosya satırı yok (`bootstrap/` ve `.github/workflows/bootstrap.yml`
-yerinde); son satırın anahtarları `brain_sha, prev_hash, referee_tree_sha256, result_sha256, row_hash, stage,
-toy_tree_sha256, ts` (`26c:37`, zincirli). Hakemin bugünkü `bootstrap/`'ı (tohum dönemi 3b) ikisinde de düşer:
-`bootstrap/` ve `bootstrap.yml` silinir (E100), satır `{brain_sha, referee_bytes, referee_tree_sha256, result_head,
-toy_bytes}`'tır (E275); düzeltilmiş araç snowball-mcp'dedir (E370, E374), hakeme tohum dönemiyle gelir. Hakemin
-`bootstrap/`'ına, `policy.json`'a ya da oyuncağın `.git/`'ine başka adla (8.3 kısa ad, harf, sondaki nokta) inen
-bir `referee/` ya da oyuncak yolu, hiçbir şey yazılmadan `stop: … would land on …` ile durur (E374); yol her
-derinlikte sorulur, `.github/workflows/BOOTST~1.YML` ve `.github/WORKFL~1/bootstrap.yml` de durur (E403). Komut ayrıca
-korunan her girdiyi (`bootstrap/`, `bootstrap.yml`, operatör dosyaları, iki `.git/`) kopyadan önce ve sonra baytlarıyla
-okur; ad denetiminin öngörmediği bir yol onlardan birini değiştirdiyse `stop: the copy changed what the … checkout
-keeps: …` ile sayaç satırı yazılmadan durur: o zaman klonu sıfırla (`git -C $E/referee reset -q --hard && git -C
-$E/referee clean -fdq`, oyuncakta da), itme, `pilot-log.md`'ye yaz. İkinci yarısı: kill switch kapalıyken aynı komut
-durur (`25a` 1):
+K1'in ilk yarısı, prova: içe aktarma yerel iki çıplak kopyaya iter (GitHub'a değil) ve 0 ile biter; korunanlar
+`main`'dedir (`bootstrap/`, `.github/workflows/bootstrap.yml`, `control.json`, `setup/summary.json`); son satırın
+anahtarları `brain_sha, prev_hash, referee_tree_sha256, result_sha256, row_hash, stage, toy_tree_sha256, ts` (`26c:37`,
+zincirli). Komut hiçbir çalışma ağacını okumaz ve yazmaz: hakem reposunu kendi geçici dizinine çıplak klonlar, beyin
+commit'ini oraya getirir, yeni `main`'i git nesneleriyle kurar (E470; dört şüpheci turunda dosya sistemi kopyası çürütüldü).
+`referee/` ya da oyuncak ağacında `26c`'nin reddettiği bir ad, bir dosya sisteminin başka ad okuduğu bir ad (sonda nokta
+ya da boşluk, aygıt adı, `~` ve rakam), korunan bir girdiyi harf duyarsız gösteren ya da harf duyarsız tek ad olan iki
+ad, bağ ya da alt modül, hiçbir nesne yazılmadan `stop: …` ile durur; `main` bir korunan adı başka harfle taşıyorsa da
+(`Bootstrap/`, `.GitHub/`). Son komut `loop.yml`'un adlandırdığı sırları ve değişkeni basar; beyin `8c57160`'ta:
+`secrets.CLAUDE_CODE_OAUTH_TOKEN`, `secrets.WRITER_APP_ID`, `secrets.WRITER_APP_PRIVATE_KEY`, `vars.TARGET_OWNER`.
+Başka bir ad varsa 3. adıma geçme, sahibe sor (spec sessiz). İkinci yarısı: kill switch kapalıyken aynı komut durur
+(`25a` 1):
 
 ```
-WSL$ rm -rf $E/prova && mkdir $E/prova && cp -a $E/referee $E/toy $E/prova/
-WSL$ sed -i 's/"kill_switch": true/"kill_switch": false/' $E/prova/referee/control.json
-WSL$ python3 -m snowball_bootstrap import --result $E/a/result.json --bundle $E/a/result.json.sigstore.json --identity "$ID" --sigstore-python $E/sig/bin/python --brain $E/brain --referee $E/prova/referee --toy $E/prova/toy; echo "çıkış $?"
+WSL$ rm -rf $E/prova && mkdir $E/prova && git clone -q --bare $E/referee $E/prova/referee.git && git clone -q --bare $E/toy $E/prova/toy.git
+WSL$ git clone -q $E/prova/referee.git $E/prova/w && sed -i 's/"kill_switch": true/"kill_switch": false/' $E/prova/w/control.json && git -C $E/prova/w commit -qam "prova: kill switch kapalı" && git -C $E/prova/w push -q origin main
+WSL$ python3 -m snowball_bootstrap import --result $E/a/result.json --bundle $E/a/result.json.sigstore.json --identity "$ID" --sigstore-python $E/sig/bin/python --brain $E/brain --referee $E/prova/referee.git --toy $E/prova/toy.git; echo "çıkış $?"
 ```
 
 Beklenen `stop: …` ve `çıkış 2`. *Karar:* K1, K2 ve K4 tamamsa 3. adım; K3 yoksa 1–8 yapılır, 9 bekler. Biri eksikse
 dur ve `pilot-log.md`'ye yaz. *Geri dönüş:* `rm -rf $E/prova`; beklenecekse 1. adımın geri dönüşü.
 
 **3. İçe aktar** (operatör · `25a` 1–2: hakem kodu yalnız aktarımla değişir, `01a`; oyuncağın içeriği (A)'da
-yargılanandır).
+yargılanandır). Komut iki reponun `main`'ine zorlamadan iter: önce oyuncak, sonra hakem (`25a` 1: her denetim
+geçtikten sonra; `main` arada ilerlediyse itme reddedilir, hakemde hiçbir şey değişmez).
 
 ```
-WSL$ cd $E/arac && python3 -m snowball_bootstrap import --result $E/a/result.json --bundle $E/a/result.json.sigstore.json --identity "$ID" --sigstore-python $E/sig/bin/python --brain $E/brain --referee $E/referee --toy $E/toy
-WSL$ git -C $E/referee add -A && git -C $E/toy add -A
+WSL$ cd $E/arac && python3 -m snowball_bootstrap import --result $E/a/result.json --bundle $E/a/result.json.sigstore.json --identity "$ID" --sigstore-python $E/sig/bin/python --brain $E/brain --referee https://github.com/$H.git --toy https://github.com/Okan-wqm/snowball-rehearsal-toy.git
+PS> gh workflow disable loop.yml -R $H
+WSL$ git -C $E/referee pull -q --ff-only && git -C $E/toy pull -q --ff-only && git -C $E/referee rev-parse HEAD && git -C $E/toy rev-parse HEAD
 ```
 
-*Denetim* (ilk iki komut hiçbir satır basmaz, iki `cmp` `AYNI`):
+*Denetim* (iki `cmp` `AYNI`):
 
 ```
-WSL$ git -C $E/referee status --porcelain | grep -E '^( D|D )'
-WSL$ git -C $E/referee diff --cached --name-only | grep -E '^(bootstrap/|\.github/workflows/bootstrap\.yml$|policy\.json$|control\.json$|bootstrap\.json$|seats/|vectors/|setup/summary\.json$)'
 WSL$ git -C $E/brain -c core.quotePath=false ls-tree -r --format='%(objectname) %(path)' $SHA -- referee/ | sed 's# referee/# #' | sort > $E/a/hakem-beklenen
-WSL$ git -C $E/referee -c core.quotePath=false ls-files --format='%(objectname) %(path)' | grep -vE ' (bootstrap/|seats/|vectors/|setup/|policy\.json$|control\.json$|bootstrap\.json$|\.github/workflows/bootstrap\.yml$)' | sort > $E/a/hakem-gelen
+WSL$ git -C $E/referee -c core.quotePath=false ls-tree -r --format='%(objectname) %(path)' HEAD | grep -vE ' (bootstrap/|seats/|vectors/|setup/|policy\.json$|control\.json$|bootstrap\.json$|\.github/workflows/bootstrap\.yml$)' | sort > $E/a/hakem-gelen
 WSL$ cmp $E/a/hakem-beklenen $E/a/hakem-gelen && echo AYNI
 WSL$ git -C $E/brain -c core.quotePath=false ls-tree -r --format='%(objectname) %(path)' $SHA -- tests/fixtures/toy-repo/ | sed 's# tests/fixtures/toy-repo/# #' | sort > $E/a/oyuncak-beklenen
-WSL$ git -C $E/toy -c core.quotePath=false ls-files --format='%(objectname) %(path)' | sort > $E/a/oyuncak-gelen
+WSL$ git -C $E/toy -c core.quotePath=false ls-tree -r --format='%(objectname) %(path)' HEAD | sort > $E/a/oyuncak-gelen
 WSL$ cmp $E/a/oyuncak-beklenen $E/a/oyuncak-gelen && echo AYNI
-WSL$ grep -oE '(secrets|vars)\.[A-Za-z_][A-Za-z0-9_]*' $E/referee/.github/workflows/loop.yml | sort -u
 ```
 
 Hakemin her dosyası imzalı beyin commit'indeki `referee/` blob'udur (`loop.yml` `.github/workflows/`'a düşer), operatör
-dosyalarına dokunulmamıştır, yeni operatör satırı yalnız `setup/imports.jsonl`'dadır; oyuncak `tests/fixtures/toy-repo/`'nun
-blob'larıdır (o ağacın hash'i `exit.toy_tree_sha256`). Parti aktarımında ilk komut önceki aktarımın dosyalarını basabilir,
-ikinci komut yine hiçbir şey basmamalıdır. Son komut `loop.yml`'un adlandırdığı sırları ve değişkeni basar; beyin
-`8c57160`'ta: `secrets.CLAUDE_CODE_OAUTH_TOKEN`, `secrets.WRITER_APP_ID`, `secrets.WRITER_APP_PRIVATE_KEY`,
-`vars.TARGET_OWNER`. Başka bir ad varsa itme, sahibe sor (spec sessiz). *Geri dönüş* (henüz itilmedi):
-`git -C $E/referee reset -q --hard origin/main && git -C $E/referee clean -qfd`; `rm -rf $E/toy` ve yeniden klonla.
+dosyaları önceki `main`'inkidir, yeni operatör satırı yalnız `setup/imports.jsonl`'dadır; oyuncak `tests/fixtures/toy-repo/`'nun
+blob'larıdır (o ağacın hash'i `exit.toy_tree_sha256`). `gh workflow disable` itmenin hemen ardından: `loop.yml`
+`main`'e girince saatlik zamanlayıcısı kayda geçer, kill switch açıkken her saat kırmızı koşardı; 7. adıma kadar
+kapalıdır (spec sessiz; `25` 9'un yolu). Komut durursa (`stop: …`, çıkış 2) itilmiş hakem commit'i yoktur; mesajı ve
+nedeni `pilot-log.md`'ye yaz. Oyuncak itilip hakem itmesi reddedildiyse mesaj oyuncağın commit'ini adlandırır; komutu
+yeniden koşmak ağacı zaten taşıyan oyuncağa dokunmaz.
 
-**4. İt, döngüyü kapalı tut** (operatör · `25a` 1: betik itmez, operatör iter; 2: oyuncağın `main`'i).
-
-```
-WSL$ git -C $E/referee commit -q -m "Aktarım: Aşama 0 (A), beyin $SHA (tohum/25a satır 1)" && git -C $E/referee push -q origin main && git -C $E/referee rev-parse HEAD
-WSL$ git -C $E/toy commit -q -m "Oyuncak: beyin $SHA tests/fixtures/toy-repo (tohum/25a satır 2)" && git -C $E/toy push -q origin HEAD:refs/heads/main && git -C $E/toy rev-parse HEAD
-PS> gh workflow disable loop.yml -R $H
-```
+**4. Kaydet, döngüyü kapalı tut** (operatör · `25a` 1–2).
 
 İki SHA'yı (`AKTARIM`, `OYUNCAK_MAIN`) `pilot-log.md`'ye dokunuş satırı olarak yaz (aktarım insan dokunuşudur; sayaç
-satırı `imports.jsonl`'dadır). `loop.yml` `main`'e girince saatlik zamanlayıcısı kayda geçer; kill switch açıkken her
-saat kırmızı koşardı, 7. adıma kadar kapalıdır (spec sessiz; `25` 9'un `gh workflow disable` yolu). *Denetim:*
+satırı `imports.jsonl`'dadır). *Denetim:*
 
 ```
 PS> gh api "repos/$H/actions/workflows" --jq '.workflows[] | [.path, .state] | @tsv'
@@ -193,7 +185,7 @@ PS> gh api repos/Okan-wqm/snowball-rehearsal-toy/commits/main --jq .sha
 yeniden yazılmaz). Oyuncağın `main`'i geri alınmaz; yeni aktarım üstüne yeni commit iter.
 
 **5. Sahibin işi** (sahip · `25a` 3–4, `25` 6–7: yazar App'i, ruleset'ler ve sırlar operatörün elinde değildir).
-Operatör sahibe 3. adımın sır adlarını verir; sahip [sahip listesi](#sahip-listesi)'nin S4–S7'sini yapar, App ID'yi ve
+Operatör sahibe 2. adımın provasındaki sır adlarını verir; sahip [sahip listesi](#sahip-listesi)'nin S4–S7'sini yapar, App ID'yi ve
 App'in kurulum sayfasındaki repo listesini operatöre söyler (App ID gizli değildir). *Geri dönüş:* sahip kurulumu askıya
 alır ya da kaldırır (Settings → Applications → Installed GitHub Apps → Configure → Suspend / Uninstall), özel anahtarı
 App sayfasında siler, sırları ve ruleset'leri siler.
