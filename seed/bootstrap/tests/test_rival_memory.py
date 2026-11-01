@@ -995,6 +995,40 @@ class E08ProvenDefects(unittest.TestCase):
         spec = run_decide(meta2("spec", state2(open_refutations=[entry])), None, not_refuted(), [], {"cagir": "success"})
         self.assertEqual((spec["verdict"], len(spec["state"]["open_refutations"])), ("frozen", 1))  # never ran there
 
+    def test_a_timed_out_run_on_an_accepted_head_keeps_it_open(self):  # E387: a killed run showed nothing
+        entry = refutation_entry()
+        meta = meta2("code", state2(open_refutations=[entry]), state_repro=[entry["key"]])
+        res = run_decide(meta, green(), not_refuted(), [], CODE_JOBS,
+                         state_repro=[state_ran(entry["key"], "refutation", False, timed_out=True)])
+        self.assertEqual(res["verdict"], "accepted")
+        self.assertEqual([e["key"] for e in res["state"]["open_refutations"]], [entry["key"]])
+        closed = run_decide(meta, green(), not_refuted(), [], CODE_JOBS,
+                            state_repro=[state_ran(entry["key"], "refutation", False)])
+        self.assertEqual(closed["state"]["open_refutations"], [])  # one that ran to the end and showed nothing closes
+
+    def test_over_the_cap_the_oldest_defect_is_dropped_by_name(self):  # E387: never silently
+        old = [refutation_entry(dict(REP, cmd=f"python -m d{i}"), claim=f"defect {i}") for i in range(st.MAX_OPEN_REFUTATIONS)]
+        meta = meta2("code", state2(open_refutations=old), state_repro=[e["key"] for e in old])
+        res = run_decide(meta, green(), refuted_by(attempt("one more defect")), [ran(0, True)], CODE_JOBS,
+                         state_repro=[state_ran(e["key"], "refutation", True) for e in old])
+        kept = [e["key"] for e in res["state"]["open_refutations"]]
+        self.assertEqual(len(kept), st.MAX_OPEN_REFUTATIONS)
+        self.assertNotIn(old[0]["key"], kept)
+        self.assertIn(key_of(REP), kept)
+        self.assertEqual([w for w in res["warnings"] if "_evicted:" in w], [f"refutation_evicted:{old[0]['key']}"])
+        under = run_decide(meta, green(), not_refuted(), [], CODE_JOBS,
+                           state_repro=[state_ran(e["key"], "refutation", True) for e in old])
+        self.assertEqual([w for w in under["warnings"] if "_evicted:" in w], [])  # at the cap nothing goes
+
+    def test_over_the_cap_the_oldest_claim_is_dropped_by_name(self):  # E387
+        old = [claim_entry(f"claim {i}", rep=None) for i in range(st.MAX_OPEN_CLAIMS)]
+        res = run_decide(meta2("code", state2(open_claims=old)), green(),
+                         refuted_by(attempt("a new unproven claim", rep=None)), [], CODE_JOBS)
+        ids = [c["id"] for c in res["state"]["open_claims"]]
+        self.assertEqual(len(ids), st.MAX_OPEN_CLAIMS)
+        self.assertNotIn(old[0]["id"], ids)
+        self.assertEqual([w for w in res["warnings"] if "_evicted:" in w], [f"claim_evicted:{old[0]['id']}"])
+
     def test_an_operator_waiver_closes_it(self):
         entry = refutation_entry()
         res = run_decide(meta2("spec", state2(open_refutations=[entry]), waived=[entry["key"]]), None, not_refuted(),
