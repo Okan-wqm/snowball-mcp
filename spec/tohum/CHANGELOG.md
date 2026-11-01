@@ -30,7 +30,7 @@ Okunma: bir sayfanın geçmişi aranırken
   `spec-026-append-writes-through-target-write` → `26a:33` "Girdi"; `spec-028-anchor-calls-append` → `26a:35`
   "Çağıran", `01a:27-28` (`<state_root>`); `spec-032-drill-calls-9-14` → `26a:33` "Çağıran", `29m:27-29`;
   `spec-038-expect-reason-comparison` → `26c:55-59` "Hazır aday". Yeni sayfalar `29e` ve `29r` (`INDEX`, `00b`); 80
-  satır sınırı için 2026-10-30 kayıtları `CHANGELOG-3.md`'ye taşındı.
+  satır sınırı için 2026-10-30 ve 2026-10-31'in dört kaydı `CHANGELOG-3.md`'ye taşındı.
 - 2.2 (2026-10-31, E333; uzman tartışması ve hakem, ikinci tur 2026-11-01): önyükleme hakemi `asama-0/10a`'nın kuralını
   uygular: kabul edilmiş çıkıştan ((A)) sonra spec, kod ya da çıkış push'unda Kurucu kayıtları dışında yalnız `candidates/`
   ve `targets/` değişebilir: `referee/` `referee_changed_after_exit`, başka yol `changed_after_exit:<yol>` (`29b` "Çıkıştan
