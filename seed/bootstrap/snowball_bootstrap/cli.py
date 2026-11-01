@@ -310,6 +310,8 @@ def cmd_pull(args: argparse.Namespace) -> int:
         _check_epoch(repo, summary_cfg.epoch)
     waived = config.load_waivers(root)
     reverted = config.load_reverted_exits(root)  # the operator's file: a broken list stops the run, never a rejection
+    faults = exam_faults_in_force(repo, summary_cfg, config.load_exam_faults(root))
+    meta["exam_faults"] = faults
     try:
         return _pull_classify(boot, policy, summary_cfg, table, prev, repo, base, head, meta, out, waived, reverted)
     except (ValueError, TypeError, KeyError, IndexError, AttributeError, RecursionError) as exc:
@@ -318,7 +320,7 @@ def cmd_pull(args: argparse.Namespace) -> int:
         # hour and nothing is ever parked (E02). Git, network and operator-file errors still stop the run.
         print(f"::warning::pull could not classify {head}: {type(exc).__name__}: {str(exc)[:200]!r}")
         meta = _pull_meta(head, base, prev)
-        meta.update(kind="rejected", pre_reasons=["pull_error"], waived=waived)
+        meta.update(kind="rejected", pre_reasons=["pull_error"], waived=waived, exam_faults=faults)
         write_json(out / "meta.json", meta)
         output(skip=False, kind="rejected", head=head, run_tests=False, run_rival=False, repro=False)
         return 0
@@ -330,7 +332,23 @@ def _pull_meta(head: str, base: str, prev: dict[str, Any]) -> dict[str, Any]:
             "run_tests": False, "run_rival": False, "manifest": None, "exit_request": None, "exit_request_sha256": None,
             "referee_tree_sha256": None, "spec_dir_hashes": {}, "state_repro": [], "reuse_rival": False,
             "waived": [], "module_less": [], "exit_checks": {}, "toy_tree_sha256": None, "honesty_exception": None,
-            "reports": []}
+            "reports": [], "exam_faults": []}
+
+
+def exam_faults_in_force(repo: Path, summary_cfg: config.Summary, faults: list[config.ExamFault]) -> list[str]:
+    """The signatures of the operator's confirmed exam faults still in force (`29e` "Sınav hatası", E53, E426). An
+    entry holds while the exam that judged its head is the one in force: while the last seed epoch's commit (the setup
+    seed's when none was delivered) is an ancestor of the head. The next epoch, which brings the exam's fix, ends it
+    by itself, so an entry left in place never keeps a later failure of the fixed exam off the Founder's streaks. A
+    head the brain does not have is the operator's mistake: the run stops (git's own failure stops it too, E384)."""
+    exam = summary_cfg.epoch.commit if summary_cfg.epoch is not None else summary_cfg.seed_commit
+    held: set[str] = set()
+    for fault in faults:
+        if not gitio.has_commit(repo, fault.head):
+            raise config.ConfigError(f"control.json exam_faults names {fault.head}, which the brain does not have")
+        if gitio.is_ancestor(repo, exam, fault.head):
+            held.add(fault.signature)
+    return sorted(held)
 
 
 MAX_REPORTS = 200
