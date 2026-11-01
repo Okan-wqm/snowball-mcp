@@ -107,6 +107,9 @@ DEFAULT_REFEREE = "Okan-wqm/snowball-rehearsal-referee"
 CONTAINER_PREFIX = "snowball_canary_"
 SEATS = "seats/29-tohum-koltuklari.md"
 CODE_PARTS = ("snowball_bootstrap", "stages", "requirements/claude-cli")  # what runs, and the CLI it pins
+RIVAL_PARTS = ("seats", "bootstrap.json", "policy.json", "bootstrap/snowball_bootstrap/rival.py",
+               "bootstrap/snowball_bootstrap/rival_mcp.py", "bootstrap/snowball_bootstrap/reproduce.py",
+               "bootstrap/snowball_bootstrap/secretscan.py", "bootstrap/requirements/claude-cli")
 SYMPTOM, CORRECT = "canary-symptom", "canary-correct"
 PLANTER = {"GIT_AUTHOR_NAME": "canary", "GIT_AUTHOR_EMAIL": "canary@example.invalid",
            "GIT_AUTHOR_DATE": "2026-01-01T00:00:00Z", "GIT_COMMITTER_NAME": "canary",
@@ -347,17 +350,45 @@ def host_bases(store: Path, state: dict[str, Any], hosts: dict[str, Host], entri
 
 # ---- the live referee: a fresh read-only clone, and its code ---------------------------------------------------------
 
-def fresh_referee_clone(work: Path, repo: str) -> Path:
-    """A new shallow clone of the referee repository's default branch, never one a run before made."""
+def fresh_referee_clone(work: Path, repo: str, ref: str | None = None) -> Path:
+    """A new clone of the referee repository, never one a run before made: its default branch's head (shallow), or
+    with ``ref`` that commit."""
     url = repo if "://" in repo or Path(repo).exists() else f"https://github.com/{repo}.git"
     stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
     dest = work / "referee" / stamp
     dest.parent.mkdir(parents=True, exist_ok=True)
-    proc = subprocess.run(["git", "-c", "core.autocrlf=false", "clone", "--quiet", "--depth", "1", "--no-tags",
-                           url, str(dest)], capture_output=True, env=gitio._env(), check=False)
+    depth = [] if ref else ["--depth", "1"]
+    proc = subprocess.run(["git", "-c", "core.autocrlf=false", "clone", "--quiet", *depth, "--no-tags", url, str(dest)],
+                          capture_output=True, env=gitio._env(), check=False)
+    if proc.returncode == 0 and ref:
+        proc = subprocess.run(["git", "-C", str(dest), "checkout", "--quiet", "--detach", ref], capture_output=True,
+                              env=gitio._env(), check=False)
     if proc.returncode != 0:
         raise CanaryError(f"the referee repository could not be cloned: {proc.stderr.decode('utf-8', 'replace')[:300]}")
     return dest
+
+
+def rival_sha256(root: Path) -> str:
+    """What the rival reads and runs in a referee clone, line endings read as LF: its seat prompt, ``bootstrap.json``
+    (model, effort, turns, cap, limits, image), ``policy.json`` (budget), its code (the CLI run, the MCP tools, the
+    reproducers, the secret scan) and the CLI it pins. ``decide`` is not in it: its proof rule is read from the
+    loaded code, and a pinned run says which referee commit that was."""
+    digest = hashlib.sha256()
+    for part in RIVAL_PARTS:
+        paths = [root / part] if (root / part).is_file() else sorted(p for p in (root / part).rglob("*") if p.is_file())
+        for p in paths:
+            digest.update(p.relative_to(root).as_posix().encode() + b"\0" + p.read_bytes().replace(b"\r\n", b"\n"))
+    return digest.hexdigest()
+
+
+def pinned_referee(work: Path, repo: str, ref: str) -> tuple[Path, str]:
+    """A fresh clone at ``ref`` and the live head's commit, for a batch screened against ``ref`` whose reviews were
+    lost (an outage) after the live referee moved on: allowed only while the rival the live head runs is the one
+    ``ref`` runs (``rival_sha256``), so the measure is still the live rival's."""
+    pinned, live = fresh_referee_clone(work, repo, ref), fresh_referee_clone(work, repo)
+    if rival_sha256(pinned) != rival_sha256(live):
+        raise CanaryError(f"the rival the live referee runs is not the one {ref} runs: measure against the live head")
+    return pinned, gitio.git(live, "rev-parse", "HEAD").decode().strip()
 
 
 def code_sha256(bootstrap: Path) -> str:
@@ -922,6 +953,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--work", required=True, help="a private folder outside the repository")
     parser.add_argument("--referee-repo", default=DEFAULT_REFEREE, help="the live referee repository (cloned afresh)")
     parser.add_argument("--referee-clone", help=argparse.SUPPRESS)  # the clone, when the canary runs itself again on it
+    parser.add_argument("--referee-ref", help="a referee commit the batch was screened against, when the live head "
+                        "moved on since and runs the same rival (pinned_referee); the result names both")
+    parser.add_argument("--live-head", help=argparse.SUPPRESS)  # the live head a pinned run was checked against
     parser.add_argument("--result",
                         help="the referee's signed result or state (default: <work>/../referee/result.json)")
     parser.add_argument("--brain-remote", help="where the brain is read (default: the repository bootstrap.json names)")
@@ -935,8 +969,17 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--karne", help="the private karne folder: an aggregate of the run (rates only) is added there")
     args = parser.parse_args(argv)
     work = Path(args.work).resolve()
-    root = Path(args.referee_clone) if args.referee_clone else fresh_referee_clone(work, args.referee_repo)
+    live_head = args.live_head
+    if args.referee_clone:
+        root = Path(args.referee_clone)
+    elif args.referee_ref:
+        root, live_head = pinned_referee(work, args.referee_repo, args.referee_ref)
+        argv += ["--live-head", live_head]
+    else:
+        root = fresh_referee_clone(work, args.referee_repo)
     referee = referee_identity(root, args.referee_repo)
+    if live_head:
+        referee.update(live_head=live_head, rival_sha256=rival_sha256(root))
     if code_sha256(CODE) != referee["code_sha256"]:
         if os.environ.get(CODE_ENV):
             raise CanaryError("the code loaded is not the referee clone's")

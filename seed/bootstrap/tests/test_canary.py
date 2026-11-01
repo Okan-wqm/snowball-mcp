@@ -617,6 +617,23 @@ class Referee(unittest.TestCase):
             self.assertEqual(got["seats_sha256"], hashlib.sha256(b"seat, moved\n").hexdigest())
             self.assertNotEqual(canary.referee_identity(first, "x")["seats_sha256"], got["seats_sha256"])
 
+    def test_a_pinned_run_needs_the_live_head_to_run_the_same_rival(self):
+        """A batch screened against a referee commit the live head has since moved past is reviewed against that commit
+        only while the live head runs the same rival (seat prompt, config, its code, the CLI pin)."""
+        with tempfile.TemporaryDirectory() as tmp:
+            remote = Path(tmp) / "remote"
+            first = make_repo(remote, {"seats/29-tohum-koltuklari.md": "seat\n", "bootstrap.json": "{}\n",
+                                       "policy.json": "{}\n", "bootstrap/snowball_bootstrap/rival.py": "R = 1\n",
+                                       "bootstrap/snowball_bootstrap/decide.py": "D = 1\n"})
+            moved = commit(remote, {"bootstrap/snowball_bootstrap/decide.py": "D = 2\n", "vectors/v.json": "{}\n"},
+                           "the screen moved, the rival did not")
+            root, live = canary.pinned_referee(Path(tmp) / "work", str(remote), first)
+            self.assertEqual(gitio.git(root, "rev-parse", "HEAD").decode().strip(), first)
+            self.assertEqual(live, moved)
+            commit(remote, {"seats/29-tohum-koltuklari.md": "another seat\n"}, "the rival moved")
+            with self.assertRaises(canary.CanaryError):  # canary_pin_ignores_the_rival
+                canary.pinned_referee(Path(tmp) / "work", str(remote), first)
+
     def test_the_code_hash_reads_line_endings_as_lf(self):
         with tempfile.TemporaryDirectory() as tmp:
             a, b = Path(tmp) / "a", Path(tmp) / "b"

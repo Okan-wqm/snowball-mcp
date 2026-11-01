@@ -1674,6 +1674,8 @@ MUTANTS = [
      "        if False:", "E311: a push the referee never accepted is replayed as a real host"),
     ("canary_stale_clone_reused", CANARY, '    dest = work / "referee" / stamp', '    dest = work / "referee"',
      "E126: a run is measured against a referee clone an earlier run made"),
+    ("canary_pin_ignores_the_rival", CANARY, "    if rival_sha256(pinned) != rival_sha256(live):", "    if False:",
+     "E126: a batch is reviewed against a referee commit whose rival the live referee no longer runs"),
     ("canary_code_crlf_sensitive", CANARY, 'p.read_bytes().replace(b"\\r\\n", b"\\n") + b"\\0"',
      'p.read_bytes() + b"\\0"', "E126: a Windows checkout of the referee's code reads as other code"),
     ("canary_referee_not_recorded", CANARY,
