@@ -11,7 +11,7 @@ tetik girdisi ya da koşucunun PATH'inde hazır bulunan bir program değildir: h
 (`25`: listede olmayan hiçbir şey sonradan insandan istenmez).
 
 **Beyin reposu.** Hakem reposunun kökündeki `bootstrap.json`'un `brain_repo`'sudur: `owner/name`, önyükleme hakeminin
-izlediği repo (`25` 3; aktarım dosyayı korur, `25a` 1). Döngünün her işinde iki yerde aynı dosyadır: işin
+izlediği repo (`25` 3; aktarım dosyayı korur, `25a` 1). Döngünün her işinde iki yerde bulunur: işin
 `actions/checkout`'unun kökünde ve kontrol adımının seyrek klonunda, `$RUNNER_TEMP/control/bootstrap.json` (`29p`).
 D1'in okuduğu son imzalı sonuç bu reponun önyükleme hakeminindir (`asama-0/01`); kabul edilmiş SHA
 `state.last_accepted_sha`'dır (`29b` "Durum").
