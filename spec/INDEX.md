@@ -57,7 +57,7 @@ Okunma: sayfa ararken; görev seçmek için `tohum/00b-gorev-haritasi.md`
 | `tohum/26a-arac-imzalari.md` | Araç İmzaları: Aşama 0 ve 1 | araç yazarken ve çağırırken |
 | `tohum/26b-semalar-devam.md` | Şemalar, Devam: Bilgi, Organ, Profil, Politika | Aşama 0 inşasında ve her şema değişikliğinde |
 | `tohum/26c-semalar-asama-0.md` | Şemalar, Devam: Aşama 0'ın Dosyaları | Aşama 0 inşasında, kurulumda ve operatör dosyası yazılırken |
-| `tohum/26d-semalar-pass-satiri.md` | Şemalar, Devam: Aşama 0'ın PASS Satırı ve Kilidin Açılışı | Aşama 0'ın (B) devirlerini ve PASS satırını yazan kod yazılırken; kilidin açılışından önce |
+| `tohum/26d-semalar-pass-satiri.md` | Şemalar, Devam: Aşama 0'ın PASS Satırı ve Kilidin Açılışı | Aşama 0'ın (B) devirlerini ve genesis, merge, PASS ve kök satırlarını yazan kod yazılırken; kilidin açılışından önce |
 | `tohum/27-sozluk-ve-okuyucular.md` | Sözlük ve Okuyucular | yeni terim ya da dosya eklerken |
 | `tohum/27a-okuyucular-hedef-durumu.md` | Okuyucular, Devam: Hedefteki Durum Dosyaları | yeni durum dosyası, bölüm ya da görünüm eklerken |
 | `tohum/28-dondurma.md` | Dondurma: Ne Durur, Nasıl Kalkar | Gözcü kararlarında ve her dondurmada |
@@ -94,6 +94,7 @@ Okunma: sayfa ararken; görev seçmek için `tohum/00b-gorev-haritasi.md`
 | `tohum/31g-karar-rehberi.md` | Mimari İlkeler VII: Karar Rehberi | aşağıdaki durumlardan biri ortaya çıktığında, `decision` satırı yazılmadan önce |
 | `tohum/31h-catismalar-ve-tarama.md` | Mimari İlkeler VIII: Çatışmalar ve Tarama Sinyalleri | iki ilke aynı durumda farklı yön gösterdiğinde; bir repo ilkeler açısından taranırken; rakip bir tasarımı çürütmeye çalışırken |
 | `tohum/CHANGELOG.md` | Değişiklik Günlüğü — Tohum | bir sayfanın geçmişi aranırken |
+| `tohum/CHANGELOG-3.md` | Değişiklik Günlüğü — Tohum, 2.2'nin İkinci Kayıtları | bir sayfanın geçmişi aranırken |
 | `tohum/CHANGELOG-2.md` | Değişiklik Günlüğü — Tohum, 2.2'nin İlk Kayıtları | bir sayfanın geçmişi aranırken |
 | `tohum/CHANGELOG-1.md` | Değişiklik Günlüğü — Tohum, 2.1 ve öncesi | bir sayfanın geçmişi aranırken |
 

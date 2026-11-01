@@ -11,10 +11,12 @@ import base64
 import contextlib
 import ctypes
 import hashlib
+import io
 import json
 import os
 import re
 import shutil
+import tarfile
 import tempfile
 import unittest
 from pathlib import Path
@@ -224,8 +226,13 @@ class ImportKeepsTheBootstrapTest(ImportCase):
     def test_the_checkout_is_hashed_again_before_the_row_is_written(self):  # import_checkout_not_rehashed
         """`25a` 1: the referee checkout, what the import keeps left out, is the signed tree once the files are in
         place; a checkout that is not (here: a file the clearing left behind) gets no counter row."""
-        write(self.referee, {"old/stale.py": "from an earlier tree\n"})
-        with mock.patch.object(importer, "_clear"), self.assertRaises(ImportErrorStop) as caught:
+        real = importer._clear
+
+        def leave_one(directory, keep, holds, *rest):
+            kept = real(directory, keep, holds, *rest)
+            write(self.referee, {"old/stale.py": "from an earlier tree\n"})
+            return kept
+        with mock.patch.object(importer, "_clear", side_effect=leave_one), self.assertRaises(ImportErrorStop) as caught:
             self.run_import()
         self.assertIn("checkout on disk", str(caught.exception))
         self.assertEqual(self.imports(), b"")
@@ -246,9 +253,8 @@ class ImportTheToyTest(ImportCase):
         write(self.toy, {"stale.py": "from an earlier toy\n"})
         real = importer._clear
 
-        def referee_only(directory, keep, holds, rel=importer.PurePosixPath()):
-            if Path(directory) != self.toy:
-                real(directory, keep, holds, rel)
+        def referee_only(directory, keep, holds, *rest):
+            return real(directory, keep, holds, *rest) if Path(directory) != self.toy else {}
         with mock.patch.object(importer, "_clear", side_effect=referee_only), \
                 self.assertRaises(ImportErrorStop) as caught:
             self.run_import()
@@ -423,7 +429,8 @@ class ImportRefusesTest(ImportCase):
         self.assert_nothing_written(before)
 
     def test_a_result_that_is_not_accepted_and_transferable_is_refused(self):
-        for exit_fields, verdict in (({"transferable": False}, "accepted"), ({}, "rejected")):
+        for exit_fields, verdict in (({"transferable": False}, "accepted"), ({}, "rejected"),  # I3_transferable_truthy
+                                     ({"transferable": 1}, "accepted"), ({"transferable": "true"}, "accepted")):
             with self.subTest(verdict=verdict, exit=exit_fields):
                 self.write_result(**exit_fields)
                 if verdict != "accepted":
@@ -613,26 +620,230 @@ class ImportAliasTest(ImportCase):
                     self.assertIn(f"would land on {entry} ", self.assert_refused_untouched())
                 self.assertEqual(workflow_bytes(self.referee), b"name: snowball-bootstrap\n")
 
-    def test_on_a_volume_with_short_names_the_kept_state_stops_what_the_name_check_misses(self):  # import_kept_state_unchecked
-        """E403's defence in depth, on the real file system: with the name check taken away, each alias really
-        writes into a kept entry, and the second reading of what the checkout keeps stops the import before the counter
-        row; the message names the entry and says to reset the checkout."""
-        for entry, path in self.short_names_below_the_top().items():
+    def test_on_a_volume_with_short_names_the_copy_writes_through_nothing_it_did_not_make(self):  # copy_through_existing_dir copy_files_not_exclusive
+        """E412 (the third skeptic's `second_layer.py`): with the name check taken away, an alias the file system
+        resolves onto a kept entry (here the real 8.3 names) is still not written through: the copy makes every
+        directory and file new, so it stops at the alias; what the checkout keeps, `.git/config` too, is byte for byte
+        as it was, and the stop says the checkout may be reset (its git directory is untouched)."""
+        for entry, path in dict(self.short_names_below_the_top(), **{".git/config": None}).items():
+            if path is None:
+                path = f"{short_name(self.referee / '.git')}/config"  # `second_layer.py`: a live core.fsmonitor
             with self.subTest(entry=entry, path=path):
-                write(self.referee, OPERATOR_FILES)
-                files = {"referee/ledger/chain.py": "x = 1\n", f"{TOY_DIR}/app.py": "y\n", f"referee/{path}": "EVIL\n"}
+                write(self.referee, dict(OPERATOR_FILES, **{".git/config": "[core]\n"}))
+                shutil.rmtree(self.referee / ".git" / "hooks", ignore_errors=True)
+                before = importer.kept_state(self.referee, importer.kept, importer._holds_kept)
+                files = {"referee/ledger/chain.py": "x = 1\n", f"{TOY_DIR}/app.py": "y\n",
+                         f"referee/{path}": "[core]\n\tfsmonitor = \"echo ran > ran.txt\"\n"}
                 with self.use_tree(files), mock.patch.object(importer, "_refuse_aliases"), \
                         self.assertRaises(ImportErrorStop) as caught:
                     self.run_import()
                 said = str(caught.exception)
-                self.assertIn("the copy changed what the referee checkout keeps", said)
-                self.assertIn(".git/hooks/post-checkout" if entry == ".git" else ".github/workflows/bootstrap.yml", said)
-                self.assertIn("reset the checkout", said)
+                self.assertIn(f"referee/{path.split('/')[0] if entry != '.github/workflows/bootstrap.yml' else path}",
+                              said)
+                self.assertIn("would be written through an entry already in the checkout", said)
+                self.assertIn("keeps is as it was: reset the checkout", said)
+                self.assertEqual(importer.kept_state(self.referee, importer.kept, importer._holds_kept), before)
+                self.assertEqual((self.referee / ".git" / "config").read_bytes(), b"[core]\n")
                 self.assertEqual(self.imports(), b"")
 
 
 def workflow_bytes(referee):
     return (referee / ".github" / "workflows" / "bootstrap.yml").read_bytes()
+
+
+class ImportCopyMakesEverythingNewTest(ImportCase):
+    """E412: the copy cannot write through an existing entry it did not make. Here the name checks (`_lands_on_kept`,
+    `_refuse_aliases`) are taken away, so a path reaches what the checkout keeps as an alias they did not foresee would:
+    by its own name (`.github/workflows/bootstrap.yml`: only those checks refuse it), or through a stand-in for an alias
+    made after the clear (a junction on Windows, a symbolic link elsewhere: a name that is an existing entry). A kept
+    file is never opened (``O_EXCL``), an entry not made by the copy is never entered, and a directory on the way is
+    entered only under its exact name while it is the one the clear left."""
+
+    def unguarded(self, files, alias=None):
+        """The import with ``files`` as the tree and no name check; ``alias`` ``(checkout, name, entry)``: after the
+        clear, ``name`` in ``checkout`` is ``entry`` under another name."""
+        stack = contextlib.ExitStack()
+        stack.enter_context(self.use_tree(files))
+        stack.enter_context(mock.patch.object(importer, "_lands_on_kept", return_value=False))
+        stack.enter_context(mock.patch.object(importer, "_refuse_aliases"))
+        if alias:
+            checkout, name, entry = alias
+            real = importer._clear
+
+            def clear_then_alias(directory, keep, holds, *rest):
+                kept = real(directory, keep, holds, *rest)
+                if Path(directory) == checkout and not rest:
+                    make_junction(checkout / name, checkout / entry)
+                return kept
+            stack.enter_context(mock.patch.object(importer, "_clear", side_effect=clear_then_alias))
+        return stack
+
+    def refused(self, files, says, alias=None):
+        write(self.referee, dict(OPERATOR_FILES, **{".git/config": "[core]\n"}))
+        write(self.toy, {".git/config": "[core]\n"})
+        before = (importer.kept_state(self.referee, importer.kept, importer._holds_kept),
+                  importer.kept_state(self.toy, importer._git_dir, importer._nothing))
+        with self.unguarded(files, alias), self.assertRaises(ImportErrorStop) as caught:
+            self.run_import()
+        said = str(caught.exception)
+        self.assertIn(f"{says} would be written through an entry already in the checkout", said)
+        self.assertIn("keeps is as it was: reset the checkout", said)
+        self.assertEqual((importer.kept_state(self.referee, importer.kept, importer._holds_kept),
+                          importer.kept_state(self.toy, importer._git_dir, importer._nothing)), before)
+        self.assertEqual(self.imports(), b"")
+
+    def test_a_kept_file_is_never_opened(self):  # copy_files_not_exclusive
+        self.refused({"referee/ledger/chain.py": "x = 1\n", "referee/.github/workflows/bootstrap.yml": "name: evil\n",
+                      f"{TOY_DIR}/app.py": "y\n"}, "referee/.github/workflows/bootstrap.yml")
+        self.assertEqual(workflow_bytes(self.referee), b"name: snowball-bootstrap\n")
+
+    def test_an_entry_the_copy_did_not_make_is_never_entered(self):  # copy_through_existing_dir
+        """`second_layer.py`'s path, `<alias of .git>/config`, would write a live `core.fsmonitor` that the operator's
+        next git command runs; the others reach the push judge's package and its workflow's directory, and the toy's git
+        directory. (The stand-ins have names of their own: on a volume with 8.3 names `GIT~1` already is `.git`.)"""
+        referee, toy = self.referee, self.toy
+        for alias, path, says in (((referee, "gitalias", ".git"), "referee/gitalias/config", "referee/gitalias"),
+                                  ((referee, "bootalias", "bootstrap"), "referee/bootalias/snowball_bootstrap/__init__.py",
+                                   "referee/bootalias"),
+                                  ((referee, ".github/wfalias", ".github/workflows"),
+                                   "referee/.github/wfalias/bootstrap.yml", "referee/.github/wfalias"),
+                                  ((toy, "gitalias", ".git"), f"{TOY_DIR}/gitalias/hooks/post-checkout",
+                                   f"{TOY_DIR}/gitalias")):
+            with self.subTest(path=path):
+                self.refused({"referee/ledger/chain.py": "x = 1\n", f"{TOY_DIR}/app.py": "y\n",
+                              path: "[core]\n\tfsmonitor = \"echo ran > ran.txt\"\n"}, says, alias)
+                os.unlink(alias[0] / alias[1])
+        self.assertEqual((self.referee / ".git" / "config").read_bytes(), b"[core]\n")
+        self.assertEqual(workflow_bytes(self.referee), b"name: snowball-bootstrap\n")
+        self.assertFalse((self.toy / ".git" / "hooks").exists())
+
+    def test_a_copy_stopped_part_way_still_reads_what_is_kept(self):  # copy_in_kept_unread
+        """The copy's stop says the checkout may be reset only when what it keeps is as it was: here something else
+        (another process) changed `.git/config` before the copy stopped, so the stop is the kept state's: no git
+        command, delete the checkout and clone it again."""
+        def change_then_stop(tree, checkout, *rest):
+            if Path(checkout) == self.referee:
+                write(self.referee, {".git/config": "[core]\n\tfsmonitor = evil\n"})
+                raise importer._through("referee", importer.PurePosixPath("x"))
+        write(self.referee, {".git/config": "[core]\n"})
+        with mock.patch.object(importer, "_copy_new", side_effect=change_then_stop), \
+                self.assertRaises(ImportErrorStop) as caught:
+            self.run_import()
+        said = str(caught.exception)
+        self.assertIn("the copy changed what the referee checkout keeps: .git/config", said)
+        self.assertIn("run no git command in it", said)
+        self.assertNotIn("reset the checkout", said)
+        self.assertEqual(self.imports(), b"")
+
+    def test_a_directory_on_the_way_is_entered_only_as_the_clear_left_it(self):  # copy_kept_dir_any
+        """`.github/workflows/` is entered under its exact name (`loop.yml` lands beside `bootstrap.yml`), but not once
+        another directory stands there, even one holding the same bytes (here swapped in after the clear)."""
+        self.run_import()
+        self.assertEqual(read_all(self.referee)[".github/workflows/loop.yml"], LOOP_YML.encode("utf-8"))
+        real = importer._clear
+
+        def clear_and_swap(directory, keep, holds, *rest):
+            kept = real(directory, keep, holds, *rest)
+            if Path(directory) == self.referee and not rest:
+                workflows = self.referee / ".github" / "workflows"
+                workflows.rename(self.work / "swapped")
+                write(self.referee, {".github/workflows/bootstrap.yml": "name: snowball-bootstrap\n"})
+            return kept
+        with mock.patch.object(importer, "_clear", side_effect=clear_and_swap), \
+                self.assertRaises(ImportErrorStop) as caught:
+            self.run_import()
+        self.assertIn("referee/.github/workflows would be written through", str(caught.exception))
+        self.assertEqual(sorted(p.name for p in (self.referee / ".github" / "workflows").iterdir()), ["bootstrap.yml"])
+
+    def test_the_copy_keeps_the_trees_file_modes(self):
+        if os.chmod not in os.supports_fd:
+            self.skipTest("no file modes beyond read-only here")
+        buf = io.BytesIO()
+        with tarfile.open(fileobj=buf, mode="w:", format=tarfile.PAX_FORMAT) as archive:
+            for name, data, mode in (("referee/run.sh", b"#!/bin/sh\n", 0o755), ("referee/a.py", b"x\n", 0o644),
+                                     (f"{TOY_DIR}/app.py", b"y\n", 0o644)):
+                info = tarfile.TarInfo(name)
+                info.size, info.mode = len(data), mode
+                archive.addfile(info, io.BytesIO(data))
+        tar = buf.getvalue()
+        self.referee_hash, self.toy_hash = tree_hash(tar, "referee"), tree_hash(tar, TOY_DIR, False, True)
+        self.write_result()
+        with mock.patch.object(importer.gitio, "archive", return_value=tar):
+            self.run_import()
+        self.assertEqual(((self.referee / "run.sh").stat().st_mode & 0o777, (self.referee / "a.py").stat().st_mode & 0o777),
+                         (0o755, 0o644))
+
+
+# ---------------------------------------------------------------- E413: a junction is a link
+@contextlib.contextmanager
+def junction_stand_ins(*links):
+    """POSIX stand-ins for Windows junctions (E413): each of ``links`` is a symbolic link that `Path.is_symlink` does
+    not see and `Path.is_junction` does, as a junction is on Windows (whatever reads it with `is_symlink` alone, or
+    `is_dir`, goes through)."""
+    names = {str(Path(link)) for link in links}
+    real_symlink, real_junction = Path.is_symlink, Path.is_junction
+    with mock.patch.object(Path, "is_symlink", lambda self: str(self) not in names and real_symlink(self)), \
+            mock.patch.object(Path, "is_junction", lambda self: str(self) in names or real_junction(self)):
+        yield
+
+
+def make_junction(link, target):
+    """A real junction on Windows (no privilege needed), else a symbolic link to stand in for one."""
+    if os.name == "nt":
+        import _winapi
+        _winapi.CreateJunction(str(target), str(link))
+    else:
+        os.symlink(target, link, target_is_directory=True)
+
+
+class ImportJunctionTest(ImportCase):
+    """E413 (the third skeptic's `junction_kept.py`): `Path.is_junction` is a link (`Path.is_symlink` is false for a
+    junction, `is_dir` true): what the import keeps is never read through one, the clear never deletes through one,
+    and the disk hash never hashes through one."""
+
+    def setUp(self):
+        super().setUp()
+        self.outside = self.work / "outside"
+        write(self.outside, {"secret.txt": "outside the checkout\n"})
+
+    def stand_in(self, *links):
+        return contextlib.nullcontext() if os.name == "nt" else junction_stand_ins(*links)
+
+    def test_what_is_kept_is_not_read_through_a_junction(self):  # kept_state_junction_followed
+        write(self.referee, {".git/HEAD": "ref\n"})
+        link = self.referee / ".git" / "jx"
+        make_junction(link, self.outside)
+        with self.stand_in(link):
+            state = importer.kept_state(self.referee, importer.kept, importer._holds_kept)
+        self.assertEqual([k for k in state if k.startswith(".git/jx")], [".git/jx"])
+        self.assertTrue(state[".git/jx"].startswith("link:"))
+
+    def test_a_junction_on_the_way_to_what_is_kept_stops_the_import(self):  # kept_state_link_on_the_way
+        shutil.rmtree(self.referee / ".github")
+        write(self.outside, {"workflows/bootstrap.yml": "name: snowball-bootstrap\n"})
+        make_junction(self.referee / ".github", self.outside)
+        before = read_all(self.outside)
+        with self.stand_in(self.referee / ".github"), self.assertRaises(ImportErrorStop) as caught:
+            self.run_import()
+        self.assertIn(".github in the checkout is a link on the way to what the import keeps", str(caught.exception))
+        self.assertEqual(read_all(self.outside), before)
+        self.assertEqual(self.imports(), b"")
+
+    def test_the_clear_removes_a_junction_and_nothing_it_points_at(self):  # clear_junction_followed
+        link = self.referee / "old"
+        make_junction(link, self.outside)
+        with self.stand_in(link):
+            self.run_import()
+        self.assertFalse(os.path.lexists(link))
+        self.assertEqual(read_all(self.outside), {"secret.txt": b"outside the checkout\n"})
+
+    def test_the_disk_hash_does_not_go_through_a_junction(self):  # disk_hash_junction_followed
+        tree = self.work / "tree"
+        write(tree, {"a.py": "x\n"})
+        make_junction(tree / "linked", self.outside)
+        with self.stand_in(tree / "linked"), self.assertRaises(ImportErrorStop) as caught:
+            importer.disk_hash(tree)
+        self.assertIn("linked on disk is a link", str(caught.exception))
 
 
 class ImportKeptStateTest(ImportCase):
@@ -642,16 +853,16 @@ class ImportKeptStateTest(ImportCase):
     the import before the counter row. Here the copy itself is made to write where a resolved alias would."""
 
     def copy_and_also(self, target, change):
-        """`shutil.copytree` as the import calls it, but the copy into ``target`` also does ``change`` (what a file
-        system that resolved some name onto a kept entry would do)."""
-        real = shutil.copytree
+        """The import's copy, but the copy into ``target`` also does ``change`` (what a file system that resolved some
+        name onto a kept entry would do, had the copy not prevented it; or another process, a git command, at work)."""
+        real = importer._copy_new
 
-        def copy(src, dst, *args, **kw):  # copytree calls itself for each directory below
-            done = real(src, dst, *args, **kw)
-            if Path(dst) == target:
+        def copy(tree, checkout, *args):
+            done = real(tree, checkout, *args)
+            if Path(checkout) == target:
                 change()
             return done
-        return mock.patch.object(importer.shutil, "copytree", side_effect=copy)
+        return mock.patch.object(importer, "_copy_new", side_effect=copy)
 
     def test_a_change_to_any_kept_entry_stops_the_import(self):
         write(self.referee, {".git/HEAD": "ref: refs/heads/main\n", ".git/config": "[core]\n"})
@@ -687,7 +898,14 @@ class ImportKeptStateTest(ImportCase):
                 said = str(caught.exception)
                 self.assertIn(f"the copy changed what the {what} checkout keeps: ", said)
                 self.assertIn(entry, said)
-                self.assertIn("reset the checkout before anything is pushed", said)
+                self.assertIn("another process", said)  # E412: an alias is not the only cause
+                if entry.startswith(".git/"):  # E412: its config runs commands, so no git command may reset it
+                    self.assertIn("run no git command in it", said)
+                    self.assertIn("delete the checkout and clone it again", said)
+                    self.assertNotIn("reset the checkout", said)
+                else:
+                    self.assertIn("reset the checkout before anything is pushed", said)
+                    self.assertNotIn("delete the checkout", said)
                 self.assertEqual(self.imports(), b"")
 
     def test_an_import_that_reaches_nothing_kept_passes_and_keeps_every_entry(self):
@@ -802,10 +1020,12 @@ OWNER_EXCEPTION = {"anchor": "durustluk", "stage": 0, "carry_to": 1, "reason": "
 
 
 class Target:
-    """A target repository whose `brain/state` holds a ledger and a root chain, as the loop referee writes them; the
-    root's bundle has one `hashedrekord` log entry that records the root as its hash (`29j`)."""
+    """A target repository whose `brain/state` holds a ledger and a root chain, as the loop referee writes them, and the
+    last root's Sigstore bundle beside them, `chain/<root>.sigstore.json` (`26d`, E414): one `hashedrekord` log entry
+    that records the root as its hash (`29j`). ``bundle`` stands another bundle there (False: none), ``uuid_suffix``
+    follows the root row's `rekor_uuid`."""
 
-    def __init__(self, path, rows, root_override=None, entry_hash=None, body=None):
+    def __init__(self, path, rows, root_override=None, entry_hash=None, body=None, bundle=None, uuid_suffix=""):
         self.path = path
         make_repo(path, {"README.md": "main\n"})
         sh(path, "git", "checkout", "-q", "--orphan", "brain/state")
@@ -813,7 +1033,8 @@ class Target:
         self.rows, self.ledger = chained(rows)
         tips = {}
         for row in self.rows:
-            tips[row["part"]] = row["row_hash"]
+            if isinstance(row.get("part"), str):
+                tips[row["part"]] = row["row_hash"]
         self.root = root_override or hashlib.sha256(canonical(tips)).hexdigest()
         recorded = entry_hash if entry_hash is not None else {"algorithm": "sha256", "value": self.root}
         signature = {"content": base64.b64encode(str(path).encode()).decode(), "publicKey": {"content": "x"}}
@@ -822,16 +1043,19 @@ class Target:
         self.body = json.dumps(entry, separators=(",", ":")).encode()
         self.uuid = "24296fb24b8ad77a" + hashlib.sha256(b"\x00" + self.body).hexdigest()
         self.roots, root_bytes = chained([{"row_id": "r1", "ts": "2026-10-31T10:00:00Z", "root": self.root,
-                                           "rekor_uuid": self.uuid}])
-        write(path, {"ledger.jsonl": self.ledger, "chain/root.jsonl": root_bytes, "status.md": "# status\n"})
+                                           "rekor_uuid": self.uuid + uuid_suffix}])
+        self.bundle = bundle if bundle is not None else json.dumps({
+            "mediaType": "application/vnd.dev.sigstore.bundle.v0.3+json",
+            "verificationMaterial": {"tlogEntries": [{"canonicalizedBody": base64.b64encode(self.body).decode()}]}
+        }).encode()
+        files = {"ledger.jsonl": self.ledger, "chain/root.jsonl": root_bytes, "status.md": "# status\n"}
+        if self.bundle is not False:
+            files[f"chain/{self.root}.sigstore.json"] = self.bundle
+        write(path, files)
         sh(path, "git", "add", "-A")
         sh(path, "git", "commit", "-q", "-m", "state")
         self.head = sh(path, "git", "rev-parse", "HEAD")
         sh(path, "git", "checkout", "-q", "main")
-        self.bundle = path.parent / f"{path.name}-root.sigstore.json"
-        self.bundle.write_text(json.dumps({"mediaType": "application/vnd.dev.sigstore.bundle.v0.3+json",
-                                           "verificationMaterial": {"tlogEntries": [
-                                               {"canonicalizedBody": base64.b64encode(self.body).decode()}]}}))
 
     def line_of(self, index):
         return self.ledger.split(b"\n")[index]
@@ -861,8 +1085,8 @@ class StageOpenCase(unittest.TestCase):
         self.toy = self.make_toy()
         self.verified = []
 
-        def verify(subject, bundle, identity, sigstore_python):
-            self.verified.append((subject, Path(bundle), identity, sigstore_python))
+        def verify(subject, bundle, identity, sigstore_python):  # the bundle as Sigstore is given it, a file
+            self.verified.append((subject, Path(bundle).read_bytes(), identity, sigstore_python))
         patcher = mock.patch.object(importer, "verify_signature", side_effect=verify)
         patcher.start()
         self.addCleanup(patcher.stop)
@@ -916,13 +1140,13 @@ class StageOpenCase(unittest.TestCase):
     def argv(self, **over):
         args = {"--referee": self.referee, "--toy": self.toy.path, "--copy": self.copy.path,
                 "--ref": "refs/heads/brain/state", "--identity": "loop-id", "--sigstore-python": "py",
-                "--toy-root-bundle": self.toy.bundle, "--copy-root-bundle": self.copy.bundle, "--result": self.result}
+                "--result": self.result}
         args.update(over)
         return ["stage-open"] + [str(x) for pair in args.items() for x in pair]
 
     def open(self):
         return stagelock.open_stage(self.referee, self.toy.path, self.copy.path, "refs/heads/brain/state", "loop-id",
-                                    "py", self.toy.bundle, self.copy.bundle, self.result)
+                                    "py", self.result)
 
     def stage_file(self):
         return self.referee / "setup" / "stage.json"
@@ -948,7 +1172,8 @@ class StageOpenWritesTest(StageOpenCase):
 
     def test_each_targets_last_root_is_verified_with_sigstore_as_the_root_digest(self):  # stage_open_root_not_signed stage_open_root_signs_another_artifact
         """E375, `29j`, `13`: the Rekor entry's hash is the root, so Sigstore verifies the bundle against the digest
-        `sha256:<root>`, not against a file of the root's hex text (whose sha256 is not the root)."""
+        `sha256:<root>`, not against a file of the root's hex text (whose sha256 is not the root). The bundle is the one
+        each target's `brain/state` keeps beside its root row (E414)."""
         self.open()
         self.assertEqual(self.verified, [(f"sha256:{self.toy.root}", self.toy.bundle, "loop-id", "py"),
                                          (f"sha256:{self.copy.root}", self.copy.bundle, "loop-id", "py")])
@@ -1023,8 +1248,7 @@ class StageOpenRefusesTest(StageOpenCase):
         self.refused("copy")
 
     def test_when_the_root_bundle_is_not_the_root_rows_log_entry(self):  # stage_open_bundle_any_entry
-        other = json.loads(self.copy.bundle.read_text())
-        self.toy.bundle.write_text(json.dumps(other))
+        self.toy = self.make_toy(bundle=self.copy.bundle)
         self.refused("rekor_uuid")
 
     def test_when_the_log_entry_does_not_record_the_root(self):  # stage_open_entry_hash_unchecked
@@ -1138,7 +1362,7 @@ class StageOpenBindsTheTransferTest(StageOpenCase):
                 else:
                     self.copy = self.make_copy(self.copy_rows(genesis={"import_line_sha256": "9" * 64}))
                     self.toy = self.make_toy()
-                self.refused(f"{name} brain/state: the genesis row names another transfer")
+                self.refused(f"{name} brain/state: the last genesis row names another transfer")
                 self.copy = self.make_copy()
                 self.toy = self.make_toy()
 
@@ -1150,7 +1374,149 @@ class StageOpenBindsTheTransferTest(StageOpenCase):
         second = {"ts": "2026-10-31T12:00:00Z", "stage": 0, "brain_sha": "7" * 40, "referee_tree_sha256": "8" * 64,
                   "result_sha256": hashlib.sha256(self.result.read_bytes()).hexdigest(), "toy_tree_sha256": "5" * 64}
         write(self.referee, {"setup/imports.jsonl": chained(first + [second])[1]})
-        self.refused("toy brain/state: the genesis row names another transfer than the counter's last one")
+        self.refused("toy brain/state: the last genesis row names another transfer than the counter's last one")
+
+
+class StageOpenAfterARetransferTest(StageOpenCase):
+    """E411 (the third skeptic's deadlock): `25a` 3 keeps `brain/state` (no deletion, no rewrite), so the first genesis
+    row stays for good. After a red (B) the operator reverts the transfer, its counter line with it, and imports the
+    fixed SHA (`asama-0/10a` "Başarısızlık"); (B) runs again from a new genesis row that names the new line. The lock
+    binds each ledger's last genesis and counts only the rows after it."""
+
+    def retransfer(self):
+        """The fixed SHA's transfer is now the counter's only one; the first transfer's line hash is returned."""
+        old = self.line_sha
+        self.write_signed(brain_sha="9" * 40)
+        _rows, data = chained([{"ts": "2026-11-01T08:00:00Z", "stage": 0, "brain_sha": "9" * 40,
+                                "referee_tree_sha256": "d" * 64,
+                                "result_sha256": hashlib.sha256(self.result.read_bytes()).hexdigest(),
+                                "toy_tree_sha256": "f" * 64}])
+        write(self.referee, {"setup/imports.jsonl": data})
+        self.import_line = data.split(b"\n")[0]
+        self.line_sha = hashlib.sha256(self.import_line).hexdigest()
+        return old
+
+    @staticmethod
+    def again(row):
+        return edited(row, {"row_id": row["row_id"] + "-2"})
+
+    def two_runs(self, old):
+        """Both ledgers after (B) on the first transfer (genesis, merge; no PASS) and the start of (B) on the second;
+        the toy's rows so far (the copy is made)."""
+        self.copy = self.make_copy([
+            event("genesis", {"target": "copy-t", "base_sha": COPY_BASE, "import_line_sha256": old}),
+            event("merge", {"c": 1}),
+            self.again(event("genesis", {"target": "copy-t", "base_sha": COPY_BASE, "import_line_sha256": self.line_sha})),
+            self.again(event("merge", {"c": 2}))])
+        return [event("genesis", {"target": "toy-t", "import_line_sha256": old}), event("merge", {"c": 3}),
+                self.again(event("genesis", {"target": "toy-t", "import_line_sha256": self.line_sha})),
+                self.again(event("merge", {"c": 4}))]
+
+    def passed(self, **over):
+        """The second run's PASS row, naming the copy's second genesis and merge unless ``over`` names others."""
+        payload = {"stage": 0, "verdict": "PASS", "import_line_sha256": self.line_sha}
+        if "copy_genesis_row_hash" not in over:
+            payload["copy_genesis_row_hash"] = self.copy.rows[2]["row_hash"]
+        if "copy_merge_row_hashes" not in over:
+            payload["copy_merge_row_hashes"] = [self.copy.rows[3]["row_hash"]]
+        return event("pass", edited(payload, over))
+
+    def test_b_run_again_from_a_new_genesis_opens_the_lock(self):  # stage_open_first_genesis_binds
+        toy = self.two_runs(self.retransfer())
+        self.toy = self.make_toy(toy + [self.passed()])
+        lock = self.open()
+        self.assertEqual((lock["import_line_sha256"], lock["pass_row_sha256"]),
+                         (self.line_sha, hashlib.sha256(self.toy.line_of(4)).hexdigest()))
+
+    def test_only_the_rows_after_the_last_genesis_count(self):  # stage_open_rows_before_genesis_count
+        old = self.retransfer()
+        toy = self.two_runs(old)
+        for over, says in (({"copy_genesis_row_hash": self.copy.rows[0]["row_hash"]}, "copy's last genesis row"),
+                           ({"copy_merge_row_hashes": [self.copy.rows[1]["row_hash"]]}, "after its last genesis")):
+            with self.subTest(over=over):
+                self.toy = self.make_toy(toy + [self.passed(**over)])
+                self.refused(says)
+        self.toy = self.make_toy(toy[:3] + [self.passed()])  # the toy's only merge is the first run's
+        self.refused("comes before the toy's merge")
+        first = event("pass", {"stage": 0, "verdict": "PASS", "import_line_sha256": old,
+                               "copy_genesis_row_hash": self.copy.rows[0]["row_hash"],
+                               "copy_merge_row_hashes": [self.copy.rows[1]["row_hash"]]})
+        self.toy = self.make_toy(toy[:2] + [first] + toy[2:] + [self.passed()])  # the first run's PASS is not counted
+        self.open()
+        self.stage_file().unlink()
+        self.toy = self.make_toy(toy[:2] + [first] + toy[2:])  # nor opens anything on its own
+        self.refused("no PASS row after the last genesis")
+
+    def test_each_ledgers_last_genesis_names_the_last_transfer(self):  # stage_open_genesis_any_line
+        old = self.retransfer()
+        toy = self.two_runs(old)
+        stale = self.copy  # the copy's (B) never ran again: its last genesis names the first transfer
+        self.copy = self.make_copy(self.copy_rows(genesis={"import_line_sha256": old}))
+        self.toy = self.make_toy(toy + [self.passed(copy_genesis_row_hash=self.copy.rows[0]["row_hash"],
+                                                    copy_merge_row_hashes=[self.copy.rows[1]["row_hash"]])])
+        self.refused("copy brain/state: the last genesis row names another transfer")
+        self.copy = stale
+        later = self.again(self.again(event("genesis", {"target": "toy-t", "import_line_sha256": "9" * 64})))
+        self.toy = self.make_toy(toy + [self.passed(), later])  # a later transfer's (B) began after the PASS row
+        self.refused("toy brain/state: the last genesis row names another transfer")
+
+
+class StageOpenReadsTheGenesisTest(StageOpenCase):
+    """E416 (the third skeptic): the genesis row is read as one: an `events` row of `kind: genesis`, the referee's own
+    (`25a` 7, `29o`, `26d`). A first row of another kind or part, or a player's, is no genesis, so the toy's merge can
+    never be its genesis; and a PASS row whose `proposed_by` is null is named, not dropped."""
+
+    def test_a_first_row_that_is_no_genesis_opens_nothing(self):  # stage_open_genesis_any_kind stage_open_genesis_any_part stage_open_genesis_proposed_ok
+        for over in ({"kind": "status"}, {"part": "cost"}, {"kind": "merge"}, {"proposed_by": "founder"},
+                     {"proposed_by": None}, {"trust": "inferred"}, {"derivation": "llm_inference"}):
+            for name in ("toy", "copy"):
+                with self.subTest(name=name, over=over):
+                    if name == "toy":
+                        rows = self.toy_rows()
+                        self.toy = self.make_toy([edited(rows[0], over)] + rows[1:])
+                    else:
+                        rows = self.copy_rows()
+                        self.copy = self.make_copy([edited(rows[0], over)] + rows[1:])
+                        self.toy = self.make_toy()
+                    self.refused(f"{name} brain/state: the first ledger row is not the genesis")
+                    self.copy = self.make_copy()
+                    self.toy = self.make_toy()
+
+    def test_a_genesis_of_kind_merge_is_not_the_toys_merge(self):
+        """The skeptic's `test_open_genesis_may_be_the_toys_merge`: the genesis payload as the toy's only merge row."""
+        rows = self.toy_rows()
+        self.toy = self.make_toy([edited(rows[0], {"kind": "merge"}), rows[2], rows[3], rows[4]])
+        self.refused("the first ledger row is not the genesis")
+        self.toy = self.make_toy([rows[0], rows[2], rows[3], rows[4]])
+        self.refused("comes before the toy's merge")
+
+    def test_a_pass_row_with_proposed_by_null_is_named_not_dropped(self):  # stage_open_proposal_null_dropped
+        for value in (None, ""):
+            with self.subTest(value=value):
+                self.toy = self.make_toy(self.toy_rows(row={"proposed_by": value}))
+                self.refused(f"not the referee's own row (`26`, `26d`; it has proposed_by {json.dumps(value)})")
+
+    def test_a_ledger_row_without_a_part_stops(self):  # G7_state_part_unchecked
+        rows = self.toy_rows()
+        self.toy = self.make_toy(rows[:4] + [edited(rows[4], {"part": DROP})])
+        self.refused("toy brain/state ledger.jsonl: a row has no part")
+
+
+class StageOpenReadsTheRootTest(StageOpenCase):
+    """E414: the root's bundle is the loop's, kept beside its root row in the same `brain/state` commit
+    (`chain/<root>.sigstore.json`, `26d`); `rekor_uuid` is the tree id and the leaf hash and nothing more."""
+
+    def test_without_the_bundle_in_brain_state(self):  # stage_open_bundle_from_elsewhere
+        self.toy = self.make_toy(bundle=False)
+        self.refused(f"no chain/{self.toy.root}.sigstore.json")
+        self.assertEqual(self.verified, [])
+
+    def test_a_rekor_uuid_with_more_after_it_is_refused(self):  # G11_uuid_unanchored
+        for suffix in ("00", "\n", "g"):
+            with self.subTest(suffix=suffix):
+                self.toy = self.make_toy(uuid_suffix=suffix)
+                self.refused("the last root row has no rekor_uuid")
+        self.assertEqual(self.verified, [])
 
 
 class StageOpenCarriesTheExceptionTest(StageOpenCase):
@@ -1245,6 +1611,27 @@ class StageOpenNeedsTheMergesTest(StageOpenCase):
         self.toy = self.make_toy([rows[0], rows[1], rows[3]])
         self.open()
 
+    def test_a_merge_row_is_the_referees_own(self):  # G1_merge_derivation_any G2_merge_trust_any
+        """`26d`: a merge row's trust is `verified` or `observed` and its derivation one of the first three, as any row
+        of the referee's own; an inferred merge, or one from an LLM's inference, is no merge on either ledger."""
+        for over in ({"trust": "inferred"}, {"trust": DROP}, {"derivation": "llm_inference"},
+                     {"derivation": "name_similarity"}, {"derivation": DROP}, {"proposed_by": None}):
+            with self.subTest(over=over):
+                rows = self.toy_rows()
+                self.toy = self.make_toy([rows[0], edited(rows[1], over), rows[3]])
+                self.refused("comes before the toy's merge")
+                rows = self.copy_rows()
+                self.copy = self.make_copy([rows[0], edited(rows[1], over)] + rows[2:])
+                self.toy = self.make_toy()
+                self.refused("each a merge row of the copy's ledger")
+                self.copy = self.make_copy()
+
+    def test_the_toys_merge_is_not_the_copys(self):  # G13_copy_merges_from_toy
+        toy_merge = chained(self.toy_rows()[:2])[0][1]["row_hash"]
+        self.toy = self.make_toy(self.toy_rows(payload={"copy_merge_row_hashes": [toy_merge]}))
+        self.assertEqual(self.toy.rows[1]["row_hash"], toy_merge)
+        self.refused("each a merge row of the copy's ledger")
+
     def test_each_named_copy_merge_is_a_merge_row(self):  # stage_open_copy_merge_any_row
         """The second skeptic: the copy's status row named as a merge passed (any later copy row did)."""
         status = self.copy.rows[2]
@@ -1260,16 +1647,20 @@ class StageOpenNeedsTheMergesTest(StageOpenCase):
         self.copy = self.make_copy(self.copy_rows() + [proposed])
         self.toy = self.make_toy(self.toy_rows(payload={"copy_merge_row_hashes": [self.copy.rows[3]["row_hash"]]}))
         self.refused("each a merge row of the copy's ledger")
-        # A proposal stays one with trust and derivation a referee row would have; and the copy's genesis, even of
-        # kind merge, is no merge after the genesis (S6, the first skeptic's).
+        # A proposal stays one with trust and derivation a referee row would have; and the copy's genesis is no merge
+        # after it (S6, the first skeptic's): a genesis of kind merge is no genesis at all (E416).
         merge = edited(self.copy_rows()[1], {"proposed_by": "founder"})
         self.copy = self.make_copy(self.copy_rows()[:1] + [merge])
         self.toy = self.make_toy(self.toy_rows(payload={"copy_merge_row_hashes": [self.copy.rows[1]["row_hash"]]}))
         self.refused("each a merge row of the copy's ledger")
+        self.copy = self.make_copy()
+        self.toy = self.make_toy(self.toy_rows(payload={"copy_merge_row_hashes": [self.copy.rows[0]["row_hash"]]}))
+        self.refused("each a merge row of the copy's ledger")
         genesis = edited(self.copy_rows()[0], {"kind": "merge"})
         self.copy = self.make_copy([genesis] + self.copy_rows()[1:])
         self.toy = self.make_toy(self.toy_rows(payload={"copy_merge_row_hashes": [self.copy.rows[0]["row_hash"]]}))
-        self.refused("each a merge row of the copy's ledger")
+        self.refused("copy brain/state: the first ledger row is not the genesis")
+        self.copy = self.make_copy()
         self.toy = self.make_toy(self.toy_rows(payload={"copy_merge_row_hashes": [self.copy.rows[1]["row_hash"]]}))
         self.open()
 
@@ -1316,12 +1707,29 @@ class PassRowPageTest(unittest.TestCase):
             self.assertIn(f"`{value}`", page)
         self.assertEqual(stagelock.REFEREE_TRUST, ("verified", "observed"))  # `26`'s three but a proposal's `inferred`
         for words in ("`part: events`", "`stage`: tamsayı `0`", '`verdict`: dizgi `"PASS"`', "`proposed_by` taşımaz",
-                      "`kind: merge`", "`proposed_by` taşıyan satırlar ayrıldıktan sonra", "ondan önce en az bir merge "
+                      "`kind: merge`", "Öneriler ayrıldıktan sonra", "son genesis ile onun arasında en az bir merge "
                       "satırı", "PASS satırı başka bir aktarımı adlandırıyorsa kilit açılmaz", "`hashedrekord`",
                       "`{algorithm: sha256, value: <kök>}`", "`sha256:<kök>`", "`pass_row_sha256`",
                       "`{anchor, stage, carry_to, reason, carry_commitment, measured}`",
-                      f"`{decide_module.OWNER_EXCEPTABLE}`"):
+                      f"`{decide_module.OWNER_EXCEPTABLE}`",
+                      # E411-E416: the facts the third skeptic found missing
+                      "`kind: genesis`", "Defterin ilk satırı o hedefin genesis'idir", "defterin son genesis satırıdır",
+                      "yalnız ondan sonrakileri sayar", "`<state_root>` hedefin `brain/state` commit'inin tepesidir",
+                      "`chain/<kök>.sigstore.json`", "Paketi döngü yazar ve kök satırının yanında tutar",
+                      "sonuncusu da, LF ile biter", "CR yoktur", "hiçbir anahtar iki kez geçmez",
+                      "`proposed_by`'ı boş olmayan bir dizgi olan satır oyuncunun önerisidir", "`proposed_by: null`",
+                      "Rekor v1 `hashedrekord`", "`sign --rekor-version 1`", "en yüksek Rekor sürümünü seçer",
+                      "ardında hiçbir şey olamaz"):
             self.assertIn(words, page)
+        self.assertEqual(stagelock.ROOT_BUNDLE, "chain/{root}.sigstore.json")  # the page's `chain/<kök>.sigstore.json`
+        self.assertIn("`stage-open` son genesis'i okur (`26d`)", self.flat("tohum/25a-kurulum-etkinlestirme.md"))
+        self.assertIn("| `chain/<kök>.sigstore.json` (son kökün Sigstore paketi, `26d`) | `yaz` | `stage-open` |",
+                      self.flat("tohum/27a-okuyucular-hedef-durumu.md"))
+        tasks = {line.split("|")[1].strip(): line.split("|")[2] for line in
+                 (ROOT / "spec" / "tohum" / "00b-gorev-haritasi.md").read_text(encoding="utf-8").splitlines()
+                 if line.startswith("| ") and not line.startswith("| Görev")}
+        for task in ("Şema ve araç imzası", "Aşama açma ve kapama", "Hakem bileşeni yazma (Aşama 0 ve partiler)"):
+            self.assertIn("`26c`, `26d`", tasks[task], task)  # E414: the pages the Founder reads for the PASS row
         lines = (ROOT / "spec" / "tohum" / "26d-semalar-pass-satiri.md").read_text(encoding="utf-8").splitlines()
         self.assertRegex(lines[2], r"^Tarih: \d{4}-\d\d-\d\d · Sürüm: [\d.]+ · Durum: \w+ · Sahibi: operatör$")
         index = (ROOT / "spec" / "INDEX.md").read_text(encoding="utf-8")
@@ -1365,6 +1773,13 @@ class LockReadTest(StageOpenCase):
         write(self.referee, {"setup/imports.jsonl": data.replace(b"08:30", b"08:31")})
         with self.assertRaises(ConfigError):  # the chain no longer holds
             stagelock.load(self.referee)
+        _rows, false = chained([{"ts": "2026-10-31T08:00:00Z", "stage": False, "brain_sha": "c" * 40,
+                                 "referee_tree_sha256": "d" * 64, "result_sha256": "e" * 64}])
+        write(self.referee, {"setup/imports.jsonl": false,  # G4_lock_transfer_stage_bool: false is no stage 0
+                             "setup/stage.json": json.dumps(lock_of(false.split(b"\n")[0]))})
+        with self.assertRaises(ConfigError) as caught:
+            stagelock.load(self.referee)
+        self.assertIn("not Stage 0's", str(caught.exception))
         _rows, batch = chained([{"ts": "2026-11-02T08:00:00Z", "stage": 1, "batch": "P1", "brain_sha": "5" * 40,
                                  "referee_tree_sha256": "6" * 64, "result_sha256": "7" * 64}])
         write(self.referee, {"setup/imports.jsonl": batch,  # Stage 1's own transfer
@@ -1535,6 +1950,17 @@ class StageOneManifestTest(unittest.TestCase):
             "done_mf": [1], "lockfiles": []}))
         self.assertEqual(check_stage(stage0_numbered, table), ["missing_test:MF1:T51"])
 
+    def test_a_base_declares_the_open_tables_own_micro_features(self):  # M3_declares_counts_earlier
+        """`declares` says whether a manifest's `done_mf` is the open table's: its own micro-features with their tests.
+        A missing test of a finished table is that table's own reason (`missing_test:stage0:...`) and leaves P1's MF1
+        declared, so a base missing it still counts MF1 as done (no module-less red for it, its withdrawal seen)."""
+        table = stages.load(1)
+        lacking = self.manifest(stage1_done=[1], drop=(13,))
+        self.assertEqual(check_stage(lacking, table), ["missing_test:stage0:MF1:T13"])
+        self.assertTrue(manifest_module.declares(lacking, table))
+        self.assertFalse(manifest_module.declares(self.manifest(stage1_done=[1, 2], stage1_tests=[51]), table))
+        self.assertFalse(manifest_module.declares(self.manifest(stage1_done=range(1, 19), stage1_tests=[]), table))
+
     def test_stage_0s_tests_stay_declared(self):  # stage0_tests_dropped_in_stage1
         """E292's rule across the lock: Stage 0's micro-features stay finished, so their tests stay in the manifest."""
         self.assertEqual(check_stage(self.manifest(drop=(13,)), stages.load(1)), ["missing_test:stage0:MF1:T13"])
@@ -1692,11 +2118,14 @@ class StageOnePullTest(unittest.TestCase):
         """`02`: this seed judges only the Stage 0 exit; with the lock open that exit is behind, Stage 1's not yet
         judged here (E373)."""
         self.stage0_base()
-        frozen = self.state["frozen_specs"]["spec/asama-0"]
-        for stage in (0, 1):
-            with self.subTest(stage=stage):
-                meta = self.ask(stage=stage, spec_sha256=frozen, batch=DROP)
-                self.assertIn("exit_request_wrong_stage", meta["pre_reasons"])
+        frozen = self.state["frozen_specs"]
+        for stage, spec, reasons in ((0, "spec/asama-0", ["exit_request_wrong_stage"]),  # C2_batch_spec_any_stage
+                                     (1, "spec/asama-0", ["exit_request_wrong_stage"]),
+                                     (1, "spec/asama-1", ["exit_request_spec_hash_mismatch", "exit_request_wrong_stage"])):
+            with self.subTest(stage=stage, spec=spec):  # a stage's own exit, judged in Stage 0's form (`spec/asama-0`)
+                meta = self.ask(stage=stage, spec_sha256=frozen[spec], batch=DROP)
+                self.assertEqual([r for r in meta["pre_reasons"] if r.startswith("exit_request")], reasons)
+                self.state["last_evaluated_sha"] = None
 
     def test_the_open_batchs_exit_request_is_judged(self):  # batch_exit_request_malformed batch_exit_wrong_stage_always
         """E378, `02` 6, `asama-1/13` 2, `26c:17`: the batch's request is the exit request's form with `batch`; for the

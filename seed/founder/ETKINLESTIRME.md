@@ -288,14 +288,14 @@ koştur: PASS satırı oyuncağın `brain/state` defterinde, kopyanın genesis v
 **9. Kilidi aç** (operatör · `25a` 9, `asama-0/10a` "Kilidin açılışı": Aşama 1 ancak PASS'ten sonra; K3 gerekir).
 
 `$E/arac` 2. adımdaki gibi hakemin canlı `bootstrap/`'ının kopyasıdır (K3'ü getiren tohum döneminden sonra yeniden
-kopyala). Kopyanın `brain/state`'i küçük bir klondadır (yetim dal). İki kök paketi her hedefin son `chain/root.jsonl`
-satırının kökünü imzalayan Sigstore paketidir; döngü onu nerede tutuyorsa oradan `$E/a/`'ya indir ve yolunu
-`pilot-log.md`'ye yaz (yeri spec sessiz, E373). Kimlik döngünün iş akışınındır:
+kopyala). Kopyanın `brain/state`'i küçük bir klondadır (yetim dal). Her hedefin son kökünü imzalayan Sigstore paketini
+`stage-open` o hedefin `brain/state` başından okur: döngü onu kök satırının yanında tutar, `chain/<kök>.sigstore.json`
+(`26d`, E414); operatör paket indirmez. Kimlik döngünün iş akışınındır:
 
 ```
 WSL$ git -C $E/referee pull -q --ff-only && git -C $E/toy fetch -q origin
 WSL$ rm -rf $E/kopya-durum && git -c core.autocrlf=false clone -q --no-checkout --single-branch --branch brain/state https://github.com/Okan-wqm/snowball-rehearsal-copy.git $E/kopya-durum
-WSL$ cd $E/arac && python3 -m snowball_bootstrap stage-open --referee $E/referee --toy $E/toy --copy $E/kopya-durum --identity "https://github.com/Okan-wqm/snowball-rehearsal-referee/.github/workflows/loop.yml@refs/heads/main" --sigstore-python $E/sig/bin/python --toy-root-bundle $E/a/oyuncak-kok.sigstore.json --copy-root-bundle $E/a/kopya-kok.sigstore.json --result $E/a/result.json
+WSL$ cd $E/arac && python3 -m snowball_bootstrap stage-open --referee $E/referee --toy $E/toy --copy $E/kopya-durum --identity "https://github.com/Okan-wqm/snowball-rehearsal-referee/.github/workflows/loop.yml@refs/heads/main" --sigstore-python $E/sig/bin/python --result $E/a/result.json
 WSL$ cat $E/referee/setup/stage.json
 WSL$ grep referee_tree_sha256 $E/referee/setup/imports.jsonl | tail -n 1 | tr -d '\n' | sha256sum
 ```
@@ -303,16 +303,18 @@ WSL$ grep referee_tree_sha256 $E/referee/setup/imports.jsonl | tail -n 1 | tr -d
 `--result` 3. adımda içe aktarılan imzalı (A) sonucudur (baytlarının sha256'sı son aktarım satırının
 `result_sha256`'sı). `stage-open` 0 ile biter ya da `stop: …` ve `çıkış 2` ile durur, nedeni adıyla: Aşama 0'ın
 aktarım satırı yok, `--result` o satırın sonucu değil, özet bir oyuncak ve bir kopya hedefi adlandırmıyor, bir klonun
-ilk defter satırı o hedefin genesis'i değil (`payload.target`; kopyada `base_sha` da) ya da genesis son aktarım
-satırını adlandırmıyor (E376, E377), PASS satırı yok ya da iki tane (oyuncak defterinde `proposed_by`'sız, `payload`'ı
+ilk defter satırı o hedefin genesis satırı değil (`kind: genesis`, hakemin kendi `events` satırı, `payload.target`;
+E416) ya da son genesis satırı o hedefin değil (kopyada `base_sha` da) veya son aktarım satırını adlandırmıyor (E376,
+E377, E411), son genesis'ten sonra PASS satırı yok ya da iki tane (oyuncak defterinde öneri olmayan, `payload`'ı
 `stage: 0`, `verdict: "PASS"` olan `events` satırı; önerilmiş bir kopyası sayılmaz, E405), hakemin kendi satırı değil
-(`trust` `verified` ya da `observed`, `derivation` ilk üçten; E388, E404), oyuncağın merge satırından önce yazılmış ya
-da sayacın son aktarım satırını adlandırmıyor (`payload.import_line_sha256`, E405), kopyanın genesis ve merge
-satırlarını adlandırmıyor (`payload.copy_genesis_row_hash`, `payload.copy_merge_row_hashes`: her biri kopyanın bir
-`kind: merge` satırı; E376, E405), sahip istisnasını imzalı sonuçtaki gibi taşımıyor (`payload.owner_exception`, E379),
-bir zincir kırık, son kök defterin uçları değil, paket satırın Rekor girdisi değil ya da girdi kökü kaydeden bir
-`hashedrekord` değil (Rekor v2 gövdesi de, E406), Sigstore `sha256:<kök>`'ü reddetti (E375) ya da kilit zaten var
-(E371). Kural ve alanlar Kurucu'nun okuduğu `spec/tohum/26d`'dedir (E404). Durursa itme, `pilot-log.md`'ye yaz.
+(`proposed_by` yok, `null` da değil; `trust` `verified` ya da `observed`, `derivation` ilk üçten; E388, E404, E416),
+son genesis ile kendisi arasında oyuncağın merge satırı yok ya da sayacın son aktarım satırını adlandırmıyor
+(`payload.import_line_sha256`, E405), kopyanın son genesis'ini ve ondan sonraki merge satırlarını adlandırmıyor
+(`payload.copy_genesis_row_hash`, `payload.copy_merge_row_hashes`: her biri kopyanın bir `kind: merge` satırı; E376,
+E405), sahip istisnasını imzalı sonuçtaki gibi taşımıyor (`payload.owner_exception`, E379), bir zincir kırık, son kök
+defterin uçları değil, kök paketi `brain/state`'te yok (E414), paket satırın Rekor girdisi değil ya da girdi kökü
+kaydeden bir Rekor v1 `hashedrekord` değil (v2 gövdesi de; kök `sign --rekor-version 1` ile imzalanır, E406, E415),
+Sigstore `sha256:<kök>`'ü reddetti (E375) ya da kilit zaten var (E371). Kural ve alanlar Kurucu'nun okuduğu `spec/tohum/26d`'dedir (E404). Durursa itme, `pilot-log.md`'ye yaz.
 
 `setup/stage.json` tam olarak `{stage: 1, pass_row_sha256, toy_state_head, copy_state_head, import_line_sha256}`
 (`26c:39`); iki baş `gh api repos/<T>/git/ref/heads/brain/state --jq .object.sha` ile, `import_line_sha256` son
@@ -347,7 +349,9 @@ geçer. *Geri dönüş:* `loop_schedule` `False`, it; `stage.json` commit'ini `g
 4. yeniden etkinleştirmeden önce hedeflerdeki `brain/` dalları gider, çünkü genesis `brain/state`'i yetim dal olarak
    açar (`01a`, `24`) ve GitHub var olan ref'i yeniden yaratmaz (`POST git/refs`). Spec sessiz; en dar seçim: yalnız
    oyuncak ve kopyada, yalnız `brain/` dalları, SHA'ları önce `pilot-log.md`'ye, nesneleri yerel arşive (zincirin kökleri
-   Rekor'da kalır). Sahip S8'in ilk yarısını yapar, operatör siler, sahip S8'in ikinci yarısını yapar:
+   Rekor'da kalır). Sahip S8'in ilk yarısını yapar, operatör siler, sahip S8'in ikinci yarısını yapar. (Dallar kalırsa
+   da kilit açılabilir: (B) yeni aktarımı adlandıran yeni genesis satırlarıyla yeniden koşar, `stage-open` son genesis'i
+   okur, E411; bu adımın gerekip gerekmediği döngünün var olan `brain/state`'e ekleyip ekleyemediğine bağlıdır.)
 
 ```
 PS> foreach ($T in $TS) { "== $T"; gh api "repos/$T/git/matching-refs/heads/brain/" --jq '.[] | [.ref, .object.sha] | @tsv' }
@@ -424,8 +428,9 @@ Hepsi en dar seçimdir ve E330'dadır.
 - Yeniden etkinleştirmede yalnız oyuncak ve kopyada, yalnız `brain/` dalları silinir, önce kaydı ve yerel arşivi alınır.
 - 8. adımda `referee/` denetimi elle (E333). PASS satırının yeri `asama-0/10a`'nınki, oyuncak (E334).
 - `stage-open`'ın girdileri (E371): oyuncağın ve kopyanın `brain/state` klonları (`--ref` öntanımı
-  `refs/remotes/origin/brain/state`), iki kök paketi, döngünün `loop.yml` kimliği, imzalı (A) sonucu (`--result`,
-  E379); PASS satırının ve kökün okunuşu E371, E375–E377, E379, E388 ve E404–E406'dadır, Kurucu'ya `26d`'de söylenir.
+  `refs/remotes/origin/brain/state`; kök paketleri oradan, E414), döngünün `loop.yml` kimliği, imzalı (A) sonucu
+  (`--result`, E379); PASS satırının ve kökün okunuşu E371, E375–E377, E379, E388, E404–E406 ve E411–E416'dadır,
+  Kurucu'ya `26d`'de söylenir.
 - Parti aktarımı (P1 ilk, E378): beyin parti isteğini yapar (`exit-request.json` `{stage: 1, sha, spec_sha256, batch:
   "P1"}`), önyükleme hakeminin aktarılabilir sonucu `exit.batch` taşır; 3. adımın komutu `--toy` olmadan koşulur,
   sayaç satırı `{ts, stage, batch, brain_sha, referee_tree_sha256, result_sha256}`'dir; açık parti dışındaki ya da

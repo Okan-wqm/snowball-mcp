@@ -9,9 +9,15 @@ its hash compared with the signed one, the toy subtree's likewise at Stage 0's e
 again as it lies on disk. Before anything in a checkout is touched, no path the copy writes may reach, under another
 name than its own, something the checkout keeps (an 8.3 short name such as ``BOOTST~1``, another case, a trailing dot
 or space: the operator's Windows file system resolves them, E130, E374), at any depth. Only then are the checkouts
-changed, and what each keeps is read as it lies on disk, every entry with its bytes, before and after the copy: a path
-that reached a kept entry under a name the check above did not foresee changed it, and the import stops before the
-counter is written (E403). In the referee checkout the import keeps the operator's files, the bootstrap referee's
+changed, and the copy itself cannot write through what is there (E412): once everything not kept is cleared, every file
+is created new (``O_EXCL``) and every directory is made new, but for a directory the checkout keeps on the way to a kept
+entry, entered under its exact name and only while it is the directory the clear left there; so a name the file system
+resolves onto an existing entry, whatever the check above foresaw, fails instead of writing. What each checkout keeps
+is read as it lies on disk, every entry with its bytes, before and after the copy, a second layer: a change (another
+process, a git command or an IDE, may have made it too) stops the import before the counter is written (E403), and a
+change under the git directory says to delete the checkout and clone it again, never to run a git command in it (its
+config runs commands). A link is never read, cleared or written through, a Windows junction included (E413). In the
+referee checkout the import keeps the operator's files, the bootstrap referee's
 ``bootstrap/`` and ``.github/workflows/bootstrap.yml`` (the push judge stays, E100) and the git directory, and
 replaces everything else with the referee tree, so ``referee/.github/workflows/loop.yml`` lands at
 ``.github/workflows/loop.yml``. The checkout is hashed once more without what it keeps, and then the counter gets its
@@ -36,6 +42,7 @@ import hashlib
 import json
 import os
 import shutil
+import stat
 import subprocess
 import tempfile
 from pathlib import Path, PurePosixPath
@@ -100,6 +107,12 @@ def _lands_on_kept(rel: PurePosixPath) -> bool:
     return kept(PurePosixPath(*[part.casefold() for part in rel.parts]))
 
 
+def _is_link(path: Path) -> bool:
+    """A symbolic link or a Windows junction (`Path.is_junction`, which `is_symlink` does not see): nothing is read,
+    cleared or written through one (E413)."""
+    return path.is_symlink() or path.is_junction()
+
+
 def _same(a: Path, b: Path) -> bool:
     try:
         return os.path.samefile(a, b)
@@ -148,8 +161,9 @@ def kept_state(checkout: Path, keep: Callable[[PurePosixPath], bool],
     """What ``checkout`` keeps as it lies on disk (E403): every entry at or under each kept path, by its path relative
     to the checkout, with what it is: its bytes' sha256 (a regular file), ``dir``, ``link:<target>`` or ``special``.
     The walk goes down only where ``holds`` says something kept lies below (`.github/`, `.github/workflows/`) and never
-    through a link. The import reads it before anything is written and again after the copy, so any path that reached
-    a kept entry, under whatever name the file system resolved, shows as a change: an entry changed, added or gone."""
+    through a link, a junction included (E413); a link on the way to something kept stops the import. The import reads
+    it before anything is written and again after the copy, so any path that reached a kept entry, under whatever name
+    the file system resolved, shows as a change: an entry changed, added or gone."""
     found: dict[str, str] = {}
     stack = [(checkout, PurePosixPath(), False)]
     while stack:
@@ -157,9 +171,13 @@ def kept_state(checkout: Path, keep: Callable[[PurePosixPath], bool],
         for child in sorted(directory.iterdir()):
             child_rel = rel / child.name
             whole = inside or keep(child_rel)
-            if child.is_symlink():
+            if _is_link(child):
                 if whole:
                     found[child_rel.as_posix()] = "link:" + os.readlink(child)
+                elif holds(child_rel):
+                    raise ImportErrorStop(f"{child_rel.as_posix()} in the checkout is a link on the way to what the "
+                                          "import keeps (`25a` 1): nothing is read, cleared or written through a link "
+                                          "(E413); nothing was written")
             elif child.is_dir():
                 if whole:
                     found[child_rel.as_posix()] = "dir"
@@ -178,9 +196,15 @@ def _file_sha256(path: Path) -> str:
 def _kept_unchanged(before: dict[str, str], after: dict[str, str], what: str) -> None:
     changed = sorted(rel for rel in set(before) | set(after) if before.get(rel) != after.get(rel))
     if changed:
+        if any(rel == ".git" or rel.startswith(".git/") for rel in changed):  # its config and hooks run commands
+            todo = ("its git directory is not what it was, so run no git command in it (git runs what its config and "
+                    "hooks say): delete the checkout and clone it again")
+        else:
+            todo = "reset the checkout before anything is pushed"
         raise ImportErrorStop(f"the copy changed what the {what} checkout keeps: {', '.join(changed[:5])} (a path of the "
-                              "signed tree reached it under another name, `25a` 1, E403): reset the checkout before "
-                              "anything is pushed; no counter row was written")
+                              "signed tree reached it under another name, or another process changed it while the "
+                              "import ran, a git command or an IDE; `25a` 1, E403): " + todo + "; no counter row was "
+                              "written")
 
 
 def disk_hash(root: Path, skip: Callable[[PurePosixPath], bool] = lambda rel: False) -> str:
@@ -191,7 +215,7 @@ def disk_hash(root: Path, skip: Callable[[PurePosixPath], bool] = lambda rel: Fa
         base = Path(dirpath)
         rel_base = PurePosixPath(base.relative_to(root).as_posix())
         for name in list(dirnames):
-            if (base / name).is_symlink():
+            if _is_link(base / name):  # os.walk goes into a junction on Windows (E413)
                 raise ImportErrorStop(f"{(rel_base / name).as_posix()} on disk is a link")
             if skip(rel_base / name):
                 dirnames.remove(name)
@@ -206,19 +230,83 @@ def disk_hash(root: Path, skip: Callable[[PurePosixPath], bool] = lambda rel: Fa
 
 
 def _clear(directory: Path, keep: Callable[[PurePosixPath], bool], holds: Callable[[PurePosixPath], bool],
-           rel: PurePosixPath = PurePosixPath()) -> None:
-    """Remove everything under ``directory`` that is not kept, descending only where something kept lies below."""
+           rel: PurePosixPath = PurePosixPath(),
+           kept_dirs: dict[PurePosixPath, os.stat_result] | None = None) -> dict[PurePosixPath, os.stat_result]:
+    """Remove everything under ``directory`` that is not kept, descending only where something kept lies below; a link
+    or a junction is removed itself, never what it points at (E413). Returns the directories it kept on the way, each
+    as it is on disk (`os.lstat`): the only existing directories the copy enters (E412)."""
+    kept_dirs = {} if kept_dirs is None else kept_dirs
     for child in sorted(directory.iterdir()):
         child_rel = rel / child.name
         if keep(child_rel):
             continue
-        if child.is_dir() and not child.is_symlink():
+        if _is_link(child):
+            child.unlink()  # the link alone (on Windows, a directory link or junction too)
+        elif child.is_dir():
             if holds(child_rel):
-                _clear(child, keep, holds, child_rel)
+                kept_dirs[child_rel] = os.lstat(child)
+                _clear(child, keep, holds, child_rel, kept_dirs)
             else:
                 shutil.rmtree(child)
         else:
             child.unlink()
+    return kept_dirs
+
+
+def _through(label: str, rel: PurePosixPath, exc: OSError | None = None) -> ImportErrorStop:
+    why = f" ({exc.strerror or type(exc).__name__})" if exc is not None else ""
+    return ImportErrorStop(f"{label}/{rel.as_posix()} would be written through an entry already in the checkout that the "
+                           f"copy did not make{why} (an 8.3 short name, another case, a trailing dot or space, a link, "
+                           "or what another process put there; `25a` 1, E412): nothing is written through it")
+
+
+def _still(path: Path, seen: os.stat_result) -> bool:
+    """Whether ``path`` is still the entry `os.lstat` saw as ``seen`` (the same file on the same device)."""
+    try:
+        return os.path.samestat(os.lstat(path), seen)
+    except OSError:
+        return False
+
+
+def _copy_new(tree: Path, checkout: Path, kept_dirs: dict[PurePosixPath, os.stat_result], label: str) -> None:
+    """Copy ``tree`` into ``checkout`` through nothing that is already there (E412). Each directory is made new, but for
+    one the clear kept on the way to a kept entry, entered under its exact name while it is that directory; each file is
+    created new (``O_EXCL``). A name the file system resolves onto an existing entry fails instead of writing."""
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0)  # O_EXCL: never a link's target either
+    for dirpath, dirnames, filenames in os.walk(tree):
+        base = Path(dirpath)
+        rel_base = PurePosixPath(base.relative_to(tree).as_posix())
+        dirnames.sort()
+        for name in dirnames:
+            rel, target = rel_base / name, checkout.joinpath(*(rel_base / name).parts)
+            try:
+                os.mkdir(target)
+            except FileExistsError:  # entered only under the exact name of a directory the clear kept, while it is that
+                if rel not in kept_dirs or not _still(target, kept_dirs[rel]):  # one (a link is another entry)
+                    raise _through(label, rel) from None
+            except OSError as exc:
+                raise _through(label, rel, exc) from exc
+        for name in sorted(filenames):
+            rel, target = rel_base / name, checkout.joinpath(*(rel_base / name).parts)
+            try:
+                handle = os.open(target, flags, 0o644)
+            except OSError as exc:
+                raise _through(label, rel, exc) from exc
+            with os.fdopen(handle, "wb") as out, open(base / name, "rb") as source:
+                shutil.copyfileobj(source, out)
+                if os.chmod in os.supports_fd:  # the tree's mode; on Windows a new file is writable, as both are
+                    os.chmod(out.fileno(), stat.S_IMODE(os.fstat(source.fileno()).st_mode))
+
+
+def _copy_in(tree: Path, checkout: Path, kept_dirs: dict[PurePosixPath, os.stat_result], before: dict[str, str],
+             keep: Callable[[PurePosixPath], bool], holds: Callable[[PurePosixPath], bool], what: str, label: str) -> None:
+    """`_copy_new`; when it stops part-way, what the checkout keeps is read again first, so the stop says what to do."""
+    try:
+        _copy_new(tree, checkout, kept_dirs, label)
+    except ImportErrorStop as exc:
+        _kept_unchanged(before, kept_state(checkout, keep, holds), what)
+        raise ImportErrorStop(f"{exc}; what the {what} checkout keeps is as it was: reset the checkout before anything "
+                              "is pushed; no counter row was written") from exc
 
 
 def _now() -> str:
@@ -306,8 +394,8 @@ def run_import(result_path: Path, bundle_path: Path, identity: str, sigstore_pyt
         referee_kept = kept_state(referee_dir, kept, _holds_kept)
         toy_kept = kept_state(toy_dir, _git_dir, _nothing) if toy_tree is not None else {}
 
-        _clear(referee_dir, kept, _holds_kept)
-        shutil.copytree(referee_tree, referee_dir, dirs_exist_ok=True)
+        referee_dirs = _clear(referee_dir, kept, _holds_kept)
+        _copy_in(referee_tree, referee_dir, referee_dirs, referee_kept, kept, _holds_kept, "referee", "referee")
         _kept_unchanged(referee_kept, kept_state(referee_dir, kept, _holds_kept), "referee")
         if disk_hash(referee_dir, skip=kept) != expected:
             raise ImportErrorStop("the referee checkout on disk, what the import keeps left out, is not the signed tree "
@@ -315,7 +403,7 @@ def run_import(result_path: Path, bundle_path: Path, identity: str, sigstore_pyt
         toy_bytes = 0
         if toy_tree is not None:
             _clear(toy_dir, _git_dir, _nothing)
-            shutil.copytree(toy_tree, toy_dir, dirs_exist_ok=True)
+            _copy_in(toy_tree, toy_dir, {}, toy_kept, _git_dir, _nothing, "toy", TOY_DIR)
             _kept_unchanged(toy_kept, kept_state(toy_dir, _git_dir, _nothing), "toy")
             if disk_hash(toy_dir, skip=_git_dir) != toy_expected:
                 raise ImportErrorStop("the toy checkout on disk is not the signed toy tree (`25a` 2): reset it")

@@ -895,8 +895,7 @@ def cmd_import(args: argparse.Namespace) -> int:
 def cmd_stage_open(args: argparse.Namespace) -> int:
     """`25a` 9, `asama-0/10a` "Kilidin açılışı": after Stage 0's PASS row, write ``setup/stage.json`` (`26c`)."""
     lock = stagelock.open_stage(Path(args.referee), Path(args.toy), Path(args.copy), args.ref, args.identity,
-                                args.sigstore_python, Path(args.toy_root_bundle), Path(args.copy_root_bundle),
-                                Path(args.result))
+                                args.sigstore_python, Path(args.result))
     print(json.dumps(lock, indent=2, sort_keys=True))
     print("Review setup/stage.json in the referee checkout, then commit and push it yourself.")
     return 0
@@ -941,10 +940,9 @@ def build_parser() -> argparse.ArgumentParser:
         ("--toy", dict(req, help="a local clone of the toy target")),
         ("--copy", dict(req, help="a local clone of the copy target")),
         ("--ref", {"default": stagelock.DEFAULT_REF, "help": "the targets' brain/state in those clones"}),
-        ("--identity", dict(req, help="the loop workflow's signing identity (its yaz job anchors the roots)")),
+        ("--identity", dict(req, help="the loop workflow's signing identity (its yaz job anchors the roots; each "
+                                      "root's bundle is read from brain/state, chain/<root>.sigstore.json)")),
         ("--sigstore-python", req),
-        ("--toy-root-bundle", dict(req, help="the Sigstore bundle of the toy's last root")),
-        ("--copy-root-bundle", dict(req, help="the Sigstore bundle of the copy's last root")),
         ("--result", dict(req, help="the signed (A) result the last transfer imported (its result_sha256)")))
     return parser
 

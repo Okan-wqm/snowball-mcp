@@ -25,7 +25,9 @@ Hedef repoya dokunan kurulum, Aşama 0'ın ürettiği döngü hakemiyle yapılı
 **Başarısızlık.** Satır 1, 7 ya da 8 kırmızıysa sistem sert durur; operatör aktarım commit'ini `git revert`
 eder ve çıkışın imzalı sonuçtaki başını `control.json` `reverted_exits`'e ekler (`26c`): (A)'nın dondurması kalkar
 (`29b` "Çıkıştan sonra"), itme yargıcı aktarımdan etkilenmediği için Kurucu'nun yolu açık kalır. Düzeltilmiş SHA (A)'dan
-yeniden geçer; aktarımı yine operatörün işidir ve insan dokunuşu sayacında görünür.
+yeniden geçer; aktarımı yine operatörün işidir ve insan dokunuşu sayacında görünür. Hedeflerin `brain/state`'i silinmezse
+(satır 3) (B) iki hedefte yeni aktarımı adlandıran yeni bir genesis satırından yeniden koşar; `stage-open` son genesis'i
+okur (`26d`).
 
 **Her yeni hedef.** Satır 3–7 her yeni yazma modu hedefinde tekrar edilir; satır 5–6 P1 aktarımından sonra
 `drift.check` ile her döngü yeniden doğrulanır (`21`); ondan önce yalnız genesis'te. **Eğitim hedefi** için
