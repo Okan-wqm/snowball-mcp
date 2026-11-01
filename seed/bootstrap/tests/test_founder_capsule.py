@@ -89,6 +89,73 @@ class CapsuleArgvTest(unittest.TestCase):
                 self.assertTrue(Path(src).is_relative_to(self.work), src)
 
 
+class ResultShadowTest(unittest.TestCase):  # E344: a noop on the launcher's own commit never hides the Founder's verdict
+    def setUp(self):
+        self.launch = load_launch()
+        self.work = Path(tempfile.mkdtemp())
+        self.pilot = self.launch.Pilot(self.work, "o/brain", "o/referee", "target")
+        self.pilot.result_dir.mkdir(parents=True, exist_ok=True)
+
+    @staticmethod
+    def zipped(result: dict) -> bytes:
+        import zipfile
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as zf:
+            zf.writestr("result.json", json.dumps(result))
+        return buf.getvalue()
+
+    def mounted(self, newest: dict, older: dict, committers: list[tuple[str, str]], status: str = "ahead"):
+        listing = {"artifacts": [
+            {"id": 2, "expired": False, "created_at": "2026-11-01T02:00:00Z", "workflow_run": {"head_branch": "main"}},
+            {"id": 1, "expired": False, "created_at": "2026-11-01T01:00:00Z", "workflow_run": {"head_branch": "main"}}]}
+        compare = {"status": status, "commits": [{"commit": {"committer": {"name": n, "email": e}}} for n, e in committers]}
+        zips = {"2": self.zipped(newest), "1": self.zipped(older)}
+
+        def gh_json(*args):
+            return listing if "artifacts?" in args[1] else compare
+
+        def gh_read(*args, timeout=120):
+            return zips[args[1].split("/")[-2]]
+
+        with mock.patch.object(self.launch, "gh_json", side_effect=gh_json), \
+                mock.patch.object(self.launch, "gh_read", side_effect=gh_read):
+            got = self.pilot.fetch_result()
+        on_disk = json.loads((self.pilot.result_dir / "result.json").read_text(encoding="utf-8"))
+        self.assertEqual(got, on_disk)
+        return got
+
+    def test_a_noop_on_the_launchers_cost_commit_mounts_the_founders_verdict(self):
+        launcher = (self.launch.LAUNCHER_NAME, self.launch.LAUNCHER_EMAIL)
+        got = self.mounted({"head": "c" * 40, "kind": "none", "verdict": "noop"},
+                           {"head": "f" * 40, "kind": "code", "verdict": "accepted"}, [launcher])
+        self.assertEqual(got["head"], "f" * 40)
+
+    def test_a_noop_over_any_other_commit_is_mounted_as_it_is(self):
+        launcher = (self.launch.LAUNCHER_NAME, self.launch.LAUNCHER_EMAIL)
+        for committers in ([launcher, ("Founder", "founder@example.invalid")],
+                           [(self.launch.LAUNCHER_NAME, "someone@example.invalid")], []):
+            got = self.mounted({"head": "c" * 40, "kind": "none", "verdict": "noop"},
+                               {"head": "f" * 40, "kind": "code", "verdict": "accepted"}, committers)
+            self.assertEqual(got["head"], "c" * 40, committers)
+        got = self.mounted({"head": "c" * 40, "kind": "none", "verdict": "noop"},
+                           {"head": "f" * 40, "kind": "code", "verdict": "accepted"}, [launcher], status="diverged")
+        self.assertEqual(got["head"], "c" * 40)
+
+    def test_a_real_verdict_is_mounted_as_it_is(self):
+        launcher = (self.launch.LAUNCHER_NAME, self.launch.LAUNCHER_EMAIL)
+        for kind in ("code", "spec", "seed_update", "exit"):
+            got = self.mounted({"head": "c" * 40, "kind": kind, "verdict": "accepted"},
+                               {"head": "f" * 40, "kind": "code", "verdict": "accepted"}, [launcher])
+            self.assertEqual(got["head"], "c" * 40, kind)
+
+    def test_broken_record_lines_never_stop_the_launcher(self):
+        self.pilot.metrics.write_text('{"stamp": "s1", "session_exit": 0, "minutes": 3, "pushed": true}\n\n{"stamp": "s2"',
+                                      encoding="utf-8")
+        self.pilot.previous_session_note("20261101T000000Z", 10800)
+        note = json.loads((self.work / "logs" / "20261101T000000Z" / "previous-session.json").read_text(encoding="utf-8"))
+        self.assertEqual(note["stamp"], "s1")
+
+
 class PreviousSessionTest(unittest.TestCase):  # E360: how the last session ended is an observation, never its transcript
     def setUp(self):
         self.launch = load_launch()

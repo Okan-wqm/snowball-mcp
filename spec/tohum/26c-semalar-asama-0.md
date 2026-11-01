@@ -37,7 +37,7 @@ hakem kodu değildir; `unit_candidates` kopyanın aday birim yolları, sırayla)
 koşu işareti.
 
 **setup/imports.jsonl**: her aktarım bir satır `{ts, stage, batch?, brain_sha, referee_tree_sha256, result_sha256, toy_tree_sha256?}`, zincirli (`26`); insan dokunuşu
-sayacı. `referee_tree_sha256`: `brain_sha`'nın `git archive`'ında `referee/` altındaki her düzenli dosya için bir satır:
+sayacı. `referee_tree_sha256`: `brain_sha`'nın ağacında, blob baytlarıyla (git öznitelikleri, filtreler ve satır sonu dönüşümü uygulanmadan), `referee/` altındaki her düzenli dosya için bir satır:
 içeriğin sha256'sı (küçük onaltılık), iki boşluk, `referee/`'ye göre yol, LF. Satırlar bayt sırasıyla dizilip birleştirilir;
 sonucun sha256'sı küçük onaltılıktır; dizinler ve yürütme biti girmez. Hash yoktur (ret): arşivin herhangi bir yerinde, yalnız `referee/` altında değil, bağ ya da özel dosya, ya da UTF-8 olmayan, kontrol karakteri, ters bölü ya da iki nokta taşıyan, mutlak, `..` ya da `.git` bileşenli (harf duyarsız) bir yol varsa;
 `referee/` altında büyük-küçük harf duyarsız dosya sisteminde (casefold) tek ad olan iki yol ya da yol üstü iki dizin, `referee/`'nin tepesinde bir operatör adı ya da `bootstrap` (casefold, `asama-0/10` #agac) varsa ya da `referee/` altında hiç dosya yoksa. Bilinen

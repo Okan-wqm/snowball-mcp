@@ -4,7 +4,7 @@ One cycle:
   1. download the referee's last signed result (`bootstrap-state` artifact of the referee's main branch);
   2. rebuild <work>/vec from the `vectors/` of the referee repo's main (E244); if that fails, no session: stop;
   3. run one Founder session in the capsule (seed/founder/Dockerfile);
-  4. if the brain moved, dispatch the referee (its schedule does not fire, E32) and wait for it;
+  4. if the brain moved, dispatch the referee (its schedule fires rarely and irregularly, E32) and wait for it;
   5. write the session's cost as a `kind: cost` founder row on the brain's main (`tohum/24a` 4), when that commit is
      memory alone to the referee; otherwise keep it in <work>/cost-pending.jsonl for a later cycle;
   6. append what happened to <work>/pilot-log.md (with the brain's open reports and their age) and one metrics line
@@ -114,6 +114,14 @@ def gh_read(*args: str, timeout: float = 120) -> bytes:
 
 def gh_json(*args: str):
     return json.loads(gh_read(*args) or b"null")
+
+
+def _json_or_none(line: str):
+    """One JSON line, or None for a blank or broken one (a record file cut by a power loss must not stop the pilot)."""
+    try:
+        return json.loads(line) if line.strip() else None
+    except ValueError:
+        return None
 
 
 def say(msg: str) -> None:
@@ -497,8 +505,9 @@ class Pilot:
         for the report. A killed session gets its row too: that is what the next session can learn from (E340)."""
         pending_path = self.work / COST_PENDING
         facts = []
-        if pending_path.is_file():
-            facts = [json.loads(line) for line in pending_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+        if pending_path.is_file():  # a broken line is kept out, never a reason to lose the session's own row
+            facts = [row for row in map(_json_or_none, pending_path.read_text(encoding="utf-8").splitlines())
+                     if isinstance(row, dict)]
         facts.append({"stamp": stamp, "head": head, **{k: sess.get(k) for k in ("exit", "minutes", "turns", "cost_usd",
                                                                                "subtype")}})
         try:
@@ -512,23 +521,50 @@ class Pilot:
         return f"{len(facts)} satır yazıldı, beyin `{outcome[:7]}`"
 
     def fetch_result(self) -> dict | None:
-        """The newest bootstrap-state artifact made on the referee's main branch, unpacked into <work>/referee."""
+        """The newest bootstrap-state artifact made on the referee's main branch, unpacked into <work>/referee.
+
+        A `none` result on a head that adds only this script's own commits (its cost rows) to the previous result's
+        head is not the Founder's verdict: the referee's schedule can judge the launcher's commit at any time, and
+        mounting that `noop` would hide the verdict on the Founder's own last push (its rival block, tests, warnings).
+        The previous result is mounted instead; the state in both is the same, so nothing is lost."""
         listing = gh_json("api", f"repos/{self.referee}/actions/artifacts?name={STATE_ARTIFACT}&per_page=30")
-        arts = [a for a in listing.get("artifacts", [])
-                if not a["expired"] and (a.get("workflow_run") or {}).get("head_branch") == "main"]
+        arts = sorted((a for a in listing.get("artifacts", [])
+                       if not a["expired"] and (a.get("workflow_run") or {}).get("head_branch") == "main"),
+                      key=lambda a: a["created_at"], reverse=True)
         for old in self.result_dir.iterdir():
             old.unlink()
         if not arts:
             return None
-        newest = max(arts, key=lambda a: a["created_at"])
-        blob = gh_read("api", f"repos/{self.referee}/actions/artifacts/{newest['id']}/zip")
+        files = self.artifact_files(arts[0])
+        result = json.loads(files["result.json"]) if "result.json" in files else None
+        if result and result.get("kind") == "none" and len(arts) > 1:
+            older_files = self.artifact_files(arts[1])
+            older = json.loads(older_files["result.json"]) if "result.json" in older_files else None
+            if older and older.get("head") and self.launcher_commits_only(older["head"], str(result.get("head"))):
+                files, result = older_files, older
+        for name, data in files.items():
+            (self.result_dir / name).write_bytes(data)
+        return result
+
+    def artifact_files(self, art: dict) -> dict[str, bytes]:
+        """An artifact's top-level files (no paths, no dot files), as bytes."""
+        blob = gh_read("api", f"repos/{self.referee}/actions/artifacts/{art['id']}/zip")
         with zipfile.ZipFile(io.BytesIO(blob)) as zf:
-            for name in zf.namelist():
-                if "/" in name or "\\" in name or name.startswith("."):
-                    continue
-                (self.result_dir / name).write_bytes(zf.read(name))
-        path = self.result_dir / "result.json"
-        return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else None
+            return {name: zf.read(name) for name in zf.namelist()
+                    if not ("/" in name or "\\" in name or name.startswith("."))}
+
+    def launcher_commits_only(self, base: str, head: str) -> bool:
+        """Whether every commit from base to head is this script's own (its committer name and e-mail); False when
+        the brain cannot be read or base is not an ancestor of head, so the newest result is then mounted as it is."""
+        try:
+            cmp = gh_json("api", f"repos/{self.brain}/compare/{base}...{head}")
+        except (GitHubUnavailable, ValueError):
+            return False
+        commits = (cmp or {}).get("commits") or []
+        return ((cmp or {}).get("status") == "ahead" and bool(commits)
+                and all(((c.get("commit") or {}).get("committer") or {}).get("name") == LAUNCHER_NAME
+                        and ((c.get("commit") or {}).get("committer") or {}).get("email") == LAUNCHER_EMAIL
+                        for c in commits))
 
     def refresh_inputs(self) -> None:
         """Rebuild <work>/vec from the `vectors/` of the referee repo's main, with the referee's own projection
@@ -661,7 +697,8 @@ class Pilot:
         lines = self.metrics.read_text(encoding="utf-8").splitlines() if self.metrics.is_file() else []
         # The last cycle's row, not the last line: every launcher start appends its own row first (E313), and the start
         # after a timed-out session is exactly the case this note is for (the operator's card skips those rows too).
-        cycles = [row for row in map(json.loads, lines) if row.get("kind") != INTERVENTION]
+        cycles = [row for row in map(_json_or_none, lines)
+                  if isinstance(row, dict) and row.get("kind") != INTERVENTION]
         if not cycles:
             return
         last = cycles[-1]
