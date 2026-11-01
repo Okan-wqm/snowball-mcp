@@ -2,9 +2,10 @@
 `decide` commands, gives the base's meta and signed result, field for field once the run's own commit SHAs and
 content hashes are named.
 
-The expected outputs are recorded from the seed this branch was built on (`merge/train2` `d7706b8`, main to be: main
-`d79053c`'s Stage 0 code plus the merged learning links), not computed here: run this file as a script on that tree's
-`seed/bootstrap` to record them again (``python tests/test_stage0_unchanged.py --record <file>``). Two histories are
+The expected outputs are recorded from the seed this branch was built on, without the activation tooling: main
+`9b35afa` (first `merge/train2` `d7706b8`; main's E390-E399 changed one `not_checked:spec` detail since, so the record
+moved with it, E477), not computed here: run this file as a script on that tree's `seed/bootstrap` to record them again
+(``python tests/test_stage0_unchanged.py --record <file>``). Two histories are
 judged: after an accepted MF1 push (each shape, every exit rejected), and after all of Stage 0 was accepted, where
 the plain request is accepted and transferable once what the seed cannot check yet is set aside (as `test_flow`'s
 import test does). A difference in any field of either document, for any shape, fails: the Stage 1 tooling may
@@ -27,7 +28,7 @@ from snowball_bootstrap.treehash import tree_hash
 from helpers import LOOP_YML, commit, ledger_bytes, ledger_rows, sh
 from test_flow import ALL_MFS, Flow, all_tests_manifest
 
-FIXTURE = Path(__file__).resolve().parent / "fixtures" / "stage0" / "exit-requests-d7706b8.json"
+FIXTURE = Path(__file__).resolve().parent / "fixtures" / "stage0" / "exit-requests-9b35afa.json"
 TOY = "tests/fixtures/toy-repo"
 # Each shape is what `exit-request.json` holds, over `{stage: 0, sha: <last accepted>, spec_sha256: <frozen>}`;
 # a value DROP leaves the key out, RAW replaces the whole document with the given text.

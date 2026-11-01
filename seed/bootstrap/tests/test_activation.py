@@ -30,7 +30,8 @@ from snowball_bootstrap.manifest import check_stage, parse_manifest
 from snowball_bootstrap.treehash import tree_hash
 
 import test_exit_checks
-from helpers import LOOP_YML, FakeRunner, commit, make_repo, posix_only, sh
+from helpers import (GIT_IDENTITY, LOOP_YML, FakeRunner, bare_repo, commit, git_in, main_of, make_repo, plumbed,
+                     posix_only, sh, tree_files)
 from test_exit_checks import tar_of
 
 BOOT = Path(__file__).resolve().parents[1]
@@ -112,63 +113,6 @@ def locked(root, brain_sha="4" * 40, batches=()):
                            "referee_tree_sha256": "6" * 64, "result_sha256": "7" * 64} for b in batches])
     write(root, {"setup/imports.jsonl": data, "setup/stage.json": json.dumps(lock_of(data.split(b"\n")[0]))})
     return rows
-
-
-GIT_IDENTITY = {"GIT_AUTHOR_NAME": "operator", "GIT_AUTHOR_EMAIL": "operator@example.invalid",
-                "GIT_COMMITTER_NAME": "operator", "GIT_COMMITTER_EMAIL": "operator@example.invalid"}
-
-
-def git_in(repo, *argv, data=None, index=None):
-    """A git command in ``repo`` (bare or not); its stdout."""
-    env = dict(os.environ, **({"GIT_INDEX_FILE": str(index)} if index else {}))
-    return subprocess.run(["git", "-c", "core.protectNTFS=false", *argv], cwd=repo, input=data, env=env,
-                          capture_output=True, check=True).stdout
-
-
-def plumbed(repo, files, parent=None, message="tree"):
-    """A commit of ``files`` ({path: text, bytes or (mode, bytes)}) made from objects alone, so a test can hold names
-    no checkout could (`nul`, `a.`, `BOOTST~1`) and links; its sha."""
-    index = Path(tempfile.mkdtemp()) / "index"
-    lines = []
-    for path, content in files.items():
-        mode, data = content if isinstance(content, tuple) else ("100644", content)
-        data = data if isinstance(data, bytes) else data.encode("utf-8")
-        if mode == "160000":
-            lines.append(f"160000 commit {data.decode()}\t{path}")
-            continue
-        blob = git_in(repo, "hash-object", "-w", "--stdin", data=data).decode().strip()
-        lines.append(f"{mode} blob {blob}\t{path}")
-    git_in(repo, "update-index", "-z", "--index-info", data="".join(f"{l}\0" for l in lines).encode("utf-8"),
-           index=index)
-    tree = git_in(repo, "write-tree", index=index).decode().strip()
-    shutil.rmtree(index.parent)
-    argv = ["commit-tree", tree] + (["-p", parent] if parent else [])
-    return git_in(repo, *argv, data=message.encode()).decode().strip()
-
-
-def bare_repo(path, files=None):
-    """A bare repository standing for the operator's remote; ``files`` its first main."""
-    path.mkdir(parents=True)
-    git_in(path, "init", "-q", "--bare", "-b", "main")
-    if files is not None:
-        git_in(path, "update-ref", "refs/heads/main", plumbed(path, files))
-    return path
-
-
-def tree_files(repo, rev="refs/heads/main"):
-    """Every leaf of ``rev``'s tree as {path: bytes}, a link as ("link", target), a submodule as ("submodule", sha)."""
-    found = {}
-    for mode, sha, path in gitio._entries(repo, rev):
-        data = git_in(repo, "cat-file", "-p", sha) if mode != "160000" else sha.encode()
-        found[path] = data if mode in ("100644", "100755") else ({"120000": "link", "160000": "submodule"}[mode], data)
-    return found
-
-
-def main_of(repo):
-    try:
-        return git_in(repo, "rev-parse", "--verify", "--quiet", "refs/heads/main").decode().strip()
-    except subprocess.CalledProcessError:
-        return None
 
 
 class ImportCase(unittest.TestCase):
