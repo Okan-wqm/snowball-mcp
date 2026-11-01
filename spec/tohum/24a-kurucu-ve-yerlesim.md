@@ -53,6 +53,8 @@ targets/<hedef>/units.json      birim tarifi önerisi (veri, `26c`)
 candidates/<hedef>/<cid>/       finding.json, diff.patch, expect.json (`26c`)
 tests/fixtures/toy-repo/        oyuncak hedefin içeriği; ajan yapılandırması taşımaz
 reports/*.json                  tipli bildirimler (`26c`)
+agents/<ad>.md                  Kurucu'nun ajan tanımları (aşağıda "Ajan ve skill tanımları")
+skills/<ad>/SKILL.md            Kurucu'nun skill tanımları, skill'in kendi dosyalarıyla
 founder-ledger.jsonl            tohumun aracıyla zincirli
 snowball-tests.json             {tests, done_mf, lockfiles}
 exit-request.json               yalnız çıkış ve parti isteğinde
@@ -62,6 +64,13 @@ Aşama 1'den oyuncu kodu da beyindedir: `cli/`, `mcp/`, `adapters/`, `fixers/`, 
 kod `referee/`'yi, `referee/` başka kodu import etmez. Beyin push'unda herhangi bir yerde (büyük-küçük
 harf duyarsız) `.claude/**`, `CLAUDE.md`, `AGENTS.md`, `.mcp.json`, `.vscode/**`, `.envrc`,
 `.devcontainer/**` → `agent_config_modified` (`29b`).
+
+**Ajan ve skill tanımları** (sahip, 2026-11-01). Kapsül her oturumun başında, `claude`'dan önce, beyin `HEAD`'inin
+`agents/` ve `skills/` ağaçlarını git nesnelerinden okuyup denetler ve oturuma `brain` eklentisi olarak verir (adlar
+`brain:<ad>`); beynin başka hiçbir dosyası yapılandırma olmaz. Biçim: `---` satırları arasında satır başına
+`<anahtar>: <değer>`, sonra boş olmayan metin; ajanda `name`, `description`, isteğe bağlı `tools` (virgüllü, kapsülün
+araçlarından) ve `model`, skill'de `name` ve `description`. Başka anahtar, kapalı dört araç, bağ, alt modül ya da sınır
+aşımı tanımı düşürür, oturumu durdurmaz; kayıt `/work/logs/brain-definitions.json`, kurallar `seed/founder/brain_defs.py`.
 
 **Hakem reposu:** `bootstrap/` ve `.github/workflows/bootstrap.yml` (önyükleme hakemi, tohum dönemiyle
 değişir); aktarılan `referee/` ağacı kökte (`ledger/`, `gate/`, `runner/`, `profile/`, `target/`,

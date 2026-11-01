@@ -4,6 +4,10 @@ Tarih: 2026-10-29 · Sürüm: 2.2
 Okunma: bir sayfanın geçmişi aranırken
 Çapa: git geçmişi ve zincirdeki spec hash satırları
 
+- 2.2 (2026-11-01, E450; sahibin onayı): Kurucu kapsülü her oturumun başında beynin `agents/` ve `skills/` dizinlerindeki
+  ajan ve skill tanımlarını denetleyip `brain` eklentisi olarak yükler, beynin başka hiçbir dosyasını yapılandırma olarak
+  yüklemez; iki dizin beyin ağacında, biçim, düşürme kuralları ve yükleme kaydı `24a` "Ajan ve skill tanımları"nda. 80
+  satır sınırı için 2026-10-31 E249 kaydı `CHANGELOG-3.md`'ye taşındı.
 - 2.2 (2026-11-01, E390–E399; Kurucu raporları; E156, E158, E159, E234, E235, E281 kapandı): bu dönemin yanıtladığı ve
   reddettiği raporlar: `seed-002-29b-stale-after-narrowing` → `29b:13` (giriş), `29b:67-73` "Çıkış isteği";
   `seed-003-toy-repo-no-reader` → `27:67` (`tests/fixtures/toy-repo/`); `seed-005-push-class-ledger` → `29e:11-16`
@@ -68,10 +72,8 @@ Okunma: bir sayfanın geçmişi aranırken
   `27a`, `29`, `30`, `30a`, `30f`). `18`'in "merdiven sırası" maliyet merdiveninin basamak sırasıdır. Satırdaki `18`
   atıflı yetenek seçimle o aşamadan düşmez: ders provası Aşama 2'nin ilk işi kalır (E317). `asama-4` K5'in hedef
   taslağıdır, ön koşulu `03`'ün tablosudur. Kapının kodu Aşama 2 spec isteğiyle gelir (E339).
-- 2.2 (2026-10-31, E249; sahibin sorusu, uzman tartışması): `main`'i salt okunur okumak dokunmak değildir; taban yaşının
-  commit sayısı ve eskimiş bulgu oranı senkrondan önce de bu okumayla ölçülür (`07`). `07`'nin andığı eskimiş bulgu oranı
-  sinyali `17`'de satırdır: eşik pencerede > %20, doğan şey organ değil Aşama 2'deki senkron izin kararıdır.
-- 2.2 (2026-10-30 – 2026-10-31, E64, E65, E280–E301, E317–E324): ders provasının aileleri ve sınav tarafı, sistem
-  haritası, Aşama 0 çıkışının karar verilemeyen koşulları ve `control`'ün döngü arayüzü: `CHANGELOG-3.md`.
+- 2.2 (2026-10-30 – 2026-10-31, E64, E65, E249, E280–E301, E317–E324): ders provasının aileleri ve sınav tarafı,
+  sistem haritası, Aşama 0 çıkışının karar verilemeyen koşulları, `control`'ün döngü arayüzü ve `main`'i salt okunur
+  okumanın ölçümleri: `CHANGELOG-3.md`.
 - 2.2 (2026-10-28 – 2026-10-30, E246–E247 ve öncesi): üçüncü inceleme, önyükleme hakeminin yazılışı ve sonraki kararlar: `CHANGELOG-2.md`.
 - 2.1 ve öncesi (2026-10-28): `CHANGELOG-1.md`.
