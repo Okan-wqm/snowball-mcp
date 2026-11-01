@@ -325,7 +325,7 @@ flowchart LR
 | Module | What it is (first sentence of its docstring) | Imported by |
 |---|---|---|
 | `decide` | The acceptance decision (`tohum/29b`, "Kabul" and "Aşama 0 çıkışının (A) parçası"). | `cli` |
-| `exitchecks` | The (A) conditions of `asama-0/10` that `pull` checks on the brain archive it already holds (`29b`; the draft `29e` "Tohum denetimleri": in `çek`, read from the archive, never ... | `cli`, `decide` |
+| `exitchecks` | The (A) conditions of `asama-0/10` that `pull` checks on the brain archive it already holds (`29b`; the narrowing note's draft `29e` "Tohum denetimleri": in `çek`, read from ... | `cli`, `decide` |
 | `ledgercheck` | The Founder's ledger (`asama-0/10` #kurucu-defteri, `asama-0/09` test 30, `tohum/26`, `00a`; E107, E280). | `cli`, `decide`, `exitchecks` |
 | `stages` | The stage tables (`asama-0/14`, `tohum/26c` "Aşama tablosu"): the machine copy of a stage's micro-features. | `cli`, `decide`, `manifest`, `moduleless`, `vectors`, `wiring` |
 | `state` | The bootstrap's memory between runs: the last signed result's ``state`` block. | `cli`, `decide` |
