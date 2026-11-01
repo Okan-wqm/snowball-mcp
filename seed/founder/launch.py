@@ -68,6 +68,9 @@ REPORTS_SEEN = "reports-seen.json"
 RIVAL_CONFIG = ("prompt_sha256", "model_served", "effort", "cli_version")  # of the result's rival block
 INTERVENTION = "intervention"  # a launcher start's metrics row (E313); no verdict kind is ever this word
 PROMPT_LABEL = "snowball.prompt_sha256"  # the image's own record of the prompt bytes it was built with (E313)
+# The Founder's report rows the cycle log shows: kinds of the closed set (`26`). A missing capability is a seed_issue
+# whose text starts missing_capability: (prompt.md), never a kind of its own (E158).
+REPORT_KINDS = ("seed_issue", "blocked")
 
 
 def now() -> str:
@@ -816,7 +819,7 @@ class Pilot:
         if sess.get("exit") not in (0, None) and sess.get("stderr"):
             lines.append(f"- Kapsül hatası: `{sess['stderr'].replace('`', chr(39))}`")
         for row in new_rows:
-            if row.get("kind") in ("seed_issue", "blocked", "missing_capability"):
+            if row.get("kind") in REPORT_KINDS:
                 lines.append(f"  - **{row.get('kind')}**: {json.dumps(row, ensure_ascii=False)[:600]}")
         last_accepted = ((verdict or prior or {}).get("state") or {}).get("last_accepted_sha")
         cost = self.record_cost(stamp, sess, after, last_accepted)
@@ -864,7 +867,7 @@ class Pilot:
             "timed_out": bool(sess.get("timed_out")), "cost_row": cost,
             "reports_open": None if seen["reports_open"] is None else len(seen["reports_open"]),
             "reports_new": [r.get("payload", {}).get("summary", "")[:120] for r in new_rows
-                            if r.get("kind") in ("seed_issue", "blocked", "missing_capability")],
+                            if r.get("kind") in REPORT_KINDS],
         })
         say(f"cycle {n}: done, verdict {(verdict or {}).get('verdict', '-')}")
         limit_wait = usage_limit_wait(sess, datetime.now(timezone.utc))

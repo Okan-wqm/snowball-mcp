@@ -63,6 +63,7 @@ Okunma: sayfa ararken; görev seçmek için `tohum/00b-gorev-haritasi.md`
 | `tohum/29-tohum-koltuklari.md` | Tohum Koltukları: Rakip, Test-Yazıcı, Şerit Yazarı | kurulumda ve Aşama 0 başında |
 | `tohum/29a-tohum-vektorleri.md` | Tohum Vektörleri: Değişmeyen Beklenen Çıktılar | zincir, istatistik ve puanlama kodu yazarken |
 | `tohum/29b-onyukleme-hakemi.md` | Önyükleme Hakemi: Aşama 0'ın Yargıcı | kurulumda ve Aşama 0 boyunca |
+| `tohum/29e-onyukleme-hakemi-devam.md` | Önyükleme Hakemi, Devam: Kurucu Kayıtları, Sır Desenli Metin | Aşama 0 boyunca; Kurucu kaydı itilirken ve bir `secret_in_*` reddi okunurken |
 | `tohum/29c-prova-vektorleri.md` | Prova Vektörleri: Ders Provasının Referans Yargıcı | ders provasının yargıcını (`harness.drill`) yazarken (Aşama 2 partisi) ve ders provası tasarlanırken |
 | `tohum/29q-prova-gucu-ve-kalibrasyon.md` | Prova Vektörleri, Devam: Ayırma Gücü ve Ailelerin Kalibrasyonu | ders provası tasarlanırken, tuzak ailesi havuza alınırken ve bir provanın FAIL ya da UNMEASURABLE'ı okunurken |
 | `tohum/29d-vektor-gruplari.md` | Tohum Vektörleri, Devam: Aşama 0'ın Grupları ve Genel Koşucu | Aşama 0'ın her mikro özelliğini yazarken ve önyükleme hakeminin vektör koşucusu değişirken |
@@ -76,6 +77,7 @@ Okunma: sayfa ararken; görev seçmek için `tohum/00b-gorev-haritasi.md`
 | `tohum/29n-vektor-arayuzleri-mf14-18-devam.md` | Vektör Arayüzleri, Devam: `status` | Aşama 0'ın MF16'sını yazarken; bu grubun komutu, girdisi ya da çıktısı değişirken |
 | `tohum/29o-vektor-arayuzleri-mf14-18-son.md` | Vektör Arayüzleri, Son: `genesis` | Aşama 0'ın MF18'ini yazarken; bu grubun komutu, girdisi ya da çıktısı değişirken |
 | `tohum/29p-kontrol-komutu.md` | Kontrol Komutu: Döngü İşlerinin İlk Adımı | `loop.yml` yazılırken; döngünün her işinde |
+| `tohum/29r-is-akisi-yaml-altkumesi.md` | İş Akışı YAML Altkümesi | `loop.yml` yazılırken |
 | `tohum/30-guvenlik-katalogu.md` | Güvenlik Kataloğu: İlkeler, Zamanlama, Ortak Kader | her güvenlik işinde, her bildirimde ve yeni bir hedefe bağlanırken |
 | `tohum/30a-katalog-erisim-ve-enjeksiyon.md` | Güvenlik Kataloğu I: Erişim, Kimlik, Enjeksiyon, Web | kapsam bu sınıflara dokunduğunda; güvenlik avcısı, Kurucu ve K6 düzeltme işinde |
 | `tohum/30b-katalog-kiracilik-ve-graphql.md` | Güvenlik Kataloğu II: Çok Kiracılık, GraphQL, Kaynak Tüketimi | profil `tenancy.model` `none` değilse ya da hedef GraphQL sunuyorsa; güvenlik avcısı ve K6 işinde |
@@ -93,6 +95,7 @@ Okunma: sayfa ararken; görev seçmek için `tohum/00b-gorev-haritasi.md`
 | `tohum/31g-karar-rehberi.md` | Mimari İlkeler VII: Karar Rehberi | aşağıdaki durumlardan biri ortaya çıktığında, `decision` satırı yazılmadan önce |
 | `tohum/31h-catismalar-ve-tarama.md` | Mimari İlkeler VIII: Çatışmalar ve Tarama Sinyalleri | iki ilke aynı durumda farklı yön gösterdiğinde; bir repo ilkeler açısından taranırken; rakip bir tasarımı çürütmeye çalışırken |
 | `tohum/CHANGELOG.md` | Değişiklik Günlüğü — Tohum | bir sayfanın geçmişi aranırken |
+| `tohum/CHANGELOG-3.md` | Değişiklik Günlüğü — Tohum, 2.2'nin İkinci Kayıtları | bir sayfanın geçmişi aranırken |
 | `tohum/CHANGELOG-2.md` | Değişiklik Günlüğü — Tohum, 2.2'nin İlk Kayıtları | bir sayfanın geçmişi aranırken |
 | `tohum/CHANGELOG-1.md` | Değişiklik Günlüğü — Tohum, 2.1 ve öncesi | bir sayfanın geçmişi aranırken |
 

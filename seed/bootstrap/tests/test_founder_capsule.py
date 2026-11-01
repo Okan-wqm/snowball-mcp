@@ -1233,6 +1233,28 @@ class ImageAndEntrypointTest(unittest.TestCase):
         self.assertNotIn("project.json", prompt)  # the duty is general; what is missing is the Founder's to find
         self.assertNotIn("Nx", prompt)
 
+    def test_every_kind_the_prompt_asks_for_and_the_launcher_surfaces_is_in_the_closed_sets(self):
+        """The Founder's report seed-006 (E158): the ledger's and the reports' kind sets are closed (`26`, `26c`), and
+        the prompt said "write it as `missing_capability`", a kind no valid row can carry. A missing capability is a
+        `seed_issue` row whose text starts `missing_capability:`; the launcher surfaces only kinds a row can have."""
+        from snowball_bootstrap import ledgercheck
+        prompt = " ".join((FOUNDER / "prompt.md").read_text(encoding="utf-8").split())
+        page = (Path(__file__).resolve().parents[3] / "spec" / "tohum" / "26c-semalar-asama-0.md").read_text(encoding="utf-8")
+        notices = set(re.search(r"kind: ([a-z_|]+)", page.split("**reports/*.json**", 1)[1]).group(1).split("|"))
+        asked = re.findall(r"`([a-z_]+)` (?:olarak yaz|satırı)", prompt)
+        asked += re.findall(r"`[a-z_]+:` diye başlayan bir `([a-z_]+)`", prompt)
+        asked += [k for pair in re.findall(r"`([a-z_]+)` ya da `([a-z_]+)` satırı", prompt) for k in pair]
+        self.assertIn("seed_issue", asked)
+        for kind in asked:
+            self.assertIn(kind, set(ledgercheck.FOUNDER_KINDS) | notices, kind)
+        self.assertNotIn("`missing_capability` olarak yaz", prompt)
+        launch = load_launch()
+        self.assertTrue(launch.REPORT_KINDS)
+        self.assertLessEqual(set(launch.REPORT_KINDS), set(ledgercheck.FOUNDER_KINDS))
+        source = (FOUNDER / "launch.py").read_text(encoding="utf-8")
+        self.assertNotIn('"missing_capability"', source)  # no tuple or comparison names it as a kind
+        self.assertEqual(source.count('row.get("kind") in REPORT_KINDS') + source.count('r.get("kind") in REPORT_KINDS'), 2)
+
     def test_the_founder_owns_the_whole_target_even_a_domain_it_does_not_know(self):  # E364, owner 2026-10-31
         """The owner: in a domain it does not know at all, with no muscles for it, the system must understand it,
         learn and apply it, solve what it meets and become expert in it, by itself. The duty is general: it names no
