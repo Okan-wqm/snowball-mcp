@@ -33,6 +33,22 @@ EVERY_GROUP = stages.parse_table(json.dumps({"stage": 0, "mfs": [
     {"mf": 2, "tests": [28], "groups": ["cp_lower", "mcnemar", "match"], "module": "harness/stats.py", "calls": []},
     {"mf": 3, "tests": [990], "groups": ["drill"], "module": "harness/drill.py", "calls": []}]}), 0)
 STATS, DRILL = (1, 2), (3,)
+BOOTSTRAP_YML = (Path(__file__).resolve().parents[1] / "workflow" / "bootstrap.yml").read_text(encoding="utf-8")
+
+
+def workflow_job(name: str, text: str = BOOTSTRAP_YML) -> str:
+    """One job of the referee's `bootstrap.yml`, its key line left out."""
+    import re
+    found = re.search(rf"(?ms)^  {name}:\n(.*?)(?=^  \S|\Z)", text)
+    if not found:
+        raise AssertionError(f"bootstrap.yml has no job {name}")
+    return found.group(1)
+
+
+def kos_part_count() -> int:
+    """How many parts `kos` runs in (E440): the matrix of `kos_parca`."""
+    import re
+    return len(json.loads(re.search(r"(?m)^        part: (\[[0-9, ]+\])", workflow_job("kos_parca")).group(1)))
 
 
 ZERO_HASH = "0" * 64

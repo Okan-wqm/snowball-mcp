@@ -13,23 +13,24 @@ import sys
 import tarfile
 import tempfile
 import zipfile
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from . import canon, config, exitchecks, ghapi, gitio, ledgercheck, licenses, stages, state as st, wiring
+from . import canon, config, exitchecks, ghapi, gitio, ledgercheck, licenses, parts, stages, state as st, wiring
 from .classify import (LEDGER_FILE, REPORTS_DIR, SEED_DIRS, classify, is_founder_record, is_seed_path,
                        spec_stage_dirs)
 from .container import DockerRunner
-from .controls import run_controls
 from .decide import OUTAGE_GIVE_UP_DAYS, OUTAGE_RETRY_LIMIT, REPORT_FIELDS, decide, utc_now
 from .importer import ImportErrorStop, run_import, verify_signature
 from .manifest import ManifestError, check_stage0, parse_lockfile, parse_manifest
-from .moduleless import run_module_less
+from .moduleless import run_module_less, units
+from .parts import PartError
 from .reproduce import run_reproducers, run_state_reproducers
 from .rival import (HIDDEN_DIRS, HIDDEN_NAMES, RivalOutcome, build_context, extract_seat_prompt, hidden, resolve_claude,
                     run_rival)
 from .treehash import path_problem, TreeError, extract, is_utf8_name, iter_files, shown, tree_hash
-from .vectors import fixtures, missing_groups, run_vectors
+from .vectors import applied, call_inputs, fixtures, missing_groups
 
 EXIT_FILE = "exit-request.json"
 MANIFEST_FILE = "snowball-tests.json"
@@ -108,15 +109,6 @@ def tar_page(tar_bytes: bytes, prefix: str) -> tuple[str, str] | None:
         if name.startswith(prefix) and name.endswith(".md"):
             return name, content.decode("utf-8", "replace")
     return None
-
-
-def is_green(controls: list[dict], tests: list[dict], vectors: list[dict], lic: list[dict],
-             module_less: list[dict] | None = None) -> bool:
-    """Green means: controls behaved, at least one test ran, every test, vector and wheel passed, and no test
-    stayed green without its micro-feature's module (nor did docker fail under one)."""
-    return (all(c["ok"] for c in controls) and bool(tests) and all(t["ok"] for t in tests)
-            and all(v["ok"] for v in vectors) and all(x["allowed"] for x in lic)
-            and not any(m["stayed_green"] or m["runner_fault"] for m in module_less or []))
 
 
 def remaining_budget(policy: config.Policy, prev: dict[str, Any]) -> int:
@@ -653,8 +645,21 @@ def _runner(boot: config.Bootstrap, src: Path, deps: Path, vectors: Path, lockfi
                         vectors_dir=str(vectors.resolve()), lockfiles=tuple(lockfiles))
 
 
-def cmd_run_tests(args: argparse.Namespace) -> int:
-    root, pulled, out = Path(args.root), Path(args.pulled), Path(args.out)
+@dataclass(frozen=True)
+class Kos:
+    """One push as `kos` reads it from the verified snapshot, pulled tree and wheels: the same for every part and the
+    join (E440)."""
+
+    boot: config.Bootstrap
+    table: stages.StageTable
+    meta: dict[str, Any]
+    tar_bytes: bytes
+    src: Path
+    push: parts.Push
+
+
+def _kos(args: argparse.Namespace) -> Kos:
+    root, pulled = Path(args.root), Path(args.pulled)
     boot = config.load_bootstrap(root)
     policy = config.load_policy(root)
     table = stages.load(0)
@@ -664,35 +669,65 @@ def cmd_run_tests(args: argparse.Namespace) -> int:
     extract(tar_bytes, src, boot.limits.max_tree_bytes)
     manifest = meta["manifest"]
     done = tuple(manifest["done_mf"])
-    lic = licenses.check_dir(Path(args.deps), policy.license_allowlist, policy.license_exceptions)
+    groups = applied(root / "vectors", done, table=table, tree=src)
+    push = parts.Push(
+        head=meta.get("head"), tests=[t for t in manifest["tests"] if t["stage"] == 0], groups=groups,
+        asked=call_inputs(groups),
+        units=[(k, t["id"]) for k, t in units(table, meta.get("module_less") or [], manifest["tests"])],
+        lic=licenses.check_dir(Path(args.deps), policy.license_allowlist, policy.license_exceptions),
+        missing=missing_groups(root / "vectors", done, table, tree=src))
+    return Kos(boot, table, meta, tar_bytes, src, push)
+
+
+def _run_part(args: argparse.Namespace, kos: Kos, part: int, count: int) -> dict[str, Any]:
+    """Part ``part`` of ``count`` in this job's own sandbox: containers with the pushed tree, the locked wheels and
+    `/vec`; module-less red on its own trees."""
+    root, boot, manifest = Path(args.root), kos.boot, kos.meta["manifest"]
     vec = fixtures(root / "vectors", Path(args.work) / "vec")  # `/vec` without the expected values
-    runner = _runner(boot, src, Path(args.deps), vec, manifest["lockfiles"])
-    controls = run_controls(runner)
-    tests: list[dict[str, Any]] = []
-    vectors: list[dict[str, Any]] = []
-    module_less: list[dict[str, Any]] = []
-    if all(c["ok"] for c in controls):
-        for t in (x for x in manifest["tests"] if x["stage"] == 0):
-            res = runner.run(t["cmd"], timeout_s=boot.limits.test_timeout_s)
-            tail = (res.stdout + b"\n" + res.stderr).decode("utf-8", "replace")[-4000:]
-            tests.append({"id": t["id"], "cmd_sha256": hashlib.sha256(t["cmd"].encode()).hexdigest(),
-                          "exit": res.exit_code, "timed_out": res.timed_out, "duration_ms": res.duration_ms,
-                          "stdout_sha256": hashlib.sha256(res.stdout).hexdigest(),
-                          "stderr_sha256": hashlib.sha256(res.stderr).hexdigest(),
-                          "ok": res.ok, "output_tail": tail})
-        vectors = run_vectors(runner, root / "vectors", done, table=table, tree=src)
-        if is_green(controls, tests, vectors, lic):  # a red push is rejected anyway: spare the containers
-            module_less = run_module_less(
-                lambda tree: _runner(boot, tree, Path(args.deps), vec, manifest["lockfiles"]),
-                tar_bytes, Path(args.work) / "module-less", table, meta.get("module_less") or [],
-                manifest["tests"], boot.limits.test_timeout_s, boot.limits.max_tree_bytes)
-    green = is_green(controls, tests, vectors, lic, module_less)
-    write_json(out / "run.json", {"controls": controls, "tests": tests, "vectors": vectors, "licenses": lic,
-                                  "module_less": module_less,
-                                  "vector_groups_missing": missing_groups(root / "vectors", done, table, tree=src),
-                                  "green": green})
-    output(green=green)
+    runner = _runner(boot, kos.src, Path(args.deps), vec, manifest["lockfiles"])
+
+    def module_less(mine: Any) -> list[dict[str, Any]]:
+        return run_module_less(
+            lambda tree: _runner(boot, tree, Path(args.deps), vec, manifest["lockfiles"]),
+            kos.tar_bytes, Path(args.work) / "module-less", kos.table, kos.meta.get("module_less") or [],
+            manifest["tests"], boot.limits.test_timeout_s, boot.limits.max_tree_bytes, mine=mine)
+    return parts.run_part(kos.push, part, count, runner, boot.limits.test_timeout_s, module_less)
+
+
+def _write_run(out: Path, run: dict[str, Any]) -> int:
+    write_json(out / "run.json", run)
+    output(green=run["green"])
     return 0
+
+
+def cmd_run_tests(args: argparse.Namespace) -> int:
+    """`kos` in one job: the push as one part, joined at once (E440). The workflow runs `run-part` in parallel jobs and
+    `join-parts` after them; on the same answers both write this `run.json`."""
+    kos = _kos(args)
+    return _write_run(Path(args.out), parts.join(kos.push, [_run_part(args, kos, 0, 1)]))
+
+
+def cmd_run_part(args: argparse.Namespace) -> int:
+    """One part of `kos` (E440): `part.json`, what this part ran and every vector call's answer; it judges nothing."""
+    part, count = parts.part_of(args.part)
+    kos = _kos(args)
+    write_json(Path(args.out) / "part.json", _run_part(args, kos, part, count))
+    return 0
+
+
+def cmd_join_parts(args: argparse.Namespace) -> int:
+    """`run.json` from every part's `part.json`, each read from its artifact only if the artifact's hash is the one its
+    job output named (``--part TAR=SHA``, in part order). A part without its artifact or its hash stops the join."""
+    kos = _kos(args)
+    records = []
+    for place, item in enumerate(args.part or []):
+        tar, _sep, sha = item.rpartition("=")
+        if not sha or not Path(tar).is_file():
+            raise PartError(f"part {place}: no artifact or no hash ({item!r}): the part did not finish")
+        dest = Path(args.work) / f"part-{place}"
+        unpack(Path(tar), sha, dest)
+        records.append(read_json(dest / "part.json"))
+    return _write_run(Path(args.out), parts.join(kos.push, records))
 
 
 def _pages(tar_bytes: bytes, kind: str) -> dict[str, str]:
@@ -885,6 +920,10 @@ def build_parser() -> argparse.ArgumentParser:
     add("pull", cmd_pull, root, ("--state", req), ("--work", req), ("--out", req), ("--remote", {}))
     add("fetch-deps", cmd_fetch_deps, ("--pulled", req), ("--work", req), ("--out", req))
     add("run-tests", cmd_run_tests, root, ("--pulled", req), ("--deps", req), ("--work", req), ("--out", req))
+    add("run-part", cmd_run_part, root, ("--part", {"required": True, "help": "K/N: part K of N, from 0 (E440)"}),
+        ("--pulled", req), ("--deps", req), ("--work", req), ("--out", req))
+    add("join-parts", cmd_join_parts, root, ("--pulled", req), ("--deps", req), ("--work", req), ("--out", req),
+        ("--part", {"action": "append", "help": "TAR=SHA256 of each part's artifact, in part order"}))
     add("rival", cmd_rival, root, ("--pulled", req), ("--work", req), ("--out", req),
         ("--claude", {"help": "path of the claude CLI (default: the one on PATH)"}))
     add("reproduce", cmd_reproduce, root, ("--pulled", req), ("--deps", req), ("--rival", req),
@@ -906,6 +945,6 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
         return args.fn(args)
-    except (config.ConfigError, ImportErrorStop, gitio.GitError, TreeError) as exc:
+    except (config.ConfigError, ImportErrorStop, gitio.GitError, TreeError, PartError) as exc:
         print(f"stop: {exc}", file=sys.stderr)
         return 2

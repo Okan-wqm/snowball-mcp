@@ -13,6 +13,8 @@ from pathlib import Path
 
 from snowball_bootstrap import cli, rival, stages, vectors
 
+from helpers import kos_part_count, workflow_job
+
 BOOT = Path(__file__).resolve().parents[1]
 ROOT = BOOT.parents[1]
 WORKFLOW = (BOOT / "workflow" / "bootstrap.yml").read_text(encoding="utf-8")
@@ -156,10 +158,42 @@ class WorkflowWiringTest(unittest.TestCase):
 
     def test_the_vectors_leave_the_kos_job_half_its_time(self):
         """A vector run that outlives `kos` is booked as an outage the Founder never hears of: the vectors' budget is
-        at most half the job, the rest is the controls', the Founder's tests' and module-less red's (E18 for those)."""
-        job = WORKFLOW[WORKFLOW.index("  kos:"):WORKFLOW.index("  cagir:")]
-        minutes = int(re.search(r"timeout-minutes: ([0-9]+)", job).group(1))
+        at most half the job that runs them, a part since E440, the rest is the controls', the Founder's tests' and
+        module-less red's (E18 for those)."""
+        minutes = int(re.search(r"timeout-minutes: ([0-9]+)", workflow_job("kos_parca")).group(1))
         self.assertLessEqual(vectors.BUDGET_S * 2, minutes * 60)
+
+
+class KosPartsTest(unittest.TestCase):
+    """E440: `kos` runs as N parts and one join. The matrix, the parts' outputs, the count each part is told and the
+    artifacts the join reads, each by the hash its part's job named, must all be the same N parts: a part the join
+    does not read would go unjudged, one it reads by another part's hash would not verify."""
+
+    def test_the_matrix_the_outputs_and_the_join_name_the_same_parts(self):
+        part, join, count = workflow_job("kos_parca"), workflow_job("kos"), kos_part_count()
+        self.assertGreater(count, 1)
+        self.assertIn(f"        part: {list(range(count))}", part)
+        self.assertEqual(re.findall(r"(?m)^      (part_sha_[0-9]+): \$\{\{ steps\.pack\.outputs\.(part_sha_[0-9]+) \}\}$",
+                                    part), [(f"part_sha_{k}", f"part_sha_{k}") for k in range(count)])
+        for line in ("PART: ${{ matrix.part }}", "PARTS: ${{ strategy.job-total }}", 'run-part --part "$PART/$PARTS"',
+                     '--out "part-$PART.tar" | sed -n "s/^sha256=/part_sha_${PART}=/p" >> "$GITHUB_OUTPUT"',
+                     "name: run-part-${{ matrix.part }}", "path: part-${{ matrix.part }}.tar"):
+            self.assertIn(line, part)
+        self.assertEqual(re.findall(r"--part parts/part-([0-9]+)\.tar=\$\{\{ needs\.kos_parca\.outputs\.part_sha_([0-9]+) \}\}",
+                                    join), [(str(k), str(k)) for k in range(count)])
+        self.assertEqual(join.count("--part "), count)
+        self.assertIn('pattern: "run-part-*", path: parts, merge-multiple: true', join)
+
+    def test_the_join_fails_on_a_part_that_did_not_succeed_and_runs_no_brain_code(self):
+        join = workflow_job("kos")
+        self.assertIn("    needs: [cek, getir, kos_parca]\n", join)
+        first = join[join.index("    steps:\n"):].split("      - ", 2)[1]
+        self.assertEqual(first, "name: Every part finished\n        env:\n          RESULT: ${{ needs.kos_parca.result }}\n"
+                                '        run: test "$RESULT" = success\n')
+        self.assertIn("    permissions: {}\n", join)
+        for word in ("docker", "secrets."):
+            self.assertNotIn(word, join)
+        self.assertEqual(set(re.findall(r"-m snowball_bootstrap ([a-z-]+)", join)), {"control", "join-parts", "pack"})
 
 
 MF_COLUMNS = ["MF", "Mekanizma", "Test", "Vektör grubu", "Modül (`referee/` altında)", "Adım", "Kum"]
