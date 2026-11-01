@@ -531,7 +531,7 @@ class ImportAliasTest(ImportCase):
                 (".github/WORKFL~1/other.yml", {github: {"WORKFL~1": "workflows"}}, ".github/workflows"),
                 ("GIT~1/hooks/post-checkout", {self.referee: {"GIT~1": ".git"}}, ".git")):
             with self.subTest(path=path):
-                write(self.referee, {".git/HEAD": "ref: refs/heads/main\n"})
+                write(self.referee, dict(OPERATOR_FILES, **{".git/HEAD": "ref: refs/heads/main\n"}))  # as it was
                 # No `workflows/` beside `WORKFL~1/` in the tree: on a volume with 8.3 names the two would already be one
                 # directory in the sibling temporary tree, and its re-hash would stop the import first.
                 with self.use_tree({"referee/ledger/chain.py": "x = 1\n", f"referee/{path}": "EVIL\n",
@@ -607,6 +607,7 @@ class ImportAliasTest(ImportCase):
         nothing written: the push judge and the git directory stay as they were."""
         for entry, path in self.short_names_below_the_top().items():
             with self.subTest(entry=entry, path=path):
+                write(self.referee, OPERATOR_FILES)  # each case on the checkout as it was, whatever the last one did
                 files = {"referee/ledger/chain.py": "x = 1\n", f"{TOY_DIR}/app.py": "y\n", f"referee/{path}": "EVIL\n"}
                 with self.use_tree(files):
                     self.assertIn(f"would land on {entry} ", self.assert_refused_untouched())
