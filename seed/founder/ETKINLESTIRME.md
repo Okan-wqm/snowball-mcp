@@ -123,10 +123,12 @@ K1'in ilk yarısı, prova: içe aktarma yerel iki çıplak kopyaya iter (GitHub'
 `main`'dedir (`bootstrap/`, `.github/workflows/bootstrap.yml`, `control.json`, `setup/summary.json`); son satırın
 anahtarları `brain_sha, prev_hash, referee_tree_sha256, result_sha256, row_hash, stage, toy_tree_sha256, ts` (`26c:37`,
 zincirli). Komut hiçbir çalışma ağacını okumaz ve yazmaz: hakem reposunu kendi geçici dizinine çıplak klonlar, beyin
-commit'ini oraya getirir, yeni `main`'i git nesneleriyle kurar (E470; dört şüpheci turunda dosya sistemi kopyası çürütüldü).
-`referee/` ya da oyuncak ağacında `26c`'nin reddettiği bir ad, bir dosya sisteminin başka ad okuduğu bir ad (sonda nokta
-ya da boşluk, aygıt adı, `~` ve rakam), korunan bir girdiyi harf duyarsız gösteren ya da harf duyarsız tek ad olan iki
-ad, bağ ya da alt modül, hiçbir nesne yazılmadan `stop: …` ile durur; `main` bir korunan adı başka harfle taşıyorsa da
+commit'ini oraya git'in nesne denetimiyle getirir, yeni `main`'i git nesneleriyle kurar (E470; dört şüpheci turunda dosya
+sistemi kopyası çürütüldü, E479). `referee/` ya da oyuncak ağacında `26c`'nin reddettiği bir ad, bir dosya sisteminin
+başka ad okuduğu bir ad (sonda nokta ya da boşluk, aygıt adı, `~` ve rakam), Windows'un tutamadığı bir ad (`|?*"<>`, 260
+karakterden uzun yol; E484), git'in kendi okuduğu bir ad (`.git`, `.gitattributes`, `.gitmodules`, harf duyarsız ve
+HFS+ biçimiyle; E478, E479), oyuncakta `.github` (E480), korunan bir girdiyi harf duyarsız gösteren ya da harf duyarsız
+tek ad olan iki ad, bağ ya da alt modül, hiçbir nesne yazılmadan `stop: …` ile durur; `main` bir korunan adı başka harfle taşıyorsa da
 (`Bootstrap/`, `.GitHub/`). Son komut `loop.yml`'un adlandırdığı sırları ve değişkeni basar; beyin `8c57160`'ta:
 `secrets.CLAUDE_CODE_OAUTH_TOKEN`, `secrets.WRITER_APP_ID`, `secrets.WRITER_APP_PRIVATE_KEY`, `vars.TARGET_OWNER`.
 Başka bir ad varsa 3. adıma geçme, sahibe sor (spec sessiz). İkinci yarısı: kill switch kapalıyken aynı komut durur
@@ -142,8 +144,9 @@ Beklenen `stop: …` ve `çıkış 2`. *Karar:* K1, K2 ve K4 tamamsa 3. adım; K
 dur ve `pilot-log.md`'ye yaz. *Geri dönüş:* `rm -rf $E/prova`; beklenecekse 1. adımın geri dönüşü.
 
 **3. İçe aktar** (operatör · `25a` 1–2: hakem kodu yalnız aktarımla değişir, `01a`; oyuncağın içeriği (A)'da
-yargılanandır). Komut iki reponun `main`'ine zorlamadan iter: önce oyuncak, sonra hakem (`25a` 1: her denetim
-geçtikten sonra; `main` arada ilerlediyse itme reddedilir, hakemde hiçbir şey değişmez).
+yargılanandır). Komut iki reponun `main`'ine zorlamadan, okuduğu `main`'e kirayla (`--force-with-lease`) iter: önce
+oyuncak, sonra hakem (`25a` 1: git'in katı nesne denetimi dahil her denetim geçtikten sonra; `main` arada ilerlediyse
+ya da geri alındıysa itme reddedilir, hakemde hiçbir şey değişmez ve ret uzak `main`'in o anki başını adlandırır, E482).
 
 ```
 WSL$ cd $E/arac && python3 -m snowball_bootstrap import --result $E/a/result.json --bundle $E/a/result.json.sigstore.json --identity "$ID" --sigstore-python $E/sig/bin/python --brain $E/brain --referee https://github.com/$H.git --toy https://github.com/Okan-wqm/snowball-rehearsal-toy.git
@@ -167,8 +170,8 @@ dosyaları önceki `main`'inkidir, yeni operatör satırı yalnız `setup/import
 blob'larıdır (o ağacın hash'i `exit.toy_tree_sha256`). `gh workflow disable` itmenin hemen ardından: `loop.yml`
 `main`'e girince saatlik zamanlayıcısı kayda geçer, kill switch açıkken her saat kırmızı koşardı; 7. adıma kadar
 kapalıdır (spec sessiz; `25` 9'un yolu). Komut durursa (`stop: …`, çıkış 2) itilmiş hakem commit'i yoktur; mesajı ve
-nedeni `pilot-log.md`'ye yaz. Oyuncak itilip hakem itmesi reddedildiyse mesaj oyuncağın commit'ini adlandırır; komutu
-yeniden koşmak ağacı zaten taşıyan oyuncağa dokunmaz.
+nedeni `pilot-log.md`'ye yaz. Oyuncak itilip hakem itmesi reddedildiyse mesaj oyuncağın commit'ini ve hakemin uzak
+`main`'ini adlandırır; komutu yeniden koşmak ağacı zaten taşıyan oyuncağa dokunmaz.
 
 **4. Kaydet, döngüyü kapalı tut** (operatör · `25a` 1–2).
 
@@ -306,7 +309,9 @@ son genesis ile kendisi arasında oyuncağın merge satırı yok ya da sayacın 
 (`payload.import_line_sha256`, E405), kopyanın son genesis'ini ve ondan sonraki merge satırlarını adlandırmıyor
 (`payload.copy_genesis_row_hash`, `payload.copy_merge_row_hashes`: her biri kopyanın bir `kind: merge` satırı; E376,
 E405), sahip istisnasını imzalı sonuçtaki gibi taşımıyor (`payload.owner_exception`, E379), defter `.brain/` altında
-yok ya da bir profil başka bir `state_root` adlandırıyor (E417), bir zincir kırık, son kök
+yok ya da bir profil başka bir `state_root` adlandırıyor ya da düzenli dosyada tek bir JSON nesnesi değil (E417, E472,
+E481), sayaç ya da özet `--referee` klonunun commit'inde yok (çalışma ağacı okunmaz: önce `main`'i çek; E478), bir
+zincir kırık, son kök
 defterin uçları değil, kök paketi `brain/state`'te yok (E414), paket satırın Rekor girdisi değil ya da girdi kökü
 kaydeden bir Rekor v1 `hashedrekord` değil (v2 gövdesi de; kök `sign --rekor-version 1` ile imzalanır, E406, E415),
 Sigstore `sha256:<kök>`'ü reddetti (E375) ya da kilit zaten var (E371). Kural ve alanlar Kurucu'nun okuduğu `spec/tohum/26d`'dedir (E404). Durursa itme, `pilot-log.md`'ye yaz.

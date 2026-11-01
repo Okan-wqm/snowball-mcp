@@ -16,7 +16,7 @@ klasörü). `stage-open` `.brain/ledger.jsonl`'u, `.brain/chain/root.jsonl`'u ve
 `.brain/chain/<kök>.sigstore.json`'u (`<kök>` son kök satırının `root`'u) aynı commit'te, düzenli dosya olarak okur. Paketi
 döngü yazar ve kök satırının yanında tutar; operatör paket vermez. `26b` profilinin `state_root`'u bugün yalnız `.brain/`
 olabilir: commit'te başka bir dizin adlandıran profil `stage-open`'ı adıyla durdurur; başka bir dizin tohum dönemi ister.
-Commit'teki her `profile.json` tek bir düz JSON nesnesidir (BOM yok, anahtar iki kez yok); okunamayan profil de durdurur.
+Her `profile.json` tek düz JSON nesnesi olan düzenli dosyadır (BOM, çift anahtar yok); okunamayan profil de durdurur.
 
 **Zincirli dosya** (`ledger.jsonl`, `chain/root.jsonl`, `setup/imports.jsonl`). Her satır, sonuncusu da, LF ile biter;
 CR yoktur; satır tek bir JSON nesnesidir, hiçbir anahtar iki kez geçmez, `NaN` ve `Infinity` yoktur; `row_hash` `26`'nın
@@ -54,8 +54,9 @@ verilmezse TUF imza yapılandırmasının listelediği en yüksek sürümü seç
 **`stage-open`'ın kuralı.** Komut iki hedefin `brain/state` başını operatörün yerel klonunda okur, iki defterin ve iki
 kök zincirinin her satırını tohumun koduyla doğrular ve şunları denetler; biri tutmazsa nedeni adlandırıp durur (çıkış
 2) ve hiçbir şey yazmaz:
-1. Sayacın son aktarım satırı Aşama 0'ındır; `--result` o satırın `result_sha256`'sının adlandırdığı imzalı (A)
-   sonucudur; `--referee` klonunun commit'indeki hakem ağacı (korunanlar hariç, git'ten `26c`'nin hash'i) o satırınkidir.
+1. Sayaç, `setup/summary.json` ve hakem ağacı `--referee` klonunun commit'inden okunur, çalışma ağacından değil. Sayacın
+   son aktarım satırı Aşama 0'ındır; `--result` o satırın `result_sha256`'sının adlandırdığı imzalı (A) sonucudur;
+   `--referee` klonunun commit'indeki hakem ağacı (korunanlar hariç, git'ten `26c`'nin hash'i) o satırınkidir.
 2. Her hedef defterinin ilk satırı o hedefin genesis satırıdır; son genesis satırının `payload.target`'ı
    `setup/summary.json` `targets[]`'taki o hedefin `id`'si (bir oyuncak, bir kopya), kopyada `payload.base_sha` o
    satırın `base_sha`'sı (kopyanın bir tabanı vardır), ikisinde de `payload.import_line_sha256`,

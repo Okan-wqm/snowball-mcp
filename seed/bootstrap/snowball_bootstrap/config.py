@@ -376,7 +376,11 @@ def _epoch(row: Any, where: str) -> SeedEpoch:
 
 
 def load_summary(root: Path) -> Summary:
-    data = _load(root / "setup" / "summary.json")
+    return summary_of(_load(root / "setup" / "summary.json"))
+
+
+def summary_of(data: Any) -> Summary:
+    """`setup/summary.json`'s content, parsed (`load_summary` reads it from a checkout, `stage-open` from a commit)."""
     where = "setup/summary.json"
     seed_commit = _req(data, "seed_commit", str, where)
     if not SHA_RE.match(seed_commit):

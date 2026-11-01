@@ -25,7 +25,9 @@ What `stage-open` binds, before it writes anything (`02` 5: only the PASS row op
   line's referee tree and signed result (E471); the PASS row carries the copy's last genesis and merge rows' hashes
   (`10a` #pass), and they are rows of the copy clone it is given (E376).
 - the referee checkout: its commit holds the referee tree the last transfer line names (`26c`'s hash from git, what the
-  import keeps left out, E471), so the lock opens on what the import pushed and the operator pulled.
+  import keeps left out, E471), so the lock opens on what the import pushed and the operator pulled; the counter and
+  `setup/summary.json` are that commit's too, read from git and never from the working tree, whose bytes a checkout's
+  settings change (E478).
 - the PASS row itself: the referee's own row, not a player's proposal (`26`, `13`: those carry ``proposed_by`` and
   ``trust: inferred``) (E388), written after the toy's merge and naming the transfer the counter's last line is (the
   trust root `10a` #pass writes includes the operator transfer) (E405), and the owner's exception exactly as the signed
@@ -282,8 +284,8 @@ def _state(repo: Path, ref: str, name: str) -> tuple[str, list[tuple[bytes, dict
 def _one_state_root(repo: Path, head: str, name: str) -> None:
     """E417: this seed reads `<state_root>` at ``.brain/`` alone (`01a`'s default). A profile in the commit (`26b`: its
     ``state_root``) that names another directory stops, named: reading it needs a seed epoch. A profile this check cannot
-    read as one plain JSON object (a byte order mark, a key twice, not UTF-8 or not JSON) stops too: skipped, it could
-    hide the one that names another directory (E472)."""
+    read as one plain JSON object (a link or a submodule, a byte order mark, a key twice, not UTF-8, not JSON, or JSON
+    that is no object) stops too: skipped, it could hide the one that names another directory (E472, E481)."""
     for path in gitio.tree_paths(repo, head):
         if path.rsplit("/", 1)[-1] != "profile.json":
             continue
@@ -292,11 +294,12 @@ def _one_state_root(repo: Path, head: str, name: str) -> None:
             if data is None:
                 raise ValueError("not a regular file")
             profile = json.loads(data.decode("utf-8"), object_pairs_hook=_unique, parse_constant=_constant)
+            if not isinstance(profile, dict):
+                raise ValueError("not a JSON object")
         except (UnicodeDecodeError, ValueError, RecursionError) as exc:
             raise LockStop(f"{name} brain/state {head}: {path} is not a profile this seed can read ({exc}; `26b`, "
                            "E472)") from exc
-        if isinstance(profile, dict) and "state_root" in profile \
-                and profile["state_root"] not in (STATE_ROOT, STATE_ROOT.rstrip("/")):
+        if "state_root" in profile and profile["state_root"] not in (STATE_ROOT, STATE_ROOT.rstrip("/")):
             raise LockStop(f"{name} brain/state {head}: {path} names state_root {profile['state_root']!r}: a state_root "
                            f"other than {STATE_ROOT} needs a seed epoch (`01a`, `26d`, E417)")
 
@@ -448,12 +451,12 @@ def _carries_the_copy(payload: dict[str, Any], copy_rows: list[tuple[bytes, dict
                        "payload.copy_merge_row_hashes, `10a` #pass, `26d`)")
 
 
-def _committed_is_transferred(referee: Path, transfer: dict[str, Any]) -> None:
+def _committed_is_transferred(referee: Path, head: str, transfer: dict[str, Any]) -> None:
     """E471: the referee tree the checkout's commit holds, what the import keeps left out, read from git (`26c`'s rule),
     is the one the counter's last transfer line names: the lock opens on the referee that transfer wrote."""
     from . import importer  # it reads this module
     try:
-        committed = importer.committed_referee_hash(referee)
+        committed = importer.committed_referee_hash(referee, head)
     except (gitio.GitError, importer.ImportErrorStop) as exc:
         raise LockStop(f"--referee {referee} holds no commit whose referee tree this seed can read: {exc}") from exc
     if committed != transfer.get("referee_tree_sha256"):
@@ -495,22 +498,49 @@ def _carries_the_exception(payload: dict[str, Any], exit_block: dict[str, Any]) 
                            "carry_commitment, measured; `02`)")
 
 
+def _checkout_head(referee: Path) -> str:
+    """The commit the referee checkout is on: what `stage-open` reads (E471, E478)."""
+    try:
+        return gitio.git(referee, "rev-parse", "--verify", "--quiet", "HEAD^{commit}").decode().strip()
+    except gitio.GitError as exc:
+        raise LockStop(f"--referee {referee} holds no commit: clone the referee repository and pull main after the "
+                       "import (E471)") from exc
+
+
+def _committed(referee: Path, head: str, rel: str) -> bytes:
+    """A file of the checkout's commit, read from its blob: never the working tree, whose bytes a checkout's settings
+    change (``core.autocrlf``) and where an edit is not what the import pushed (E478)."""
+    data = gitio.file_at(referee, head, rel)
+    if data is None:
+        raise LockStop(f"the referee checkout's commit {head} has no {rel}: import, then pull main into the checkout "
+                       "(E478)")
+    return data
+
+
+def _committed_summary(referee: Path, head: str) -> config.Summary:
+    try:
+        return config.summary_of(json.loads(_committed(referee, head, f"{SETUP}/summary.json").decode("utf-8")))
+    except (UnicodeDecodeError, ValueError, RecursionError) as exc:
+        raise LockStop(f"setup/summary.json of the referee checkout's commit {head} is not JSON: {exc}") from exc
+
+
 def open_stage(referee: Path, toy: Path, copy: Path, ref: str, identity: str, sigstore_python: str,
                result: Path) -> dict[str, Any]:
-    """Write ``setup/stage.json`` after Stage 0's PASS row; return what was written. Nothing is pushed."""
+    """Write ``setup/stage.json`` after Stage 0's PASS row; return what was written. Nothing is pushed. The counter, the
+    summary and the referee tree are the checkout's commit's, read from git (E471, E478)."""
     path = referee / SETUP / LOCK_FILE
-    if path.exists():
+    head = _checkout_head(referee)
+    if path.exists() or gitio.git(referee, "ls-tree", "--name-only", head, "--", f"{SETUP}/{LOCK_FILE}").strip():
         raise LockStop(f"{SETUP}/{LOCK_FILE} is already there: the lock is open (revert its commit to close it)")
-    if not (referee / SETUP / COUNTER_FILE).exists():
-        raise LockStop(f"no {SETUP}/{COUNTER_FILE}: nothing accepted and transferable was imported")
-    transfers = [(line, row) for line, row in read_counter(referee) if is_transfer(row)]
+    counter = chained_lines(_committed(referee, head, f"{SETUP}/{COUNTER_FILE}"), f"{SETUP}/{COUNTER_FILE}")
+    transfers = [(line, row) for line, row in counter if is_transfer(row)]
     if not transfers or transfers[-1][1].get("stage") != OPENS - 1 or type(transfers[-1][1].get("stage")) is not int:
         raise LockStop(f"{SETUP}/{COUNTER_FILE}: the last transfer is not Stage {OPENS - 1}'s accepted, transferable "
                        "exit (import it first)")
     import_line, transfer = line_sha256(transfers[-1][0]), transfers[-1][1]
     exit_block = _signed_exit(result, transfer)
-    _committed_is_transferred(referee, transfer)
-    toy_target, copy_target = _targets(config.load_summary(referee))
+    _committed_is_transferred(referee, head, transfer)
+    toy_target, copy_target = _targets(_committed_summary(referee, head))
     toy_head, toy_rows, toy_root, toy_bundle = _state(toy, ref, "toy")
     copy_head, copy_rows, copy_root, copy_bundle = _state(copy, ref, "copy")
     toy_start = _genesis(toy_rows, "toy", toy_target, import_line, transfer)

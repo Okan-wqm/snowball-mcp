@@ -1016,6 +1016,24 @@ class MutationShardTest(unittest.TestCase):
         self.assertLessEqual(-(-len(mutate.MUTANTS) // count), self.PER_SHARD,
                              f"{len(mutate.MUTANTS)} mutants in {count} shards: add shards to ci.yml")
 
+    def test_each_mutant_a_test_names_is_one(self):
+        """E486 (the eighth skeptic: three tests named mutants that no longer were, sixteen more were found): the
+        trailing comment on a test names the mutants it kills (`local/mutate.py`); a name there that is no mutant's
+        claims a measurement nothing makes."""
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("mutate", BOOT / "local" / "mutate.py")
+        mutate = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mutate)
+        names = {m[0] for m in mutate.MUTANTS}
+        dead = []
+        for path in sorted((BOOT / "tests").glob("*.py")):
+            for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+                found = re.search(r"def test_\w+\(self[^)]*\):[ \t]+#(.*)", line)
+                for word in found.group(1).split() if found else ():
+                    if re.fullmatch(r"[A-Za-z][A-Za-z0-9]*_[A-Za-z0-9_]+", word) and word not in names:
+                        dead.append(f"{path.name}:{number} {word}")
+        self.assertEqual(dead, [], "a test names a mutant local/mutate.py does not have")
+
 
 class SystemMapTest(unittest.TestCase):
     """The owner's rule E301: `docs/harita.md`, the map of what connects to what, is drawn from the code by
