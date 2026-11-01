@@ -351,7 +351,7 @@ hepsi yazılıdır. Bulguları birleştiren ve doğrulayan: Claude Code (Opus 5.
 | E428 | Bilinmeyen alan sınavının alanı ve kolları seçilmemişti | B | sahibin yetkisiyle operatör kararı (2026-11-01); sahip geri alabilir | sahip sorusu 3 | karar kaydedildi · temiz bilinmeyen alan seçildi (tohumda geçişi olmayan bir dil; adı burada yazılmaz, sınavın bir parçasıdır); Rust kolu sonra; plan operatörün özel deposunda hazırlandığı gibi mühürlü; tohuma metin girmez |
 | E429 | `draft-rust` reposunun Snowball'la ilişkisi belirsizdi | S | sahibin yetkisiyle operatör kararı (2026-11-01); sahip geri alabilir | sahip sorusu 4 | karar kaydedildi · `draft-rust` şimdi Snowball'un parçası değildir ve sınav değildir |
 | E430 | Kurucu'nun kanıtla istediği erişimlerin (ağsız koşucu, yeni ekosistemin paket sunucusu) önceden mi tek tek mi onaylanacağı belirsizdi | B | sahibin yetkisiyle operatör kararı (2026-11-01); sahip geri alabilir | sahip sorusu 5 | karar kaydedildi · (a) ilke olarak onaylı: Kurucu'nun kanıtla istediği, özetle (`@sha256`) sabitlenmiş herhangi bir açık imaj için ağsız bir koşucu, yaşam desteği (E244 kalıbı); (b) yeni bir ekosistemin paket sunucusuna kayıt çıkışı tek tek karar verilir (güvenlik kararı) |
-| E431 | Sınavın beklenen değerleri ve referans beyinler açık repoda; kapsülün ağ çıkışı sınırsız; "özele geç" planı ilk özel hedefe bağlı olduğundan Aşama 1 kopyasıyla hiç tetiklenmez (E380–E387'nin incelemesi) | K | sahibin yetkisiyle operatör kararı (2026-11-01); sahip geri alabilir | sahip sorusu 9; uzman incelemesi | açık · operatörün işi, Aşama 1'den önce. Plan: (1) beklenen değerler ve referans beyinler hakemin okuduğu özel bir depoya taşınır, `snowball-mcp` ve hakem reposu açık kalır; (2) kapsüle çıkış izin listesi (model sağlayıcısı, GitHub, gereken paket kayıtları), başka her çıkış kapalı; (3) taşımadan sonra açık repolarda beklenen değer kalmadığını ve kapsülün listedeki dışındaki adrese ulaşamadığını gösteren testler; (4) kurulum ve etkinleştirme sayfaları yeni yeri tohum dönemiyle adlandırır |
+| E431 | Sınavın beklenen değerleri ve referans beyinler açık repoda; kapsülün ağ çıkışı sınırsız; "özele geç" planı ilk özel hedefe bağlı olduğundan Aşama 1 kopyasıyla hiç tetiklenmez (E380–E387'nin incelemesi) | K | sahibin kararı (2026-11-01): ertelendi | sahip sorusu 9; uzman incelemesi | açık · ertelendi · Sahip (2026-11-01): sınavın cevaplarının açık repolarda olması şimdilik sorun değil; ertelendi. Operatörün özel sınav bütünlüğü gözcüsü izlemeye devam eder. Önceki operatör önerisi (sahip sorusu 9): beklenen değerler ve referans beyinler hakemin okuduğu özel bir depoya, repolar açık kalır; kapsüle çıkış izin listesi |
 | E432 | Rakibin görevleri kanarya ölçümünden sonra genişletilecek miydi | B | sahibin yetkisiyle operatör kararı (2026-11-01); sahip geri alabilir | sahip sorusu 11 | karar kaydedildi · (a)–(d) evet: kanıtlayabildiği her kusuru (en çok 5) raporlar; açıkça temiz girdiyi reddeden bir koruma çürütülmüş sayılır; göndermeden önce yeniden üreticisini bir kez koşar; başka model ya da çok örnek (E85) USD başına ölçülen yakalamayla seçilir. Kanaryanın ayar ve tutulan ayrımından sonra bir tohum dönemiyle teslim |
 | E433 | Yeniden düzenleme (refactoring) sınıfının tohumda olup olmayacağı | B | sahibin yetkisiyle operatör kararı (2026-11-01); sahip geri alabilir | sahip sorusu 12 | karar kaydedildi · önce ölçülür; Kurucu Aşama 1'den sonraki ilk sınıf seçimi spec'ine kadar böyle bir sınıf açmazsa tohuma yalnız amaç ve güvenlik tabanı yazılır; şimdi tohum metni yok |
 | E434 | Dürüstlük çıkışı `istismar = 0` az şansa dayanır, dürüst ile yarı yarıya hile yapanı ayıramaz | S | sahibin yetkisiyle operatör kararı (2026-11-01); sahip geri alabilir | sahip sorusu 15 | karar kaydedildi · `istismar = 0` bir tetik olarak kalır; şans sayısı ve üst sınır özel karnede yanında yazılır; en az şans sayısı istenmez |
@@ -2560,7 +2560,8 @@ Testler `tests/test_rival_memory.py`'de, sınıf adları kalem numarasıyla. Dur
 ### E421–E436 (2026-11-01) · sahibin yetkisiyle operatör kararları · dal `gaps/owner-decisions-3f` · E150 E231 E260 E332 kapandı
 
 - **Kaynak.** Sahip (2026-11-01) kendi yapabileceği kararları operatöre bıraktı ("benim yapabileceklerimi sen yapsana").
-  Her karar "sahibin yetkisiyle operatör kararı (2026-11-01); sahip geri alabilir" olarak yazıldı. Tohuma yalnız kural ve
+  Her karar "sahibin yetkisiyle operatör kararı (2026-11-01); sahip geri alabilir" olarak yazıldı; E431 sahibin kendi
+  kararıdır ("Sınavın cevapları açık repolarda. bu sorun degil simdilik"). Tohuma yalnız kural ve
   arayüz gerçeği girdi; Kurucu'nun kendi işine çözüm, tasarım ya da ipucu girmedi (E304).
 - **Tohuma yazılan.** E421 fiziksel güvenlik, tek yeri `05` "Fiziksel güvenlik" (`03` K6 satırı, `14`, `25` 10a, `26c`,
   `30` gösterir; birim adı tohumda yok); E422 görünmeyen tüketici (`05`); E423 K0'ın tanımı (`03`); E424 `04` 1 (modülsüz
@@ -2581,7 +2582,8 @@ Testler `tests/test_rival_memory.py`'de, sınıf adları kalem numarasıyla. Dur
   `profile.derive`'ıdır). E150: `seed/founder/README.md` "Tohum teslimi" beyne yalnız `spec/tohum`'u teslim eder; sistem
   haritasının bağı "delivers spec/tohum alone" oldu.
 - **Yalnız kayıt (tohum metni yok).** E428 bilinmeyen alan sınavı (dilin adı açık kayda yazılmadı: sınavın parçasıdır);
-  E429 `draft-rust`; E430 erişimler; E431 özel depo ve çıkış izin listesi (açık iş, plan satırda); E432 rakibin
+  E429 `draft-rust`; E430 erişimler; E431 sınavın cevaplarının açık repolarda olması (sahibin kararı: şimdilik sorun
+  değil, ertelendi; özel sınav bütünlüğü gözcüsü izler; satır açık); E432 rakibin
   görevleri; E433 yeniden düzenleme sınıfı önce ölçülür; E434 `istismar = 0` tetiği; E435 spec-011'in zamanı (E171);
   E436 E173 bölmesi. E332 (spec-036) tohum günlüğündeki `declined` yanıtla kapandı.
 - **Bilerek dokunulmayan.** Donmuş `asama-0/03` ve `asama-0/13` Kurucu'nun defterini hâlâ "tohumun aracıyla" der: donmuş
@@ -2589,6 +2591,14 @@ Testler `tests/test_rival_memory.py`'de, sınıf adları kalem numarasıyla. Dur
   `waived_refutations`'ı adlandırmıyor (alan `29`'dadır); bu dalın işi değil, dokunulmadı.
 - **Ne zaman girer.** Sayfalar bir sonraki tohum dönemiyle (`seed/founder/README.md` "Tohum teslimi"); E426 ve E421'in
   kodu hakem kodudur, aynı dönemin hakem kopyasıyla (adım 3); README ve sistem haritası hemen.
+- **Doğrulama.** 22 yeni testin hepsi `main`'de (`9b35afa`) kırmızıydı (`OwnerDecisionPagesTest` 12,
+  `E426ExamFaultRetraction` 6, `E11LearningSplit` 1, `ExamFaultFlow` 3). Windows `seed/bootstrap` (`PYTHONPATH=.;tests`,
+  Python 3.12): bütün paket 659 test OK (20 atlandı; taban 637). Linux (Docker `snowball_linux_test:git`, `--network
+  none`, LF dışa aktarım): 679 test OK (6 atlandı). `local/mutate.py` Linux'ta: 33 yeni mutantın 33'ü ve çapası değişen
+  `targets_typo_accepted` öldü; 621 mutant 20 parçada, parça başına en çok 32 (`MutationShardTest`). `local/system_map.py
+  --check` temiz. Satır: `00a` 80, `26` 80, `26c` 80, `29b` 80, `03` 79, tohum günlüğü 78, `08` 74, `13` 74, `05` 69,
+  `24a` 68, `27` 68, `25` 67, `14` 66, `30` 66, `29j` 62, `CHANGELOG-3` 54, `04` 48, `29e` 40. Commit'lerin diff'inde CR
+  baytı 0.
 
 ## Doğrulanmış sağlam taraflar
 Kapsayıcı bayrakları ve kırmızı kontroller; host'ta kabuk enjeksiyonu yok; `$GITHUB_OUTPUT`'a serbest
