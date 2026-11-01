@@ -66,7 +66,7 @@ LINKS = (
 AREAS = (
     ("Entry", ("__init__", "__main__", "cli")),
     ("Intake", ("canon", "classify", "config", "ghapi", "gitio", "importer", "licenses", "treehash")),
-    ("Sandbox", ("container", "controls", "manifest", "moduleless", "vectors")),
+    ("Sandbox", ("container", "controls", "manifest", "moduleless", "parts", "vectors")),
     ("Rival", ("reproduce", "rival", "rival_mcp", "secretscan")),
     ("Judgement", ("decide", "exitchecks", "ledgercheck", "stages", "state", "wiring")),
 )
