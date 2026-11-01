@@ -69,7 +69,7 @@ flowchart LR
 
 ## 2. Referee package: `seed/bootstrap/snowball_bootstrap`
 
-27 modules, 66 imports inside the package, 1 started as a separate process. Areas are roles. The overview has 5 areas and 10 edges; an arrow's number is how many imports cross from one area to the other.
+27 modules, 68 imports inside the package, 1 started as a separate process. Areas are roles. The overview has 5 areas and 11 edges; an arrow's number is how many imports cross from one area to the other.
 
 ```mermaid
 flowchart LR
@@ -82,6 +82,7 @@ flowchart LR
   a_Entry -->|6| a_Judgement
   a_Entry -->|2| a_Rival
   a_Entry -->|5| a_Sandbox
+  a_Intake -->|2| a_Judgement
   a_Judgement -->|7| a_Intake
   a_Judgement -->|4| a_Rival
   a_Rival -->|3| a_Intake
@@ -165,7 +166,7 @@ flowchart LR
 
 ### Intake
 
-9 modules, 9 edges out of them.
+9 modules, 11 edges out of them.
 
 ```mermaid
 flowchart LR
@@ -180,15 +181,20 @@ flowchart LR
     m_stagelock["stagelock"]
     m_treehash["treehash"]
   end
+  subgraph a_Judgement["Judgement"]
+    m_stages["stages"]:::outside
+  end
   m_gitio --> m_treehash
   m_importer --> m_canon
   m_importer --> m_gitio
   m_importer --> m_stagelock
+  m_importer --> m_stages
   m_importer --> m_treehash
   m_stagelock --> m_canon
   m_stagelock --> m_config
   m_stagelock --> m_gitio
   m_stagelock --> m_importer
+  m_stagelock --> m_stages
   classDef outside stroke-dasharray: 4 3
 ```
 
@@ -199,7 +205,7 @@ flowchart LR
 | `config` | Operator-written inputs, validated strictly. | `cli`, `exitchecks`, `rival`, `stagelock`, `stages`, `state` |
 | `ghapi` | Minimal GitHub REST calls the pull job needs: find and download the latest state artifact, and look at the newest failed run of this workflow (E13). | `cli` |
 | `gitio` | Git operations on the untrusted brain repository. | `cli`, `importer`, `stagelock` |
-| `importer` | Operator import at the Stage 0 exit (`tohum/25a` 1-2, `asama-0/10a` #aktarim and #oyuncak). | `cli`, `stagelock` |
+| `importer` | Operator import at the Stage 0 exit and at each batch exit after it (`tohum/25a` 1-2, `asama-0/10a` #aktarim and #oyuncak, `asama-1/13` 3: "aynı komut"). | `cli`, `stagelock` |
 | `licenses` | License gate for downloaded wheels (`tohum/24`, "Lisans"). | `cli` |
 | `stagelock` | The stage lock and the counter it is bound to (`tohum/02` 5, `asama-0/10a` "Kilidin açılışı", `tohum/25a` 9, `26c`). | `cli`, `importer` |
 | `treehash` | Tree hashes over git-archive tarballs, and safe extraction of regular files only. | `cli`, `exitchecks`, `gitio`, `importer`, `moduleless`, `stages` |
@@ -331,7 +337,7 @@ flowchart LR
 | `decide` | The acceptance decision (`tohum/29b`, "Kabul" and "Aşama 0 çıkışının (A) parçası"). | `cli` |
 | `exitchecks` | The (A) conditions of `asama-0/10` that `pull` checks on the brain archive it already holds (`29b`; the draft `29e` "Tohum denetimleri": in `çek`, read from the archive, never ... | `cli`, `decide` |
 | `ledgercheck` | The Founder's ledger (`asama-0/10` #kurucu-defteri, `asama-0/09` test 30, `tohum/26`, `00a`; E107, E280). | `cli`, `decide`, `exitchecks` |
-| `stages` | The stage tables (`asama-0/14`, `tohum/26c` "Aşama tablosu"): the machine copy of a stage's micro-features. | `cli`, `decide`, `manifest`, `moduleless`, `vectors`, `wiring` |
+| `stages` | The stage tables (`asama-0/14`, `tohum/26c` "Aşama tablosu"): the machine copy of a stage's micro-features. | `cli`, `decide`, `importer`, `manifest`, `moduleless`, `stagelock`, `vectors`, `wiring` |
 | `state` | The bootstrap's memory between runs: the last signed result's ``state`` block. | `cli`, `decide` |
 | `wiring` | The loop workflow's wiring rules (`asama-0/10` #is-akisi, `asama-0/09` test 46, `asama-0/14` MF17; `tohum/08`, `01a`, `29p`; E100, E162, E281-E283). | `cli`, `exitchecks` |
 
@@ -351,7 +357,7 @@ Every subcommand of `cli.py`, the jobs that run it, and the package modules its 
 | `run-tests` | `kos` | `cmd_run_tests` | `canon`, `config`, `container`, `controls`, `licenses`, `moduleless`, `stages`, `treehash`, `vectors` |
 | `rival` | `cagir` | `cmd_rival` | `canon`, `config`, `rival`, `treehash` |
 | `reproduce` | `yeniden` | `cmd_reproduce` | `canon`, `config`, `container`, `reproduce`, `treehash`, `vectors` |
-| `decide` | `yaz` | `cmd_decide` | `canon`, `config`, `decide` |
+| `decide` | `yaz` | `cmd_decide` | `canon`, `config`, `decide`, `stages` |
 | `pack` | `cek`, `getir`, `kos`, `cagir`, `yeniden` | `cmd_pack` | - |
 | `unpack` | operator / local | `cmd_unpack` | `treehash` |
 | `seed-hash` | operator / local | `cmd_seed_hash` | `gitio`, `treehash` |

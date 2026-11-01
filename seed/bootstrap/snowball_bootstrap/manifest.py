@@ -2,8 +2,8 @@
 
 The bootstrap runs only the commands listed here, and refuses a manifest that leaves a finished
 micro-feature without its self-test or that lists no test at all. Which tests a micro-feature needs comes
-from the seed's stage table of the stage the lock opened (`stages/stage0.json`, the machine copy of `asama-0/14`;
-`stages/stage1.json` once `setup/stage.json` is there).
+from the seed's table that holds (`stages/stage0.json`, the machine copy of `asama-0/14`; once `setup/stage.json` is
+there, the open batch's, `stages/stage1-P1.json` first).
 """
 
 from __future__ import annotations
@@ -113,17 +113,18 @@ def _numbers(manifest: Manifest, stage: int) -> set[int]:
 def check_stage(manifest: Manifest, table: stages.StageTable) -> list[str]:
     """Reasons the manifest cannot be accepted under ``table``'s stage; empty when it can.
 
-    `done_mf` is a prefix 1..k of the stage table (`26c`); each finished micro-feature's tests (`asama-0/09`) are in the
-    manifest at the table's stage. A test of a later stage is not one yet (`asama-0/10a`: the ``stage: 1`` tests hold
-    once the lock opened), so a manifest with only those has ``zero_tests``. A finished stage's micro-features stay
-    finished (E292): their tests stay declared at their own stage, ``missing_test:stage<s>:MF<k>:T<n>`` otherwise.
+    `done_mf` is a prefix 1..k of the table that holds (`26c`; past Stage 0 the open batch's, E378); each finished
+    micro-feature's tests (`asama-0/09`) are in the manifest at the table's stage. A test of a later stage is not one
+    yet (`asama-0/10a`: the ``stage: 1`` tests hold once the lock opened), so a manifest with only those has
+    ``zero_tests``. A finished table's micro-features (Stage 0's, a transferred batch's) stay finished (E292): their
+    tests stay declared at their own stage, ``missing_test:<table>:MF<k>:T<n>`` otherwise (``stage0``, ``stage1-P1``).
     """
     reasons: list[str] = []
     if not [t for t in manifest.tests if t.stage <= table.stage]:
         reasons.append("zero_tests")
     for earlier in table.before:
         present = _numbers(manifest, earlier.stage)
-        reasons += [f"missing_test:stage{earlier.stage}:MF{f.mf}:T{n}" for f in earlier.mfs for n in f.tests
+        reasons += [f"missing_test:{earlier.label}:MF{f.mf}:T{n}" for f in earlier.mfs for n in f.tests
                     if n not in present]
     done = list(manifest.done_mf)
     if done != list(range(1, len(done) + 1)) or len(done) > table.count:
@@ -139,7 +140,7 @@ def check_stage(manifest: Manifest, table: stages.StageTable) -> list[str]:
 
 def declares(manifest: Manifest, table: stages.StageTable) -> bool:
     """Whether the manifest's `done_mf` is ``table``'s: a prefix of it whose micro-features all have their tests at its
-    stage. A manifest of the stage before the lock opened (Stage 0's 18 under Stage 1's table) is not."""
+    stage. A manifest of a table now finished (Stage 0's 18 under P1's table, P1's 8 once P1 is transferred) is not."""
     return not [r for r in check_stage(manifest, table) if r == "done_mf_not_in_order" or r.startswith("missing_test:MF")]
 
 

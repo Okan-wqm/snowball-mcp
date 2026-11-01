@@ -1,5 +1,6 @@
 {
   "stage": 1,
+  "batch": "P1",
   "mfs": [
     {"mf": 1, "tests": [51], "groups": [], "module": "runner/organs.py", "calls": []},
     {"mf": 2, "tests": [8], "groups": [], "module": "snapshot/make.py", "calls": []},

@@ -1,14 +1,18 @@
 """The operator's activation tools (`tohum/25a` 1, 2 and 9; `asama-0/10a` #aktarim, #oyuncak, "Kilidin açılışı"; `26c`):
-the import (K1 of `seed/founder/ETKINLESTIRME.md`: E100, E275, E370), `stage-open`, the stage lock the bootstrap reads on
-every pull and the Stage 1 table (K3: E331, E371-E373).
+the import (K1 of `seed/founder/ETKINLESTIRME.md`: E100, E275, E370, E374), `stage-open`, the stage lock the bootstrap
+reads on every pull, and Stage 1's batch tables, batch exit and batch transfer (K3: E331, E371-E373, E375-E380).
 
 Nothing here signs or verifies with Sigstore: the seed's one call into it (`importer.verify_signature`) is replaced by a
-recorder, as `test_flow` and `test_exit_checks` do. Every git repository is a local one.
+recorder, as `test_flow` and `test_exit_checks` do. Every git repository is a local one. The trailing comment on a test
+names the mutants it kills (`local/mutate.py`).
 """
 
 import base64
+import contextlib
+import ctypes
 import hashlib
 import json
+import os
 import re
 import shutil
 import tempfile
@@ -20,11 +24,13 @@ from snowball_bootstrap import canon, cli, config, gitio, importer, manifest as 
 from snowball_bootstrap.canon import canonical, row_hash
 from snowball_bootstrap.config import ConfigError
 from snowball_bootstrap.container import RunResult
+from snowball_bootstrap.decide import decide
 from snowball_bootstrap.importer import ImportErrorStop, run_import
 from snowball_bootstrap.manifest import check_stage, parse_manifest
-from snowball_bootstrap.treehash import TreeError, tree_hash
+from snowball_bootstrap.treehash import tree_hash
 
-from helpers import LOOP_YML, FakeRunner, commit, make_repo, sh
+import test_exit_checks
+from helpers import LOOP_YML, FakeRunner, commit, make_repo, posix_only, sh
 from test_exit_checks import tar_of
 
 BOOT = Path(__file__).resolve().parents[1]
@@ -52,6 +58,8 @@ OPERATOR_FILES = {
 }
 IMPORT_KEYS = ["ts", "stage", "brain_sha", "referee_tree_sha256", "result_sha256", "toy_tree_sha256", "prev_hash",
                "row_hash"]
+BATCH_KEYS = ["ts", "stage", "batch", "brain_sha", "referee_tree_sha256", "result_sha256", "prev_hash", "row_hash"]
+DROP = object()  # a field a fixture leaves out
 
 
 def write(root, files):
@@ -76,6 +84,23 @@ def chained(rows):
         prev = row["row_hash"]
         out.append(row)
     return out, b"".join(json.dumps(r, separators=(",", ":")).encode("utf-8") + b"\n" for r in out)
+
+
+def edited(base, over):
+    """``base`` with ``over`` applied; a value ``DROP`` removes its key."""
+    out = dict(base)
+    for key, value in (over or {}).items():
+        if value is DROP:
+            out.pop(key, None)
+        else:
+            out[key] = value
+    return out
+
+
+def lock_of(line, **over):
+    """A well-formed lock naming the counter line ``line``."""
+    return dict({"stage": 1, "pass_row_sha256": "1" * 64, "toy_state_head": "2" * 40, "copy_state_head": "3" * 40,
+                 "import_line_sha256": hashlib.sha256(line).hexdigest()}, **over)
 
 
 class ImportCase(unittest.TestCase):
@@ -114,6 +139,14 @@ class ImportCase(unittest.TestCase):
         self.result.write_bytes(json.dumps({"kind": "exit", "verdict": "accepted", "head": self.sha,
                                             "exit": exit_block}, indent=2).encode("utf-8") + b"\n")
 
+    def use_tree(self, files):
+        """The brain's archive replaced by a stand-in holding ``files`` (a patch to enter), with the signed result
+        naming its hashes."""
+        tar = tar_of(files)
+        self.referee_hash, self.toy_hash = tree_hash(tar, "referee"), tree_hash(tar, TOY_DIR, False, True)
+        self.write_result()
+        return mock.patch.object(importer.gitio, "archive", return_value=tar)
+
     def run_import(self, toy=True):
         return run_import(self.result, self.bundle, "id", "py", self.brain, self.referee, self.toy if toy else None)
 
@@ -150,6 +183,16 @@ class ImportKeepsTheBootstrapTest(ImportCase):
         self.assertEqual(after[".github/workflows/bootstrap.yml"], b"name: snowball-bootstrap\n")
         self.assertEqual(after["bootstrap/snowball_bootstrap/__init__.py"], b"seed\n")
 
+    def test_github_is_cleared_around_the_bootstraps_workflow(self):  # SK_github_not_descended
+        """E381: `.github/` holds `bootstrap.yml`, so the clearing goes down into it: an earlier tree's workflow, or any
+        other file there, does not survive the import to run beside the push judge."""
+        write(self.referee, {".github/workflows/old.yml": "name: stale\n", ".github/CODEOWNERS": "* @x\n"})
+        self.run_import()
+        after = read_all(self.referee)
+        self.assertNotIn(".github/workflows/old.yml", after)
+        self.assertNotIn(".github/CODEOWNERS", after)
+        self.assertEqual(after[".github/workflows/bootstrap.yml"], b"name: snowball-bootstrap\n")
+
     def test_a_referee_tree_that_carries_the_bootstraps_workflow_is_refused(self):
         """`25a` 1: the import never touches `bootstrap.yml`, in any spelling (E130, E289: the operator's file system
         folds case): nothing is written. (A)'s wiring check refuses such a tree first (`workflow_extra_file`); the
@@ -174,6 +217,31 @@ class ImportKeepsTheBootstrapTest(ImportCase):
         with mock.patch.object(importer, "_clear"), self.assertRaises(ImportErrorStop) as caught:
             self.run_import()
         self.assertIn("checkout on disk", str(caught.exception))
+        self.assertEqual(self.imports(), b"")
+
+
+class ImportTheToyTest(ImportCase):
+    """`25a` 2, `asama-0/10a` #oyuncak: the toy checkout becomes the signed toy subtree, nothing else (E381)."""
+
+    def test_an_earlier_toy_file_is_cleared_and_the_git_directory_kept(self):  # SK_toy_not_cleared
+        write(self.toy, {"stale.py": "from an earlier toy\n", "old/x.txt": "x\n", ".git/HEAD": "ref: refs/heads/main\n"})
+        self.run_import()
+        self.assertEqual(read_all(self.toy), {"README.md": b"toy\n", "app.py": b"import os\n"})
+        self.assertEqual((self.toy / ".git" / "HEAD").read_bytes(), b"ref: refs/heads/main\n")
+
+    def test_the_toy_checkout_is_hashed_again_before_the_row_is_written(self):  # SK_toy_final_rehash_off
+        """A toy checkout that is not the signed toy tree once the files are in place (here: the clearing of the toy
+        left a file behind) gets no counter row."""
+        write(self.toy, {"stale.py": "from an earlier toy\n"})
+        real = importer._clear
+
+        def referee_only(directory, keep, holds, rel=importer.PurePosixPath()):
+            if Path(directory) != self.toy:
+                real(directory, keep, holds, rel)
+        with mock.patch.object(importer, "_clear", side_effect=referee_only), \
+                self.assertRaises(ImportErrorStop) as caught:
+            self.run_import()
+        self.assertIn("toy checkout on disk", str(caught.exception))
         self.assertEqual(self.imports(), b"")
 
 
@@ -270,6 +338,31 @@ class ImportRefusesTest(ImportCase):
         self.assert_nothing_written(before)
         self.assertEqual([p.name for p in self.work.iterdir() if p.name.startswith(".snowball-import")], [])
 
+    @posix_only
+    def test_a_link_or_a_special_file_on_disk_is_never_hashed_through(self):  # SK_disk_links_allowed
+        """E381: what lies on disk is hashed as regular files only; a link (to a file or a directory) or a FIFO the
+        extraction left stops the import before the checkouts are touched, whatever it points at."""
+        real = importer.extract
+        for plant in ("file_link", "dir_link", "fifo"):
+            def extract_and_plant(tar_bytes, dest, max_bytes, prefix="", plant=plant):
+                total = real(tar_bytes, dest, max_bytes, prefix)
+                if prefix == "referee":
+                    target = dest / "ledger" / "chain.py"
+                    if plant == "file_link":
+                        os.symlink(target, dest / "gate" / "linked.py")
+                    elif plant == "dir_link":
+                        os.symlink(dest / "ledger", dest / "linked")
+                    else:
+                        os.mkfifo(dest / "gate" / "pipe")
+                return total
+            with self.subTest(plant=plant):
+                before = read_all(self.referee)
+                with mock.patch.object(importer, "extract", side_effect=extract_and_plant), \
+                        self.assertRaises(ImportErrorStop) as caught:
+                    self.run_import()
+                self.assertRegex(str(caught.exception), "is a link|not a regular file")
+                self.assert_nothing_written(before)
+
     def test_the_temporary_tree_is_a_sibling_of_the_referee_checkout(self):  # import_temp_not_sibling
         seen = []
         real = importer.extract
@@ -332,8 +425,8 @@ class ImportRefusesTest(ImportCase):
                 self.assert_nothing_written(before)
 
     def test_an_open_stage_lock_refuses_a_stage_0_import(self):  # import_after_the_lock_opened
-        """Spec sessiz (E370): this seed signs no transferable result after Stage 0, so with `setup/stage.json` in
-        place the result in hand is Stage 0's, and the lock it opened is not undone by importing it again."""
+        """Spec sessiz (E370): with `setup/stage.json` in place, a result without a batch is Stage 0's, and the lock it
+        opened is not undone by importing it again (a batch's result is another matter, `BatchImportTest`)."""
         write(self.referee, {"setup/stage.json": "{}\n"})
         before = read_all(self.referee)
         with self.assertRaises(ImportErrorStop):
@@ -341,12 +434,206 @@ class ImportRefusesTest(ImportCase):
         self.assert_nothing_written(before)
 
 
+# ---------------------------------------------------------------- K1's trust root: names the file system resolves
+
+def short_name(path):
+    """The 8.3 short name Windows gave ``path`` (its last part), or None (another system, or short names off there)."""
+    if os.name != "nt":
+        return None
+    buf = ctypes.create_unicode_buffer(1024)
+    if not ctypes.windll.kernel32.GetShortPathNameW(str(path), buf, len(buf)):
+        return None
+    name = Path(buf.value).name
+    return name if name.upper() != path.name.upper() else None
+
+
+class ImportAliasTest(ImportCase):
+    """E374 (E130's 8.3 rule): on the operator's Windows file system a name can reach an existing entry under another
+    name: `BOOTST~1` is `bootstrap/`, `POLICY~1.JSO` `policy.json`, `GIT~1` `.git/`. Such a referee tree has none of
+    the reserved names in any case, so `tree_hash`, `_lands_on_kept` and the re-hash of the sibling temporary tree (where
+    nothing is there to alias) all pass it; the copy into the checkout would write the Founder's bytes over the trust
+    root. The import asks the file system where each path lands before anything is written."""
+
+    @staticmethod
+    def aliased(aliases):
+        """The file system as the operator's Windows has it (patches to enter): each ``{checkout: {alias: entry}}``
+        alias exists and is that entry, though no directory lists the alias."""
+        real_lexists, real_samefile = os.path.lexists, os.path.samefile
+        names = {str(Path(base) / alias): str(Path(base) / entry) for base, pairs in aliases.items()
+                 for alias, entry in pairs.items()}
+
+        def lexists(path):
+            return str(Path(path)) in names or real_lexists(path)
+
+        def samefile(a, b):
+            a, b = str(Path(a)), str(Path(b))
+            if a in names:
+                return names[a] == b
+            return real_samefile(a, b)
+        stack = contextlib.ExitStack()
+        stack.enter_context(mock.patch.object(importer.os.path, "lexists", side_effect=lexists))
+        stack.enter_context(mock.patch.object(importer.os.path, "samefile", side_effect=samefile))
+        return stack
+
+    def assert_refused_untouched(self, says="under another name"):
+        before, toy_before = read_all(self.referee), read_all(self.toy, skip=())
+        with self.assertRaises(ImportErrorStop) as caught:
+            self.run_import()
+        self.assertIn(says, str(caught.exception))
+        self.assertEqual(read_all(self.referee), before)
+        self.assertEqual(read_all(self.toy, skip=()), toy_before)
+        self.assertEqual(self.imports(), b"")
+        return str(caught.exception)
+
+    def test_a_short_name_of_what_the_referee_checkout_keeps_is_refused(self):  # import_alias_unchecked import_alias_kept_only_exact
+        for alias, entry, path in (("BOOTST~1", "bootstrap", "BOOTST~1/snowball_bootstrap/__init__.py"),
+                                   ("POLICY~1.JSO", "policy.json", "POLICY~1.JSO"),
+                                   ("CONTRO~1.JSO", "control.json", "CONTRO~1.JSO"),
+                                   ("GIT~1", ".git", "GIT~1/hooks/post-checkout")):
+            with self.subTest(alias=alias):
+                write(self.referee, {".git/HEAD": "ref: refs/heads/main\n"})
+                with self.use_tree({"referee/ledger/chain.py": "x = 1\n",
+                                    "referee/.github/workflows/loop.yml": LOOP_YML, f"referee/{path}": "EVIL\n",
+                                    f"{TOY_DIR}/app.py": "y\n"}), self.aliased({self.referee: {alias: entry}}):
+                    said = self.assert_refused_untouched()
+                self.assertIn(f"would land on {entry}", said)
+
+    def test_a_short_name_on_the_way_to_the_bootstraps_workflow_is_refused(self):  # import_alias_holds_unchecked
+        """`GITHUB~1/workflows/` is `.github/workflows/`: an alias of `.github/` is refused, whether the path under it
+        would reach `bootstrap.yml` or land beside it."""
+        for path in ("GITHUB~1/workflows/bootstrap.yml", "GITHUB~1/workflows/other.yml"):
+            with self.subTest(path=path):
+                with self.use_tree({"referee/ledger/chain.py": "x = 1\n", f"referee/{path}": "name: evil\n",
+                                    f"{TOY_DIR}/app.py": "y\n"}), self.aliased({self.referee: {"GITHUB~1": ".github"}}):
+                    self.assertIn("would land on .github", self.assert_refused_untouched())
+
+    def test_a_short_name_of_the_toys_git_directory_is_refused(self):  # import_toy_alias_unchecked
+        """The toy checkout keeps `.git/`; `GIT~1/hooks/post-checkout` would plant a hook the operator's next git
+        command runs (E04)."""
+        write(self.toy, {".git/HEAD": "ref: refs/heads/main\n"})
+        with self.use_tree({"referee/ledger/chain.py": "x = 1\n", "referee/.github/workflows/loop.yml": LOOP_YML,
+                            f"{TOY_DIR}/app.py": "y\n", f"{TOY_DIR}/GIT~1/hooks/post-checkout": "#!/bin/sh\nevil\n"}), \
+                self.aliased({self.toy: {"GIT~1": ".git"}}):
+            self.assertIn("would land on .git", self.assert_refused_untouched())
+
+    def test_a_name_no_entry_is_listed_under_is_refused(self):  # import_alias_unlisted_allowed
+        """A name the file system finds though its directory lists nothing it could be (on Windows a device name such
+        as `NUL`; here a stand-in, `ghost`) is not written into."""
+        real = os.path.lexists
+        with self.use_tree({"referee/ledger/chain.py": "x = 1\n", "referee/ghost/x.py": "y\n",
+                            f"{TOY_DIR}/app.py": "y\n"}), \
+                mock.patch.object(importer.os.path, "lexists",
+                                  side_effect=lambda p: Path(p) == self.referee / "ghost" or real(p)):
+            self.assertIn("would land on ghost", self.assert_refused_untouched())
+
+    def test_an_alias_of_an_earlier_trees_entry_is_cleared_like_it(self):  # import_alias_refuses_any
+        """What is not kept is cleared before the copy, so a name that reaches an earlier referee tree's entry (here
+        `LEDGER~1` is the old `ledger_v1/`) lands on nothing kept: the import goes on."""
+        write(self.referee, {"ledger_v1/old.py": "old\n"})
+        with self.use_tree({"referee/LEDGER~1/new.py": "x = 1\n", "referee/.github/workflows/loop.yml": LOOP_YML,
+                            f"{TOY_DIR}/app.py": "y\n"}), self.aliased({self.referee: {"LEDGER~1": "ledger_v1"}}):
+            self.run_import()
+        self.assertEqual(read_all(self.referee)["bootstrap/snowball_bootstrap/__init__.py"], b"seed\n")
+        self.assertNotIn("ledger_v1/old.py", read_all(self.referee))
+
+    def test_on_a_volume_with_short_names_the_trust_root_is_not_written(self):
+        """The repro on a real file system: where Windows makes 8.3 names (the system volume by default), the alias of
+        `bootstrap/`, of `policy.json` and of the toy's `.git/` each stops the import with nothing written."""
+        write(self.toy, {".git/HEAD": "ref: refs/heads/main\n"})
+        names = {"bootstrap": short_name(self.referee / "bootstrap"),
+                 "policy.json": short_name(self.referee / "policy.json"),
+                 "toy .git": short_name(self.toy / ".git")}
+        if not all(names.values()):
+            self.skipTest("this volume makes no 8.3 short names (or this is not Windows)")
+        for label, path in (("bootstrap", f"referee/{names['bootstrap']}/snowball_bootstrap/__init__.py"),
+                            ("policy.json", f"referee/{names['policy.json']}"),
+                            ("toy .git", f"{TOY_DIR}/{names['toy .git']}/hooks/post-checkout")):
+            with self.subTest(label=label):
+                files = {"referee/ledger/chain.py": "x = 1\n", f"{TOY_DIR}/app.py": "y\n", path: "EVIL = 1\n"}
+                with self.use_tree(files):
+                    self.assert_refused_untouched()
+                self.assertEqual((self.referee / "bootstrap" / "snowball_bootstrap" / "__init__.py").read_bytes(),
+                                 b"seed\n")
+                self.assertEqual((self.referee / "policy.json").read_bytes(), b"{}\n")
+
+
+# ---------------------------------------------------------------- the batch transfer (`asama-1/13` 3, E378)
+
+class BatchImportTest(ImportCase):
+    """Once `setup/stage.json` opened Stage 1, the same command transfers the open batch's signed (A) (`25a` 1:
+    "her parti çıkışında aynı komut"; `asama-1/06`: P1's (A), transfer and (B) come first). The toy is left as it is."""
+
+    def setUp(self):
+        super().setUp()
+        self.stage0_rows, data = chained([{"ts": "2026-10-31T08:00:00Z", "stage": 0, "brain_sha": "c" * 40,
+                                           "referee_tree_sha256": "d" * 64, "result_sha256": "e" * 64,
+                                           "toy_tree_sha256": "f" * 64}])
+        write(self.referee, {"setup/imports.jsonl": data,
+                             "setup/stage.json": json.dumps(lock_of(data.split(b"\n")[0]))})
+        self.write_result(stage=1, batch="P1")
+
+    def test_the_open_batchs_result_is_transferred_and_its_row_names_the_batch(self):  # import_batch_refused import_batch_row_unnamed
+        """`26c:39`: `{ts, stage, batch, brain_sha, referee_tree_sha256, result_sha256}` chained on, no toy hash."""
+        row = self.run_import(toy=False)
+        self.assertEqual(list(row), BATCH_KEYS)
+        self.assertEqual((row["stage"], row["batch"], row["brain_sha"], row["referee_tree_sha256"]),
+                         (1, "P1", self.sha, self.referee_hash))
+        self.assertEqual(row["result_sha256"], hashlib.sha256(self.result.read_bytes()).hexdigest())
+        self.assertEqual(row["prev_hash"], self.stage0_rows[-1]["row_hash"])
+        self.assertEqual(read_all(self.toy), {})
+        self.assertEqual(read_all(self.referee)["ledger/chain.py"], b"x = 1\n")
+        self.assertEqual(stagelock.batches_done(self.referee, stagelock.load(self.referee)), ("P1",))
+
+    def test_a_batch_is_transferred_once_and_only_the_open_one(self):  # import_batch_any
+        self.run_import(toy=False)
+        before = read_all(self.referee)
+        with self.assertRaises(ImportErrorStop) as caught:  # P1 is done; the seed carries no later batch table
+            self.run_import(toy=False)
+        self.assertIn("open batch is None", str(caught.exception))
+        self.assertEqual(read_all(self.referee), before)
+
+    def test_a_batch_result_of_another_batch_or_stage_or_without_the_lock_is_refused(self):  # import_batch_stage_unchecked
+        for fields, says in (({"stage": 1, "batch": "P2"}, "open batch is 'P1'"), ({"stage": 2, "batch": "P1"}, "Stage 2"),
+                             ({"stage": True, "batch": "P1"}, "Stage True"), ({"batch": "P1"}, "Stage None")):
+            with self.subTest(fields=fields):
+                self.write_result(**fields)
+                before = read_all(self.referee)
+                with self.assertRaises(ImportErrorStop) as caught:
+                    self.run_import(toy=False)
+                self.assertIn(says, str(caught.exception))
+                self.assertEqual(read_all(self.referee), before)
+        (self.referee / "setup" / "stage.json").unlink()
+        self.write_result(stage=1, batch="P1")
+        with self.assertRaises(ImportErrorStop) as caught:
+            self.run_import(toy=False)
+        self.assertIn("only once setup/stage.json opened", str(caught.exception))
+
+    def test_a_batch_transfer_leaves_the_toy_alone(self):  # import_batch_touches_the_toy
+        write(self.toy, {"app.py": "the live toy\n"})
+        before = read_all(self.referee)
+        with self.assertRaises(ImportErrorStop) as caught:
+            self.run_import(toy=True)
+        self.assertIn("without --toy", str(caught.exception))
+        self.assertEqual(read_all(self.referee), before)
+        self.assertEqual(read_all(self.toy), {"app.py": b"the live toy\n"})
+
+
 # ---------------------------------------------------------------- stage-open
 
-class Target:
-    """A target repository whose `brain/state` holds a ledger and a root chain, as the loop referee writes them."""
+TOY_TARGET = {"id": "toy-t", "repo": "owner/toy", "kind": "toy", "base_sha": None, "identifiers": [],
+              "excluded_paths": [], "unit_candidates": []}
+COPY_BASE = "ab" * 20
+COPY_TARGET = {"id": "copy-t", "repo": "owner/copy", "kind": "copy", "base_sha": COPY_BASE, "identifiers": ["acme"],
+               "excluded_paths": [], "unit_candidates": ["app"]}
+OWNER_EXCEPTION = {"anchor": "durustluk", "stage": 0, "carry_to": 1, "reason": "E287", "carry_commitment": "c" * 64,
+                   "measured": False}
 
-    def __init__(self, path, rows, root_override=None):
+
+class Target:
+    """A target repository whose `brain/state` holds a ledger and a root chain, as the loop referee writes them; the
+    root's bundle has one `hashedrekord` log entry that records the root as its hash (`29j`)."""
+
+    def __init__(self, path, rows, root_override=None, entry_hash=None):
         self.path = path
         make_repo(path, {"README.md": "main\n"})
         sh(path, "git", "checkout", "-q", "--orphan", "brain/state")
@@ -356,7 +643,11 @@ class Target:
         for row in self.rows:
             tips[row["part"]] = row["row_hash"]
         self.root = root_override or hashlib.sha256(canonical(tips)).hexdigest()
-        self.body = json.dumps({"kind": "hashedrekord", "spec": {"root": self.root, "at": str(path)}}).encode()
+        recorded = entry_hash if entry_hash is not None else {"algorithm": "sha256", "value": self.root}
+        self.body = json.dumps({"apiVersion": "0.0.1", "kind": "hashedrekord", "spec": {
+            "data": {"hash": recorded},
+            "signature": {"content": base64.b64encode(str(path).encode()).decode(), "publicKey": {"content": "x"}}}},
+            separators=(",", ":")).encode()
         self.uuid = "24296fb24b8ad77a" + hashlib.sha256(b"\x00" + self.body).hexdigest()
         self.roots, root_bytes = chained([{"row_id": "r1", "ts": "2026-10-31T10:00:00Z", "root": self.root,
                                            "rekor_uuid": self.uuid}])
@@ -379,54 +670,96 @@ def event(kind, payload, part="events"):
             "derivation": "tool", "trust": "verified", "snapshot_id": "0" * 40, "evidence_refs": []}
 
 
-TOY_ROWS = [event("genesis", {"target": "toy"}), event("merge", {"c": 1}), event("cost", {"usd": 1}, part="cost"),
-            event("pass", {"stage": 0, "verdict": "PASS", "copy_rows": ["x"]}), event("status", {"b": 2})]
-COPY_ROWS = [event("genesis", {"target": "copy"}), event("merge", {"c": 2})]
-
-
 class StageOpenCase(unittest.TestCase):
+    """The referee checkout after Stage 0's transfer, the signed (A) result it imported, and the two targets' state
+    clones after (B): genesis rows naming the transfer, a copy merge, the PASS row on the toy carrying the copy's rows."""
+
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.work = Path(self.tmp.name)
         self.referee = self.work / "referee"
         write(self.referee, OPERATOR_FILES)
-        write(self.referee, {"setup/summary.json": json.dumps({"seed_commit": "a" * 40, "seed_tree_sha256": "b" * 64})})
-        self.import_rows, data = chained([
-            {"ts": "2026-10-31T08:00:00Z", "stage": 0, "brain_sha": "c" * 40, "referee_tree_sha256": "d" * 64,
-             "result_sha256": "e" * 64, "toy_tree_sha256": "f" * 64},
-            {"ts": "2026-10-31T08:30:00Z", "stage": 0}])  # a touch that is no transfer (`29n`) comes after it
-        write(self.referee, {"setup/imports.jsonl": data})
-        self.import_line = data.split(b"\n")[0]
+        self.write_summary()
+        self.result = self.work / "result.json"
+        self.write_signed()
+        self.write_counter()
         self.made = 0
-        self.toy = Target(self.fresh("toy"), TOY_ROWS)
-        self.copy = Target(self.fresh("copy"), COPY_ROWS)
+        self.copy = self.make_copy()
+        self.toy = self.make_toy()
         self.verified = []
 
-        def verify(artifact, bundle, identity, sigstore_python):
-            self.verified.append((Path(artifact).read_bytes(), Path(bundle), identity, sigstore_python))
+        def verify(subject, bundle, identity, sigstore_python):
+            self.verified.append((subject, Path(bundle), identity, sigstore_python))
         patcher = mock.patch.object(importer, "verify_signature", side_effect=verify)
         patcher.start()
         self.addCleanup(patcher.stop)
+
+    def write_summary(self, targets=(TOY_TARGET, COPY_TARGET), **over):
+        summary = {"seed_commit": "a" * 40, "seed_tree_sha256": "b" * 64, "targets": list(targets)}
+        summary.update(over)
+        write(self.referee, {"setup/summary.json": json.dumps(summary)})
+
+    def write_signed(self, **exit_fields):
+        """The (A) result the import verified; its bytes' hash is the transfer row's `result_sha256`."""
+        exit_block = edited({"requested": True, "transferable": True, "brain_sha": "c" * 40,
+                             "referee_tree_sha256": "d" * 64, "toy_tree_sha256": "f" * 64}, exit_fields)
+        self.result.write_bytes(json.dumps({"kind": "exit", "verdict": "accepted", "exit": exit_block},
+                                           indent=2).encode("utf-8") + b"\n")
+
+    def write_counter(self, later=()):
+        """Stage 0's transfer of the signed result, a touch that is no transfer (`29n`), then ``later`` rows."""
+        self.import_rows, data = chained([
+            {"ts": "2026-10-31T08:00:00Z", "stage": 0, "brain_sha": "c" * 40, "referee_tree_sha256": "d" * 64,
+             "result_sha256": hashlib.sha256(self.result.read_bytes()).hexdigest(), "toy_tree_sha256": "f" * 64},
+            {"ts": "2026-10-31T08:30:00Z", "stage": 0}, *later])
+        write(self.referee, {"setup/imports.jsonl": data})
+        self.import_line = data.split(b"\n")[0]
+        self.line_sha = hashlib.sha256(self.import_line).hexdigest()
 
     def fresh(self, name):
         """A new directory for a target (a git repository's objects are read-only on Windows: none is removed)."""
         self.made += 1
         return self.work / f"{name}{self.made}"
 
+    def copy_rows(self, genesis=None):
+        return [event("genesis", edited({"target": "copy-t", "base_sha": COPY_BASE,
+                                         "import_line_sha256": self.line_sha}, genesis)),
+                event("merge", {"c": 2}), event("status", {"b": 3})]
+
+    def make_copy(self, rows=None, **kw):
+        return Target(self.fresh("copy"), rows if rows is not None else self.copy_rows(), **kw)
+
+    def toy_rows(self, genesis=None, payload=None, row=None):
+        passed = event("pass", edited({"stage": 0, "verdict": "PASS",
+                                       "copy_genesis_row_hash": self.copy.rows[0]["row_hash"],
+                                       "copy_merge_row_hashes": [self.copy.rows[1]["row_hash"]]}, payload))
+        return [event("genesis", edited({"target": "toy-t", "import_line_sha256": self.line_sha}, genesis)),
+                event("merge", {"c": 1}), event("cost", {"usd": 1}, part="cost"), edited(passed, row),
+                event("status", {"b": 2})]
+
+    def make_toy(self, rows=None, **kw):
+        return Target(self.fresh("toy"), rows if rows is not None else self.toy_rows(), **kw)
+
     def argv(self, **over):
         args = {"--referee": self.referee, "--toy": self.toy.path, "--copy": self.copy.path,
                 "--ref": "refs/heads/brain/state", "--identity": "loop-id", "--sigstore-python": "py",
-                "--toy-root-bundle": self.toy.bundle, "--copy-root-bundle": self.copy.bundle}
+                "--toy-root-bundle": self.toy.bundle, "--copy-root-bundle": self.copy.bundle, "--result": self.result}
         args.update(over)
         return ["stage-open"] + [str(x) for pair in args.items() for x in pair]
 
     def open(self):
         return stagelock.open_stage(self.referee, self.toy.path, self.copy.path, "refs/heads/brain/state", "loop-id",
-                                    "py", self.toy.bundle, self.copy.bundle)
+                                    "py", self.toy.bundle, self.copy.bundle, self.result)
 
     def stage_file(self):
         return self.referee / "setup" / "stage.json"
+
+    def refused(self, says):
+        with self.assertRaises((ConfigError, ImportErrorStop, gitio.GitError)) as caught:
+            self.open()
+        self.assertIn(says, str(caught.exception))
+        self.assertFalse(self.stage_file().exists())
 
 
 class StageOpenWritesTest(StageOpenCase):
@@ -437,14 +770,16 @@ class StageOpenWritesTest(StageOpenCase):
         lock = json.loads(self.stage_file().read_text(encoding="utf-8"))
         self.assertEqual(lock, {"stage": 1, "pass_row_sha256": hashlib.sha256(self.toy.line_of(3)).hexdigest(),
                                 "toy_state_head": self.toy.head, "copy_state_head": self.copy.head,
-                                "import_line_sha256": hashlib.sha256(self.import_line).hexdigest()})
+                                "import_line_sha256": self.line_sha})
         self.assertEqual(self.stage_file().read_bytes(), canon.dump(lock).encode("utf-8"))  # LF, sorted, readable
         self.assertEqual(stagelock.load(self.referee), stagelock.Lock(**lock))  # what the bootstrap then reads
 
-    def test_each_targets_last_root_is_verified_with_sigstore_as_the_root_itself(self):  # stage_open_root_not_signed
+    def test_each_targets_last_root_is_verified_with_sigstore_as_the_root_digest(self):  # stage_open_root_not_signed stage_open_root_signs_another_artifact
+        """E375, `29j`, `13`: the Rekor entry's hash is the root, so Sigstore verifies the bundle against the digest
+        `sha256:<root>`, not against a file of the root's hex text (whose sha256 is not the root)."""
         self.open()
-        self.assertEqual(self.verified, [(self.toy.root.encode("ascii"), self.toy.bundle, "loop-id", "py"),
-                                         (self.copy.root.encode("ascii"), self.copy.bundle, "loop-id", "py")])
+        self.assertEqual(self.verified, [(f"sha256:{self.toy.root}", self.toy.bundle, "loop-id", "py"),
+                                         (f"sha256:{self.copy.root}", self.copy.bundle, "loop-id", "py")])
 
     def test_stage_open_is_a_command_the_operator_can_ask_for_help(self):
         with self.assertRaises(SystemExit) as caught:
@@ -452,21 +787,31 @@ class StageOpenWritesTest(StageOpenCase):
         self.assertEqual(caught.exception.code, 0)
 
 
-class StageOpenRefusesTest(StageOpenCase):
-    def refused(self, says):
-        with self.assertRaises((ConfigError, ImportErrorStop, gitio.GitError)) as caught:
-            self.open()
-        self.assertIn(says, str(caught.exception))
-        self.assertFalse(self.stage_file().exists())
+class SigstoreCallTest(unittest.TestCase):
+    def test_the_seeds_sigstore_call_takes_a_digest_as_its_input(self):  # verify_subject_not_passed
+        """sigstore 4.5.0 (`requirements/sign.txt`) reads an input `sha256:<hex>` as a digest, not as a file name."""
+        calls = []
+        with mock.patch.object(importer.subprocess, "run",
+                               side_effect=lambda argv, **k: calls.append(argv) or mock.Mock(returncode=0)):
+            importer.verify_signature("sha256:" + "a" * 64, Path("b.json"), "id", "py")
+        self.assertEqual(calls[0][-1], "sha256:" + "a" * 64)
+        self.assertEqual(calls[0][:5], ["py", "-m", "sigstore", "verify", "identity"])
+        self.assertIn("sigstore==4.5.0", (BOOT / "requirements" / "sign.txt").read_text(encoding="utf-8"))
 
+
+class StageOpenRefusesTest(StageOpenCase):
     def test_without_an_accepted_transferable_import(self):  # stage_open_without_a_transfer
-        """Only a transfer (a row with `referee_tree_sha256`, `29o`) of Stage 0 opens Stage 1."""
+        """Only a transfer (a row with `referee_tree_sha256`, `29o`) of Stage 0 opens Stage 1: a Stage 1 transfer of
+        the very result in hand stops at the stage, before anything else is read."""
+        signed = hashlib.sha256(self.result.read_bytes()).hexdigest()
         for rows in ([{"ts": "2026-10-31T08:30:00Z", "stage": 0}],
                      [{"ts": "2026-10-31T08:00:00Z", "stage": 1, "brain_sha": "c" * 40, "referee_tree_sha256": "d" * 64,
-                       "result_sha256": "e" * 64}]):
+                       "result_sha256": signed}],
+                     [{"ts": "2026-10-31T08:00:00Z", "stage": False, "brain_sha": "c" * 40,
+                       "referee_tree_sha256": "d" * 64, "result_sha256": signed}]):
             with self.subTest(rows=rows):
                 write(self.referee, {"setup/imports.jsonl": chained(rows)[1]})
-                self.refused("transfer")
+                self.refused("the last transfer is not Stage 0's")
         (self.referee / "setup" / "imports.jsonl").unlink()
         self.refused("imports.jsonl")
 
@@ -475,16 +820,16 @@ class StageOpenRefusesTest(StageOpenCase):
         write(self.referee, {"setup/imports.jsonl": data.replace(b'"stage":0', b'"stage":3', 1)})
         self.refused("imports.jsonl")
 
-    def test_without_the_pass_row(self):  # stage_open_without_pass
-        for rows, says in ((TOY_ROWS[:3], "no PASS row"),
-                           ([event("pass", {"stage": 0, "verdict": "FAIL"})], "no PASS row"),
-                           ([event("pass", {"stage": 1, "verdict": "PASS"})], "no PASS row"),
-                           ([event("pass", {"stage": False, "verdict": "PASS"})], "no PASS row"),
-                           ([event("pass", {"stage": 0, "verdict": "PASS"}, part="drill")], "no PASS row"),
-                           ([event("pass", {"stage": 0, "verdict": "PASS"}), event("pass2", {"stage": 0, "verdict": "PASS"})],
-                            "2 PASS rows")):
-            with self.subTest(rows=[r["payload"] for r in rows]):
-                self.toy = Target(self.fresh("toy"), rows)
+    def test_without_the_pass_row(self):  # stage_open_without_pass stage_open_two_pass_rows stage_open_pass_any_part stage_open_pass_any_verdict stage_open_pass_any_stage
+        first = self.toy_rows()[:3]
+        for extra, says in (([], "no PASS row"),
+                            ([event("pass", {"stage": 0, "verdict": "FAIL"})], "no PASS row"),
+                            ([event("pass", {"stage": 1, "verdict": "PASS"})], "no PASS row"),
+                            ([event("pass", {"stage": False, "verdict": "PASS"})], "no PASS row"),
+                            ([event("pass", {"stage": 0, "verdict": "PASS"}, part="drill")], "no PASS row"),
+                            ([self.toy_rows()[3], event("pass2", self.toy_rows()[3]["payload"])], "2 PASS rows")):
+            with self.subTest(rows=[r["payload"] for r in extra]):
+                self.toy = self.make_toy(first + extra)
                 self.refused(says)
 
     def test_with_a_broken_toy_or_copy_chain(self):  # stage_open_chain_unchecked
@@ -501,7 +846,8 @@ class StageOpenRefusesTest(StageOpenCase):
 
     def test_when_the_ledger_moved_past_its_last_anchored_root(self):  # stage_open_root_not_the_tips
         """`13`, `29j` `verify_tip_moved`: the root anchors the head's tips; a tip past it is not anchored."""
-        self.copy = Target(self.fresh("copy"), COPY_ROWS, root_override="9" * 64)
+        self.copy = self.make_copy(root_override="9" * 64)
+        self.toy = self.make_toy()
         self.refused("copy")
 
     def test_when_the_root_bundle_is_not_the_root_rows_log_entry(self):  # stage_open_bundle_any_entry
@@ -509,12 +855,21 @@ class StageOpenRefusesTest(StageOpenCase):
         self.toy.bundle.write_text(json.dumps(other))
         self.refused("rekor_uuid")
 
+    def test_when_the_log_entry_does_not_record_the_root(self):  # stage_open_entry_hash_unchecked
+        """E375, `29j` `entry_root_mismatch`: the entry the root row names must record the root itself as its hash."""
+        for recorded in ({"algorithm": "sha256", "value": hashlib.sha256(b"x").hexdigest()},
+                         {"algorithm": "sha512", "value": None}, "not a hash"):
+            with self.subTest(recorded=recorded):
+                self.toy = self.make_toy(entry_hash=recorded)
+                self.refused("entry_root_mismatch")
+        self.assertEqual(self.verified, [])  # refused before Sigstore is asked
+
     def test_when_sigstore_refuses_the_root(self):
         importer.verify_signature.side_effect = ImportErrorStop("signature verification failed: no")
         self.refused("signature verification failed")
 
     def test_without_the_targets_state_branch(self):
-        self.copy = Target(self.fresh("copy"), COPY_ROWS)
+        self.copy = self.make_copy()
         sh(self.copy.path, "git", "branch", "-q", "-D", "brain/state")
         self.refused("brain/state")
 
@@ -524,36 +879,140 @@ class StageOpenRefusesTest(StageOpenCase):
             self.open()
         self.assertEqual(self.stage_file().read_text(), '{"stage": 1}\n')
 
-    def test_an_owner_exception_must_ride_on_the_pass_row(self):  # stage_open_owner_exception_unchecked
-        """`02` "Sahip istisnası", E294, E331: the PASS row carries the exception by its name."""
-        summary = {"seed_commit": "a" * 40, "seed_tree_sha256": "b" * 64,
-                   "honesty_exception": {"stage": 0, "carry_to": 1, "reason": "E287"}, "honesty_commitment": "c" * 64}
-        write(self.referee, {"setup/summary.json": json.dumps(summary)})
-        self.refused("owner_exception")
-        rows = TOY_ROWS[:3] + [event("pass", {"stage": 0, "verdict": "PASS",
-                                              "owner_exception": {"anchor": "durustluk"}})]
-        self.toy = Target(self.fresh("toy"), rows)
+
+class StageOpenBindsTheCopyTest(StageOpenCase):
+    """E376, `10a` #pass: the PASS row carries the copy's genesis and merge rows' hashes; `--copy` must be the clone of
+    `setup/summary.json`'s copy target that holds them, and `--toy` the toy target's."""
+
+    def test_the_toy_clone_given_as_the_copy_is_refused(self):  # SK_copy_target_any stage_open_copy_target_unchecked
+        self.copy = self.toy
+        self.refused("copy target 'copy-t'")
+
+    def test_each_clone_is_its_targets(self):  # stage_open_toy_target_unchecked
+        for rows, name, says in ((self.toy_rows(genesis={"target": "copy-t"}), "toy", "toy target 'toy-t'"),
+                                 (self.copy_rows(genesis={"target": "toy-t"}), "copy", "copy target 'copy-t'"),
+                                 (self.copy_rows(genesis={"base_sha": "cd" * 20}), "copy", "base_sha"),
+                                 (self.toy_rows()[1:], "toy", "toy target")):  # its first row is no genesis
+            with self.subTest(name=name, says=says):
+                if name == "copy":
+                    self.copy = self.make_copy(rows)
+                    self.toy = self.make_toy()
+                else:
+                    self.toy = self.make_toy(rows)
+                self.refused(says)
+                self.copy, self.toy = self.make_copy(), None
+                self.toy = self.make_toy()
+
+    def test_the_summary_names_one_toy_and_one_copy(self):  # stage_open_targets_unchecked
+        for targets in ((TOY_TARGET,), (TOY_TARGET, COPY_TARGET, dict(COPY_TARGET, id="copy-2")), ()):
+            with self.subTest(targets=[t["id"] for t in targets]):
+                self.write_summary(targets)
+                self.refused("one toy and one copy target")
+
+    def test_the_pass_row_names_the_copys_genesis_and_merge_rows(self):  # stage_open_copy_rows_unchecked
+        copy_rows = self.copy.rows
+        for payload in ({"copy_genesis_row_hash": DROP}, {"copy_genesis_row_hash": "1" * 64},
+                        {"copy_genesis_row_hash": copy_rows[1]["row_hash"]}):
+            with self.subTest(payload=payload):
+                self.toy = self.make_toy(self.toy_rows(payload=payload))
+                self.refused("copy_genesis_row_hash")
+        for merges in (DROP, [], ["2" * 64], [copy_rows[0]["row_hash"]], [copy_rows[1]["row_hash"]] * 2,
+                       copy_rows[1]["row_hash"], [{"h": 1}]):
+            with self.subTest(merges=merges):
+                self.toy = self.make_toy(self.toy_rows(payload={"copy_merge_row_hashes": merges}))
+                self.refused("copy_merge_row_hashes")
+        self.toy = self.make_toy(self.toy_rows(payload={"copy_merge_row_hashes": [r["row_hash"] for r in copy_rows[1:]]}))
         self.open()
         self.assertTrue(self.stage_file().exists())
 
-    def test_the_excepted_anchor_is_the_one_the_signed_result_names(self):
-        from snowball_bootstrap import decide
-        self.assertEqual(stagelock.EXCEPTED_ANCHOR, decide.OWNER_EXCEPTABLE)
+
+class StageOpenBindsTheTransferTest(StageOpenCase):
+    """E377, `29o`, `02` 5: the lock binds the referee (B) ran on. Both genesis rows name the counter's last transfer
+    line; a transfer imported after it (no lock yet, so the import lets it in, `25a` "Başarısızlık") opens nothing."""
+
+    def test_a_genesis_naming_another_import_line_is_refused(self):  # stage_open_genesis_line_unchecked
+        for name in ("toy", "copy"):
+            with self.subTest(name=name):
+                if name == "toy":
+                    self.toy = self.make_toy(self.toy_rows(genesis={"import_line_sha256": "9" * 64}))
+                else:
+                    self.copy = self.make_copy(self.copy_rows(genesis={"import_line_sha256": "9" * 64}))
+                    self.toy = self.make_toy()
+                self.refused(f"{name} brain/state: the genesis row names another transfer")
+                self.copy = self.make_copy()
+                self.toy = self.make_toy()
+
+    def test_a_second_stage_0_transfer_after_the_pass_opens_nothing(self):  # stage_open_import_line_of_the_last_row
+        """(B) ran on the first transfer (both genesis rows name it); a second Stage 0 transfer imported after the PASS
+        row is the counter's last, and its own signed result in hand does not open the lock either."""
+        first = [{k: v for k, v in row.items() if k not in ("prev_hash", "row_hash")} for row in self.import_rows]
+        self.write_signed(brain_sha="7" * 40)
+        second = {"ts": "2026-10-31T12:00:00Z", "stage": 0, "brain_sha": "7" * 40, "referee_tree_sha256": "8" * 64,
+                  "result_sha256": hashlib.sha256(self.result.read_bytes()).hexdigest(), "toy_tree_sha256": "5" * 64}
+        write(self.referee, {"setup/imports.jsonl": chained(first + [second])[1]})
+        self.refused("toy brain/state: the genesis row names another transfer than the counter's last one")
+
+
+class StageOpenCarriesTheExceptionTest(StageOpenCase):
+    """E379, `02` "Sahip istisnası": the PASS row carries the owner's exception by name, exactly as the signed (A)
+    result names it, so the condition carried to Stage 1's (A) is not lost; `--result` is that result (its hash is the
+    transfer row's `result_sha256`)."""
+
+    def with_exception(self):
+        self.write_signed(owner_exception=OWNER_EXCEPTION)
+        self.write_counter()
+        self.copy = self.make_copy()
+
+    def test_the_pass_row_carries_the_signed_exception_exactly(self):  # stage_open_owner_exception_unchecked SK_exception_anchor_any
+        self.with_exception()
+        self.toy = self.make_toy()
+        self.refused("owner_exception")
+        for change in ({"anchor": "kok"}, {"carry_to": None}, {"carry_commitment": None}, {"measured": True},
+                       {"measured": 0}, {"reason": "other"}, {"stage": DROP}, {"extra": 1}):
+            with self.subTest(change=change):
+                self.toy = self.make_toy(self.toy_rows(payload={"owner_exception": edited(OWNER_EXCEPTION, change)}))
+                self.refused("owner_exception")
+        self.toy = self.make_toy(self.toy_rows(payload={"owner_exception": dict(OWNER_EXCEPTION)}))
+        self.open()
+        self.assertTrue(self.stage_file().exists())
+
+    def test_no_exception_is_carried_that_the_signed_result_does_not_name(self):  # stage_open_exception_one_sided
+        self.toy = self.make_toy(self.toy_rows(payload={"owner_exception": dict(OWNER_EXCEPTION)}))
+        self.refused("owner_exception")
+
+    def test_the_result_must_be_the_one_the_transfer_imported(self):  # stage_open_result_unbound
+        self.result.write_bytes(self.result.read_bytes() + b" ")
+        self.refused("result_sha256")
+        self.result.unlink()
+        self.refused("cannot be read")
+
+
+class StageOpenNeedsTheRefereesRowTest(StageOpenCase):
+    """E380, `26`, `13`: rows the player proposes carry `proposed_by` and `trust: inferred`; only the referee's own,
+    verified PASS row opens the lock."""
+
+    def test_a_player_proposed_or_inferred_pass_row_is_refused(self):  # stage_open_pass_any_trust
+        for row in ({"proposed_by": "founder"}, {"trust": "inferred"}, {"trust": "observed"}, {"trust": DROP},
+                    {"derivation": "player"}, {"derivation": "llm_inference"}, {"derivation": DROP},
+                    {"proposed_by": "founder", "trust": "inferred", "derivation": "player"}):
+            with self.subTest(row=row):
+                self.toy = self.make_toy(self.toy_rows(row=row))
+                self.refused("not the referee's own verified row")
+        self.toy = self.make_toy(self.toy_rows(row={"derivation": "test_verified"}))
+        self.open()
+        self.assertTrue(self.stage_file().exists())
 
 
 # ---------------------------------------------------------------- the lock the bootstrap reads on every pull
 
 class LockReadTest(StageOpenCase):
     def lock(self, **over):
-        lock = {"stage": 1, "pass_row_sha256": "1" * 64, "toy_state_head": "2" * 40, "copy_state_head": "3" * 40,
-                "import_line_sha256": hashlib.sha256(self.import_line).hexdigest()}
-        lock.update(over)
-        return lock
+        return lock_of(self.import_line, **over)
 
     def test_no_file_is_stage_0(self):
         self.assertIsNone(stagelock.load(self.referee))
 
-    def test_the_file_is_read_strictly(self):  # lock_keys_unchecked lock_stage_unchecked
+    def test_the_file_is_read_strictly(self):  # lock_keys_unchecked lock_stage_unchecked lock_hex_unchecked
         """`26c`: a missing or unknown field fails closed; test 29: a transition that does not match is refused."""
         good = self.lock()
         cases = [dict(good, extra=1), {k: v for k, v in good.items() if k != "copy_state_head"},
@@ -568,11 +1027,10 @@ class LockReadTest(StageOpenCase):
         write(self.referee, {"setup/stage.json": json.dumps(good)})
         self.assertEqual(stagelock.load(self.referee).stage, 1)
 
-    def test_the_import_line_must_be_a_stage_0_transfer_of_a_sound_counter(self):  # lock_line_any_row
+    def test_the_import_line_must_be_a_stage_0_transfer_of_a_sound_counter(self):  # lock_line_any_row lock_transfer_of_any_stage
         rows, data = chained([{"ts": "2026-10-31T08:30:00Z", "stage": 0}])
         write(self.referee, {"setup/imports.jsonl": data,
-                             "setup/stage.json": json.dumps(self.lock(import_line_sha256=hashlib.sha256(
-                                 data.split(b"\n")[0]).hexdigest()))})
+                             "setup/stage.json": json.dumps(lock_of(data.split(b"\n")[0]))})
         with self.assertRaises(ConfigError):  # names the touch row, not a transfer
             stagelock.load(self.referee)
         write(self.referee, {"setup/imports.jsonl": data.replace(b"08:30", b"08:31")})
@@ -580,22 +1038,33 @@ class LockReadTest(StageOpenCase):
             stagelock.load(self.referee)
         _rows, batch = chained([{"ts": "2026-11-02T08:00:00Z", "stage": 1, "batch": "P1", "brain_sha": "5" * 40,
                                  "referee_tree_sha256": "6" * 64, "result_sha256": "7" * 64}])
-        write(self.referee, {"setup/imports.jsonl": batch,  # lock_transfer_of_any_stage: Stage 1's own transfer
-                             "setup/stage.json": json.dumps(self.lock(import_line_sha256=hashlib.sha256(
-                                 batch.split(b"\n")[0]).hexdigest()))})
+        write(self.referee, {"setup/imports.jsonl": batch,  # Stage 1's own transfer
+                             "setup/stage.json": json.dumps(lock_of(batch.split(b"\n")[0]))})
         with self.assertRaises(ConfigError):
             stagelock.load(self.referee)
 
-    def test_a_later_batch_transfer_keeps_the_lock(self):
+    def test_a_later_batch_transfer_keeps_the_lock_and_is_read_as_done(self):  # lock_batches_unread
         """`asama-1/13`: the batches' transfers come after the lock; it still names its own line."""
-        later = dict(self.import_rows[-1])
-        rows = self.import_rows + [{"ts": "2026-11-02T08:00:00Z", "stage": 1, "batch": "P1", "brain_sha": "5" * 40,
-                                    "referee_tree_sha256": "6" * 64, "result_sha256": "7" * 64,
-                                    "prev_hash": later["row_hash"]}]
-        rows[-1]["row_hash"] = row_hash(rows[-1])
-        data = b"".join(json.dumps(r, separators=(",", ":")).encode() + b"\n" for r in rows)
-        write(self.referee, {"setup/imports.jsonl": data, "setup/stage.json": json.dumps(self.lock())})
-        self.assertEqual(stagelock.load(self.referee).stage, 1)
+        self.write_counter(later=[{"ts": "2026-11-02T08:00:00Z", "stage": 1, "batch": "P1", "brain_sha": "5" * 40,
+                                   "referee_tree_sha256": "6" * 64, "result_sha256": "7" * 64}])
+        write(self.referee, {"setup/stage.json": json.dumps(self.lock())})
+        lock = stagelock.load(self.referee)
+        self.assertEqual(lock.stage, 1)
+        self.assertEqual(stagelock.batches_done(self.referee, lock), ("P1",))
+        self.write_counter()
+        self.assertEqual(stagelock.batches_done(self.referee, stagelock.load(self.referee)), ())
+
+    def test_past_the_lock_only_the_stages_batch_transfers(self):  # lock_later_transfers_unchecked
+        """A Stage 0 transfer after the lock's line, or a row of another stage or without its batch, stops the run."""
+        for later in ({"stage": 0}, {"stage": 2, "batch": "P1"}, {"stage": 1}, {"stage": 1, "batch": "P 1"},
+                      {"stage": True, "batch": "P1"}):
+            with self.subTest(later=later):
+                self.write_counter(later=[dict({"ts": "2026-11-02T08:00:00Z", "brain_sha": "5" * 40,
+                                                "referee_tree_sha256": "6" * 64, "result_sha256": "7" * 64}, **later)])
+                write(self.referee, {"setup/stage.json": json.dumps(self.lock())})
+                with self.assertRaises(ConfigError) as caught:
+                    stagelock.load(self.referee)
+                self.assertIn("batch", str(caught.exception))
 
     def test_control_checks_the_lock_with_the_other_operator_files(self):  # lock_not_read_by_control
         referee = self.work / "ctl"
@@ -619,32 +1088,59 @@ class LockReadTest(StageOpenCase):
         self.assertEqual(cli.main(["control", "--root", str(referee)]), 0)
 
 
-# ---------------------------------------------------------------- the Stage 1 table
+# ---------------------------------------------------------------- Stage 1's batch tables (E372, E378)
 
-def p1_rows():
-    """`asama-1/13`'s P1 rows: {MF: (tests, groups)}."""
+def batch_rows(name):
+    """`asama-1/13`'s rows of batch ``name``: {MF: (tests, groups)}."""
     page = next((ROOT / "spec" / "asama-1").glob("13-*.md")).read_text(encoding="utf-8")
     rows = {}
     for line in page.splitlines():
         cells = [c.strip() for c in line.strip().strip("|").split("|")]
-        if len(cells) == 5 and cells[0] == "P1" and cells[1].isdigit():
-            tests = [int(n) for n in cells[3].split(", ")]
+        if len(cells) == 5 and cells[0] == name and cells[1].isdigit():
+            tests = [int(n) for n in cells[3].split(", ")] if re.fullmatch(r"[\d, ]+", cells[3]) else None
             groups = re.findall(r"`([a-z_]+)`", cells[4])
             rows[int(cells[1])] = (tests, groups)
     return rows
+
+
+def page_batches():
+    """The batches of `asama-1/13`'s micro-feature table, in the page's order."""
+    page = next((ROOT / "spec" / "asama-1").glob("13-*.md")).read_text(encoding="utf-8")
+    found = []
+    for line in page.splitlines():
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if len(cells) == 5 and cells[1].isdigit() and cells[0] not in found:
+            found.append(cells[0])
+    return found
 
 
 class StageOneTableTest(unittest.TestCase):
     TABLE = stages.load(1)
 
     def test_the_table_is_the_p1_batchs_rows_of_asama_1_13(self):  # stage1_table_drifts
-        """`asama-1/13` 1: the batch's table is in the seed and holds once `setup/stage.json` opened it. P1's rows come
-        first (`asama-1/06`: P1 ends before Stage 1's MF1 runs live); P2's and the exit batch's join in later seed
-        epochs (E373). Tests and groups are the page's; module and calls are spec sessiz (E372)."""
-        rows = p1_rows()
+        """`asama-1/13` 1: the batch's table is in the seed and holds once `setup/stage.json` opened it. P1's comes
+        first (`asama-1/06`: P1 ends before Stage 1's MF1 runs live). Tests and groups are the page's; module and calls
+        are spec sessiz (E372)."""
+        rows = batch_rows("P1")
         self.assertEqual(sorted(rows), list(range(1, 9)))
-        self.assertEqual(self.TABLE.stage, 1)
+        self.assertEqual((self.TABLE.stage, self.TABLE.batch, self.TABLE.label), (1, "P1", "stage1-P1"))
         self.assertEqual({f.mf: (list(f.tests), list(f.groups)) for f in self.TABLE.mfs}, rows)
+
+    def test_each_batch_is_a_table_of_its_own_in_the_pages_order(self):  # stage1_table_is_the_stages
+        """E378, `26c:23` "Partilerin tabloları aynı dizindedir", `asama-1/06` "Partiler numarasızdır": a batch's table
+        is named for its batch and numbers its own micro-features, so a later batch joins without renumbering; the
+        batches the seed carries are the page's first ones, in its order, and no other table lies beside them."""
+        order = page_batches()
+        self.assertEqual(order[:2], ["P1", "P2"])
+        self.assertEqual(list(stages.BATCHES[1]), order[:len(stages.BATCHES[1])])
+        files = sorted(p.name for p in stages.STAGES_DIR.glob("*.json"))
+        self.assertEqual(files, ["stage0.json"] + [stages.table_name(1, b) for b in stages.BATCHES[1]])
+        data = json.loads((stages.STAGES_DIR / "stage1-P1.json").read_text(encoding="utf-8"))
+        self.assertEqual((data["stage"], data["batch"]), (1, "P1"))
+        with self.assertRaises(ConfigError):  # a batch table read as another batch's
+            stages.parse_table(json.dumps(data), 1, "P2")
+        with self.assertRaises(ConfigError):  # or as a stage table
+            stages.parse_table(json.dumps(data), 1)
 
     def test_its_tests_are_section_09s_p1_tests_and_its_groups_the_seeds_p1_vectors(self):
         page = (ROOT / "spec" / "asama-0" / "09-harness-in-kendi-testleri.md").read_text(encoding="utf-8")
@@ -654,9 +1150,9 @@ class StageOneTableTest(unittest.TestCase):
         owned = {name for name, group in seed.items() if isinstance(group, dict) and group.get("owner") == "P1"}
         self.assertEqual({g for f in self.TABLE.mfs for g in f.groups}, owned)
 
-    def test_stage_1_carries_stage_0_as_finished(self):  # stage0_groups_dropped_in_stage1
-        """`asama-0/14`: a finished MF's group runs on every later push; Stage 0's 18 are all finished once the lock
-        opens, so every Stage 0 group runs with Stage 1's own, and the wiring check on every code push."""
+    def test_stage_1_carries_stage_0_as_finished(self):  # stage0_groups_dropped_in_stage1 stage1_wiring_not_due
+        """`asama-0/14`: a finished micro-feature's group runs on every later push; Stage 0's 18 are all finished once
+        the lock opens, so every Stage 0 group runs with Stage 1's own, and the wiring check on every code push."""
         stage0 = stages.load(0)
         every0 = stage0.groups_of(range(1, stage0.count + 1))
         self.assertEqual(self.TABLE.groups_of(()), every0)
@@ -666,6 +1162,20 @@ class StageOneTableTest(unittest.TestCase):
         self.assertTrue(wiring.due(self.TABLE, set()))
         self.assertFalse(wiring.due(stage0, set()))
 
+    def test_a_transferred_batch_is_finished_and_the_next_one_holds(self):  # stage1_batches_done_ignored
+        """E378: once the counter has P1's transfer, P1's micro-features are finished (its groups run, its tests stay
+        declared) and the next batch's table holds; this seed carries none after P1, so none is open: `done_mf` is
+        empty and Stage 1's own micro-features are the transferred referee's to judge (`asama-1/06`)."""
+        after = stages.load(1, done=("P1",))
+        self.assertEqual((after.stage, after.batch, after.count), (1, None, 0))
+        self.assertEqual([t.label for t in after.before], ["stage0", "stage1-P1"])
+        self.assertEqual(after.groups_of(()), self.TABLE.groups_of(range(1, 9)))
+        for done in (("P2",), ("P1", "P1"), ("P1", "P2")):
+            with self.subTest(done=done), self.assertRaises(ConfigError):
+                stages.load(1, done=done)
+        with self.assertRaises(ConfigError):
+            stages.load(0, done=("P1",))
+
     def test_there_is_no_table_past_the_root(self):
         """`03`: Stage 1 is the ladder's fixed root; what follows is the Founder's stage spec, not a seed table."""
         with self.assertRaises(ConfigError):
@@ -673,23 +1183,24 @@ class StageOneTableTest(unittest.TestCase):
 
 
 class StageOneManifestTest(unittest.TestCase):
-    def manifest(self, stage0_mfs=range(1, 19), stage1_done=(), stage1_tests=None, drop=()):
+    def manifest(self, stage0_mfs=range(1, 19), stage1_done=(), stage1_tests=None, drop=(), done=None):
         t0 = stages.load(0)
         tests = [{"id": f"T{n}", "cmd": f"t{n}", "stage": 0} for mf in stage0_mfs for n in t0.feature(mf).tests
                  if n not in drop]
         t1 = stages.load(1)
         numbers = stage1_tests if stage1_tests is not None else [n for mf in stage1_done for n in t1.feature(mf).tests]
         tests += [{"id": f"T{n}", "cmd": f"t{n}", "stage": 1} for n in numbers]
-        return parse_manifest(json.dumps({"tests": tests, "done_mf": list(stage1_done), "lockfiles": []}))
+        return parse_manifest(json.dumps({"tests": tests, "done_mf": list(stage1_done if done is None else done),
+                                          "lockfiles": []}))
 
-    def test_done_mf_is_stage_1s_and_its_tests_are_stage_1_tests(self):  # stage1_tests_at_stage0
+    def test_done_mf_is_the_open_batchs_and_its_tests_are_stage_1_tests(self):  # stage1_tests_at_stage0
         table = stages.load(1)
         self.assertEqual(check_stage(self.manifest(), table), [])
         self.assertEqual(check_stage(self.manifest(stage1_done=[1, 2]), table), [])
         self.assertEqual(check_stage(self.manifest(stage1_done=[1, 2], stage1_tests=[51]), table),
                          ["missing_test:MF2:T8"])
         self.assertEqual(check_stage(self.manifest(stage1_done=range(1, 19), stage1_tests=[]), table),
-                         ["done_mf_not_in_order"])  # Stage 0's done_mf kept: Stage 1 has 8
+                         ["done_mf_not_in_order"])  # Stage 0's done_mf kept: P1 has 8
         stage0_numbered = parse_manifest(json.dumps({"tests": [{"id": "T51", "cmd": "x", "stage": 0}] + [
             {"id": f"T{n}", "cmd": "x", "stage": 0} for f in stages.load(0).mfs for n in f.tests],
             "done_mf": [1], "lockfiles": []}))
@@ -698,6 +1209,20 @@ class StageOneManifestTest(unittest.TestCase):
     def test_stage_0s_tests_stay_declared(self):  # stage0_tests_dropped_in_stage1
         """E292's rule across the lock: Stage 0's micro-features stay finished, so their tests stay in the manifest."""
         self.assertEqual(check_stage(self.manifest(drop=(13,)), stages.load(1)), ["missing_test:stage0:MF1:T13"])
+
+    def test_a_transferred_batchs_tests_stay_declared_and_done_mf_starts_again(self):  # stage1_batches_done_ignored
+        """E378: under the table after P1's transfer, P1's tests stay declared at stage 1 (named by their table) and
+        `done_mf` is the next table's, empty here."""
+        after = stages.load(1, done=("P1",))
+        self.assertEqual(check_stage(self.manifest(stage1_done=range(1, 9), done=[]), after), [])
+        self.assertEqual(check_stage(self.manifest(stage1_done=range(1, 9)), after), ["done_mf_not_in_order"])
+        self.assertEqual(check_stage(self.manifest(stage1_done=range(1, 9), stage1_tests=[51, 8], done=[]), after),
+                         ["missing_test:stage1-P1:MF3:T2", "missing_test:stage1-P1:MF3:T4",
+                          "missing_test:stage1-P1:MF4:T1", "missing_test:stage1-P1:MF4:T6",
+                          "missing_test:stage1-P1:MF4:T7", "missing_test:stage1-P1:MF4:T12",
+                          "missing_test:stage1-P1:MF4:T28", "missing_test:stage1-P1:MF5:T9",
+                          "missing_test:stage1-P1:MF5:T11", "missing_test:stage1-P1:MF6:T24",
+                          "missing_test:stage1-P1:MF7:T41", "missing_test:stage1-P1:MF8:T52"])
 
     def test_stage_0_is_judged_as_before(self):
         table = stages.load(0)
@@ -714,7 +1239,7 @@ class StageOneManifestTest(unittest.TestCase):
 # ---------------------------------------------------------------- pull with the lock open
 
 class StageOnePullTest(unittest.TestCase):
-    """The bootstrap with `setup/stage.json` in place (`asama-0/10a` "Kilidin açılışı"): the Stage 1 table and the
+    """The bootstrap with `setup/stage.json` in place (`asama-0/10a` "Kilidin açılışı"): the Stage 1 tables and the
     `stage: 1` tests hold from then on."""
 
     def setUp(self):
@@ -747,12 +1272,7 @@ class StageOnePullTest(unittest.TestCase):
                 "monthly_cap_usd": 300, "stage_params": {"rival_min_attempts": 2, "repeat_reject_limit": 3},
                 "stage_budgets": {"asama_0": {"rival_usd": 30}},
                 "license_allowlist": ["MIT", "Apache-2.0"], "license_exceptions": {}}})})
-        self.imports, data = chained([{"ts": "2026-10-31T08:00:00Z", "stage": 0, "brain_sha": self.seed_sha,
-                                       "referee_tree_sha256": "d" * 64, "result_sha256": "e" * 64,
-                                       "toy_tree_sha256": "f" * 64}])
-        write(self.referee, {"setup/imports.jsonl": data, "setup/stage.json": json.dumps({
-            "stage": 1, "pass_row_sha256": "1" * 64, "toy_state_head": "2" * 40, "copy_state_head": "3" * 40,
-            "import_line_sha256": hashlib.sha256(data.split(b"\n")[0]).hexdigest()})})
+        self.write_counter()
         frozen = {d: tree_hash(tar, d, forbid_operator_names=False) for d in ("spec/asama-0", "spec/asama-1")}
         self.state = {"schema": "snowball-bootstrap-state/3", "origin": "artifact",
                       "last_accepted_sha": self.seed_sha, "last_evaluated_sha": None, "frozen_specs": frozen,
@@ -763,14 +1283,27 @@ class StageOnePullTest(unittest.TestCase):
                       "rejected_exit_request": None}
         self.n = 0
 
+    def write_counter(self, batches=()):
+        """Stage 0's transfer, the lock naming it, and a transfer row for each of ``batches`` after it."""
+        self.imports, data = chained([{"ts": "2026-10-31T08:00:00Z", "stage": 0, "brain_sha": self.seed_sha,
+                                       "referee_tree_sha256": "d" * 64, "result_sha256": "e" * 64,
+                                       "toy_tree_sha256": "f" * 64}] +
+                                     [{"ts": "2026-11-02T08:00:00Z", "stage": 1, "batch": b, "brain_sha": "5" * 40,
+                                       "referee_tree_sha256": "6" * 64, "result_sha256": "7" * 64} for b in batches])
+        write(self.referee, {"setup/imports.jsonl": data,
+                             "setup/stage.json": json.dumps(lock_of(data.split(b"\n")[0]))})
+
     @staticmethod
-    def manifest_text(stage1_done=()):
+    def manifest_text(stage1_done=(), p1_finished=False):
         """Every Stage 0 test at stage 0, and ``stage1_done``'s tests at stage 1 with it as `done_mf`; None: the
-        manifest of Stage 0's exit, its 18 micro-features done."""
+        manifest of Stage 0's exit, its 18 micro-features done. ``p1_finished``: every P1 test, `done_mf` empty."""
         t0, t1 = stages.load(0), stages.load(1)
         tests = [{"id": f"T{n}", "cmd": f"t{n}", "stage": 0} for f in t0.mfs for n in f.tests]
         if stage1_done is None:
             return json.dumps({"tests": tests, "done_mf": list(range(1, t0.count + 1)), "lockfiles": []})
+        if p1_finished:
+            tests += [{"id": f"T{n}", "cmd": f"t{n}", "stage": 1} for f in t1.mfs for n in f.tests]
+            return json.dumps({"tests": tests, "done_mf": [], "lockfiles": []})
         tests += [{"id": f"T{n}", "cmd": f"t{n}", "stage": 1} for mf in stage1_done for n in t1.feature(mf).tests]
         return json.dumps({"tests": tests, "done_mf": list(stage1_done), "lockfiles": []})
 
@@ -789,6 +1322,15 @@ class StageOnePullTest(unittest.TestCase):
         self.state["last_accepted_sha"] = commit(self.brain, {"snowball-tests.json": self.manifest_text(None)},
                                                  "stage 0's manifest")
 
+    def ask(self, **request):
+        """An exit request alone, naming the last accepted commit and the frozen spec ``request`` says."""
+        req = dict({"stage": 1, "sha": self.state["last_accepted_sha"],
+                    "spec_sha256": self.state["frozen_specs"]["spec/asama-1"], "batch": "P1"}, **request)
+        commit(self.brain, {"exit-request.json": json.dumps({k: v for k, v in req.items() if v is not DROP})}, "exit")
+        meta = self.pull()
+        self.assertEqual(meta["kind"], "exit")
+        return meta
+
     def test_the_first_stage_1_push_after_a_stage_0_base(self):  # stage_lock_never_read stage0_base_read_as_stage1
         """The base's `done_mf` is Stage 0's: nothing of Stage 1 is withdrawn, MF1's module-less red runs, and the
         stage reaches run-tests."""
@@ -797,6 +1339,7 @@ class StageOnePullTest(unittest.TestCase):
                "P1 MF1")
         meta = self.pull()
         self.assertEqual((meta["kind"], meta["pre_reasons"], meta["stage"]), ("code", [], 1))
+        self.assertEqual((meta["batch"], meta["batches_done"]), ("P1", []))
         self.assertEqual((meta["module_less"], meta["run_tests"]), ([1], True))
 
     def test_a_stage_1_micro_feature_cannot_be_undeclared(self):
@@ -821,18 +1364,58 @@ class StageOnePullTest(unittest.TestCase):
                 self.assertIn("spec_not_frozen", self.pull()["pre_reasons"])
                 self.state["frozen_specs"] = frozen
 
-    def test_every_exit_request_is_the_wrong_stage(self):  # stage1_exit_judged_as_stage0
+    def test_a_stage_exit_request_is_the_wrong_stage(self):  # stage1_exit_judged_as_stage0
         """`02`: this seed judges only the Stage 0 exit; with the lock open that exit is behind, Stage 1's not yet
         judged here (E373)."""
         self.stage0_base()
         frozen = self.state["frozen_specs"]["spec/asama-0"]
         for stage in (0, 1):
             with self.subTest(stage=stage):
-                commit(self.brain, {"exit-request.json": json.dumps({
-                    "stage": stage, "sha": self.state["last_accepted_sha"], "spec_sha256": frozen})}, "exit")
-                meta = self.pull()
-                self.assertEqual(meta["kind"], "exit")
+                meta = self.ask(stage=stage, spec_sha256=frozen, batch=DROP)
                 self.assertIn("exit_request_wrong_stage", meta["pre_reasons"])
+
+    def test_the_open_batchs_exit_request_is_judged(self):  # batch_exit_request_malformed batch_exit_wrong_stage_always
+        """E378, `02` 6, `asama-1/13` 2, `26c:17`: the batch's request is the exit request's form with `batch`; for the
+        open batch, on the last accepted commit and the frozen `spec/asama-1`, nothing in the request is refused."""
+        meta = self.ask()
+        self.assertEqual([r for r in meta["pre_reasons"] if r.startswith("exit_request")], [])
+        self.assertEqual(meta["exit_request"]["batch"], "P1")
+        self.assertEqual(meta["batch"], "P1")
+        self.assertIsNotNone(meta["referee_tree_sha256"])
+
+    def test_a_batch_request_for_another_batch_stage_or_spec_is_refused(self):  # batch_exit_batch_unchecked batch_exit_spec_of_stage0
+        for request, reason in (({"batch": "P2"}, "exit_request_wrong_batch"),
+                                ({"stage": 0}, "exit_request_wrong_stage"),
+                                ({"stage": 2}, "exit_request_wrong_stage"),
+                                ({"spec_sha256": self.state["frozen_specs"]["spec/asama-0"]},
+                                 "exit_request_spec_hash_mismatch"),
+                                ({"batch": "P 1"}, "exit_request_malformed"), ({"batch": 1}, "exit_request_malformed"),
+                                ({"batches": "P1"}, "exit_request_malformed")):
+            with self.subTest(request=request):
+                self.assertIn(reason, self.ask(**request)["pre_reasons"])
+                self.state["last_evaluated_sha"] = None
+
+    def test_without_the_lock_a_batch_request_is_the_wrong_stage(self):
+        (self.referee / "setup" / "stage.json").unlink()
+        self.assertIn("exit_request_wrong_stage", self.ask()["pre_reasons"])
+        stage0 = self.state["frozen_specs"]["spec/asama-0"]  # batch_exit_stage0_batch: Stage 0 has no batches
+        self.assertIn("exit_request_wrong_stage", self.ask(stage=0, spec_sha256=stage0)["pre_reasons"])
+
+    def test_after_p1s_transfer_its_micro_features_are_finished(self):  # stage1_batches_done_ignored
+        """E378: the counter's P1 transfer finishes P1: its tests stay declared, `done_mf` is the next table's (none in
+        this seed), and a P1 request is the wrong batch."""
+        self.write_counter(batches=("P1",))
+        self.state["last_accepted_sha"] = commit(self.brain, {"snowball-tests.json": self.manifest_text(range(1, 9))},
+                                                 "P1 done")
+        commit(self.brain, {"referee/y.py": "y = 1\n", "snowball-tests.json": self.manifest_text(p1_finished=True)},
+               "after P1")
+        meta = self.pull()
+        self.assertEqual((meta["stage"], meta["batch"], meta["batches_done"]), (1, None, ["P1"]))
+        self.assertEqual(meta["pre_reasons"], [])
+        commit(self.brain, {"snowball-tests.json": self.manifest_text([])}, "P1's tests dropped")
+        self.assertIn("missing_test:stage1-P1:MF1:T51", self.pull()["pre_reasons"])
+        self.state["last_accepted_sha"] = sh(self.brain, "git", "rev-parse", "HEAD")
+        self.assertIn("exit_request_wrong_batch", self.ask()["pre_reasons"])
 
     def test_the_wiring_is_checked_on_every_stage_1_code_push(self):
         commit(self.brain, {"referee/.github/workflows/loop.yml": "name: loop\n"}, "break the loop workflow")
@@ -855,8 +1438,76 @@ class StageOnePullTest(unittest.TestCase):
         self.assertNotIn("spec_not_frozen", meta["pre_reasons"])
 
 
+# ---------------------------------------------------------------- the batch's (A) (`02` 6, `asama-1/13` 2, E378)
+
+class BatchExitDecisionTest(unittest.TestCase):
+    state = test_exit_checks.ExitDecision.state
+    ok = staticmethod(test_exit_checks.ExitDecision.ok)
+
+    def meta(self, done=range(1, 9), **request):
+        meta = test_exit_checks.ExitDecision.meta(self, self.state(), self.ok())
+        meta.update(stage=1, batch="P1", batches_done=[], manifest={"tests": [], "done_mf": list(done), "lockfiles": []},
+                    exit_request=dict({"stage": 1, "sha": meta["base"], "spec_sha256": "e" * 64, "batch": "P1"},
+                                      **request),
+                    honesty_exception={"stage": 0, "carry_to": 1, "reason": "E287", "carry_commitment": "c" * 64})
+        return meta
+
+    def run_(self, meta, table=None):
+        return decide(meta, {"controls": [], "tests": [{"id": "T51", "cmd_sha256": "c", "ok": True}], "vectors": [],
+                             "licenses": [], "green": True}, None, None, {"getir": "success", "kos": "success"}, 2, 3,
+                      table=table or stages.load(1))
+
+    def test_the_open_batchs_request_is_transferable_and_names_its_batch(self):  # batch_exit_takes_the_stage_conditions batch_exit_unnamed
+        """The narrow form: the batch's own micro-features, the tests, vectors and rival, the archive's checks of the
+        tree; the stage's own conditions (#spec, #durustluk) and the owner's exception are the stage exit's."""
+        res = self.run_(self.meta())
+        self.assertEqual((res["verdict"], res["exit"]["transferable"], res["exit"]["missing"]), ("accepted", True, []))
+        self.assertEqual((res["exit"]["stage"], res["exit"]["batch"]), (1, "P1"))
+        self.assertNotIn("owner_exception", res["exit"])
+
+    def test_every_micro_feature_of_the_batch_must_be_done(self):
+        res = self.run_(self.meta(done=range(1, 8)))
+        self.assertEqual(res["exit"]["missing"], ["not_all_micro_features_done"])
+        self.assertNotIn("batch", res["exit"])
+        res = self.run_(self.meta(), table=stages.load(0))  # judged under Stage 0's 18: not done
+        self.assertIn("not_all_micro_features_done", res["exit"]["missing"])
+
+    def test_the_archives_checks_still_hold(self):
+        meta = self.meta()
+        meta["exit_checks"]["agac"] = {"status": "failed", "reasons": ["agent_config_in_referee:referee/CLAUDE.md"],
+                                       "why": ""}
+        res = self.run_(meta)
+        self.assertEqual(res["exit"]["missing"], ["agent_config_in_referee:referee/CLAUDE.md"])
+
+    def test_a_stage_exit_request_keeps_the_stages_conditions(self):
+        meta = self.meta()
+        del meta["exit_request"]["batch"]
+        res = self.run_(meta, table=stages.load(1))
+        self.assertIn("not_checked:spec", res["exit"]["missing"])
+        self.assertNotIn("batch", res["exit"])
+
+    def test_the_decide_command_judges_under_the_table_pull_named(self):  # decide_reads_stage0_table
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        work = Path(tmp.name)
+        write(work / "root", {"policy.json": json.dumps({"constitutional": {
+            "monthly_cap_usd": 300, "stage_params": {"rival_min_attempts": 2, "repeat_reject_limit": 3},
+            "stage_budgets": {"asama_0": {"rival_usd": 30}}, "license_allowlist": ["MIT"], "license_exceptions": {}}})})
+        write(work / "pulled", {"meta.json": json.dumps(self.meta())})
+        write(work / "run", {"run.json": json.dumps({"controls": [], "tests": [{"id": "T51", "cmd_sha256": "c",
+                                                                                "ok": True}],
+                                                     "vectors": [], "licenses": [], "green": True})})
+        argv = ["decide", "--root", str(work / "root"), "--pulled", str(work / "pulled"), "--run", str(work / "run"),
+                "--out", str(work / "out"), "--job", "getir=success", "--job", "kos=success"]
+        self.assertEqual(cli.main(argv), 0)
+        result = json.loads((work / "out" / "result.json").read_text(encoding="utf-8"))
+        self.assertEqual((result["exit"]["transferable"], result["exit"]["batch"]), (True, "P1"))
+        self.assertEqual(cli.table_of({"stage": 1, "batches_done": ["P1"]}).label, "stage1")
+        self.assertEqual(cli.table_of({}).label, "stage0")
+
+
 class StageOneRunTestsTest(unittest.TestCase):
-    def test_stage_0_and_stage_1_tests_run_and_module_less_red_reads_stage_1s(self):  # stage1_tests_not_run
+    def test_stage_0_and_stage_1_tests_run_and_module_less_red_reads_stage_1s(self):  # stage1_tests_not_run run_tests_stage_ignored
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         work = Path(tmp.name)
@@ -879,7 +1530,8 @@ class StageOneRunTestsTest(unittest.TestCase):
         cli.pack_dir(src, pulled / "brain.tar")
         manifest = {"tests": [{"id": "T13", "cmd": "t13", "stage": 0}, {"id": "T51", "cmd": "t51", "stage": 1},
                               {"id": "T60", "cmd": "t60", "stage": 2}], "done_mf": [1], "lockfiles": []}
-        (pulled / "meta.json").write_text(json.dumps({"manifest": manifest, "module_less": [1], "stage": 1}))
+        (pulled / "meta.json").write_text(json.dumps({"manifest": manifest, "module_less": [1], "stage": 1,
+                                                      "batch": "P1", "batches_done": []}))
         deps = work / "deps"
         deps.mkdir()
         calls, trees = [], []
@@ -915,6 +1567,26 @@ class WorkflowReadsTheLockTest(unittest.TestCase):
         step = workflow[workflow.index("name: Snapshot operator files"):workflow.index("name: Kill switch and operator")]
         for name in ("stage.json", "imports.jsonl"):
             self.assertIn(f"if [ -e referee/setup/{name} ]; then cp referee/setup/{name} snap/setup/; fi", step)
+
+    @posix_only
+    def test_the_snapshot_step_run_copies_the_lock_and_the_counter(self):  # workflow_drops_the_lock
+        """E381: the step itself, run as the job runs it, over a referee checkout with and without the two files."""
+        workflow = (BOOT / "workflow" / "bootstrap.yml").read_text(encoding="utf-8")
+        block = workflow[workflow.index("name: Snapshot operator files"):workflow.index("name: Kill switch and operator")]
+        lines = block.splitlines()[2:]  # past the name and `run: |`
+        script = "\n".join(line[10:] for line in lines if line.startswith(" " * 10)) + "\n"
+        operator = {"bootstrap/x.py": "x\n", "vectors/v.json": "{}\n", "seats/s.md": "s\n", "bootstrap.json": "{}\n",
+                    "control.json": "{}\n", "policy.json": "{}\n", "setup/summary.json": "{}\n"}
+        for present in (False, True):
+            with self.subTest(present=present), tempfile.TemporaryDirectory() as tmp:
+                work = Path(tmp)
+                write(work / "referee", operator)
+                if present:
+                    write(work / "referee", {"setup/stage.json": "{\"stage\": 1}\n", "setup/imports.jsonl": "{}\n"})
+                (work / "step.sh").write_text("set -e\n" + script, encoding="utf-8")
+                self.assertEqual(sh(work, "sh", "step.sh"), "")
+                snapped = sorted(p.name for p in (work / "snap" / "setup").iterdir())
+                self.assertEqual(snapped, ["imports.jsonl", "stage.json", "summary.json"] if present else ["summary.json"])
 
 
 if __name__ == "__main__":
