@@ -2333,6 +2333,30 @@ Testler `tests/test_rival_memory.py`'de, sınıf adları kalem numarasıyla. Dur
   bütün paket 562 test OK (19 atlandı); `local/system_map.py --check` temiz; hiçbir sayfa 80 satırı geçmiyor (`03` 79,
   tohum günlüğü 79).
 
+### E380–E387 (2026-11-01) · uzman incelemesinin operatör payı · dal `gaps/sota-review`
+- **Kaynak.** Sahip (2026-11-01): iddiaları bul, 6–7 ajanla tartış, testle ve kanıtla, gerekirse uygula; amaç bu işte
+  dünyanın en iyi sistemi. İddiaları uzmanlar tartıştı, hakem her birini koda ve imzalı sonuçlara karşı doğruladı
+  (tutar, kısmen, çürütüldü, kopya). Bu dal yalnız operatörün payını uygular: yaşam desteği, sınav, ölçüm. Kurucu'ya
+  ipucu, mekanizma ya da cevap verilmez (E304); tohum ve talimat değişmedi.
+- **Yapılan.** E380 kapsülün araç yüzeyi; E381 önceki oturum notunun kararı; E382 karnede iki E306 dışlaması; E383
+  belge tabanı kendi iş akışında; E384 `is_ancestor`; E385 teslimin ön koşulu; E386 modülsüz satırın tanımı ve çıktı
+  kaydı; E387 kusur hafızasının iki sessiz sızıntısı. Her biri önce kırmızı test, sonra kod, sonra mutant (E385 yalnız
+  belge).
+- **Ne zaman girer.** E380 imaj yeniden kurulunca; E381 başlatıcı yeniden başlatılınca (`gaps/learning-links`
+  birleşirken taşınır); E384, E386'nın çıktı kaydı ve E387 hakem kodudur, sonraki tohum döneminin hakem kopyasıyla
+  (`seed/founder/README.md` 'Tohum teslimi' adım 3); E382, E383, E385 ve karnenin metni hemen.
+- **Bekleyen, sırası belli.** `gaps/learning-links` birleşince, onun karne işinin üstünde: karnenin hakem durumu
+  değişmezleri (bozuk zincir gibi reddedilir) ve 'unutmaz' satırı (bitmiş MF'lerin test ve vektörlerinin yakaladığı
+  yargılı push'lar, dışlamalar uygulanmış); kapanmış kusurların yeniden koşusu (E320, durum /4). `gaps/activation-tooling`
+  birleşince, aynı `cmd_run_tests` satırlarında: E18 tek ortak süre (`not_run:time_budget`), E19 tipli `deps.json`,
+  E42/E142 sabitli bir tekerlekle uçtan uca, pip'siz sandbox venv'i ve vektör çağrısı başına `duration_ms` (dönem
+  notu: sandbox venv'inde pip yok). Mekanizma değişiklikleri (E386'daki mutant tabanı gibi) sahibin kararıyla bir
+  tohum dönemidir.
+- **Doğrulama.** Windows `seed/bootstrap` (`PYTHONPATH=.;tests`): bütün paket 580 test OK (20 atlandı); her yeni test
+  eski kodda kırmızıydı. Linux (Docker, `snowball_linux_test:git`): `local/mutate.py`'nin tabanı yeşil, 11 yeni
+  mutantın 11'i öldürüldü. `local/system_map.py --check` temiz. `test_live_cli` sabitli CLI 2.1.293'le uydurma
+  jetonla; isteğe bağlı girişli test bir kez operatörün girişiyle (API kapalı bir porta) geçti.
+
 ## Doğrulanmış sağlam taraflar
 Kapsayıcı bayrakları ve kırmızı kontroller; host'ta kabuk enjeksiyonu yok; `$GITHUB_OUTPUT`'a serbest
 metin girmiyor; tek sır yalnız rakip adımında; rakibin ortamı ve init doğrulaması; ağaç kurulurken
