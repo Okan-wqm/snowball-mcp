@@ -20,21 +20,29 @@ What `stage-open` binds, before it writes anything (`02` 5: only the PASS row op
   copy's on its ``base_sha`` (`29o`); the PASS row carries the copy's genesis and merge rows' hashes (`10a` #pass), and
   they are rows of the copy clone it is given (E376).
 - the PASS row itself: the referee's own row, not a player's proposal (`26`, `13`: those carry ``proposed_by`` and
-  ``trust: inferred``) (E388), and the owner's exception exactly as the signed (A) result the last transfer imported
-  names it (`02` "Sahip istisnası": the PASS row carries it by name; `--result`, bound by its ``result_sha256``) (E379).
+  ``trust: inferred``) (E388), written after the toy's merge and naming the transfer the counter's last line is (the
+  trust root `10a` #pass writes includes the operator transfer) (E405), and the owner's exception exactly as the signed
+  (A) result the last transfer imported names it (`02` "Sahip istisnası": the PASS row carries it by name; `--result`,
+  bound by its ``result_sha256``) (E379).
 - each root: the bundle's transparency log entry is the root row's, its entry hash is the root (`29j`
   ``entry_root_mismatch``, `vectors/root/rekor.json`), and Sigstore verifies the bundle against the digest
   ``sha256:<root>`` (`13`: Rekor carries only the hash) (E375).
 
-Spec sessiz, the narrowest choice each time (register E371, E375-E379, E388):
+The PASS row's fields and the rule applied here are `tohum/26d`'s, the page the Founder reads (E404). Spec sessiz,
+the narrowest choice each time (register E371, E375-E379, E388):
 - ``<state_root>`` is the top of the target's `brain/state` (`asama-1/12`): `ledger.jsonl` and `chain/root.jsonl`
   there, read at the commit ``--ref`` names in the operator's local clone (default ``refs/remotes/origin/brain/state``);
   that commit is the state head the lock records.
 - The PASS row is the toy ledger's one ``events`` row (`27a`: `stage-open` reads `events`) whose ``payload`` has
-  ``stage: 0`` and ``verdict: "PASS"`` (`02` 4, `19`); none or two stop. Its ``pass_row_sha256``, like
-  ``import_line_sha256`` (`29o`), is the sha256 of its line without the LF. The referee's own: no ``proposed_by``,
-  ``trust: verified``, a ``derivation`` merge evidence may have (`26`: the first three). The copy's rows it carries:
-  ``payload.copy_genesis_row_hash`` and ``payload.copy_merge_row_hashes`` (one or more), each a ``row_hash`` (`26`).
+  ``stage: 0`` and ``verdict: "PASS"`` (`02` 4, `19`), counted among the referee's rows (a row with ``proposed_by`` is
+  a player's proposal, `26`, and is left out first, so a proposed copy cannot block the lock); none or two stop. Its
+  ``pass_row_sha256``, like ``import_line_sha256`` (`29o`), is the sha256 of its line without the LF. The referee's
+  own (`26`): no ``proposed_by``, ``trust`` one of ``verified`` and ``observed`` (``inferred`` is a proposal's), a
+  ``derivation`` merge evidence may have (the first three). A merge row is an ``events`` row of ``kind: merge`` that
+  is the referee's own; the toy's ledger has one before the PASS row (`asama-0/08`: the toy's merge is round 2, the
+  PASS row round 9). The copy's rows it carries: ``payload.copy_genesis_row_hash`` and
+  ``payload.copy_merge_row_hashes`` (one or more), each a ``row_hash`` (`26`) of the copy's genesis and of its merge
+  rows. The transfer: ``payload.import_line_sha256`` is the counter's last transfer line's, as the genesis rows'.
   The owner's exception: ``payload.owner_exception`` is the signed result's ``exit.owner_exception``, canonically the
   same, and is absent when that is.
 - A chained file (`26`): every line ends with LF and has no CR, is one JSON object with no key twice, and its
@@ -59,7 +67,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from . import canon, config, gitio
+from . import canon, config, gitio, stages
 from .config import ConfigError, Target
 from .stages import BATCH_RE
 
@@ -73,6 +81,8 @@ ROOTS = "chain/root.jsonl"
 DEFAULT_REF = "refs/remotes/origin/brain/state"
 # The derivations merge evidence may have (`26`: "yalnız ilk üç derivation"): the PASS row is the referee's measurement.
 REFEREE_DERIVATIONS = ("tool", "static_analysis", "test_verified")
+# `26`'s trust values but ``inferred``, which a player's proposal is stored with: the referee's own rows (E404).
+REFEREE_TRUST = ("verified", "observed")
 ZERO = "0" * 64
 HEX64 = re.compile(r"^[0-9a-f]{64}\Z")
 SHA = re.compile(r"^[0-9a-f]{40}\Z")
@@ -203,6 +213,15 @@ def batches_done(root: Path, lock: Lock) -> tuple[str, ...]:
     return tuple(row["batch"] for row in _after_the_lock(read_counter(root), lock) or [])
 
 
+def open_table(root: Path) -> stages.StageTable:
+    """The table that holds, from the operator's files under ``root`` alone (`asama-0/10a`: the Stage 1 table holds
+    only once the lock is there): Stage 0's while there is no lock, past it the open batch's after the batches the
+    counter transferred. Every job and the import read it here, so what a batch is and which form an exit request has
+    are this table's, never what a request or a job's input says (E402)."""
+    lock = load(root)
+    return stages.load(lock.stage, done=batches_done(root, lock)) if lock else stages.load(0)
+
+
 # ---------------------------------------------------------------- stage-open
 
 def _state(repo: Path, ref: str, name: str) -> tuple[str, list[tuple[bytes, dict[str, Any]]], dict[str, Any]]:
@@ -266,19 +285,39 @@ def _verify_root(root_row: dict[str, Any], bundle: Path, identity: str, sigstore
     importer.verify_signature(f"sha256:{root_row['root']}", bundle, identity, sigstore_python)
 
 
-def _pass_line(rows: list[tuple[bytes, dict[str, Any]]]) -> tuple[bytes, dict[str, Any]]:
-    found = [(line, row) for line, row in rows if row.get("part") == "events" and isinstance(row.get("payload"), dict)
+def _referees_own(row: dict[str, Any]) -> bool:
+    """`26`: the referee wrote it as its own: not a player's proposal, from evidence a merge may rest on."""
+    return ("proposed_by" not in row and row.get("trust") in REFEREE_TRUST
+            and row.get("derivation") in REFEREE_DERIVATIONS)
+
+
+def _is_merge(row: dict[str, Any]) -> bool:
+    """A merge row (`26d`): an ``events`` row of ``kind: merge``, the referee's own."""
+    return row.get("part") == "events" and row.get("kind") == "merge" and _referees_own(row)
+
+
+def _pass_line(rows: list[tuple[bytes, dict[str, Any]]], import_line: str) -> tuple[bytes, dict[str, Any]]:
+    """The toy ledger's PASS row (`26d`), counted among the referee's rows: one, its own, after the toy's merge, and
+    naming the transfer the lock binds."""
+    found = [(index, line, row) for index, (line, row) in enumerate(rows) if "proposed_by" not in row
+             and row.get("part") == "events" and isinstance(row.get("payload"), dict)
              and type(row["payload"].get("stage")) is int and row["payload"]["stage"] == OPENS - 1
              and row["payload"].get("verdict") == "PASS"]
     if len(found) != 1:
         raise LockStop(f"toy brain/state {LEDGER}: " + ("no PASS row" if not found else f"{len(found)} PASS rows")
-                       + f" (an events row whose payload is stage {OPENS - 1}, verdict PASS)")
-    row = found[0][1]
-    if "proposed_by" in row or row.get("trust") != "verified" or row.get("derivation") not in REFEREE_DERIVATIONS:
-        raise LockStop("the PASS row is not the referee's own verified row: a player's proposal carries proposed_by and "
-                       f"trust inferred (`26`, `13`); trust must be verified, derivation one of "
+                       + f" (an events row without proposed_by whose payload is stage {OPENS - 1}, verdict PASS)")
+    index, line, row = found[0]
+    if not _referees_own(row):
+        raise LockStop("the PASS row is not the referee's own row (`26`, `26d`): trust must be one of "
+                       f"{', '.join(REFEREE_TRUST)} (inferred is a player's proposal), derivation one of "
                        f"{', '.join(REFEREE_DERIVATIONS)}")
-    return found[0]
+    if not any(_is_merge(earlier) for _line, earlier in rows[:index]):
+        raise LockStop("the PASS row comes before the toy's merge: no merge row (an events row of kind merge, the "
+                       "referee's own) is before it in the toy's ledger (`asama-0/08` rounds 2 and 9, `26d`)")
+    if row["payload"].get("import_line_sha256") != import_line:
+        raise LockStop("the PASS row names another transfer than the counter's last one (payload.import_line_sha256, "
+                       "`26d`; `10a` #pass: the trust root includes the operator transfer)")
+    return line, row
 
 
 def _targets(summary: config.Summary) -> tuple[Target, Target]:
@@ -310,11 +349,13 @@ def _carries_the_copy(payload: dict[str, Any], copy_rows: list[tuple[bytes, dict
     if payload.get("copy_genesis_row_hash") != copy_rows[0][1]["row_hash"]:
         raise LockStop("the PASS row does not name the copy's genesis row (payload.copy_genesis_row_hash, `10a` #pass)")
     merges = payload.get("copy_merge_row_hashes")
-    later = {row["row_hash"] for _line, row in copy_rows[1:]}
-    if not isinstance(merges, list) or not merges or not all(isinstance(h, str) and h in later for h in merges) \
+    later = {row["row_hash"]: row for _line, row in copy_rows[1:]}
+    if not isinstance(merges, list) or not merges or not all(isinstance(h, str) and h in later and _is_merge(later[h])
+                                                            for h in merges) \
             or len(set(merges)) != len(merges):
-        raise LockStop("the PASS row does not name the copy's merge rows, each once and each a row of the copy's "
-                       "ledger after its genesis (payload.copy_merge_row_hashes, `10a` #pass)")
+        raise LockStop("the PASS row does not name the copy's merge rows, each once and each a merge row of the "
+                       "copy's ledger after its genesis (an events row of kind merge, the referee's own; "
+                       "payload.copy_merge_row_hashes, `10a` #pass, `26d`)")
 
 
 def _signed_exit(result: Path, transfer: dict[str, Any]) -> dict[str, Any]:
@@ -370,7 +411,7 @@ def open_stage(referee: Path, toy: Path, copy: Path, ref: str, identity: str, si
     copy_head, copy_rows, copy_root = _state(copy, ref, "copy")
     _genesis(toy_rows, "toy", toy_target, import_line)
     _genesis(copy_rows, "copy", copy_target, import_line)
-    pass_line, pass_row = _pass_line(toy_rows)
+    pass_line, pass_row = _pass_line(toy_rows, import_line)
     _carries_the_copy(pass_row["payload"], copy_rows)
     _carries_the_exception(pass_row["payload"], exit_block)
     _verify_root(toy_root, toy_bundle, identity, sigstore_python, "toy")

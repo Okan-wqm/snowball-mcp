@@ -70,7 +70,7 @@ flowchart LR
 
 ## 2. Referee package: `seed/bootstrap/snowball_bootstrap`
 
-27 modules, 69 imports inside the package, 1 started as a separate process. Areas are roles. The overview has 5 areas and 12 edges; an arrow's number is how many imports cross from one area to the other.
+27 modules, 68 imports inside the package, 1 started as a separate process. Areas are roles. The overview has 5 areas and 12 edges; an arrow's number is how many imports cross from one area to the other.
 
 ```mermaid
 flowchart LR
@@ -83,7 +83,7 @@ flowchart LR
   a_Entry -->|6| a_Judgement
   a_Entry -->|2| a_Rival
   a_Entry -->|5| a_Sandbox
-  a_Intake -->|2| a_Judgement
+  a_Intake -->|1| a_Judgement
   a_Judgement -->|7| a_Intake
   a_Judgement -->|4| a_Rival
   a_Rival -->|3| a_Intake
@@ -168,7 +168,7 @@ flowchart LR
 
 ### Intake
 
-9 modules, 11 edges out of them.
+9 modules, 10 edges out of them.
 
 ```mermaid
 flowchart LR
@@ -190,7 +190,6 @@ flowchart LR
   m_importer --> m_canon
   m_importer --> m_gitio
   m_importer --> m_stagelock
-  m_importer --> m_stages
   m_importer --> m_treehash
   m_stagelock --> m_canon
   m_stagelock --> m_config
@@ -343,7 +342,7 @@ flowchart LR
 | `decide` | The acceptance decision (`tohum/29b`, "Kabul" and "Aşama 0 çıkışının (A) parçası"). | `cli` |
 | `exitchecks` | The (A) conditions of `asama-0/10` that `pull` checks on the brain archive it already holds (`29b`; the draft `29e` "Tohum denetimleri": in `çek`, read from the archive, never ... | `cli`, `decide` |
 | `ledgercheck` | The Founder's ledger (`asama-0/10` #kurucu-defteri, `asama-0/09` test 30, `tohum/26`, `00a`; E107, E280). | `cli`, `decide`, `exitchecks` |
-| `stages` | The stage tables (`asama-0/14`, `tohum/26c` "Aşama tablosu"): the machine copy of a stage's micro-features. | `cli`, `decide`, `importer`, `manifest`, `moduleless`, `stagelock`, `vectors`, `wiring` |
+| `stages` | The stage tables (`asama-0/14`, `tohum/26c` "Aşama tablosu"): the machine copy of a stage's micro-features. | `cli`, `decide`, `manifest`, `moduleless`, `stagelock`, `vectors`, `wiring` |
 | `state` | The bootstrap's memory between runs: the last signed result's ``state`` block. | `cli`, `decide` |
 | `wiring` | The loop workflow's wiring rules (`asama-0/10` #is-akisi, `asama-0/09` test 46, `asama-0/14` MF17; `tohum/08`, `01a`, `29p`; E100, E162, E281-E283). | `cli`, `exitchecks` |
 
@@ -360,10 +359,10 @@ Every subcommand of `cli.py`, the jobs that run it, and the package modules its 
 | `fetch-state` | `cek` | `cmd_fetch_state` | `canon`, `config`, `decide`, `ghapi`, `importer`, `state` |
 | `pull` | `cek` | `cmd_pull` | `canon`, `classify`, `config`, `decide`, `exitchecks`, `gitio`, `ledgercheck`, `manifest`, `rival`, `stagelock`, `stages`, `treehash`, `wiring` |
 | `fetch-deps` | `getir` | `cmd_fetch_deps` | `canon`, `manifest`, `treehash` |
-| `run-tests` | `kos` | `cmd_run_tests` | `canon`, `config`, `container`, `controls`, `licenses`, `moduleless`, `stages`, `treehash`, `vectors` |
+| `run-tests` | `kos` | `cmd_run_tests` | `canon`, `config`, `container`, `controls`, `licenses`, `moduleless`, `stagelock`, `treehash`, `vectors` |
 | `rival` | `cagir` | `cmd_rival` | `canon`, `config`, `rival`, `treehash` |
 | `reproduce` | `yeniden` | `cmd_reproduce` | `canon`, `config`, `container`, `reproduce`, `treehash`, `vectors` |
-| `decide` | `yaz` | `cmd_decide` | `canon`, `config`, `decide`, `stages` |
+| `decide` | `yaz` | `cmd_decide` | `canon`, `config`, `decide`, `stagelock` |
 | `pack` | `cek`, `getir`, `kos`, `cagir`, `yeniden` | `cmd_pack` | - |
 | `unpack` | operator / local | `cmd_unpack` | `treehash` |
 | `seed-hash` | operator / local | `cmd_seed_hash` | `gitio`, `treehash` |

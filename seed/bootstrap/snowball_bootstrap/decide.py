@@ -443,14 +443,15 @@ def decide(meta: dict[str, Any], run: dict[str, Any] | None, rival: dict[str, An
             missing.append(f"rival_attempts:{len(others)}<{rival_min_attempts}")
         if not meta.get("referee_tree_sha256"):
             missing.append("referee_tree_hash")
-        # A batch's request (`26c:17`, `02` 6) is the narrow form: its own micro-features (``table`` is the open batch's),
-        # the tests, vectors and rival, and the archive's checks of the tree it transfers; the stage's own conditions and
+        # Which exit this is, is the open table's, never the request's (E402): Stage 0's before the lock; past it the
+        # open batch's (`26c:17`, `02` 6), the narrow form: its own micro-features (``table`` is the open batch's), the
+        # tests, vectors and rival, and the archive's checks of the tree it transfers; the stage's own conditions and
         # the owner's exception of the stage exit are not a batch's (E378).
-        batch = (meta.get("exit_request") or {}).get("batch")
-        exception = meta.get("honesty_exception") if batch is None else None  # the owner's, from the summary (E287)
+        stage_exit = not table.stage
+        exception = meta.get("honesty_exception") if stage_exit else None  # the owner's, from the summary (E287)
         excepted = OWNER_EXCEPTABLE if _carry_planted(exception) else None  # never without the carry's plant (E297)
         checked, detail = _exit_conditions(meta.get("exit_checks"), meta.get("toy_tree_sha256"), excepted,
-                                           stage_exit=batch is None)  # E162
+                                           stage_exit=stage_exit)  # E162
         if isinstance(exception, dict) and not excepted:
             ref = NOT_CHECKED + OWNER_EXCEPTABLE
             detail[ref] = "; ".join(w for w in (CARRY_UNPLANTED, detail.get(ref)) if w)
@@ -525,9 +526,8 @@ def decide(meta: dict[str, Any], run: dict[str, Any] | None, rival: dict[str, An
         exit_block["referee_tree_sha256"] = meta["referee_tree_sha256"]
         exit_block["toy_tree_sha256"] = meta["toy_tree_sha256"]  # `asama-0/10` #agac; the import's #oyuncak (`10a`)
         exit_block["brain_sha"] = head
-        request = meta.get("exit_request") or {}
-        if "batch" in request:  # what the import transfers and writes on its counter row (`26c` stage, batch)
-            exit_block["stage"], exit_block["batch"] = request["stage"], request["batch"]
+        if table.stage:  # the batch the import transfers and writes on its counter row (`26c` stage, batch)
+            exit_block["stage"], exit_block["batch"] = table.stage, table.batch
     if kind == "exit":
         exit_block["repeat_events"] = state["repeat_events"]
         # Listed, never proven here (E260): no rival runs on an exit head, so the operator, who owns the exit's (B) part,

@@ -8,23 +8,25 @@ its hash compared with the signed one, the toy subtree's likewise at Stage 0's e
 (``setup/imports.jsonl``) must be a sound chain. Each tree is then opened into a sibling temporary directory and hashed
 again as it lies on disk. Before anything in a checkout is touched, no path the copy writes may reach, under another
 name than its own, something the checkout keeps (an 8.3 short name such as ``BOOTST~1``, another case, a trailing dot
-or space: the operator's Windows file system resolves them, E130, E374). Only then are the checkouts changed. In the
-referee checkout the import keeps the operator's files, the bootstrap referee's ``bootstrap/`` and
-``.github/workflows/bootstrap.yml`` (the push judge stays, E100) and the git directory, and replaces everything else
-with the referee tree, so ``referee/.github/workflows/loop.yml`` lands at ``.github/workflows/loop.yml``. The checkout
-is hashed once more without what it keeps, and then the counter gets its row (`26c:39-40`): ``{ts, stage, batch?,
-brain_sha, referee_tree_sha256, result_sha256, toy_tree_sha256?}`` in that order, chained (`26`), one line of compact
-JSON ended by LF. At Stage 0's exit the toy checkout (everything but its git directory) becomes the toy subtree; a
-batch transfer leaves the toy as it is (`asama-1/13`; `25a` 2 is the Stage 0 exit's). The operator reviews
-``git status`` and pushes.
+or space: the operator's Windows file system resolves them, E130, E374), at any depth. Only then are the checkouts
+changed, and what each keeps is read as it lies on disk, every entry with its bytes, before and after the copy: a path
+that reached a kept entry under a name the check above did not foresee changed it, and the import stops before the
+counter is written (E403). In the referee checkout the import keeps the operator's files, the bootstrap referee's
+``bootstrap/`` and ``.github/workflows/bootstrap.yml`` (the push judge stays, E100) and the git directory, and
+replaces everything else with the referee tree, so ``referee/.github/workflows/loop.yml`` lands at
+``.github/workflows/loop.yml``. The checkout is hashed once more without what it keeps, and then the counter gets its
+row (`26c:39-40`): ``{ts, stage, batch?, brain_sha, referee_tree_sha256, result_sha256, toy_tree_sha256?}`` in that
+order, chained (`26`), one line of compact JSON ended by LF. At Stage 0's exit the toy checkout (everything but its
+git directory) becomes the toy subtree; a batch transfer leaves the toy as it is (`asama-1/13`; `25a` 2 is the Stage 0
+exit's). The operator reviews ``git status`` and pushes.
 
 Spec sessiz, the narrowest choice each time (register E370, E374, E378): the kill switch is on only when
 ``kill_switch`` is exactly true (`26c`'s fail-closed reading at its most restrictive for a command that must not run
 otherwise); a result without ``exit.batch`` is Stage 0's exit (``stage`` 0), imported only before the lock; one with
-it is a batch's, imported only while that batch is the lock's stage's open one (`stages.load`), with ``stage`` and
-``batch`` from the signed result and no toy; ``result_sha256`` is sha256 of the signed result file's bytes; ``ts`` is
-UTC to the second (`26c` vectors); a path that names an existing entry of the checkout under another name stops the
-import when that entry is kept or on the way to it, and when the directory lists nothing it could be.
+it is a batch's, imported only while that batch is the lock's stage's open one (`stagelock.open_table`), with
+``stage`` and ``batch`` from the signed result and no toy; ``result_sha256`` is sha256 of the signed result file's
+bytes; ``ts`` is UTC to the second (`26c` vectors); a path that names an existing entry of the checkout under another
+name stops the import when that entry is kept or on the way to it, and when the directory lists nothing it could be.
 """
 
 from __future__ import annotations
@@ -39,7 +41,7 @@ import tempfile
 from pathlib import Path, PurePosixPath
 from typing import Callable
 
-from . import canon, gitio, stagelock, stages
+from . import canon, gitio, stagelock
 from .treehash import OPERATOR_NAMES, extract, iter_files, tree_hash
 
 OIDC_ISSUER = "https://token.actions.githubusercontent.com"
@@ -141,6 +143,42 @@ def _refuse_aliases(checkout: Path, paths: list[PurePosixPath], keep: Callable[[
                                   "or space; `25a` 1, E130): nothing was written")
 
 
+def kept_state(checkout: Path, keep: Callable[[PurePosixPath], bool],
+               holds: Callable[[PurePosixPath], bool]) -> dict[str, str]:
+    """What ``checkout`` keeps as it lies on disk (E403): every entry at or under each kept path, by its path relative
+    to the checkout, with what it is: its bytes' sha256 (a regular file), ``dir``, ``link:<target>`` or ``special``.
+    The walk goes down only where ``holds`` says something kept lies below (`.github/`, `.github/workflows/`) and never
+    through a link. The import reads it before anything is written and again after the copy, so any path that reached
+    a kept entry, under whatever name the file system resolved, shows as a change: an entry changed, added or gone."""
+    found: dict[str, str] = {}
+    stack = [(checkout, PurePosixPath(), False)]
+    while stack:
+        directory, rel, inside = stack.pop()
+        for child in sorted(directory.iterdir()):
+            child_rel = rel / child.name
+            whole = inside or keep(child_rel)
+            if child.is_symlink():
+                if whole:
+                    found[child_rel.as_posix()] = "link:" + os.readlink(child)
+            elif child.is_dir():
+                if whole:
+                    found[child_rel.as_posix()] = "dir"
+                if whole or holds(child_rel):
+                    stack.append((child, child_rel, whole))
+            elif whole:
+                found[child_rel.as_posix()] = (hashlib.sha256(child.read_bytes()).hexdigest() if child.is_file()
+                                               else "special")
+    return found
+
+
+def _kept_unchanged(before: dict[str, str], after: dict[str, str], what: str) -> None:
+    changed = sorted(rel for rel in set(before) | set(after) if before.get(rel) != after.get(rel))
+    if changed:
+        raise ImportErrorStop(f"the copy changed what the {what} checkout keeps: {', '.join(changed[:5])} (a path of the "
+                              "signed tree reached it under another name, `25a` 1, E403): reset the checkout before "
+                              "anything is pushed; no counter row was written")
+
+
 def disk_hash(root: Path, skip: Callable[[PurePosixPath], bool] = lambda rel: False) -> str:
     """`treehash.tree_hash`'s formula over the regular files under ``root`` as they lie on disk; ``skip`` leaves a
     relative path (a directory with all below it) out. A link or a special file stops the import."""
@@ -195,7 +233,7 @@ def _transfer_of(exit_block: dict, referee_dir: Path, toy_dir: Path | None) -> t
     stage, batch = exit_block.get("stage"), exit_block["batch"]
     if type(stage) is not int or stage != lock.stage:
         raise ImportErrorStop(f"the signed batch result is Stage {stage!r}'s, the lock opened Stage {lock.stage}")
-    open_batch = stages.load(lock.stage, done=stagelock.batches_done(referee_dir, lock)).batch
+    open_batch = stagelock.open_table(referee_dir).batch
     if batch != open_batch:
         raise ImportErrorStop(f"the signed result is batch {batch!r}'s; the open batch is {open_batch!r} (`asama-1/13`: "
                               "each batch's transfer once, in order)")
@@ -260,9 +298,13 @@ def run_import(result_path: Path, bundle_path: Path, identity: str, sigstore_pyt
         _refuse_aliases(referee_dir, referee_paths, kept, _holds_kept, "referee")
         if toy_tree is not None:
             _refuse_aliases(toy_dir, toy_paths, _git_dir, _nothing, TOY_DIR)
+        # And what is kept is read before anything is written, to be read again after the copy (E403).
+        referee_kept = kept_state(referee_dir, kept, _holds_kept)
+        toy_kept = kept_state(toy_dir, _git_dir, _nothing) if toy_tree is not None else {}
 
         _clear(referee_dir, kept, _holds_kept)
         shutil.copytree(referee_tree, referee_dir, dirs_exist_ok=True)
+        _kept_unchanged(referee_kept, kept_state(referee_dir, kept, _holds_kept), "referee")
         if disk_hash(referee_dir, skip=kept) != expected:
             raise ImportErrorStop("the referee checkout on disk, what the import keeps left out, is not the signed tree "
                                   "(`25a` 1): reset it before anything is pushed")
@@ -270,6 +312,7 @@ def run_import(result_path: Path, bundle_path: Path, identity: str, sigstore_pyt
         if toy_tree is not None:
             _clear(toy_dir, _git_dir, _nothing)
             shutil.copytree(toy_tree, toy_dir, dirs_exist_ok=True)
+            _kept_unchanged(toy_kept, kept_state(toy_dir, _git_dir, _nothing), "toy")
             if disk_hash(toy_dir, skip=_git_dir) != toy_expected:
                 raise ImportErrorStop("the toy checkout on disk is not the signed toy tree (`25a` 2): reset it")
             toy_bytes = sum(p.stat().st_size for p in toy_tree.rglob("*") if p.is_file())

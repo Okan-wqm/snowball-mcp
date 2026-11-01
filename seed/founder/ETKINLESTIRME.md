@@ -37,7 +37,7 @@ WSL$ E=~/etkinlestirme; SHA=<2. adımdaki brain_sha>; ID=https://github.com/Okan
 |---|---|---|
 | Ö1 | (A) kabul: imzalı sonuç `kind: exit`, `verdict: accepted`, `exit.transferable: true` (`asama-0/10`); denetimi 2. adımda | beyinde `exit-request.json` yok |
 | Ö2 | Kurulumun birinci bölümünden kalanlar: oyuncak ve kopya repoları, kopyada Actions kapalı, özette kopyanın `identifiers`'ını taşıyan `targets[]`, `control.json`'un eksik alanları, #durustluk için sahibin kararı ([Ek A](#ek-a-birinci-bölümden-eksik-kalanlar)) | hiçbiri yok (E284, E287, E294) |
-| Ö3 | Hakemin `bootstrap/`'ındaki tohum araçları (yalnız tohum dönemiyle değişir) ve beynin döngüsü: K1 `import` `25a` 1–2'yi taşır; K2 `control` döngü arayüzünü taşır (`29p`); K3 `stage-open` var; K4 döngünün işleri bir devir koşar. Denetimi 2. adımda; tutmayana el yaması yapılmaz | K1 ve K3 snowball-mcp `gaps/activation-tooling` dalında (E370–E372, ikinci tur E374–E379, E388–E389; E100, E275, E331 kapandı: 8.3 takma adı güven kökünü ezmez, `stage-open` kökü `sha256:<kök>` özetiyle doğrular, klonları, aktarımı, istisnayı ve hakemin satırını bağlar, P1'in (A)'sı ve aktarımı aynı tohumla olur), K2 snowball-mcp `main`'inde (`e7b3b24`, E282); üçü de hakemde yok, tohum dönemi bekliyor; K4 yok, beyin `8c57160` (E332) |
+| Ö3 | Hakemin `bootstrap/`'ındaki tohum araçları (yalnız tohum dönemiyle değişir) ve beynin döngüsü: K1 `import` `25a` 1–2'yi taşır; K2 `control` döngü arayüzünü taşır (`29p`); K3 `stage-open` var; K4 döngünün işleri bir devir koşar. Denetimi 2. adımda; tutmayana el yaması yapılmaz | K1 ve K3 snowball-mcp `gaps/activation-tooling-3` dalında (E370–E372, ikinci tur E374–E379, E388–E389, üçüncü tur E402–E406; E100, E275, E331 kapandı: 8.3 takma adı güven kökünü hiçbir derinlikte ezmez ve korunanı değiştiren kopya durur, `stage-open` kökü `sha256:<kök>` özetiyle doğrular, klonları, aktarımı, istisnayı, hakemin satırını ve merge'leri bağlar, PASS satırının biçimi `26d`'de, P1'in (A)'sı ve aktarımı aynı tohumla olur, kilit yokken Aşama 0'ın yargısı değişmez), K2 snowball-mcp `main`'inde (`e7b3b24`, E282); üçü de hakemde yok, tohum dönemi bekliyor; K4 yok, beyin `8c57160` (E332) |
 | Ö4 | Sahip 5. adım için ulaşılabilir (web arayüzü, yaklaşık yarım saat) | — |
 | Ö5 | 0. adım bir kez yapılmış | yapılmadı |
 
@@ -124,8 +124,13 @@ toy_tree_sha256, ts` (`26c:37`, zincirli). Hakemin bugünkü `bootstrap/`'ı (to
 `bootstrap/` ve `bootstrap.yml` silinir (E100), satır `{brain_sha, referee_bytes, referee_tree_sha256, result_head,
 toy_bytes}`'tır (E275); düzeltilmiş araç snowball-mcp'dedir (E370, E374), hakeme tohum dönemiyle gelir. Hakemin
 `bootstrap/`'ına, `policy.json`'a ya da oyuncağın `.git/`'ine başka adla (8.3 kısa ad, harf, sondaki nokta) inen
-bir `referee/` ya da oyuncak yolu, hiçbir şey yazılmadan `stop: … would land on …` ile durur (E374). İkinci yarısı:
-kill switch kapalıyken aynı komut durur (`25a` 1):
+bir `referee/` ya da oyuncak yolu, hiçbir şey yazılmadan `stop: … would land on …` ile durur (E374); yol her
+derinlikte sorulur, `.github/workflows/BOOTST~1.YML` ve `.github/WORKFL~1/bootstrap.yml` de durur (E403). Komut ayrıca
+korunan her girdiyi (`bootstrap/`, `bootstrap.yml`, operatör dosyaları, iki `.git/`) kopyadan önce ve sonra baytlarıyla
+okur; ad denetiminin öngörmediği bir yol onlardan birini değiştirdiyse `stop: the copy changed what the … checkout
+keeps: …` ile sayaç satırı yazılmadan durur: o zaman klonu sıfırla (`git -C $E/referee reset -q --hard && git -C
+$E/referee clean -fdq`, oyuncakta da), itme, `pilot-log.md`'ye yaz. İkinci yarısı: kill switch kapalıyken aynı komut
+durur (`25a` 1):
 
 ```
 WSL$ rm -rf $E/prova && mkdir $E/prova && cp -a $E/referee $E/toy $E/prova/
@@ -299,12 +304,15 @@ WSL$ grep referee_tree_sha256 $E/referee/setup/imports.jsonl | tail -n 1 | tr -d
 `result_sha256`'sı). `stage-open` 0 ile biter ya da `stop: …` ve `çıkış 2` ile durur, nedeni adıyla: Aşama 0'ın
 aktarım satırı yok, `--result` o satırın sonucu değil, özet bir oyuncak ve bir kopya hedefi adlandırmıyor, bir klonun
 ilk defter satırı o hedefin genesis'i değil (`payload.target`; kopyada `base_sha` da) ya da genesis son aktarım
-satırını adlandırmıyor (E376, E377), PASS satırı yok ya da iki tane (oyuncak defterinde `payload`'ı `stage: 0`,
-`verdict: "PASS"` olan `events` satırı), hakemin kendi satırı değil (`proposed_by` yok, `trust: verified`, E388),
-kopyanın genesis ve merge satırlarını adlandırmıyor (`payload.copy_genesis_row_hash`, `payload.copy_merge_row_hashes`,
-E376), sahip istisnasını imzalı sonuçtaki gibi taşımıyor (`payload.owner_exception`, E379), bir zincir kırık, son kök
-defterin uçları değil, paket satırın Rekor girdisi değil ya da girdi kökü kaydetmiyor, Sigstore `sha256:<kök>`'ü
-reddetti (E375) ya da kilit zaten var (E371). Durursa itme, `pilot-log.md`'ye yaz.
+satırını adlandırmıyor (E376, E377), PASS satırı yok ya da iki tane (oyuncak defterinde `proposed_by`'sız, `payload`'ı
+`stage: 0`, `verdict: "PASS"` olan `events` satırı; önerilmiş bir kopyası sayılmaz, E405), hakemin kendi satırı değil
+(`trust` `verified` ya da `observed`, `derivation` ilk üçten; E388, E404), oyuncağın merge satırından önce yazılmış ya
+da sayacın son aktarım satırını adlandırmıyor (`payload.import_line_sha256`, E405), kopyanın genesis ve merge
+satırlarını adlandırmıyor (`payload.copy_genesis_row_hash`, `payload.copy_merge_row_hashes`: her biri kopyanın bir
+`kind: merge` satırı; E376, E405), sahip istisnasını imzalı sonuçtaki gibi taşımıyor (`payload.owner_exception`, E379),
+bir zincir kırık, son kök defterin uçları değil, paket satırın Rekor girdisi değil ya da girdi kökü kaydeden bir
+`hashedrekord` değil (Rekor v2 gövdesi de, E406), Sigstore `sha256:<kök>`'ü reddetti (E375) ya da kilit zaten var
+(E371). Kural ve alanlar Kurucu'nun okuduğu `spec/tohum/26d`'dedir (E404). Durursa itme, `pilot-log.md`'ye yaz.
 
 `setup/stage.json` tam olarak `{stage: 1, pass_row_sha256, toy_state_head, copy_state_head, import_line_sha256}`
 (`26c:39`); iki baş `gh api repos/<T>/git/ref/heads/brain/state --jq .object.sha` ile, `import_line_sha256` son
@@ -417,11 +425,12 @@ Hepsi en dar seçimdir ve E330'dadır.
 - 8. adımda `referee/` denetimi elle (E333). PASS satırının yeri `asama-0/10a`'nınki, oyuncak (E334).
 - `stage-open`'ın girdileri (E371): oyuncağın ve kopyanın `brain/state` klonları (`--ref` öntanımı
   `refs/remotes/origin/brain/state`), iki kök paketi, döngünün `loop.yml` kimliği, imzalı (A) sonucu (`--result`,
-  E379); PASS satırının ve kökün okunuşu E371, E375–E377, E379 ve E388'dedir.
+  E379); PASS satırının ve kökün okunuşu E371, E375–E377, E379, E388 ve E404–E406'dadır, Kurucu'ya `26d`'de söylenir.
 - Parti aktarımı (P1 ilk, E378): beyin parti isteğini yapar (`exit-request.json` `{stage: 1, sha, spec_sha256, batch:
   "P1"}`), önyükleme hakeminin aktarılabilir sonucu `exit.batch` taşır; 3. adımın komutu `--toy` olmadan koşulur,
   sayaç satırı `{ts, stage, batch, brain_sha, referee_tree_sha256, result_sha256}`'dir; açık parti dışındaki ya da
-  ikinci kez aktarılan parti durur.
+  ikinci kez aktarılan parti durur. İsteğin hangi biçimi taşıdığını kilit söyler, istek değil (E402): kilit yokken
+  `batch` anahtarlı istek eskisi gibi `exit_request_malformed`'dır ve Aşama 0'ın her yargısı kilitsiz değişmez.
 - Oyuncağın `identifiers`'ı `[]`, `unit_candidates`'i `["textkit"]` (`26c` ikisini kopya için tanımlar; tohumun genesis
   fikstürü oyuncağa da birim adayı verir). Parti aktarımında oyuncak itilmez (`26c` `toy_tree_sha256?`).
 
