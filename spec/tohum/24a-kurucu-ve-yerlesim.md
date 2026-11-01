@@ -46,14 +46,13 @@ Etkinleştirmeden sonra `cost` bölümünde inşa kalemidir.
 **Beyin reposu** (yeni, ayrı; `25` 1):
 
 ```
-spec/                           tohum dönemindeki spec/tohum ve aşama sayfaları
-seed/                           tohum dönemindeki seed/** (bootstrap, drill, launcher)
+spec/                           tohum dönemindeki spec/tohum (beyne gelen tek tohum) ve aşama sayfaları
 referee/                        döngü hakeminin adayı; .github/workflows/loop.yml, schemas/, tests/ dahil
 targets/<hedef>/units.json      birim tarifi önerisi (veri, `26c`)
 candidates/<hedef>/<cid>/       finding.json, diff.patch, expect.json (`26c`)
 tests/fixtures/toy-repo/        oyuncak hedefin içeriği; ajan yapılandırması taşımaz
 reports/*.json                  tipli bildirimler (`26c`)
-founder-ledger.jsonl            tohumun aracıyla zincirli
+founder-ledger.jsonl            Kurucu'nun koduyla zincirli (`26`); `cost` satırı başlatıcının
 snowball-tests.json             {tests, done_mf, lockfiles}
 exit-request.json               yalnız çıkış ve parti isteğinde
 ```

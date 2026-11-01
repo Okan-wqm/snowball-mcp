@@ -71,8 +71,8 @@ yalnız açık imzalı girdilerden sayılardır. Operatör iki dosyayı commit'l
 
 ## Tohum teslimi (tohum dönemi, E88)
 
-Canlı beyne yeni tohum (`spec/tohum/**`, beyinde varsa `seed/**`) yalnız bu yolla girer (`spec/tohum/25` madde 10b).
-Hakemin imzalı durumu (donmuş spec'ler, ret serileri, açık iddialar, kanıtlanmış kusurlar, rakip artefaktları)
+Canlı beyne yeni tohum (`spec/tohum/**`) yalnız bu yolla girer (`spec/tohum/25` madde 10b); beyne tohum kodu
+(`seed/`) gitmez (E150, sahibin yetkisiyle operatör kararı, 2026-11-01). Hakemin imzalı durumu (donmuş spec'ler, ret serileri, açık iddialar, kanıtlanmış kusurlar, rakip artefaktları)
 dönemden aynen geçer. Aşağıda `S` `snowball-mcp`'nin teslim edilen commit'i, `D` beyne giden teslim commit'idir.
 
 1. **Kaynak.** `snowball-mcp` `main`'inde CI'ı yeşil bir commit seç (`S`). Dönemin tohum günlüğü satırı
@@ -89,24 +89,24 @@ dönemden aynen geçer. Aşağıda `S` `snowball-mcp`'nin teslim edilen commit'i
    klonlarını `git -c core.autocrlf=false clone` ile al, her `archive`'ı `git -c core.autocrlf=false` ile koştur
    (`core.autocrlf=true` olan Windows'ta `git archive` LF'yi CRLF'ye çevirir); itmeden önce
    `git diff --cached | tr -cd '\r' | wc -c` 0 olmalı.
-4. **Beyne teslim.** Beynin güncel `main`'inin taze klonunda `spec/tohum/`'u (beyinde `seed/` varsa onu da) `S`'deki
-   ile birebir değiştir, silinen dosyalar dahil; başka hiçbir yola dokunma (`spec/INDEX.md` ve `spec/asama-*`
-   teslimle değişemez, E180). Tek commit, `main`'e hızlı ileri:
+4. **Beyne teslim.** Beynin güncel `main`'inin taze klonunda `spec/tohum/`'u `S`'deki ile birebir değiştir, silinen
+   dosyalar dahil; başka hiçbir yola dokunma (`spec/INDEX.md` ve `spec/asama-*` teslimle değişemez, E180). Tek
+   commit, `main`'e hızlı ileri:
    ```
    git rm -r -q spec/tohum
    git -C <snowball-mcp> -c core.autocrlf=false archive S spec/tohum | tar -x -f -
    git add -A spec/tohum
    git commit -m "Tohum dönemi: snowball-mcp S" && git push origin main
    ```
-   (beyinde `seed/` varsa aynı üç satır `seed` için de). Push reddedilirse Kurucu araya girmiştir: yeniden çek,
-   yeniden kur, yeniden it. `D` bu commit'tir; üstünde ikinci bir teslim commit'i olmaz.
+   Push reddedilirse Kurucu araya girmiştir: yeniden çek, yeniden kur, yeniden it. `D` bu commit'tir; üstünde ikinci bir teslim commit'i olmaz.
 5. **Dönem satırı.** `S`'nin `seed/bootstrap/` dizininden:
    ```
    python -m snowball_bootstrap seed-epoch --brain <beyin klonu> --commit D --source <snowball-mcp> --source-commit S
    ```
    Yazılan JSON nesnesini hakem reposunun `setup/summary.json`'ında `seed_epochs` dizisinin sonuna ekle (ilk
-   teslimde diziyi aç). `seed_commit` ve `seed_tree_sha256` kurulum tohumudur, dokunma. Beyinde `seed/` yoksa
-   satırın `seed_sha256`'sı `null`'dır. Elle yazma: hash'ler git blob'larından hesaplanır, satır sonundan bağımsızdır.
+   teslimde diziyi aç). `seed_commit` ve `seed_tree_sha256` kurulum tohumudur, dokunma. Beyinde `seed/`
+   olmadığından satırın `seed_sha256`'sı `null`'dır. Elle yazma: hash'ler git blob'larından hesaplanır, satır sonundan
+   bağımsızdır.
 6. **Aç.** 3. ve 5. adımı hakem reposunun `main`'ine it; sonra `"kill_switch": false`, it.
 7. **Doğrula.** `gh workflow run bootstrap.yml -R <hakem reposu>`. İmzalı sonuç `kind: seed_update`,
    `verdict: noop`, `head: D` olmalı. Koşu `stop: setup/summary.json: the last seed epoch ...` ile kırmızı biterse

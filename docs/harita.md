@@ -52,7 +52,7 @@ flowchart LR
   job_yaz -.->|signs result.json, keyless| rekor
   job_yaz -.->|signed verdict: bootstrap-state artifact| launcher
   launcher -.->|last verdict, read-only: /work/referee| capsule
-  operator -.->|seed epoch: delivers spec/tohum and seed/| brain
+  operator -.->|seed epoch: delivers spec/tohum alone| brain
   operator -.->|installs bootstrap/, vectors/, kill switch, seed_epochs row| referee
   operator -.->|after each cycle: docs/karne.md| scorecard
   job_yaz -.->|signed results, digest-checked, cached| scorecard
