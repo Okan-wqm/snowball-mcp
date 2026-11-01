@@ -162,10 +162,45 @@ class PreviousSessionTest(unittest.TestCase):  # E360: how the last session ende
         self.launch = load_launch()
         self.work = Path(tempfile.mkdtemp())
         self.pilot = self.launch.Pilot(self.work, "owner/brain", "owner/referee", "target")
+        self.pilot.verdict_on = lambda head: None  # the look-up has its own tests below; no test here reaches GitHub
 
     def note(self, stamp="20261031T210000Z"):
         path = self.work / "logs" / stamp / "previous-session.json"
         return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else None
+
+    def test_a_seed_epoch_between_does_not_hide_the_heads_verdict(self):  # E420: the live 20261101T045525Z case
+        head, epoch = "b" * 40, "d" * 40
+        row = {"stamp": "20261101T012022Z", "brain_before": "a" * 40, "brain_after": head, "pushed": True,
+               "session_exit": 0, "minutes": 51.9, "ledger_new": {"decision": 4}, "verdict": None,
+               "session_timeout_s": 10800}
+        self.pilot.metrics.write_text(json.dumps(row) + "\n", encoding="utf-8")
+        noop = {"head": epoch, "kind": "seed_update", "verdict": "noop", "state": {"last_evaluated_sha": epoch}}
+        on_head = {"head": head, "kind": "code", "verdict": "accepted", "state": {"last_evaluated_sha": head}}
+        self.pilot.verdict_on = lambda h: on_head if h == head else None
+        self.pilot.previous_session_note("20261101T045525Z", 10800, noop)
+        self.assertEqual(self.note("20261101T045525Z")["verdict"], "accepted")
+        self.pilot.verdict_on = lambda h: None  # not among the recent results: unknown, never another head's
+        self.pilot.previous_session_note("20261101T045525Z", 10800, noop)
+        self.assertIsNone(self.note("20261101T045525Z")["verdict"])
+
+    def test_the_look_up_finds_the_newest_result_that_evaluated_the_head(self):  # E420
+        pilot = self.launch.Pilot(self.work, "owner/brain", "owner/referee", "target")
+        head = "b" * 40
+        results = [{"head": "d" * 40, "verdict": "noop", "state": {"last_evaluated_sha": "d" * 40}},
+                   {"head": head, "verdict": "accepted", "state": {"last_evaluated_sha": None}},  # did not evaluate it
+                   {"head": head, "verdict": "rejected", "state": {"last_evaluated_sha": head}},
+                   {"head": head, "verdict": "accepted", "state": {"last_evaluated_sha": head}}]
+        pilot.state_artifacts = lambda: [{"id": i} for i in range(len(results))]
+        pilot.artifact_files = lambda art: {"result.json": json.dumps(results[art["id"]]).encode()}
+        self.assertEqual(pilot.verdict_on(head)["verdict"], "rejected")
+        self.assertIsNone(pilot.verdict_on("e" * 40))
+        pilot.state_artifacts = lambda: [{"id": 0}] * self.launch.VERDICT_LOOKBACK + [{"id": 3}]
+        self.assertIsNone(pilot.verdict_on(head))  # bounded: an old head is not searched for without end
+
+        def down():
+            raise self.launch.GitHubUnavailable("down")
+        pilot.state_artifacts = down
+        self.assertIsNone(pilot.verdict_on(head))
 
     def test_a_timed_out_session_is_named_for_the_next_one(self):
         rows = [{"stamp": "20261031T170731Z", "session_exit": 0, "minutes": 18.5, "pushed": True,
