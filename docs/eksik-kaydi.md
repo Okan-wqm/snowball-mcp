@@ -2356,6 +2356,10 @@ Testler `tests/test_rival_memory.py`'de, sınıf adları kalem numarasıyla. Dur
   `folder_without_a_link_skipped`; her biri hedefini yanlış cevapla kırmızıya çevirir), sayımlar (veri sonucu
   282 → 288, B 116 → 122, vaka 141 → 144) ve tek kaynak testi; 14 testte 11 hata. 10 mutant: A üç, B iki, `29g`'nin
   üç vaka adı, `24`'ün kuralı yeniden yazması, `30c:22`'nin her girdiye `integrity` sorması.
+- **Doğrulama** (`3708176`). Windows `seed/bootstrap` (`PYTHONPATH=.;tests`, Python 3.12): 568 test OK (19 atlandı);
+  Linux Docker (`snowball_linux_test:git`, `git -c core.autocrlf=false archive` ile LF, salt okunur, ağsız): 587 test OK
+  (3 atlandı); `local/mutate.py` üç kapta: 10 yeni mutantın 10'u öldü (A'nın üçü başvuru vektör testini de yanlış
+  cevapla kırmızıya çevirir); `local/system_map.py --check` temiz; staged diff'te CR yok.
 
 ## Doğrulanmış sağlam taraflar
 Kapsayıcı bayrakları ve kırmızı kontroller; host'ta kabuk enjeksiyonu yok; `$GITHUB_OUTPUT`'a serbest
