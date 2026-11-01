@@ -119,7 +119,7 @@ def gh_json(*args: str):
 def _json_or_none(line: str):
     """One JSON line, or None for a blank or broken one (a record file cut by a power loss must not stop the pilot)."""
     try:
-        return json.loads(line) if line.strip() else None
+        return json.loads(line)  # a blank line is a ValueError too
     except ValueError:
         return None
 
