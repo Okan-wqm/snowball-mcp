@@ -2562,7 +2562,19 @@ Testler `tests/test_rival_memory.py`'de, sınıf adları kalem numarasıyla. Dur
   `CHANGELOG.md`. Hepsi 80 satırın altında; `asama-0/10a` dondurulmuş, dokunulmadı (tohum geçerlidir, `02` 1).
 - **Yapılmayan.** E373'ün kalanları (P2 tablosu, Aşama 1 rakip bütçesi, kök paketinin yeri); E407 (Rekor v2);
   K4 (E332); hiçbir yere itilmedi.
-- **Doğrulama.** @VERIFY@
+- **Doğrulama** (`608c0b2`). Windows `seed/bootstrap` (`PYTHONPATH=.;tests`, `discover -s tests`): 724 test OK (23
+  atlandı; 8.3 kısa adı açık C: geçici dizininde gerçek takma ad testleri koştu); Linux Docker
+  (`snowball_linux_test:git`, `git -c core.autocrlf=false archive` ile LF, salt okunur bağlama, `--network none`,
+  `PYTHONPATH=.:tests`): 747 test OK (9 atlandı). Fark testi: tabanda (`d7706b8`) 52/52 hücre kaydedildi, birleştirilmiş
+  ikinci turda (`15dc9d0`) 35'i farklı, bu dalda 52/52 aynı; şüphecinin `diff_stage0.py`'si 8 vaka × 10 alanda tabanla
+  80/80 aynı, `main` `d79053c`'yle her yargı alanı aynı (tek fark `meta_keys`: tabanın kendi `exit_released` ve
+  `reports`'u). `local/mutate.py` iki kapta etkinleştirme bölümünün ve yeniden çapalanan ikisinin 132 mutantı (üçüncü
+  turun 23'ü dahil) `6a41863`'te 132/132 öldü; içe aktarmanın 14 mutantı son ağaçta 14/14. Şüphecinin 22 mutantı kendi
+  koşucusuyla, tam paketle (üçü taşınan koda yeniden çapalandı: D1, S6, S10) 22/22 öldü (A1 ve S2 dahil); 8.3 açık C:'de
+  A1 uygulanınca kök altındaki beş vaka kırmızı, düzeltmede yeşil. Sondalar: `alias_bypass.py` ve `device_names.py`
+  hiçbir korunanı bozmadan durur; `probe_stageopen2.py`'nin kapalı altısı kapalı (biri yalnız iletinin sözcüğüyle:
+  önerilmiş satır artık sayılmadan ayrılır), açık dördü kapandı. `local/system_map.py --check` temiz; sayfalar 80
+  satırın altında (`26` 80, `26d` 55, `CHANGELOG.md` 79); staged diff'te CR yok.
 
 ## Doğrulanmış sağlam taraflar
 Kapsayıcı bayrakları ve kırmızı kontroller; host'ta kabuk enjeksiyonu yok; `$GITHUB_OUTPUT`'a serbest
