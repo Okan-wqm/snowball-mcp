@@ -50,8 +50,9 @@ KEYS_V1 = {"schema", "origin", "last_accepted_sha", "last_evaluated_sha", "froze
 KEYS_V2 = KEYS_V1 | {"outage_since", "outage_stop", "rival_side_streak", "open_refutations", "open_claims",
                      "pending_rival"}
 KEYS_V3 = KEYS_V2 | {"rejected_exit_request"}
-# The head whose exit request the referee accepted, (A) of `asama-0/10`: after it no push may touch `referee/`
-# (`asama-0/10a`, `asama-0/11`, E333).
+# The head whose exit request the referee accepted, (A) of `asama-0/10`: after it only (B)'s `candidates/` and
+# `targets/` may change, until the operator reverts its transfer or a later stage opens (`asama-0/10a`, `asama-0/11`,
+# E333; `cli.exit_freeze`).
 KEYS = KEYS_V3 | {"exit_accepted_sha"}
 REFUTATION_KEYS = {"key", "claim", "evidence_refs", "reproducer", "first_head", "last_head"}
 CLAIM_KEYS = {"id", "claim", "evidence_refs", "reproducer", "observed", "first_head", "rewritten"}
@@ -86,14 +87,17 @@ def initial(summary: Summary, month: str) -> dict[str, Any]:
     }
 
 
-def migrate(state: Any, now: str) -> Any:
+def migrate(state: Any, now: str, result: Any = None) -> Any:
     """Carry a state of an earlier schema forward; anything else is returned as it is for ``validate`` to judge.
+    ``result`` is the signed result the state came in.
 
     v1 -> v2: books, streaks, frozen specs and the accepted SHA stay. A v1 artifact list cannot say which
     heads survived the rival, so only the last accepted head (accepted means it survived) counts as one; the
     others become ``unknown``, which the exit never counts. A running outage restarts its week now.
     v2 -> v3: everything stays; no rejected exit request is remembered yet (E97).
-    v3 -> v4: everything stays; no exit was accepted yet (E333: none has been requested).
+    v3 -> v4: everything stays; the accepted exit is the carried result's head when that result accepted an exit and
+    made it transferable (E333), else none. No earlier v3 result can have accepted one: every bootstrap that wrote a
+    v3 state kept the exit closed with `not_checked:spec`, which no owner's exception takes off (E162, E333).
     """
     if isinstance(state, dict) and state.get("schema") == SCHEMA_V1 and set(state) == KEYS_V1:
         new = dict(state, schema=SCHEMA_V2)
@@ -106,8 +110,18 @@ def migrate(state: Any, now: str) -> Any:
     if isinstance(state, dict) and state.get("schema") == SCHEMA_V2 and set(state) == KEYS_V2:
         state = dict(state, schema=SCHEMA_V3, rejected_exit_request=None)
     if isinstance(state, dict) and state.get("schema") == SCHEMA_V3 and set(state) == KEYS_V3:
-        state = dict(state, schema=SCHEMA, exit_accepted_sha=None)
+        state = dict(state, schema=SCHEMA, exit_accepted_sha=_accepted_exit(result))
     return state
+
+
+def _accepted_exit(result: Any) -> str | None:
+    """The head of a signed result that accepted an exit request and made it transferable, else None."""
+    if not isinstance(result, dict) or result.get("kind") != "exit" or result.get("verdict") != "accepted":
+        return None
+    block = result.get("exit")
+    head = result.get("head")
+    transferable = isinstance(block, dict) and block.get("transferable") is True
+    return head if transferable and isinstance(head, str) and SHA_RE.match(head) else None
 
 
 def _text(value: Any, limit: int) -> bool:

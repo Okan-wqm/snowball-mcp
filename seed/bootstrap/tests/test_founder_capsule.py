@@ -118,8 +118,26 @@ class PreviousSessionTest(unittest.TestCase):  # E360: how the last session ende
         self.assertEqual((note["ended"], note["limit_minutes"], note["ledger_rows_added"], note["pushed"]),
                          ("exit", 120.0, 4, True))
 
+    def test_the_restart_after_a_timeout_still_names_the_timeout(self):
+        """A timed-out session stops the launcher, and every start appends its intervention row before cycle 1 (E313):
+        the note reads the last cycle's row, never that start row (E360)."""
+        row = {"stamp": "20261031T174316Z", "session_exit": -1, "minutes": 180.2, "pushed": False,
+               "ledger_new": {}, "verdict": None, "session_timeout_s": 10800}
+        self.pilot.metrics.write_text(json.dumps(row) + "\n", encoding="utf-8")
+        args = argparse.Namespace(work=self.work, cycles=1, no_build=True)
+        with mock.patch.object(self.pilot, "image_prompt", return_value="p" * 64), \
+                mock.patch.object(self.pilot, "image", return_value=None), mock.patch.object(self.launch, "say"):
+            self.pilot.intervention(args)
+            self.pilot.intervention(args)  # two starts in a row (a preflight failure, then a start that ran)
+        self.pilot.previous_session_note("20261031T210000Z", 10800)
+        self.assertEqual(self.note(), {"stamp": "20261031T174316Z", "ended": "timeout", "exit": -1, "minutes": 180.2,
+                                       "limit_minutes": 180.0, "pushed": False, "ledger_rows_added": 0, "verdict": None})
+
     def test_no_earlier_cycle_writes_nothing(self):
         self.pilot.previous_session_note("20261031T210000Z", 10800)
+        self.assertIsNone(self.note())
+        self.pilot.record_metrics({"kind": "intervention", "ts": "2026-10-31T21:01:35Z", "args": {}})
+        self.pilot.previous_session_note("20261031T210000Z", 10800)  # a first start's own row is not a session
         self.assertIsNone(self.note())
 
     def test_the_prompt_says_where_it_is(self):
@@ -669,16 +687,42 @@ class CycleRecordTest(unittest.TestCase):
         launch = load_launch()
         pilot = launch.Pilot(Path(tempfile.mkdtemp()), "o/brain", "o/referee", "target")
         pilot.seed = "s" * 40
-        args = argparse.Namespace(cycles=3, model="claude-opus-5-5", no_build=False)
-        with mock.patch.object(launch.Pilot, "image", return_value="sha256:" + "i" * 64):
+        args = argparse.Namespace(cycles=3, model="claude-opus-5-5", no_build=True)
+        with mock.patch.object(launch.Pilot, "image", return_value="sha256:" + "i" * 64), \
+                mock.patch.object(launch.Pilot, "image_prompt", return_value="q" * 64), \
+                mock.patch.object(launch, "say") as said:
             pilot.intervention(args)
+        self.assertIn("the sessions run the image's", said.call_args[0][0])  # the difference is said
         rows = [json.loads(line) for line in pilot.metrics.read_text(encoding="utf-8").splitlines()]
+        # --no-build: the sessions run the image's prompt, so that is the one attributed; the checkout's is beside it.
         self.assertEqual(rows, [{"kind": "intervention", "ts": rows[0]["ts"], "image_id": "sha256:" + "i" * 64,
-                                 "prompt_sha256": launch.prompt_sha256(), "seed_commit": "s" * 40,
-                                 "args": {"cycles": "3", "model": "claude-opus-5-5", "no_build": "False"}}])
-        built = (FOUNDER / "prompt.md").read_bytes().replace(b"\r\n", b"\n")  # the bytes the image is built with
+                                 "prompt_sha256": "q" * 64, "checkout_prompt_sha256": launch.prompt_sha256(),
+                                 "seed_commit": "s" * 40,
+                                 "args": {"cycles": "3", "model": "claude-opus-5-5", "no_build": "True"}}])
+        self.assertEqual(pilot.prompt_sha256, "q" * 64)  # what every cycle row of this start names
+        built = (FOUNDER / "prompt.md").read_bytes().replace(b"\r\n", b"\n")  # the bytes a build now would copy
         self.assertEqual(launch.prompt_sha256(), hashlib.sha256(built).hexdigest())
         self.assertIn("pilot.intervention(args)", (FOUNDER / "launch.py").read_text(encoding="utf-8"))
+
+    def test_the_build_labels_the_image_with_its_prompt_and_a_start_reads_the_label(self):  # E313
+        launch = load_launch()
+        pilot = launch.Pilot(Path(tempfile.mkdtemp()), "o/brain", "o/referee", "target")
+        calls = []
+
+        def fake_run(*argv, **kw):
+            calls.append(argv)
+            return subprocess.CompletedProcess(argv, 0, b"sha256:x\n", b"")
+        with mock.patch.object(launch, "run", side_effect=fake_run), mock.patch.object(launch, "say"):
+            pilot.build()
+        built = calls[0]
+        label = built[built.index("--label") + 1]
+        self.assertEqual(label, launch.PROMPT_LABEL + "=" + launch.prompt_sha256())  # the context's LF bytes
+        for stdout, rc, expected in ((json.dumps({launch.PROMPT_LABEL: "a" * 64, "other": "x"}).encode(), 0, "a" * 64),
+                                     (b"null\n", 0, None),  # an image built before the label: unknown
+                                     (json.dumps({launch.PROMPT_LABEL: "not a hash"}).encode(), 0, None),
+                                     (b"", 1, None), (b"{broken", 0, None)):
+            with mock.patch.object(launch, "run", return_value=subprocess.CompletedProcess([], rc, stdout, b"")):
+                self.assertEqual(pilot.image_prompt(), expected, stdout)
 
     def test_the_transcripts_init_event_gives_the_cli_and_the_served_model(self):
         launch = load_launch()
@@ -822,6 +866,117 @@ class CostRowTest(unittest.TestCase):
             self.assertIn("2 satır yazıldı", pilot.record_cost("S2", {"exit": 0}, "b" * 40, "b" * 40))
         self.assertEqual(calls, [["S1"], ["S1", "S2"]])
         self.assertFalse((pilot.work / launch.COST_PENDING).exists())
+
+    def test_a_session_already_written_is_not_written_again_and_every_git_call_has_a_limit(self):
+        """A push that timed out after it reached GitHub leaves its facts pending; the next attempt finds their rows
+        and writes only the new ones. A stalled clone or push ends in GitError, which defers the rows (E344)."""
+        from snowball_bootstrap import gitio
+        launch = load_launch()
+        bare, accepted = self.mirror()
+        first = launch.push_cost_rows(str(bare), [self.FACT], accepted, "2026-10-31T22:00:00Z", credential=False)
+        self.assertEqual(launch.push_cost_rows(str(bare), [self.FACT], first, "t", credential=False), first)  # no commit
+        later = dict(self.FACT, stamp="20261101T010000Z")
+        limits = []
+        real = gitio.git
+
+        def bounded(repo, *args, **kw):
+            rest = list(args)
+            while rest[0] == "-c":  # `-c name=value` pairs before the command
+                rest = rest[2:]
+            limits.append((rest[0], kw.get("timeout")))
+            return real(repo, *args, **kw)
+        with mock.patch.object(launch.gitio, "git", side_effect=bounded):
+            second = launch.push_cost_rows(str(bare), [self.FACT, later], first, "2026-11-01T02:00:00Z",
+                                           credential=False)
+        self.assertEqual([c for c, _ in limits], ["clone", "rev-parse", "add", "commit", "push", "rev-parse"])
+        self.assertTrue(all(t for _, t in limits), limits)
+        ledger = gitio.git(bare, "show", f"{second}:founder-ledger.jsonl")
+        self.assertEqual(sorted(launch.cost_stamps(ledger)), [self.FACT["stamp"], later["stamp"]])
+        self.assertEqual(sum(1 for x in ledger.splitlines() if json.loads(x)["kind"] == "cost"), 2)
+        with mock.patch.object(gitio.subprocess, "run", side_effect=subprocess.TimeoutExpired(["git"], 1)):
+            with self.assertRaisesRegex(gitio.GitError, "timed out"):
+                gitio.git(bare, "fetch", timeout=1)
+            with self.assertRaisesRegex(gitio.GitError, "timed out"):
+                gitio.same_under(bare, first, second, ("seed",), timeout=1)
+        pilot = launch.Pilot(Path(tempfile.mkdtemp()), "o/brain", "o/referee", "target")
+        with mock.patch.object(launch.gitio, "git", side_effect=gitio.GitError("git push timed out after 300 s")):
+            self.assertIn("1 satır bekliyor (deferred: GitError: git push timed out", pilot.record_cost(
+                "S1", {"exit": 0}, "b" * 40, "a" * 40))
+
+    def test_the_launchers_cost_commit_is_not_judged_before_the_next_session(self):
+        """The cost commit above the Founder's accepted push is memory alone: the referee would read it as a `noop`,
+        and judging it first would put that `noop` where the Founder reads the verdict on its own push, cost a referee
+        run and, in an outage, hold the Founder on the launcher's commit. Any work above the last accepted commit is
+        still judged first (E168)."""
+        from snowball_bootstrap import gitio
+        launch = load_launch()
+        bare, accepted = self.mirror()
+        cost = launch.push_cost_rows(str(bare), [self.FACT], accepted, "2026-10-31T22:00:00Z", credential=False)
+        alone = lambda remote, last, evaluated, head, epoch=None: launch.memory_alone(  # noqa: E731
+            str(remote), last, evaluated, head, epoch, credential=False)
+        self.assertTrue(alone(bare, accepted, accepted, cost))
+        self.assertFalse(alone(bare, accepted, accepted, accepted))  # main moved on past the head the cycle read
+        self.assertFalse(alone(bare, None, accepted, cost))
+        self.assertFalse(alone(bare, accepted, None, cost))  # the newest result did not evaluate its own head
+        self.assertFalse(alone(bare, "0" * 40, accepted, cost))  # not in the clone
+        self.assertFalse(alone(bare, accepted, "0" * 40, cost))
+        work, work_accepted = self.mirror(extra={"referee/a.py": "x = 2\n"})
+        head = gitio.git(work, "rev-parse", "main").decode().strip()
+        self.assertFalse(alone(work, work_accepted, work_accepted, head))  # work above the accepted commit
+        # A memory-only push above a rejected one: the referee judges the rejected work again there (E168).
+        rejected, last_ok = self.mirror(extra={"referee/a.py": "x = 2\n"})
+        bad = gitio.git(rejected, "rev-parse", "main").decode().strip()
+        above = launch.push_cost_rows(str(rejected), [self.FACT], bad, "t", credential=False)  # as if bad were accepted
+        self.assertFalse(alone(rejected, last_ok, bad, above))
+        # A seed epoch above the accepted head is judged first (its `seed_update` result opens a scorecard segment);
+        # a cost commit above the judged epoch is memory alone.
+        delivered, ok = self.mirror(extra={"spec/tohum/00-cekirdek.md": "# core, epoch 2\n"})
+        epoch = gitio.git(delivered, "rev-parse", "main").decode().strip()
+        self.assertFalse(alone(delivered, ok, ok, epoch, epoch))
+        after_epoch = launch.push_cost_rows(str(delivered), [self.FACT], ok, "t", epoch, credential=False)
+        self.assertTrue(alone(delivered, ok, epoch, after_epoch, epoch))
+        self.assertFalse(alone(delivered, ok, epoch, after_epoch, None))  # the seed is no delivery without the epoch
+        verdict = {"head": accepted, "verdict": "accepted", "rival": {"attempts": [{"claim": "c"}]},
+                   "state": {"last_evaluated_sha": accepted, "last_accepted_sha": accepted}}
+
+        class Fake(quiet_pilot(launch)):
+            dispatches = 0
+
+            def fetch_result(self):
+                return verdict
+
+            def dispatch_referee(self, timeout_s):
+                self.dispatches += 1
+                return {"id": "1", "conclusion": "success", "url": "u"}
+
+            def memory_alone(self, prior, head_):
+                self.brain_remote = str(bare)
+                with mock.patch.object(launch, "GH_CREDENTIAL", "credential.helper="):  # a local mirror: none
+                    return launch.Pilot.memory_alone(self, prior, head_)
+
+            def brain_head(self):
+                return cost
+
+            def ledger_rows(self, sha):
+                return []
+
+            def refresh_inputs(self):
+                pass
+
+            def session(self, *a):
+                return {"exit": 0, "minutes": 1}
+
+            def write(self, text):
+                report.append(text)
+
+        report = []
+        pilot = Fake(Path(tempfile.mkdtemp()), "o/brain", "o/referee", "target")
+        pilot.idle, pilot.seed = 0, "a" * 40
+        args = type("Args", (), dict(model="m", max_turns=1, budget_usd=1, session_timeout=1, referee_timeout=1))
+        with mock.patch.object(launch, "say"):
+            pilot.cycle(1, args)
+        self.assertEqual(pilot.dispatches, 0)  # no referee run before the session, so no `noop` artifact
+        self.assertIn("- Hakemin önceki kararı (Kurucu'nun okuduğu): accepted", "".join(report))
 
     def test_the_launchers_own_commit_is_not_a_founder_push(self):
         """The two-sessions-without-a-push stop counts the Founder's pushes: the cost commit lands after the head is

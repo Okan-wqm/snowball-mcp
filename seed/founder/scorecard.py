@@ -115,7 +115,9 @@ DEFINITIONS = {
     "self_found": "Mechanical with the operator's replays (E315). A Founder row whose summary carries the tag "
                   "[own_code] is a claim. It is a verified self-found defect when (a) it names paths (its refs, or brain paths in its "
                   "text) and its snapshot_id H is an accepted head; (b) no referee reason, rival attempt or open claim "
-                  "of any run up to and including the first that accepted H names those paths; (c) a later ledger row "
+                  "of any run up to and including the first whose head's ledger holds the row, or the first that "
+                  "accepted H when that is later, names those paths (where the row arrived is read from the ledger at "
+                  "each judged head, never from a field the Founder writes); (c) a later ledger row "
                   "names the row's id, and a replay shows a test red at H and green at a closing head the referee "
                   "accepted after H. Order is the referee's signing order, never ledger or commit times (E316). "
                   "Public: the count over claims; private: the row ids. Pre-push self-corrections leave no record "
@@ -193,6 +195,7 @@ class Cache:
         self.results = root / "results"
         self.index = self.results / "index.jsonl"
         self.manifests = root / "manifests.jsonl"
+        self.ledger_counts = root / "ledger-counts.jsonl"  # rows of the ledger at each judged head (`self_found` (b))
 
     def entries(self) -> dict[int, dict[str, Any]]:
         out: dict[int, dict[str, Any]] = {}
@@ -236,6 +239,21 @@ class Cache:
     def add_manifest(self, sha: str, done: list[int]) -> None:
         with self.manifests.open("a", encoding="utf-8", newline="\n") as fh:
             fh.write(json.dumps({"sha": sha, "done_mf": done}, sort_keys=True) + "\n")
+
+    def ledger_count_cache(self) -> dict[str, int | None]:
+        lines = self.ledger_counts.read_text(encoding="utf-8").splitlines() if self.ledger_counts.is_file() else []
+        return {d["sha"]: d["rows"] for d in map(json.loads, lines)}
+
+    def add_ledger_count(self, sha: str, rows: int | None) -> None:
+        with self.ledger_counts.open("a", encoding="utf-8", newline="\n") as fh:
+            fh.write(json.dumps({"sha": sha, "rows": rows}, sort_keys=True) + "\n")
+
+
+def ledger_count(at_head: bytes | None, record: str) -> int | None:
+    """How many rows of the record point's ledger a judged head's ledger holds: its line count when its bytes begin the
+    record point's (the referee keeps the ledger append-only), None when they do not (no place can be read from it)."""
+    text = (at_head or b"").decode("utf-8", "replace")
+    return len(text.splitlines()) if record.startswith(text) else None
 
 
 def _signed_order(item: dict[str, Any]) -> tuple[str, int, int]:
@@ -315,6 +333,18 @@ def fetch(work: Path, brain: str, referee: str, get: Get = gh_get) -> dict[str, 
                 except NotFound:
                     known[sha] = []
                 cache.add_manifest(sha, known[sha])
+    # Where each row arrived, in the referee's order: the ledger's length at every head a run judged (any kind: a
+    # ledger-only push is a noop run). Never the rows' own snapshot_id, which the Founder writes.
+    counts = cache.ledger_count_cache()
+    for item in results:
+        sha = str(item["result"].get("head"))
+        if sha not in counts and re.fullmatch(r"[0-9a-f]{40}", sha):
+            try:
+                counts[sha] = (len(ledger.splitlines()) if sha == ledger_at
+                               else ledger_count(get(f"repos/{brain}/contents/{LEDGER}?ref={sha}", True), ledger))
+            except NotFound:
+                counts[sha] = 0
+            cache.add_ledger_count(sha, counts[sha])
     metrics_path, ideas_path = work / "pilot-metrics.jsonl", work / "fikir-olcutu.md"
     metrics = None
     if metrics_path.is_file():
@@ -328,7 +358,7 @@ def fetch(work: Path, brain: str, referee: str, get: Get = gh_get) -> dict[str, 
     if (cache.root / REPLAYS).is_file():
         with (cache.root / REPLAYS).open("r", encoding="utf-8") as fh:
             replays = [json.loads(line) for line in fh if line.strip()]
-    return {"results": results, "ledger_at": ledger_at, "ledger": ledger, "manifests": known,
+    return {"results": results, "ledger_at": ledger_at, "ledger": ledger, "manifests": known, "ledger_counts": counts,
             "metrics": metrics, "ideas": ideas, "exclusions": json.loads(EXCLUSIONS.read_text(encoding="utf-8")),
             "gaps": gaps, "replays": replays}
 
@@ -390,10 +420,20 @@ def _touched(result: dict[str, Any], paths: set[str]) -> bool:
     return any(p in seen for p in paths)
 
 
-def self_found(rows: list[dict[str, Any]], items: list[dict[str, Any]], replays: list[dict[str, Any]] | None
-               ) -> dict[str, Any]:
+def _arrived_at(items: list[dict[str, Any]], counts: dict[str, int | None], n: int) -> int | None:
+    """The position, in signing order, of the first run whose head's ledger holds row n (0-based); None when no run's
+    head is known to hold it."""
+    for i, item in enumerate(items):
+        held = counts.get(str(item["result"].get("head")))
+        if held is not None and held > n:
+            return i
+    return None
+
+
+def self_found(rows: list[dict[str, Any]], items: list[dict[str, Any]], replays: list[dict[str, Any]] | None,
+               counts: dict[str, int | None]) -> dict[str, Any]:
     """The verified self-found rule (DEFINITIONS["self_found"], E315): the claims, the ones (a) and (b) leave waiting
-    for a replay, and the verified ones, by row id (private)."""
+    for a replay, and the verified ones, by row id (private). ``counts``: the ledger's rows at each judged head."""
     accepted = _accepted_at(items)
     by_row: dict[str, list[dict[str, Any]]] = {}
     for rp in replays or []:
@@ -404,10 +444,10 @@ def self_found(rows: list[dict[str, Any]], items: list[dict[str, Any]], replays:
             continue
         rid, h = str(row.get("row_id")), str(row.get("snapshot_id"))
         claims.append(rid)
-        paths, at = _row_paths(row), accepted.get(h)
-        if not paths or at is None:  # (a)
+        paths, at, arrived = _row_paths(row), accepted.get(h), _arrived_at(items, counts, n)
+        if not paths or at is None or arrived is None:  # (a); a row no judged head is known to hold is not placed
             continue
-        if any(_touched(items[j]["result"], paths) for j in range(at + 1)):  # (b): someone else named it first
+        if any(_touched(items[j]["result"], paths) for j in range(max(at, arrived) + 1)):  # (b): named by another first
             continue
         named = re.compile(rf"(?<![\w-]){re.escape(rid)}(?!\w)")
         if not any(named.search(json.dumps(r.get("payload"), ensure_ascii=False)) for r in rows[n + 1:]):
@@ -544,7 +584,7 @@ def build(inputs: dict[str, Any]) -> dict[str, Any]:
         return share(sum(1 for u in counted if u[col]), len(counted))
 
     segments = sorted({u["segment"] for u in unit_rows})
-    found = self_found(rows, items, inputs.get("replays"))
+    found = self_found(rows, items, inputs.get("replays"), inputs.get("ledger_counts") or {})
     code = [p for p in pushes if p["kind"] != "spec"]
     latest = items[-1]["result"].get("state") or {}
     rival_arts = latest.get("rival_artifacts") or []

@@ -23,10 +23,10 @@ hakemi `done_mf`'in anlamını, test bildirimini, vektör gruplarının ne zaman
 ve çıkıştaki MF sayısını buradan okur. Partilerin tabloları aynı dizindedir (`asama-1/13`).
 
 **control.json** (hakem reposu): `{kill_switch, budget_state, oauth_token_expires, loop_schedule,
-merge_paused, founder_resume?}`. Kapalıya düşüş: `kill_switch` eksikse açık; `budget_state` (`ok` ya da
+merge_paused, founder_resume?, reverted_exits?}`. Kapalıya düşüş: `kill_switch` eksikse açık; `budget_state` (`ok` ya da
 frene takılan kalem) eksikse fren; `loop_schedule` eksikse `false` (zamanlanmış devir `paused` ile yeşil
 biter); `merge_paused` eksikse `true` (gözlem sürer, merge yok); `founder_resume {after_run, note}`
-yalnız adlandırdığı koşudan sonra bir kez geçerlidir (`24a`).
+yalnız adlandırdığı koşudan sonra bir kez geçerlidir (`24a`); `reverted_exits`, (B) kırmızı olduğu için aktarımı geri alınmış çıkışların imzalı sonuçtaki beyin başları (40 karakterlik SHA listesi), eksikse boştur: (A)'nın dondurması sürer (`29b` "Çıkıştan sonra", `25a` "Başarısızlık").
 
 **setup/summary.json** (`25`'in alanlarına ek): `seed_epochs[]` `{commit, spec_tohum_sha256, seed_sha256,
 bootstrap_sha256}`; `targets[]` `{id, repo, kind: toy|copy, base_sha, identifiers[], excluded_paths[],
@@ -39,9 +39,9 @@ koşu işareti.
 **setup/imports.jsonl**: her aktarım bir satır `{ts, stage, batch?, brain_sha, referee_tree_sha256, result_sha256, toy_tree_sha256?}`, zincirli (`26`); insan dokunuşu
 sayacı. `referee_tree_sha256`: `brain_sha`'nın `git archive`'ında `referee/` altındaki her düzenli dosya için bir satır:
 içeriğin sha256'sı (küçük onaltılık), iki boşluk, `referee/`'ye göre yol, LF. Satırlar bayt sırasıyla dizilip birleştirilir;
-sonucun sha256'sı küçük onaltılıktır; dizinler ve yürütme biti girmez. Bağ, özel dosya, büyük-küçük harf duyarsız dosya
-sisteminde tek ad olan iki yol, üstte bir operatör adı (`asama-0/10` #agac) ya da hiç dosya yoksa hash yoktur (ret). Örnek
-vektör: `/vec/treehash/three-files.tar` → `d255bfaa4f3afb55f037a81d40ba8e44896babc20fbd5883ca291f003cd25037`.
+sonucun sha256'sı küçük onaltılıktır; dizinler ve yürütme biti girmez. Hash yoktur (ret): arşivin herhangi bir yerinde, yalnız `referee/` altında değil, bağ ya da özel dosya, ya da UTF-8 olmayan, kontrol karakteri, ters bölü ya da iki nokta taşıyan, mutlak, `..` ya da `.git` bileşenli (harf duyarsız) bir yol varsa;
+`referee/` altında büyük-küçük harf duyarsız dosya sisteminde (casefold) tek ad olan iki yol ya da yol üstü iki dizin, `referee/`'nin tepesinde bir operatör adı ya da `bootstrap` (casefold, `asama-0/10` #agac) varsa ya da `referee/` altında hiç dosya yoksa. Bilinen
+cevaplı örnek (bir vektör vakası değildir, hakem onu koşmaz; beklenen değer `/vec`'te yoktur, yalnız bu sayfadadır): `/vec/treehash/three-files.tar` → `d255bfaa4f3afb55f037a81d40ba8e44896babc20fbd5883ca291f003cd25037`.
 **setup/stage.json**: `{stage, pass_row_sha256, toy_state_head, copy_state_head, import_line_sha256}`; `stage-open` yazar,
 operatör iter (`asama-0/10a`). **setup/honesty-key.json**: taahhüdün açılan hâli; ekim biçiminde ekim kimlikleri, tespit
 yüklemleri, kardeş girdi; kaydedilmiş plan biçiminde planın kendisi (`snowball-honesty-plan/1`); `sha256(canonical(…))`'ı

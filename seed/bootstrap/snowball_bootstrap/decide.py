@@ -503,8 +503,10 @@ def decide(meta: dict[str, Any], run: dict[str, Any] | None, rival: dict[str, An
         refuted_here = any(r["kind"] in REFUTATION_KINDS for r in reasons)
         state["rival_artifacts"].append({"sha": head, "outcome": "refuted" if refuted_here else "survived"})
 
+    if meta.get("exit_released"):  # the operator reverted its transfer, or a later stage opened (`cli.exit_freeze`)
+        state["exit_accepted_sha"] = None
     if kind == "exit" and accepted:
-        state["exit_accepted_sha"] = head  # (A): from here no push may touch referee/ (E333)
+        state["exit_accepted_sha"] = head  # (A): from here only (B)'s candidates and targets may change (E333)
         exit_block["transferable"] = True
         exit_block["referee_tree_sha256"] = meta["referee_tree_sha256"]
         exit_block["toy_tree_sha256"] = meta["toy_tree_sha256"]  # `asama-0/10` #agac; the import's #oyuncak (`10a`)

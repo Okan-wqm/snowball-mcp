@@ -322,6 +322,53 @@ class BootstrapStatePageTest(unittest.TestCase):
         self.assertEqual(len(lines), 3)
         self.assertEqual(hashlib.sha256(b"".join(sorted(lines))).hexdigest(), m.group(2))
         self.assertIn("`referee_tree_sha256`: `brain_sha`'nın `git archive`'ında `referee/` altındaki", page)
+        # A known-answer example, said so: no vector case applies it, the expected value is on the page alone.
+        self.assertIn("bir vektör vakası değildir, hakem onu koşmaz", page)
+        self.assertNotIn(m.group(1), (BOOT / "vectors" / "vectors.json").read_text(encoding="utf-8"))
+
+    def test_26c_names_every_refusal_the_tree_hash_makes(self):
+        """The page's refusals are the code's: anywhere in the archive, not only under referee/, a link, a special file
+        or an unsafe name; under referee/ two names one on a case-insensitive file system, a reserved top name, no file."""
+        import io
+        import tarfile
+        from snowball_bootstrap import treehash
+
+        def tar(*entries):
+            buf = io.BytesIO()
+            with tarfile.open(fileobj=buf, mode="w") as t:
+                for name, kind, data in entries:
+                    info = tarfile.TarInfo(name)
+                    if kind == "link":
+                        info.type, info.linkname = tarfile.SYMTYPE, "x"
+                    elif kind == "fifo":
+                        info.type = tarfile.FIFOTYPE
+                    else:
+                        info.size = len(data)
+                    t.addfile(info, io.BytesIO(data) if kind == "file" else None)
+            return buf.getvalue()
+        good = ("referee/a.py", "file", b"x\n")
+        self.assertRegex(treehash.tree_hash(tar(good, ("docs/a.md", "file", b"")), "referee"), r"^[0-9a-f]{64}$")
+        refused = {"a link outside referee/": (good, ("docs/l", "link", b"")),
+                   "a special file outside referee/": (good, ("docs/p", "fifo", b"")),
+                   "a colon": (good, ("docs/a:b.md", "file", b"")),
+                   "a backslash": (good, ("docs/a\\b.md", "file", b"")),
+                   "a control character": (good, ("docs/a\x01.md", "file", b"")),
+                   "a .git component": (good, ("docs/.GIT/x", "file", b"")),
+                   "a parent path": (good, ("../x", "file", b"")),
+                   "two files, one name": (good, ("referee/A.py", "file", b"y\n")),
+                   "two directories, one name": (("referee/d/a", "file", b""), ("referee/D/b", "file", b"")),
+                   "an operator name at the top": (good, ("referee/Policy.json", "file", b"{}")),
+                   "the bootstrap's name at the top": (good, ("referee/BOOTSTRAP/x", "file", b"")),
+                   "no file under referee/": (("docs/a.md", "file", b""),)}
+        for why, entries in refused.items():
+            with self.assertRaises(treehash.TreeError, msg=why):
+                treehash.tree_hash(tar(*entries), "referee")
+        page = self.flat(spec_page("tohum", "26c"))
+        for words in ("arşivin herhangi bir yerinde, yalnız `referee/` altında değil, bağ ya da özel dosya", "UTF-8 olmayan",
+                      "kontrol karakteri", "ters bölü", "iki nokta", "mutlak, `..` ya da `.git` bileşenli",
+                      "(casefold) tek ad olan iki yol ya da yol üstü iki dizin", "bir operatör adı ya da `bootstrap`",
+                      "`referee/` altında hiç dosya yoksa"):
+            self.assertIn(words, page)
 
 
 VECTOR_PAGES = ("29f", "29g", "29h", "29i", "29j", "29k", "29m", "29n", "29o")

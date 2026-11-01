@@ -4,16 +4,20 @@ Tarih: 2026-10-29 · Sürüm: 2.2
 Okunma: bir sayfanın geçmişi aranırken
 Çapa: git geçmişi ve zincirdeki spec hash satırları
 
-- 2.2 (2026-10-31, E333; uzman tartışması ve hakem): önyükleme hakemi `asama-0/10a`'nın kuralını uygular: kabul
-  edilmiş çıkıştan ((A)) sonra `referee/`'ye dokunan kod push'u `referee_changed_after_exit`'tir; imzalı durum çıkışın
-  başını taşır (`snowball-bootstrap-state/4`, `/3` aynen taşınır).
+- 2.2 (2026-10-31, E333; uzman tartışması ve hakem, ikinci tur 2026-11-01): önyükleme hakemi `asama-0/10a`'nın kuralını
+  uygular: kabul edilmiş çıkıştan ((A)) sonra spec, kod ya da çıkış push'unda Kurucu kayıtları dışında yalnız `candidates/`
+  ve `targets/` değişebilir: `referee/` `referee_changed_after_exit`, başka yol `changed_after_exit:<yol>` (`29b` "Çıkıştan
+  sonra"). Dondurma Aşama 0'ındır: kilit sonraki aşamayı açınca ya da (B) kırmızıyken operatör aktarımı geri alıp başı
+  `control.json` `reverted_exits`'e yazınca biter (`26c`, `25a` "Başarısızlık"). İmzalı durum çıkışın başını taşır
+  (`snowball-bootstrap-state/4`; `/3` aynen taşınır, taşıdığı sonuç aktarılabilir bir çıkışsa onun başıyla).
 - 2.2 (2026-10-31, E344; uzman tartışması ve hakem): başlatıcı oturumun CLI'nin bildirdiği maliyetini `kind: cost`
   satırı olarak `26`'nın zincir kuralıyla yazar (`24a` 4); andığı "tohumun defter aracı" tohumda yoktur (E150).
 - 2.2 (2026-10-31, E342, E93; Kurucu raporu seed-040, uzman tartışması ve hakem): önyükleme hakeminin imzalı durumunun
   arayüzü `29b` "Durum"dadır: artefakt, hakem reposunun `main`'indeki koşuların süresi dolmamış en yeni `bootstrap-state`'i
   (iki dosya); açılışı `sigstore verify identity` (`bootstrap.yml`'in `main` kimliği, GitHub OIDC yayıncısı), doğrulanamazsa
-  ya da yoksa çıkış 2; son kabul `state.last_accepted_sha`. `26c` `referee_tree_sha256`'nın kuralını ve örnek vektörünü
-  (`/vec/treehash/three-files.tar`) verir; D1'in nasıl kurulacağı Kurucu'nundur. Raporların okuyucusu (E93): `pull` beynin
+  ya da yoksa çıkış 2; son kabul `state.last_accepted_sha`. `26c` `referee_tree_sha256`'nın kuralını, kodun her retini
+  (arşivin her yerindeki bağ, özel dosya ve güvensiz ad dahil) ve bilinen cevaplı örneğini (`/vec/treehash/three-files.tar`;
+  vektör vakası değil) verir; D1'in nasıl kurulacağı Kurucu'nundur. Raporların okuyucusu (E93): `pull` beynin
   `reports/*.json`'unu okur; imzalı sonuç `reports[]` `{id, kind, ref, state, sha256}` ve açık rapor varsa `reports_open:<n>`
   uyarısını taşır; rakibin isteği `reports/`'u yine dışarıda tutar (`26c`); `disputed` kuralı E53'te kalır. Her dönemin
   günlük satırı yanıtladığı ya da reddettiği rapor kimliklerini adlandırır; bu dönem: `seed-040-d1-bootstrap-state-read` →

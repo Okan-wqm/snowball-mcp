@@ -322,8 +322,43 @@ class SelfFoundTest(unittest.TestCase):
         replays = [{"row_id": "f1", "h": self.H, "closing_head": self.CLOSE, "test": "referee/tests/test_check.py",
                     "red_at_h": red_at_h, "green_at_close": True}] if replay else None
         model = sc.build(inputs(results=signed(res), ledger_at=self.CLOSE, ledger=ledger,
-                                manifests={self.H: [], self.CLOSE: [], SEED: []}, replays=replays))
+                                manifests={self.H: [], self.CLOSE: [], SEED: []}, replays=replays,
+                                ledger_counts={self.H: 1, self.CLOSE: 3}))  # f1 arrives with H
         return sc, model
+
+    def test_an_outside_finding_between_h_and_the_rows_arrival_comes_first(self):
+        """The window of (b) ends where the row arrives in a judged head, read from the ledger at each head, never at
+        the snapshot_id the Founder writes: H accepted with no attempt, then a rival attempt names the path at H2, and
+        only then the row about H arrives. Red at H and green at the closing head do not make it self-found."""
+        sc = load("scorecard")
+        h2, h3 = sha(203), sha(204)
+        ledger = chain([
+            {"ts": "x", "part": "founder", "kind": "seed_issue", "snapshot_id": self.H,
+             "payload": {"summary": f"[own_code] the catch-all in {self.PATH}", "refs": [self.PATH]}},
+            {"ts": "x", "part": "founder", "kind": "build", "snapshot_id": h3, "payload": {"summary": "closes:f1"}}])
+        attempt = {"claim": f"{self.PATH} swallows the error", "evidence_refs": [{"path": self.PATH}]}
+        res = [result(self.H, SEED, "code", "accepted", rival={"attempts": []}),
+               result(h2, self.H, "code", "accepted", rival={"attempts": [attempt]}),
+               result(h3, h2, "code", "accepted", rival={"attempts": []}),
+               result(self.CLOSE, h3, "code", "accepted", rival={"attempts": []})]
+        replays = [{"row_id": "f1", "h": self.H, "closing_head": self.CLOSE, "red_at_h": True, "green_at_close": True}]
+        counts = {self.H: 0, h2: 0, h3: 1, self.CLOSE: 2}
+        build = lambda c: sc.build(inputs(results=signed(res), ledger_at=self.CLOSE, ledger=ledger,  # noqa: E731
+                                          manifests={s: [] for s in (self.H, h2, h3, self.CLOSE, SEED)},
+                                          replays=replays, ledger_counts=c))["private"]["self_found"]
+        self.assertEqual(build(counts)["verified"], [])
+        self.assertEqual(build(dict(counts, **{self.H: 1, h2: 1}))["verified"], ["f1"])  # arrived with H, before it
+        self.assertEqual(build({})["verified"], [])  # nowhere known to have arrived: never placed, never counted
+        self.assertEqual(build(dict(counts, **{h3: None, self.CLOSE: None}))["verified"], [])
+
+    def test_a_heads_ledger_places_rows_only_when_it_begins_the_record_points(self):
+        sc = load("scorecard")
+        record = chain([{"ts": "x", "part": "founder", "kind": "decision", "payload": {}}] * 3)
+        lines = record.splitlines(keepends=True)
+        self.assertEqual(sc.ledger_count("".join(lines[:2]).encode(), record), 2)
+        self.assertEqual(sc.ledger_count(b"", record), 0)
+        self.assertEqual(sc.ledger_count(None, record), 0)
+        self.assertIsNone(sc.ledger_count(b'{"rewritten": 1}\n', record))
 
     def test_the_three_histories_count_one_zero_zero_and_publish_no_row(self):
         counts = []
@@ -360,7 +395,7 @@ class SelfFoundTest(unittest.TestCase):
                                        "payload": {"summary": f"[own_code] {self.PATH}", "refs": []}},
                                       {"ts": "x", "part": "founder", "kind": "build", "payload": {"summary": "f1 fixed"}}]))
         replays = [{"row_id": "f1", "h": self.H, "closing_head": self.CLOSE, "red_at_h": True, "green_at_close": True}]
-        self.assertEqual(sc.self_found(rows, items, replays)["verified"], [])
+        self.assertEqual(sc.self_found(rows, items, replays, {self.CLOSE: 0, self.H: 2})["verified"], [])
 
     def test_survivals_split_by_whether_the_rival_tried_and_expected_is_paired_with_the_next_verdict(self):
         _sc, model = self.history(rival_claim=True)

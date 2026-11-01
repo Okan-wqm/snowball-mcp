@@ -1290,6 +1290,20 @@ class StateSchemaV2(unittest.TestCase):
         with self.assertRaises(ConfigError):
             st.validate(dict(new, exit_accepted_sha="not a sha"))
 
+    def test_a_v3_state_carried_in_an_accepted_exit_keeps_that_exit(self):
+        """The carry does not drop an (A) silently: when the signed result the v3 state came in accepted an exit and
+        made it transferable, that head is the accepted exit; any other result names none (E333)."""
+        v3 = dict(st.initial(Summary(A, "b" * 64), "2026-10"), schema="snowball-bootstrap-state/3")
+        del v3["exit_accepted_sha"]
+        exit_result = {"kind": "exit", "verdict": "accepted", "head": B, "exit": {"transferable": True}, "state": v3}
+        self.assertEqual(st.validate(st.migrate(v3, NOW, exit_result))["exit_accepted_sha"], B)
+        for other in (dict(exit_result, verdict="rejected"), dict(exit_result, kind="code"),
+                      dict(exit_result, exit={"transferable": False}), dict(exit_result, exit=None),
+                      dict(exit_result, head="not a sha"), None, "x"):
+            self.assertIsNone(st.validate(st.migrate(dict(v3), NOW, other))["exit_accepted_sha"], str(other)[:60])
+        current = dict(v3, schema="snowball-bootstrap-state/4", exit_accepted_sha=None)
+        self.assertIsNone(st.migrate(current, NOW, exit_result)["exit_accepted_sha"])  # only a v3 carry reads it
+
     def test_states_of_unknown_shape_are_still_refused(self):
         for bad in ({"schema": "snowball-bootstrap-state/9"}, dict(self.v1(), extra=1), "x",
                     {k: v for k, v in self.v1().items() if k != "runs"}):

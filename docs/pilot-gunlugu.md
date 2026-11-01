@@ -269,8 +269,14 @@ Kurucu'nun çıkıştan önce döngüyü bağlaması doğrudur, beklenen sırada
 teslim edildi (2026-10-31 ~21:00Z, beyin `e04bc1c`; kopya aynalandı, `targets[]` özette).
 
 Operatörün sırası (B)'nin kritik yolu boyuncadır: önce seed-040'ın yanıtı (bir sonraki tohum dönemi: `29b` "Durum",
-`26c`'nin `referee_tree_sha256` kuralı), sonra sınav kodu: E331 (`stage-open` ve `stages/stage1.json`), E333
-(`referee_changed_after_exit`), E334 (`asama-0/10a`'yı izler), E335. Aşama 2 ve sonrasının sınav işi bunlardan sonra.
+`26c`'nin `referee_tree_sha256` kuralı), sonra sınav kodu: E331 (`stage-open` ve `stages/stage1.json`; `gaps/activation-tooling`'de
+E371, E372 olarak kuruldu), E333 (`referee_changed_after_exit` ve yaşam döngüsü, `gaps/learning-links`), E334
+(`asama-0/10a`'yı izler), E335. Aşama 2 ve sonrasının sınav işi bunlardan sonra. Birleştirme sırası (2026-11-01):
+`gaps/learning-links` önce (`main`'in üstünde, ileri sarılır), sonra `gaps/activation-tooling` `main`'e yeniden kurulup
+birleşir: kod çakışması yalnız `cli.py`'nin içe aktarma satırlarıdır (ikisinin birleşimi: `stagelock` ve `REPORTS_DIR`),
+`docs/eksik-kaydi.md` satırları numarayla birleşir, `docs/harita.md` `local/system_map.py` ile yeniden üretilir; birleşmiş
+ağaçta `exit_freeze` kilidin aşamasını `table.stage`'den okur, dondurma kilitle kendiliğinden biter (deneme birleşimi
+E333'ün altındaki doğrulamada).
 Sonra etkinleştirme (`seed/founder/ETKINLESTIRME.md`).
 E364 (talimatta "Bilmediğin alan" görevi) `gaps/self-extension` dalında sahibin ifade onayını bekliyor; sınav planı mühürlü.
 

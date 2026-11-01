@@ -439,13 +439,65 @@ class Flow(unittest.TestCase):
         commit(self.brain, {"referee/a.py": "x = 2\n"}, "touches the referee")
         self.assertNotIn("referee_changed_after_exit", self.pull()["pre_reasons"])
         self.state["exit_accepted_sha"] = self.seed_sha
-        self.assertIn("referee_changed_after_exit", self.pull()["pre_reasons"])
+        meta = self.pull()
+        self.assertIn("referee_changed_after_exit", meta["pre_reasons"])
+        self.assertFalse(meta["run_tests"])
 
-    def test_after_an_accepted_exit_candidates_and_targets_may_change(self):
+    def test_after_an_accepted_exit_only_candidates_and_targets_may_change(self):
+        """`asama-0/10a:42`, `asama-0/11:25`: "yalnız `candidates/` ve `targets/` değişebilir"; the Founder's memory
+        rides along. Any other path is named, a spec push and a new exit request too."""
         self.state["exit_accepted_sha"] = self.seed_sha
         commit(self.brain, {"candidates/toy/c1/expect.json": "{}\n", "targets/toy/units.json": "[]\n",
-                            "tests/test_x.py": "pass\n"}, "only what (B) may change")
-        self.assertNotIn("referee_changed_after_exit", self.pull()["pre_reasons"])
+                            "founder-ledger.jsonl": ledger_bytes(ledger_rows(1))}, "only what (B) may change")
+        self.assertEqual([r for r in self.pull()["pre_reasons"] if "after_exit" in r], [])
+        commit(self.brain, {"tests/test_x.py": "pass\n", "snowball-tests.json": "{}\n"}, "the exam's tests too")
+        self.assertEqual([r for r in self.pull()["pre_reasons"] if "after_exit" in r],
+                         ["changed_after_exit:snowball-tests.json", "changed_after_exit:tests/test_x.py"])
+        sh(self.brain, "git", "reset", "-q", "--hard", self.seed_sha)
+        commit(self.brain, {"spec/asama-1/00-ozet.md": "# stage 1\n"}, "the next stage's spec")
+        meta = self.pull()
+        self.assertEqual((meta["kind"], [r for r in meta["pre_reasons"] if "after_exit" in r]),
+                         ("spec", ["changed_after_exit:spec/asama-1/00-ozet.md"]))
+
+    def test_the_freeze_ends_when_the_operator_reverts_the_transfer(self):
+        """`asama-0/10a`, `25a` "Başarısızlık": (B) red, the operator reverts the transfer and names that exit in
+        `control.json` `reverted_exits`; the Founder's path is open again, referee/ too, and the next result forgets
+        the exit, so the freeze does not come back when the list is cleaned. The corrected SHA goes through (A) again."""
+        exit_sha = "e" * 40
+        self.state["exit_accepted_sha"] = exit_sha
+        control = self.referee / "control.json"
+        base_control = json.loads(control.read_text())
+        commit(self.brain, {"referee/a.py": "x = 2\n"}, "the fix (B) asked for")
+        control.write_text(json.dumps(dict(base_control, reverted_exits=["f" * 40])))  # another exit: still frozen
+        self.assertIn("referee_changed_after_exit", self.pull()["pre_reasons"])
+        control.write_text(json.dumps(dict(base_control, reverted_exits=[exit_sha])))
+        meta = self.pull()
+        self.assertNotIn("referee_changed_after_exit", meta["pre_reasons"])
+        self.assertTrue(meta["exit_released"])
+        self.assertIsNone(self.finish(meta)["state"]["exit_accepted_sha"])
+        control.write_text(json.dumps(base_control))
+        self.state["last_evaluated_sha"] = None
+        meta = self.pull()
+        self.assertEqual((meta["exit_released"], [r for r in meta["pre_reasons"] if "after_exit" in r]), (False, []))
+        for bad in ("e" * 40, ["short"], [exit_sha, 7]):
+            control.write_text(json.dumps(dict(base_control, reverted_exits=bad)))
+            with contextlib.redirect_stderr(io.StringIO()):
+                rc = cli.main(["pull", "--root", str(self.referee), "--state", str(Path(self.tmp.name) / "state1.json"),
+                               "--work", str(Path(self.tmp.name) / "work"), "--out", str(Path(self.tmp.name) / "bad"),
+                               "--remote", str(self.brain)])
+            self.assertEqual(rc, 2, bad)  # the operator's file: the run stops, the Founder is not rejected
+
+    def test_a_lock_that_opened_a_later_stage_ends_the_freeze(self):
+        """`asama-0/11`: the freeze is Stage 0's; after the PASS row and the lock the brain's referee/ changes again for
+        the next batch or stage exit (`01a`, `25a` 1). The lock's stage reaches `exit_freeze` as the table's."""
+        state = {"exit_accepted_sha": "e" * 40}
+        self.assertEqual(cli.exit_freeze(state, [], 0), (True, False))
+        self.assertEqual(cli.exit_freeze(state, [], 1), (False, True))
+        self.assertEqual(cli.exit_freeze(state, ["e" * 40], 0), (False, True))
+        self.assertEqual(cli.exit_freeze({"exit_accepted_sha": None}, ["e" * 40], 1), (False, False))
+        meta = self.pull()
+        result = self.finish(dict(meta, exit_released=True, state=dict(self.state, exit_accepted_sha="e" * 40)))
+        self.assertIsNone(result["state"]["exit_accepted_sha"])
 
     def test_full_stage0_path(self):
         meta = self.pull()

@@ -62,8 +62,12 @@ BUILD_FILES = ("founder/Dockerfile", "founder/entrypoint.sh", "founder/prompt.md
 LAUNCHER_NAME, LAUNCHER_EMAIL = "Snowball launcher", "launcher@snowball.invalid"  # its commits are not the Founder's
 GH_CREDENTIAL = "credential.helper=!gh auth git-credential"  # the operator's login, never a token on a command line
 COST_PENDING = "cost-pending.jsonl"
+GIT_NETWORK_TIMEOUT_S = 300  # a clone, a blob fetch or a push of the cost row; past it the rows wait for a later cycle
+GIT_LOCAL_TIMEOUT_S = 60
 REPORTS_SEEN = "reports-seen.json"
 RIVAL_CONFIG = ("prompt_sha256", "model_served", "effort", "cli_version")  # of the result's rival block
+INTERVENTION = "intervention"  # a launcher start's metrics row (E313); no verdict kind is ever this word
+PROMPT_LABEL = "snowball.prompt_sha256"  # the image's own record of the prompt bytes it was built with (E313)
 
 
 def now() -> str:
@@ -148,7 +152,8 @@ def usage_limit_wait(sess: dict, at: datetime) -> int | None:
 
 
 def prompt_sha256() -> str:
-    """The prompt the capsule is built with, as `write_build_context` copies it (LF)."""
+    """The checkout's prompt as `write_build_context` would copy it (LF): what a build now would put in the image. The
+    prompt a running image holds is its build's label (`Pilot.image_prompt`); with --no-build the two can differ."""
     return hashlib.sha256((SEED / "founder" / "prompt.md").read_bytes().replace(b"\r\n", b"\n")).hexdigest()
 
 
@@ -193,34 +198,97 @@ def push_cost_rows(remote: str, facts: list[dict], last_accepted: str | None, ts
     the head's seed is the last epoch commit's, the operator's delivery (`epoch`; `cli._pull_classify` reads it so): then
     the referee reads the commit as memory alone (`none`: no tests, no rival, a `noop`). On a head that carries work the
     referee has not accepted, the commit would make it judge that work again and count its rejection twice: nothing is
-    written. Returns the new head, or "deferred: <why>"."""
+    written. Returns the new head, or "deferred: <why>".
+
+    Every git call has a limit (a stalled clone or push must not hang the loop) and a session's row is written once: a
+    push that timed out after it reached GitHub leaves the facts pending, and the next attempt finds their rows there."""
     config = ("-c", GH_CREDENTIAL) if credential else ()
     if not last_accepted:
         return "deferred: the referee has no accepted commit"
     with tempfile.TemporaryDirectory(prefix="snowball-cost-") as tmp:
         clone = Path(tmp) / "brain"
-        gitio.git(Path(tmp), *config, "clone", "--quiet", "--filter=blob:none", "--branch", "main", remote, str(clone))
-        head = gitio.git(clone, "rev-parse", "HEAD").decode().strip()
-        if head != last_accepted:
-            try:
-                changed = gitio.git(clone, "diff", "--name-only", "--no-renames", last_accepted, head).decode()
-            except gitio.GitError:
-                return "deferred: the last accepted commit is not on main"
-            delivered = bool(epoch) and gitio.same_under(clone, epoch, head, SEED_DIRS)
-            work = [p for p in changed.splitlines() if p and not is_founder_record(p)
-                    and not (delivered and is_seed_path(p))]
-            if work:
-                return f"deferred: {len(work)} path(s) changed since the last accepted {last_accepted[:7]}"
+        gitio.git(Path(tmp), *config, "clone", "--quiet", "--filter=blob:none", "--branch", "main", remote, str(clone),
+                  timeout=GIT_NETWORK_TIMEOUT_S)
+        head = gitio.git(clone, "rev-parse", "HEAD", timeout=GIT_LOCAL_TIMEOUT_S).decode().strip()
+        try:
+            work = work_since(clone, last_accepted, head, epoch)
+        except gitio.GitError:
+            return "deferred: the last accepted commit is not on main"
+        if work:
+            return f"deferred: {len(work)} path(s) changed since the last accepted {last_accepted[:7]}"
         ledger_path = clone / LEDGER_FILE
         ledger = ledger_path.read_bytes() if ledger_path.is_file() else b""
-        for fact in facts:
+        written = cost_stamps(ledger)
+        todo = [fact for fact in facts if fact["stamp"] not in written]
+        if not todo:
+            return head
+        for fact in todo:
             ledger += cost_line(ledger, fact, ts)
         ledger_path.write_bytes(ledger)
         who = ("-c", f"user.name={LAUNCHER_NAME}", "-c", f"user.email={LAUNCHER_EMAIL}")
-        gitio.git(clone, "add", LEDGER_FILE)
-        gitio.git(clone, *who, "commit", "--quiet", "-m", f"Launcher: {len(facts)} cost row(s) (tohum/24a 4)")
-        gitio.git(clone, *config, "push", "--quiet", "origin", "HEAD:main")
-        return gitio.git(clone, "rev-parse", "HEAD").decode().strip()
+        gitio.git(clone, "add", LEDGER_FILE, timeout=GIT_LOCAL_TIMEOUT_S)
+        gitio.git(clone, *who, "commit", "--quiet", "-m", f"Launcher: {len(todo)} cost row(s) (tohum/24a 4)",
+                  timeout=GIT_LOCAL_TIMEOUT_S)
+        gitio.git(clone, *config, "push", "--quiet", "origin", "HEAD:main", timeout=GIT_NETWORK_TIMEOUT_S)
+        return gitio.git(clone, "rev-parse", "HEAD", timeout=GIT_LOCAL_TIMEOUT_S).decode().strip()
+
+
+def work_since(clone: Path, last_accepted: str, head: str, epoch: str | None) -> list[str]:
+    """The paths changed from the referee's last accepted commit to head that are neither the Founder's memory
+    (`classify.is_founder_record`) nor, while head's seed is the last epoch commit's, the operator's delivery: what the
+    referee would judge at head (`cli._pull_classify` reads them so). None of them: it reads head as memory alone, a
+    `noop`. GitError when last_accepted is not in the clone."""
+    if head == last_accepted:
+        return []
+    # The blob-less clone fetches what the diff reads, so these are network calls too.
+    changed = gitio.git(clone, "diff", "--name-only", "--no-renames", last_accepted, head,
+                        timeout=GIT_NETWORK_TIMEOUT_S).decode()
+    delivered = bool(epoch) and gitio.same_under(clone, epoch, head, SEED_DIRS, timeout=GIT_NETWORK_TIMEOUT_S)
+    return [p for p in changed.splitlines() if p and not is_founder_record(p) and not (delivered and is_seed_path(p))]
+
+
+def memory_alone(remote: str, last_accepted: str | None, evaluated: str | None, head: str, epoch: str | None,
+                 credential: bool = True) -> bool:
+    """Whether head adds only the Founder's memory to what the referee last evaluated, and the referee would read it as
+    memory alone: True only when main is still head, ``evaluated`` (the newest result's own, evaluated head) and the last
+    accepted commit are its ancestors, nothing from ``evaluated`` to head but Founder records changed (so a delivery or
+    any work there is judged first: a seed epoch gets its `seed_update` result) and nothing since the last accepted
+    commit is work (`work_since`). Unknown (a git failure or timeout, main moved on) is False: head is judged first."""
+    if not last_accepted or not evaluated:
+        return False
+    config = ("-c", GH_CREDENTIAL) if credential else ()
+    try:
+        with tempfile.TemporaryDirectory(prefix="snowball-memory-") as tmp:
+            clone = Path(tmp) / "brain"
+            gitio.git(Path(tmp), *config, "clone", "--quiet", "--filter=blob:none", "--branch", "main", remote,
+                      str(clone), timeout=GIT_NETWORK_TIMEOUT_S)
+            if gitio.git(clone, "rev-parse", "HEAD", timeout=GIT_LOCAL_TIMEOUT_S).decode().strip() != head:
+                return False
+            if not (gitio.is_ancestor(clone, evaluated, head) and gitio.is_ancestor(clone, last_accepted, head)):
+                return False
+            since = gitio.git(clone, "diff", "--name-only", "--no-renames", evaluated, head,
+                              timeout=GIT_NETWORK_TIMEOUT_S).decode().splitlines()
+            if any(p and not is_founder_record(p) for p in since):
+                return False
+            return not work_since(clone, last_accepted, head, epoch)
+    except (gitio.GitError, OSError):
+        return False
+
+
+def cost_stamps(ledger: bytes) -> set[str]:
+    """The sessions the ledger already has a launcher cost row for, by the transcript each one names (`cost_line`)."""
+    found = set()
+    for line in ledger.splitlines():
+        try:
+            row = json.loads(line)
+            refs = row["payload"]["refs"] if row.get("kind") == "cost" and row.get("part") == "founder" else []
+        except (ValueError, KeyError, TypeError, AttributeError):
+            continue
+        for ref in refs if isinstance(refs, list) else []:
+            m = re.fullmatch(r"logs/([0-9]{8}T[0-9]{6}Z)/session-\1\.jsonl", str(ref))
+            if m:
+                found.add(m.group(1))
+    return found
 
 
 def report_ages(reports: list[dict], seen: dict[str, str], ts: str) -> list[tuple[str, int]]:
@@ -319,21 +387,40 @@ class Pilot:
         proc = run("docker", "image", "inspect", "--format", "{{.Id}}", IMAGE, check=False, timeout=60)
         return proc.stdout.decode().strip() or None if proc.returncode == 0 else None
 
+    def image_prompt(self) -> str | None:
+        """The sha256 of the prompt the capsule image holds, from the label its build wrote (`build`); None for an
+        image built before the label existed or when docker cannot say: unknown, never the checkout's guess."""
+        proc = run("docker", "image", "inspect", "--format", "{{json .Config.Labels}}", IMAGE, check=False, timeout=60)
+        try:
+            labels = json.loads(proc.stdout) if proc.returncode == 0 else None
+        except ValueError:
+            labels = None
+        value = labels.get(PROMPT_LABEL) if isinstance(labels, dict) else None
+        return value if isinstance(value, str) and re.fullmatch(r"[0-9a-f]{64}", value) else None
+
     def intervention(self, args) -> None:
         """One metrics row per launcher start: every start is the operator's touch, and what it ran with is what a later
-        difference is attributed to (E313)."""
-        self.prompt_sha256, self.image_id = prompt_sha256(), self.image()
-        self.record_metrics({"kind": "intervention", "ts": now(), "args": {k: str(v) for k, v in sorted(vars(args).items())},
-                             "image_id": self.image_id, "prompt_sha256": self.prompt_sha256, "seed_commit": self.seed})
+        difference is attributed to (E313). The prompt is the image's own (with --no-build an older image runs); the
+        checkout's is written beside it, and a difference is said."""
+        self.prompt_sha256, self.image_id = self.image_prompt(), self.image()
+        checkout = prompt_sha256()
+        if self.prompt_sha256 != checkout:
+            say(f"the capsule image's prompt is {self.prompt_sha256 or 'unknown'}, the checkout's {checkout}: "
+                "the sessions run the image's")
+        self.record_metrics({"kind": INTERVENTION, "ts": now(), "args": {k: str(v) for k, v in sorted(vars(args).items())},
+                             "image_id": self.image_id, "prompt_sha256": self.prompt_sha256,
+                             "checkout_prompt_sha256": checkout, "seed_commit": self.seed})
 
     def build(self) -> None:
         """Build from a copy of exactly the files the image needs: a synced folder (iCloud) can hand docker
-        placeholders it cannot read, and nothing else of the repository belongs in the capsule."""
+        placeholders it cannot read, and nothing else of the repository belongs in the capsule. The image is labelled
+        with the sha256 of the prompt bytes it holds, so a later start without a build still knows them (E313)."""
         say("building the capsule image")
         with tempfile.TemporaryDirectory(prefix="snowball-founder-") as ctx:
             write_build_context(Path(ctx))
-            proc = run("docker", "build", "--quiet", "-t", IMAGE, "-f", str(Path(ctx, "founder/Dockerfile")), ctx,
-                       check=False, timeout=3600)
+            built = hashlib.sha256(Path(ctx, "founder/prompt.md").read_bytes()).hexdigest()
+            proc = run("docker", "build", "--quiet", "--label", f"{PROMPT_LABEL}={built}", "-t", IMAGE,
+                       "-f", str(Path(ctx, "founder/Dockerfile")), ctx, check=False, timeout=3600)
         if proc.returncode != 0:
             sys.exit("image build failed:\n" + proc.stderr.decode(errors="replace")[-4000:])
 
@@ -572,9 +659,12 @@ class Pilot:
         happened. Facts only (end, minutes, the limit it ran under, push, ledger rows, verdict), never its transcript
         (E155)."""
         lines = self.metrics.read_text(encoding="utf-8").splitlines() if self.metrics.is_file() else []
-        if not lines:
+        # The last cycle's row, not the last line: every launcher start appends its own row first (E313), and the start
+        # after a timed-out session is exactly the case this note is for (the operator's card skips those rows too).
+        cycles = [row for row in map(json.loads, lines) if row.get("kind") != INTERVENTION]
+        if not cycles:
             return
-        last = json.loads(lines[-1])
+        last = cycles[-1]
         limit_s = last.get("session_timeout_s") or timeout_s
         note = {"stamp": last.get("stamp"), "ended": "timeout" if last.get("session_exit") == -1 else "exit",
                 "exit": last.get("session_exit"), "minutes": last.get("minutes"), "limit_minutes": round(limit_s / 60, 1),
@@ -584,6 +674,12 @@ class Pilot:
         folder.mkdir(parents=True, exist_ok=True)
         (folder / "previous-session.json").write_text(json.dumps(note, ensure_ascii=False, sort_keys=True) + "\n",
                                                       encoding="utf-8")
+
+    def memory_alone(self, prior: dict | None, head: str) -> bool:
+        """Whether head adds only memory to the newest signed result's own evaluated head (`memory_alone`)."""
+        evaluated = (prior or {}).get("head") if self.evaluated(prior, str((prior or {}).get("head"))) else None
+        return memory_alone(self.brain_remote, ((prior or {}).get("state") or {}).get("last_accepted_sha"), evaluated,
+                            head, self.epoch)
 
     @staticmethod
     def evaluated(verdict: dict | None, head: str) -> bool:
@@ -624,9 +720,12 @@ class Pilot:
         stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
         prior = self.fetch_result()
         before = self.brain_head()
-        if before != self.seed and not self.evaluated(prior, before) and not self.stopped():
+        if (before != self.seed and not self.evaluated(prior, before) and not self.stopped()
+                and not self.memory_alone(prior, before)):
             # A push the referee never judged (the launcher stopped in between, an outage): judge it before the
-            # Founder works on, so its next session reads the verdict on its own last push (E168).
+            # Founder works on, so its next session reads the verdict on its own last push (E168). A head the referee
+            # would read as memory alone (the launcher's own cost commit above the accepted push) is not judged first:
+            # its `noop` would replace, in what the capsule mounts, the verdict on the Founder's own last push.
             say(f"cycle {n}: {before[:7]} has no verdict yet; referee first")
             dispatched, caught_up, _ = self.judge(n, before, args.referee_timeout)
             if caught_up is None:  # a session now would read an older verdict and work blind (E168, E248)
