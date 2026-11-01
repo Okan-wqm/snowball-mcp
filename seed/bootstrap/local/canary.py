@@ -404,19 +404,19 @@ class CanaryRunner(DockerRunner):
 @contextlib.contextmanager
 def referee_runs(make_runner: MakeRunner, vector_budget_s: int):
     """While inside, the referee's commands start their containers through ``make_runner`` and give their vector calls
-    ``vector_budget_s`` in all; both are restored after."""
-    runner, vector_run = cli._runner, vectors.VectorRun
+    ``vector_budget_s`` in all; both are restored after. The budget is the default of ``VectorRun.__init__`` itself,
+    so every run built on it (the single job's, a part's, E440) gets it without the canary naming each one."""
+    runner, init = cli._runner, vectors.VectorRun.__init__
 
-    class Budgeted(vector_run):  # type: ignore[misc, valid-type]
-        def __init__(self, runner_: Runner, timeout_s: int, budget_s: int = vector_budget_s):
-            super().__init__(runner_, timeout_s, budget_s)
+    def widened(self: Any, runner_: Runner, timeout_s: int, budget_s: int = vector_budget_s) -> None:
+        init(self, runner_, timeout_s, budget_s)
 
     cli._runner = lambda _boot, src, deps, vec, locks: make_runner(src, deps, vec, list(locks))
-    vectors.VectorRun = Budgeted
+    vectors.VectorRun.__init__ = widened
     try:
         yield
     finally:
-        cli._runner, vectors.VectorRun = runner, vector_run
+        cli._runner, vectors.VectorRun.__init__ = runner, init
 
 
 def proven(meta: dict[str, Any], run: dict[str, Any], rival_doc: dict[str, Any], head_results: list[dict[str, Any]],

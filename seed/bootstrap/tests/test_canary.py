@@ -588,14 +588,17 @@ class Screens(unittest.TestCase):
 
     def test_the_referees_commands_run_on_the_canarys_runner_and_vector_budget(self):
         made = []
-        real_runner, real_run = cli._runner, vectors.VectorRun
+        real_runner, real_init = cli._runner, vectors.VectorRun.__init__
         with canary.referee_runs(lambda tree, deps, vec, locks: made.append((tree, locks)) or "runner", 5000):
             self.assertEqual(cli._runner(None, Path("t"), Path("d"), Path("v"), ("lock",)), "runner")
             run = vectors.VectorRun(FakeRunner(Path(".")), 10)
             self.assertGreater(run.deadline - vectors._now(), 4000)  # canary_vector_budget_kept
+            part = vectors.PartRun(FakeRunner(Path(".")), 10, set())  # a part of kos (E440) gets it too
+            self.assertGreater(part.deadline - vectors._now(), 4000)
         self.assertEqual(made, [(Path("t"), ["lock"])])
         self.assertIs(cli._runner, real_runner)
-        self.assertIs(vectors.VectorRun, real_run)
+        self.assertIs(vectors.VectorRun.__init__, real_init)
+        self.assertLess(vectors.PartRun(FakeRunner(Path(".")), 10, set()).deadline - vectors._now(), 1300)
 
 
 class Referee(unittest.TestCase):

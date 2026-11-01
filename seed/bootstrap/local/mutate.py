@@ -1663,7 +1663,7 @@ MUTANTS = [
      "E126: a clean head this machine turns red is scored instead of stopping the batch"),
     ("canary_screens_not_kept", CANARY, "    if kept.is_file():", "    if False:",
      "E126: the live run repeats every screen its dry run already made"),
-    ("canary_vector_budget_kept", CANARY, "    vectors.VectorRun = Budgeted", "    pass",
+    ("canary_vector_budget_kept", CANARY, "    vectors.VectorRun.__init__ = widened", "    pass",
      "E126: the referee's vector budget, sized for its runner, turns a clean head red on this machine"),
     ("canary_epochs_ignored", CANARY, "    if not epochs:", "    if True:",
      "E126: a push on a history without the live seed epoch stops the referee's pull"),
