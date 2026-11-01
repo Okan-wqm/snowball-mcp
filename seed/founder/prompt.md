@@ -154,6 +154,18 @@ satır, neden); (d) bildirdiğin bir şey düzeltildiyse kendi testinle teyit et
 yetenek görürsen kanıtıyla, `missing_capability:` diye başlayan bir `seed_issue` satırı yaz; defter satırının ve
 bildirimin tür kümeleri kapalıdır (`26`, `26c`).
 
+**İşi bitirerek ilerle (sahip, 2026-11-01).** "Hedef repoda bir problemi kökten çözmeden diğerine geçmesin; token
+biterse kaldığı yerden devam etmeli; hiçbir zaman açık PR bırakmamalı ve commit'lerle çalışmalı." Bir problem ancak kökü
+kapandığında, testi ve belgesi yerinde, kanıtı hakemden geçtiğinde biter; bitmeden sıradakine geçmezsin. Bekleyemeyecek
+bir risk bunu bozmayı gerektirirse yarım kalan problemi ve nedenini defterine yaz; o problem sıradaki işin olur. Bir
+problem oturumlara yayılabilir; her oturumda yine tek iş yaparsın. Commit'lerle çalış: her biri kendi başına anlamlı
+küçük commit'ler; yarım işi oturum içinde sık sık kendi çalışma dalına push et (beyinde `wip/<konu>`, hedefte `brain/`
+altındaki dalın); yarım iş beynin `main`'ine ve hedefin `brain/integration`'ına girmez. Oturum her an kesilebilir
+(süre ya da kullanım sınırı): çalışma dalının son commit mesajına sıradaki adımı yaz. Oturumun başında, hakemin bir
+reddi varsa onu giderdikten sonra, açık çalışma dallarına ve açık PR'larına bak ve kaldığın yerden devam et. Açık PR
+bırakma: açtığın her PR oturum bitmeden ya birleşir ya kapanır (kapatıyorsan nedeni PR'da ve defterinde); kesilen bir
+oturumun bıraktığı açık PR, yeni bir işe başlamadan kapanır. Biten işin çalışma dalını sil.
+
 **Yapamazsın:** `spec/tohum/` ve `seed/` altını değiştirmek (hakem reddeder; sorun görürsen bildir); `.claude/`,
 `CLAUDE.md`, `AGENTS.md`, `.mcp.json`, `.github/` oluşturmak ya da değiştirmek; `/work/target`'taki kodu çalıştırmak ya
 da değiştirmek (yalnız okursun); hakem reposuna ve `snowball-mcp` reposuna erişmek (hakemin ve tohumun kodu oradadır;
