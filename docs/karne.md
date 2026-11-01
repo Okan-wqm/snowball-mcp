@@ -1,6 +1,6 @@
 # Karne: Kendini Geliştirmenin Ölçüsü
 
-Üretilmiş sayfa; elle düzenlenmez (`python seed/founder/scorecard.py --public docs/karne`, E310). Kaynak: `docs/karne.json`. Tanımlar: `2f2be8e46d02132d`.
+Üretilmiş sayfa; elle düzenlenmez (`python seed/founder/scorecard.py --public docs/karne`, E310). Kaynak: `docs/karne.json`. Tanımlar: `8231bb8a286011ad`.
 
 **Kendini geliştirdiği kanıtlandı mı: hayır.** Kanıtı yalnız kontrollü sınav verir (ders provası, `tohum/22a`, `22b`); sınav koşmadı (E317). Aşağıdaki her sayı canlı pilotun gözlemidir: spec, vektörler, rakibin kuralları ve operatörün yardımı yol boyunca değişti; puan toplanmaz, her ölçü kendi derecesiyle okunur.
 
@@ -10,9 +10,9 @@ Tek an: hakemin son sonucu. Defter o sonucun başında okunur, beynin sonraki co
 
 | Ne | Değer |
 |---|---|
-| Hakemin son sonucu | koşu 41248831339, 2026-10-31T23:09:55Z, baş `a05ee32c04f3` |
-| Kurucu defteri, o başta | 400 satır, zincir doğrulandı; uç `f400` `519a1d0f4efd270c` |
-| Hakemin sonuçları | 65; hakem her birini Sigstore'la imzalar, karne imzayı doğrulamaz: her artefaktın zip'i GitHub'ın verdiği özetle denetlenir, özetsiz artefakt karneyi reddeder |
+| Hakemin son sonucu | koşu 41253144708, 2026-10-31T23:58:29Z, baş `386e856664a3` |
+| Kurucu defteri, o başta | 407 satır, zincir doğrulandı; uç `f407` `b670e87ab1e3915d` |
+| Hakemin sonuçları | 66; hakem her birini Sigstore'la imzalar, karne imzayı doğrulamaz: her artefaktın zip'i GitHub'ın verdiği özetle denetlenir, özetsiz artefakt karneyi reddeder |
 | Veri boşlukları | 1: operatörün yeniden başlatmaları ve talimat değişiklikleri kaydedilmiyor |
 
 ## Fiil fiil
@@ -24,7 +24,7 @@ Tek an: hakemin son sonucu. Defter o sonucun başında okunur, beynin sonraki co
 | yanlışı yanlış bilir | koşmadı | kendi hatasını kendisinin bulduğunun doğrulanmış kaydı yok (E315) | ölçülemez |
 | doğruyu doğru bilir | koşmadı | yanlış kararda doğru kodu korumak: mekanik kaydı yok | ölçülemez |
 | tartar | koşmadı | derslerin kredisi ve sıralaması: Aşama 0'da ders organı yok | ölçülemez |
-| test eder ve uygular | koşmadı | 16 MF'nin testleri modülü olmadan koşuldu: 24 test koşusu (her denemede yeniden), yeşil kalan 0 | mekanik |
+| test eder ve uygular | koşmadı | 16 MF'nin testleri modülü olmadan koşuldu: 24 test koşusu (her denemede yeniden), yeşil kalan 0; modülü silmek onu içe aktaran her testi düşürür: bu, testlerin modüllerini içe aktardığını gösterir, davranışını sınadığını değil (E386) | mekanik |
 
 ## Birimler (MF)
 
@@ -68,9 +68,9 @@ Rakibin kanıtladığı kusur, onu artık göstermeyen ilk kabul edilmiş başa 
 
 | Ölçü | Hakemin kuralı | Düzeltilmiş |
 |---|---|---|
-| Yargılanan push (spec, kod, çıkış) | 59 (code 58, spec 1) | |
-| MF eklemeyen kod push'u | 31 | |
-| Kurucu'nun reddettirdiği kod push'u | 14/58 (0,14–0,37) | 10/54 (0,09–0,31) |
+| Yargılanan push (spec, kod, çıkış) | 60 (code 59, spec 1) | |
+| MF eklemeyen kod push'u | 32 | |
+| Kurucu'nun reddettirdiği kod push'u | 14/59 (0,14–0,37) | 10/55 (0,09–0,31) |
 | Kanıtlanmış kusur, kapanana kadar yeniden koşulan: ayrı kusur / koşu | 9 / 21 | |
 | ... sonraki bir başta yeniden üretilen ayrı kusur | 1 | 0 |
 | Kalıcılık: kabul edilmiş işte kapanmış kusurun geri dönmesi | ölçülemez: kapanan kusur bir daha koşulmaz (E320) | |
@@ -83,7 +83,7 @@ Rakibin kanıtladığı kusur, onu artık göstermeyen ilk kabul edilmiş başa 
 
 | Ölçü | Değer |
 |---|---|
-| Rakibin incelediği artefakt: hayatta kalan / çürütülen | 44 / 10 |
+| Rakibin incelediği artefakt: hayatta kalan / çürütülen | 45 / 10 |
 | Açık kanıtlanmış kusur / açık iddia (son durum) | 0 / 2 |
 | Rakibin bulma gücü (recall) | ölçülemez: ekilmiş kanarya yok (E311); "hayatta kaldı" zayıf kanıttır |
 | Tohum dönemi (`seed_update`) | 5 |
@@ -93,8 +93,8 @@ Rakibin kanıtladığı kusur, onu artık göstermeyen ilk kabul edilmiş başa 
 
 ## Defter
 
-Satır türleri (Kurucu'nun kendi beyanı; içerik okunmaz): `blocked` 1, `build` 53, `decision` 146, `diğer` 6, `seed_issue` 75, `session_end` 60, `session_start` 59.
+Satır türleri (Kurucu'nun kendi beyanı; içerik okunmaz): `blocked` 1, `build` 54, `decision` 150, `diğer` 6, `seed_issue` 75, `session_end` 61, `session_start` 60.
 
 ## Girdiler
 
-Hakemin 65 sonucu; her birinin artefakt özeti ve `result.json` hash'i `docs/karne.json`'dadır, herkes aynı girdilerden aynı sayfayı üretir (artefaktlar 90 gün yaşar; operatörün önbelleği onları ve Sigstore paketlerini tutar, `python -m sigstore verify` ile doğrulanır). İşaretler: E154 (`MF1`), E248 (`d0dc433`), E260 (`f668776`), E306 (`957f5f6`), E306 (`2bea567`).
+Hakemin 66 sonucu; her birinin artefakt özeti ve `result.json` hash'i `docs/karne.json`'dadır, herkes aynı girdilerden aynı sayfayı üretir (artefaktlar 90 gün yaşar; operatörün önbelleği onları ve Sigstore paketlerini tutar, `python -m sigstore verify` ile doğrulanır). İşaretler: E154 (`MF1`), E248 (`d0dc433`), E260 (`f668776`), E306 (`957f5f6`), E306 (`2bea567`).

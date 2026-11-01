@@ -84,7 +84,9 @@ DEFINITIONS = {
     "retention": "UNMEASURABLE: no defect is re-run after the head that closed it, so a defect coming back in "
                  "accepted work has no record (E320).",
     "module_less": "Mechanical. Each judged push runs the tests of the MFs it adds without their module, again on "
-                   "every attempt; counted: test runs, distinct MFs, runs that stayed green.",
+                   "every attempt; counted: test runs, distinct MFs, runs that stayed green. Deleting the module "
+                   "fails every test that imports it, so a red run shows that the tests import their module, not "
+                   "that they test its behaviour (E386).",
     "repeat": "Mechanical, the referee's own count: learning.repeat_events, a rejection signature repeated on the next "
               "evaluated push. Cross-push recurrence of an error class is UNMEASURABLE: no frozen class identity.",
     "rival": "Mechanical. Rival artifacts that survived or were refuted. How much the rival finds (recall) is "
@@ -524,7 +526,9 @@ def _verbs(m: dict[str, Any]) -> tuple[tuple[str, str, str], ...]:
         ("doğruyu doğru bilir", "yanlış kararda doğru kodu korumak: mekanik kaydı yok", "ölçülemez"),
         ("tartar", "derslerin kredisi ve sıralaması: Aşama 0'da ders organı yok", "ölçülemez"),
         ("test eder ve uygular", f"{ml['mfs']} MF'nin testleri modülü olmadan koşuldu: {ml['runs']} test koşusu "
-                                 f"(her denemede yeniden), yeşil kalan {ml['green']}", "mekanik"),
+                                 f"(her denemede yeniden), yeşil kalan {ml['green']}; modülü silmek onu içe aktaran "
+                                 "her testi düşürür: bu, testlerin modüllerini içe aktardığını gösterir, davranışını "
+                                 "sınadığını değil (E386)", "mekanik"),
     )
 
 

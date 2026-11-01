@@ -1,17 +1,17 @@
 {
   "as_of": {
     "last_run": {
-      "created_at": "2026-10-31T23:09:55Z",
-      "head": "a05ee32c04f3f320c6028bc2ce48751dc0917b1c",
-      "run_id": "41248831339"
+      "created_at": "2026-10-31T23:58:29Z",
+      "head": "386e856664a3f56b85bcc7a9c942c9e1a56f182e",
+      "run_id": "41253144708"
     },
-    "ledger_rows": 400,
-    "ledger_sha256": "c40a0a20cf7421b3f21e1a508c72f3adb6b5298280a9021e7739b3ff8e2c6fd6",
+    "ledger_rows": 407,
+    "ledger_sha256": "cc0b2795d18c43f5741bfb59152face2c675dc2545730af0b92148ae1a278ca0",
     "ledger_tip": {
-      "row_hash": "519a1d0f4efd270ceed4102b80a3e5bef9bc2e23a736ac2fe07e1f96e26a37d9",
-      "row_id": "f400"
+      "row_hash": "b670e87ab1e3915dbd4cfb6ca5fffc389de58de7cf83a35c930e29889a5f2e6c",
+      "row_id": "f407"
     },
-    "results": 65
+    "results": 66
   },
   "autonomy": {
     "rival_side_retries": 0,
@@ -19,7 +19,7 @@
     "unevaluated_runs": 1,
     "waived_refutations": 1
   },
-  "definitions_sha256": "2f2be8e46d02132ddeba2dd059f88a97d35cb2f28c5c8e4537e65dee57af1c33",
+  "definitions_sha256": "8231bb8a286011adf0e44559c25f5213e565ec126692450dec4a8cdca25e24a7",
   "exam": {
     "register": "E317",
     "status": "not_run"
@@ -491,6 +491,12 @@
         "digest": "sha256:585a8f5b746e0dc19d8529967a7e596d30fc512639e8325b627210d26608de2f",
         "result_sha256": "dc22413ab96cdb3f02996e38863de9b8047a7caa76da89c303c32ba30bb16388",
         "run_id": "41248831339"
+      },
+      {
+        "artifact_id": 13061619728,
+        "digest": "sha256:633877b6a7e6b66b8eddb7987cefae618829f97d7a261c1456bbc2840fa2310f",
+        "result_sha256": "3bd9270b892dd2579e741dfe1c78f3e4537ac73b79e38689e24e5c6fcd75b459",
+        "run_id": "41253144708"
       }
     ],
     "exclusions": [
@@ -518,12 +524,12 @@
   },
   "ledger_kinds": {
     "blocked": 1,
-    "build": 53,
-    "decision": 146,
+    "build": 54,
+    "decision": 150,
     "diğer": 6,
     "seed_issue": 75,
-    "session_end": 60,
-    "session_start": 59
+    "session_end": 61,
+    "session_start": 60
   },
   "module_less": {
     "green": 0,
@@ -539,7 +545,7 @@
   },
   "pushes": {
     "by_kind": {
-      "code": 58,
+      "code": 59,
       "spec": 1
     },
     "founder_rejected": {
@@ -548,7 +554,7 @@
           "0.09",
           "0.31"
         ],
-        "n": 54,
+        "n": 55,
         "x": 10
       },
       "referee": {
@@ -556,12 +562,12 @@
           "0.14",
           "0.37"
         ],
-        "n": 58,
+        "n": 59,
         "x": 14
       }
     },
-    "judged": 59,
-    "work_pushes": 31
+    "judged": 60,
+    "work_pushes": 32
   },
   "repeat": {
     "events": 2,
@@ -573,7 +579,7 @@
     "open_refutations": 0,
     "recall": "UNMEASURABLE",
     "refuted": 10,
-    "survived": 44
+    "survived": 45
   },
   "schema": "snowball-karne/2",
   "units": [
