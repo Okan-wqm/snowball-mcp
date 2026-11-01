@@ -16,7 +16,7 @@ import subprocess
 import tarfile
 import tempfile
 import unittest
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest import mock
 
@@ -710,6 +710,30 @@ class RefereeRetryTest(unittest.TestCase):  # E166: the loop never waits on the 
             with self.assertRaisesRegex(launch.GitHubUnavailable, "workflow run"):
                 pilot.dispatch_referee(1)
         self.assertTrue(issubclass(launch.NoVerdict, launch.Outage) and issubclass(launch.GitHubUnavailable, launch.Outage))
+
+    def test_the_dispatched_run_is_mains_never_a_branch_trial_of_the_same_minute(self):  # E461
+        launch = load_launch()
+        pilot = launch.Pilot(Path(tempfile.mkdtemp()), "o/brain", "o/referee", "target")
+        ok = mock.Mock(returncode=0, stdout=b"", stderr=b"")
+        later = (datetime.now(timezone.utc) + timedelta(seconds=30)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        latest = (datetime.now(timezone.utc) + timedelta(seconds=40)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        listed = [{"databaseId": 7, "createdAt": later, "headBranch": "ops/trial"},
+                  {"databaseId": 8, "createdAt": latest, "headBranch": "main"}]
+        asked = []
+
+        def gh(*args):
+            asked.append(args)
+            if args[:2] == ("run", "list"):
+                return listed
+            return {"status": "completed", "conclusion": "success", "url": "u"}
+
+        with mock.patch.object(launch, "run", return_value=ok), mock.patch.object(launch, "gh_json", side_effect=gh), \
+                mock.patch.object(launch.time, "sleep"):
+            got = pilot.dispatch_referee(60)
+        self.assertEqual(got["id"], "8")  # the earlier run was a branch's, not this dispatch's
+        listing = next(a for a in asked if a[:2] == ("run", "list"))
+        self.assertIn("--branch", listing)
+        self.assertEqual(listing[listing.index("--branch") + 1], "main")
 
     def test_the_usage_limit_reset_is_read_from_the_cli(self):  # E243
         wait = load_launch().usage_limit_wait
