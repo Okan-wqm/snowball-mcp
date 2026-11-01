@@ -716,6 +716,17 @@ class ImageAndEntrypointTest(unittest.TestCase):
         self.assertIn('CLAUDE_CONFIG_DIR="$(mktemp -d)"', self.entry)
         self.assertNotIn("ANTHROPIC_API_KEY", self.entry + self.dockerfile)
 
+    def test_four_tools_are_denied_and_no_other_is_narrowed(self):  # E380
+        """RemoteTrigger is the one default tool whose effect can outlive the capsule; the Cron tools die with the
+        session and were never used. Every other default tool stays: the session's tool set is the Founder's."""
+        call = self.entry[self.entry.index("claude -p"):self.entry.index('> "/work/logs/session-')]
+        denied = re.findall(r'--disallowedTools "([^"]*)"', self.entry)
+        self.assertEqual(len(denied), 1)
+        self.assertIn(f'--disallowedTools "{denied[0]}"', call)
+        self.assertEqual(denied[0].split(","), ["RemoteTrigger", "CronCreate", "CronDelete", "CronList"])
+        for narrowing in ("--tools", "--allowedTools", "--allowed-tools", "--disallowed-tools"):
+            self.assertNotRegex(self.entry, rf"(?m){re.escape(narrowing)}(\s|=|$)", narrowing)
+
     def test_git_trusts_the_brain_clone_on_its_root_owned_tmpfs(self):  # E152: without it no commit, no push
         self.assertIn("safe.directory /work/brain", self.entry)
 

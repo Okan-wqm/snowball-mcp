@@ -4,6 +4,12 @@ Kurucu (`spec/tohum/24a`) yalnız bu kapsülde çalışır: operatörün GitHub 
 girmez. Kapsülün kökü salt okunur, yetkileri düşürülmüş; beyin her oturumda bellekte taze klonlanır, GitHub tek
 evidir. Sınırlar `seed/bootstrap/tests/test_founder_capsule.py`'de sabitlidir.
 
+**Araçlar** (E380). Oturum CLI'ın varsayılan araçlarıyla koşar; yalnız dördü kapalıdır (`--disallowedTools
+"RemoteTrigger,CronCreate,CronDelete,CronList"`): `RemoteTrigger` etkisi kapsülden sonra da sürebilen tek varsayılan
+araçtır (bulutta bir rutin), Cron araçları süreçle ölür ve hiç kullanılmadı. Başka hiçbir araç daraltılmaz (`--tools`,
+`--allowedTools` yok); `test_live_cli` girişin kendi çağrısını sabitli CLI'a uydurma bir jetonla koşturur ve init
+olayında dördünün olmadığını, kalanların durduğunu denetler. İmaj yeniden kurulunca geçerli olur; talimat değişmez.
+
 **Klasör.** Pilotun her şeyi tek klasördedir (varsayılan `F:\snowball-work`); silinince pilot iz bırakmaz:
 
 | Yol | Ne |

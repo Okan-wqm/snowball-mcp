@@ -44,12 +44,15 @@ before=$(git -C /work/brain rev-parse HEAD 2>/dev/null || echo none)
 stamp=${SESSION_STAMP:-$(date -u +%Y%m%dT%H%M%SZ)}
 cd /work/brain
 rc=0
+# Every default tool but four (E380): RemoteTrigger is the one whose effect can outlive the capsule (a routine in the
+# cloud); the Cron tools die with this process and were never used. Nothing else is narrowed.
 claude -p "$(cat /opt/founder/prompt.md)" \
   --model "${FOUNDER_MODEL:-claude-opus-5-5}" \
   --max-turns "${FOUNDER_MAX_TURNS:-200}" \
   --max-budget-usd "${FOUNDER_MAX_BUDGET_USD:-50}" \
   --setting-sources "" --no-session-persistence \
   --strict-mcp-config --mcp-config "$CLAUDE_CONFIG_DIR/no-mcp.json" \
+  --disallowedTools "RemoteTrigger,CronCreate,CronDelete,CronList" \
   --dangerously-skip-permissions \
   --output-format stream-json --verbose \
   > "/work/logs/session-$stamp.jsonl" 2> "/work/logs/session-$stamp.err" || rc=$?
