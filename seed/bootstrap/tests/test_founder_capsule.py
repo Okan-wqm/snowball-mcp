@@ -118,6 +118,69 @@ class PreviousSessionTest(unittest.TestCase):  # E360: how the last session ende
         self.pilot.previous_session_note("20261031T210000Z", 10800)
         self.assertIsNone(self.note())
 
+    def test_a_verdict_caught_up_after_the_cycle_is_the_one_named(self):  # E381: the live 20261031T223452Z case
+        head, other = "b" * 40, "c" * 40
+        row = {"stamp": "20261031T215701Z", "brain_before": "a" * 40, "brain_after": head, "pushed": True,
+               "session_exit": 0, "minutes": 37.0, "ledger_new": {"decision": 4}, "verdict": None,
+               "session_timeout_s": 10800}
+        self.pilot.metrics.write_text(json.dumps(row) + "\n", encoding="utf-8")
+
+        def signed(on, evaluated=True, verdict="accepted"):
+            return {"head": on, "verdict": verdict, "state": {"last_evaluated_sha": on if evaluated else None}}
+
+        for prior, expected in ((signed(head), "accepted"), (signed(head, verdict="rejected"), "rejected"),
+                                (signed(other), None),  # another head's verdict is never lent (E241)
+                                (signed(head, evaluated=False), None),  # a run that did not evaluate it
+                                (None, None)):
+            self.pilot.previous_session_note("20261031T210000Z", 10800, prior)
+            self.assertEqual(self.note()["verdict"], expected, prior)
+        self.pilot.metrics.write_text(json.dumps(dict(row, brain_after="a" * 40, pushed=False)) + "\n",
+                                      encoding="utf-8")
+        self.pilot.previous_session_note("20261031T210000Z", 10800, signed("a" * 40))
+        self.assertIsNone(self.note()["verdict"])  # no push: the verdict on its head is an earlier session's
+        self.assertEqual(self.pilot.metrics.read_text(encoding="utf-8").count("\n"), 1)  # the row is never rewritten
+
+    def test_the_cycle_hands_the_caught_up_verdict_to_the_note(self):  # E381
+        launch = load_launch()
+        head = "b" * 40
+        notes = []
+
+        class Fake(launch.Pilot):
+            dispatched = False
+
+            def fetch_result(self):  # the newest result is an older head's until the catch-up run
+                on = head if self.dispatched else "a" * 40
+                return {"head": on, "verdict": "accepted", "state": {"last_evaluated_sha": on}}
+
+            def dispatch_referee(self, timeout_s):
+                self.dispatched = True
+                return {"id": "1", "conclusion": "success", "url": "u"}
+
+            def brain_head(self):
+                return head
+
+            def ledger_rows(self, sha):
+                return []
+
+            def refresh_inputs(self):
+                pass
+
+            def previous_session_note(self, stamp, timeout_s, prior=None):
+                notes.append(prior)
+
+            def session(self, *a):
+                return {"exit": 0, "minutes": 1}
+
+            def write(self, text):
+                pass
+
+        pilot = Fake(self.work, "o/brain", "o/referee", "target")
+        pilot.idle, pilot.seed = 0, "s" * 40
+        args = type("Args", (), dict(model="m", max_turns=1, budget_usd=1, session_timeout=1, referee_timeout=1))
+        with mock.patch.object(launch, "say"):
+            pilot.cycle(1, args)
+        self.assertEqual([(n or {}).get("head") for n in notes], [head])
+
     def test_the_prompt_says_where_it_is(self):
         self.assertIn("/work/logs/previous-session.json", (FOUNDER / "prompt.md").read_text(encoding="utf-8"))
 
