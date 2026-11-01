@@ -1671,6 +1671,10 @@ MUTANTS = [
      "| `tohum/29e-onyukleme-hakemi.md` |", "29e is not in the index"),
     ("yaml_page_off_the_task_map", "spec/tohum/00b-gorev-haritasi.md", "`29p`, `29r`, ", "`29p`, ",
      "29r is not on the referee component's task map"),
+    ("mutation_shards_back_to_eight", ".github/workflows/ci.yml",
+     "        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]\n",
+     "        shard: [0, 1, 2, 3, 4, 5, 6, 7]\n",
+     "E410: fewer shards than the mutants need, and the mutation run hits its timeout and is cancelled"),
 ]
 
 

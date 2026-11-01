@@ -2,7 +2,7 @@
 # are free. Every job is read-only and holds no secret; pull requests from forks run under the same limits.
 #
 #   every push and pull request: the referee's unit tests on Linux and Windows, the drill judge's tests
-#   main and weekly, in addition: the mutation checks (referee in 8 shards, reference brain, drill
+#   main and weekly, in addition: the mutation checks (referee in 20 shards, reference brain, drill
 #   judge), the end-to-end run against Docker, and the claude CLI contract against the pinned binary
 #   (a made-up token: it spends nothing)
 #
@@ -69,7 +69,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [0, 1, 2, 3, 4, 5, 6, 7]
+        # at most 40 mutants a shard, so a shard ends well inside its 60 minutes (E410, test_wiring MutationShardTest)
+        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -78,7 +79,7 @@ jobs:
         working-directory: seed/bootstrap
         env:
           SHARD: ${{ matrix.shard }}
-        run: python3 local/mutate.py --shard "$SHARD/8"
+        run: python3 local/mutate.py --shard "$SHARD/20"
 
   fixture-mutation:
     if: github.event_name != 'pull_request' && (github.event_name != 'push' || github.ref == 'refs/heads/main')

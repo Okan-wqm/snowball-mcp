@@ -753,6 +753,29 @@ class DocWithChangeTest(unittest.TestCase):
         self.assertIn('git diff --name-only "$BEFORE" "$AFTER" | ' + command, floor)  # the whole pushed range
 
 
+class MutationShardTest(unittest.TestCase):
+    """E410: the referee's mutants run in CI shards under one timeout. On 2026-11-01 (run 41267568917, 560 mutants in
+    8 shards, 70 a shard) a mutant took 41 to more than 51 seconds on a standard runner; three shards ended in 46 to
+    50 minutes and five hit the 60-minute timeout, so the run was cancelled and no commit of that day was green. A
+    mutant added without more shards drifts into that again; this turns it red here first."""
+
+    PER_SHARD = 40  # at a minute a mutant, the worst seen, a shard ends in 40 of its 60 minutes
+
+    def test_the_shards_hold_every_mutant_inside_the_timeout(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("mutate", BOOT / "local" / "mutate.py")
+        mutate = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mutate)
+        ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+        job = re.search(r"(?ms)^  mutation:\n(.*?)(?=^  \S|\Z)", ci).group(1)
+        shards = json.loads(re.search(r"(?m)^        shard: (\[[0-9, ]+\])$", job).group(1))
+        count = int(re.search(r'--shard "\$SHARD/([0-9]+)"', job).group(1))
+        self.assertEqual(shards, list(range(count)), "the matrix and --shard K/N name different shards")
+        self.assertIn("timeout-minutes: 60", job)
+        self.assertLessEqual(-(-len(mutate.MUTANTS) // count), self.PER_SHARD,
+                             f"{len(mutate.MUTANTS)} mutants in {count} shards: add shards to ci.yml")
+
+
 class SystemMapTest(unittest.TestCase):
     """The owner's rule E301: `docs/harita.md`, the map of what connects to what, is drawn from the code by
     `local/system_map.py` and never by hand. A module, job, dependency or link changed without regenerating the
