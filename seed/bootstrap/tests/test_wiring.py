@@ -5,13 +5,16 @@ every claim in it against the code and the spec, so that a renamed flag, a delet
 nobody documented or a stale instruction fails a test instead of the first real run.
 """
 
+import io
 import json
+import os
 import re
 import shlex
 import unittest
 from pathlib import Path
+from unittest import mock
 
-from snowball_bootstrap import cli, rival, stages, vectors
+from snowball_bootstrap import cli, rival, stages, vectors, wiring
 
 from helpers import kos_part_count, workflow_job
 
@@ -471,6 +474,193 @@ class BootstrapStatePageTest(unittest.TestCase):
                       "(casefold) tek ad olan iki yol ya da yol üstü iki dizin", "bir operatör adı ya da `bootstrap`",
                       "`referee/` altında hiç dosya yoksa"):
             self.assertIn(words, page)
+
+
+class LoopInputsPageTest(unittest.TestCase):
+    """The Founder's report seed-041 (E490): where the loop finds the brain repository's name, which of `targets[]` a
+    `loop.yml` run serves and which pinned Sigstore its jobs run. `29s` answers each with a file the operator's setup
+    already writes and the import keeps, no variable and no touch per cycle; each sentence is held to the code."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.raw = spec_page("tohum", "29s")
+        cls.page = flat(cls.raw)
+
+    def test_the_brain_is_bootstrap_jsons_brain_repo_which_the_import_keeps(self):  # loop_brain_name_moved
+        import tempfile
+        from snowball_bootstrap import config, importer
+        self.assertIn("**Beyin reposu.** Hakem reposunun kökündeki `bootstrap.json`'un `brain_repo`'sudur: `owner/name`",
+                      self.page)
+        self.assertIn("`$RUNNER_TEMP/control/bootstrap.json`", self.page)
+        self.assertIn('git -C "$RUNNER_TEMP/control" sparse-checkout set bootstrap', wiring.CONTROL_RUN)  # root files too
+        self.assertIn("bootstrap.json", importer.KEEP_TOP)
+        with tempfile.TemporaryDirectory() as tmp:
+            (Path(tmp) / "bootstrap.json").write_text(json.dumps({"brain_branch": "main"}), encoding="utf-8")
+            with self.assertRaisesRegex(config.ConfigError, "missing key 'brain_repo'"):
+                config.load_bootstrap(Path(tmp))
+        self.assertTrue(config.REPO_RE.match("Okan-wqm/snowball-rehearsal-brain"))
+        self.assertIn("`bootstrap.json`, hakem reposu | operatör | önyükleme hakemi; döngünün `çek`'i (`brain_repo`, `29s`)",
+                      spec_page("tohum", "27"))
+
+    def test_a_run_serves_every_target_in_the_summarys_order(self):  # loop_targets_one_per_run
+        from snowball_bootstrap import config
+        self.assertIn("Bir `loop.yml` koşusu, işin checkout'undaki `setup/summary.json`'un `targets[]`'ındaki her girdiye "
+                      "dizinin sırasıyla hizmet eder: her hedefte bir devir", self.page)
+        self.assertIn("hedef seçen bir değişken ya da tetik girdisi yoktur", self.page)
+        row = {"repo": "o/r", "kind": "toy", "base_sha": None, "identifiers": [], "excluded_paths": [],
+               "unit_candidates": []}
+        summary = {"seed_commit": "a" * 40, "seed_tree_sha256": "b" * 64,
+                   "targets": [dict(row, id="toy"), dict(row, id="copy", kind="copy")]}
+        self.assertEqual([t.id for t in config.summary_of(summary).targets], ["toy", "copy"])  # the file's order
+        summary["targets"].append(dict(row, id="toy"))
+        with self.assertRaisesRegex(config.ConfigError, "same id"):
+            config.summary_of(summary)
+        self.assertIn("döngünün her işi (`targets[]`, `29s`)", spec_page("tohum", "27"))
+
+    def sigstore_step(self):
+        block = re.search(r"```yaml\n(.*?)```", self.raw, re.S).group(1)
+        self.assertTrue(block.startswith("      - name: sigstore\n        if: steps.control.outputs.go == 'true'\n"))
+        return block
+
+    def test_the_sigstore_step_installs_the_seeds_pins_as_the_bootstrap_does(self):  # loop_sigstore_step_unpinned
+        """The step reads the control step's clone (`bootstrap/requirements/sign.txt`), with `bootstrap.yml`'s flags:
+        hash-pinned binary wheels without dependencies, the seed's license gate before the install, no index then."""
+        from snowball_bootstrap import importer
+        script = [line.strip() for line in self.sigstore_step().split("run: |\n", 1)[1].splitlines()]
+        self.assertEqual(script[:3], ["set -eu", 'cd "$RUNNER_TEMP/control/bootstrap"', 'python3 -m venv "$RUNNER_TEMP/sig"'])
+        own = [c for c in run_blocks(WORKFLOW) if "sign.txt" in c or "snowball_bootstrap licenses" in c]
+        self.assertEqual(own[3:], own[:3])  # `cek` and `yaz` install it alike
+        norm = lambda c: " ".join(re.sub(r"\S*sign\.txt", "SIGN", re.sub(
+            r'"?\$RUNNER_TEMP/sig/bin/pip"?|/tmp/sig/bin/pip', "PIP",
+            re.sub(r'"?\$RUNNER_TEMP/sigw"?|/tmp/sigw', "WHEELS", c))).split())
+        self.assertEqual([norm(c) for c in script[3:]],
+                         [norm(c).replace("--root snap", "--root ..") for c in own[:3]])
+        sign = (BOOT / "requirements" / "sign.txt").read_text(encoding="utf-8")
+        pin = re.search(r"^sigstore==(\S+) ", sign, re.M).group(1)
+        self.assertIn(f"`sigstore=={pin}`", self.page)
+        self.assertIn("`bootstrap/requirements/sign.txt`", self.page)
+        self.assertIn("CPython 3.12 manylinux x86_64", self.page)
+        self.assertIn("# sigstore==4.5.0 for the write and pull jobs; CPython 3.12, manylinux x86_64", sign)
+        calls = []
+        with mock.patch.object(importer.subprocess, "run",
+                               side_effect=lambda argv, **k: calls.append(argv) or mock.Mock(returncode=0)):
+            importer.verify_signature("x", Path("b"), "id", "$RUNNER_TEMP/sig/bin/python")
+        self.assertIn(f'Program `"{calls[0][0]}" {" ".join(calls[0][1:3])}`', self.page)  # the seed's own form
+
+    def test_the_step_passes_29ps_rule_unchanged(self):  # loop_sigstore_step_ungated
+        from helpers import LOOP_YML
+        step = self.sigstore_step()
+        self.assertEqual(wiring.check({"loop.yml": LOOP_YML.encode()}), [])
+        with_step = LOOP_YML.replace("      - name: pull\n", step + "      - name: pull\n", 1)
+        with_step = with_step.replace("      - name: write\n", step + "      - name: write\n", 1)
+        self.assertEqual(with_step.count("- name: sigstore"), 2)
+        self.assertEqual(wiring.check({"loop.yml": with_step.encode()}), [])
+        ungated = with_step.replace("        if: steps.control.outputs.go == 'true'\n        run: |\n          set -eu\n"
+                                    '          cd "$RUNNER_TEMP/control/bootstrap"',
+                                    "        run: |\n          set -eu\n          cd \"$RUNNER_TEMP/control/bootstrap\"", 1)
+        self.assertTrue(any(r.startswith("workflow_control_gate:cek") for r in wiring.check({"loop.yml": ungated.encode()})))
+
+    def test_the_license_gate_reads_the_control_clones_policy(self):
+        """`licenses --root ..` from the clone's `bootstrap/` reads the referee root's `policy.json`, the one file of
+        the root it needs (the sparse clone holds the root's files, `29p`)."""
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            control = Path(tmp) / "control"
+            (control / "bootstrap").mkdir(parents=True)
+            (control / "wheels").mkdir()
+            cwd = os.getcwd()
+            os.chdir(control / "bootstrap")
+            try:
+                self.licenses_from_the_clone(control)
+            finally:
+                os.chdir(cwd)
+
+    def licenses_from_the_clone(self, control):
+        """From the clone's `bootstrap/`, as the step runs it."""
+        argv = ["licenses", "--root", "..", "--wheels", str(control / "wheels")]
+        self.assertEqual(cli.main(argv), 2)  # no policy.json in the root: stop
+        (control / "policy.json").write_text(json.dumps({"constitutional": {
+            "monthly_cap_usd": 1, "stage_params": {"rival_min_attempts": 1, "repeat_reject_limit": 1},
+            "stage_budgets": {"asama_0": {"rival_usd": 1}}, "license_allowlist": ["MIT"],
+            "license_exceptions": {}}}), encoding="utf-8")
+        err = io.StringIO()
+        with mock.patch("sys.stderr", err):
+            self.assertEqual(cli.main(argv), 2)
+        self.assertIn("license gate: no wheels found", err.getvalue())  # the policy was read; the gate ran
+
+    def test_29p_points_here_and_the_changelog_names_the_report(self):  # changelog_drops_seed_041
+        self.assertIn("Döngünün beyin reposu, hedefleri ve Sigstore'u (kontrol adımının klonundan kurulan pinli küme) "
+                      "`29s`'tedir.", flat(spec_page("tohum", "29p")))
+        entry = flat((ROOT / "spec" / "tohum" / "CHANGELOG.md").read_text(encoding="utf-8")[:6000])
+        named = re.search(r"`seed-041-loop-run-inputs-unnamed` → `29s:(\d+)-(\d+)` \(beyin\), `29s:(\d+)-(\d+)` "
+                          r"\(hedefler\), `29s:(\d+)-(\d+)` \(Sigstore\)", entry)
+        self.assertIsNotNone(named, "the changelog does not name seed-041's answer")
+        lines = self.raw.splitlines()
+        spans = [(int(named.group(i)), int(named.group(i + 1))) for i in (1, 3, 5)]
+        for (first, last), title in zip(spans, ("**Beyin reposu.**", "**Hedefler.**", "**Sigstore.**")):
+            self.assertTrue(lines[first - 1].startswith(title), title)
+            self.assertTrue(lines[last - 1].strip() and (last == len(lines) or not lines[last].strip()), title)
+
+
+class LoopReportsPageTest(unittest.TestCase):
+    """The Founder's reports seed-042 to seed-045 (E499): each answered on a page and held to the code, or declined in
+    the changelog with its reason."""
+
+    def test_the_canarys_cli_is_the_rivals_pinned_cli_installed_as_the_bootstrap_does(self):  # canary_cli_step_unpinned
+        raw = spec_page("tohum", "29s")
+        block = re.findall(r"```yaml\n(.*?)```", raw, re.S)[1]
+        self.assertTrue(block.startswith("      - name: claude\n        if: steps.control.outputs.go == 'true'\n"))
+        script = [line.strip() for line in block.split("run: |\n", 1)[1].splitlines()]
+        self.assertEqual(script[:2], ["set -eu", 'C="$RUNNER_TEMP/control/bootstrap/requirements/claude-cli"'])
+        step = re.search(r"- name: Claude CLI[^\n]*\n\s*run: \|\n((?:\s{10}.*\n)+)", workflow_job("cagir")).group(1)
+        own = [line.strip() for line in step.splitlines()]  # bootstrap.yml's: the same checks, from its snapshot
+        self.assertEqual(script[2], own[0])  # node 22 or later
+        self.assertEqual(script[3].replace('"$C"', "D"), own[1].replace("snap/bootstrap/requirements/claude-cli", "D"))
+        for words in ("package.json').dependencies['@anthropic-ai/claude-code']",
+                      "/node_modules/.bin/claude\" --version | cut -d' ' -f1"):
+            self.assertIn(words, " ".join(script[4:]))
+        self.assertIn('dependencies["@anthropic-ai/claude-code"]', own[2])
+        lock = json.loads((BOOT / "requirements" / "claude-cli" / "package-lock.json").read_text(encoding="utf-8"))
+        self.assertTrue(lock["packages"]["node_modules/@anthropic-ai/claude-code"]["integrity"].startswith("sha512-"))
+        page = flat(raw)
+        self.assertIn("çalıştırılabilir dosyanın baytlarına ayrı bir pin yoktur", page)
+        self.assertIn("Kanaryanın istediği model `bootstrap.json`'un `rival.model`'idir", page)
+        from helpers import LOOP_YML
+        with_step = LOOP_YML.replace("      - name: call\n", block + "      - name: call\n", 1)
+        self.assertEqual(wiring.check({"loop.yml": with_step.encode()}), [])
+
+    def test_26f_gives_the_sentinels_end_row_from_mf12s_fields(self):  # sentinel_end_row_moved
+        from snowball_bootstrap import stagelock
+        page = flat(spec_page("tohum", "26f"))
+        self.assertIn("**Nöbetçinin sonu** (`part: events`, `kind: sentinel`): `payload {merge_sha, verdict: green|flaky, "
+                      "red: [], flaky: [test kimliği]}`", page)
+        mf12 = flat(spec_page("tohum", "29j"))
+        self.assertIn("Çıktı `verdict` (`green` | `red` | `flaky` | `rerun`), sıralı `red` ve `flaky`", mf12)
+        self.assertIn("**Geri alma** (`part: events`, `kind: revert`): üst düzey `cause`", page)
+        self.assertIn("geri alma `part: events`, `kind: revert`, üst düzey `cause` (`26:41-44`), `payload {merge_sha}`",
+                      flat(spec_page("tohum", "29m")))
+        self.assertIn("(`events` `kind: merge` ya da `drill` `kind: plant`)", page)
+        self.assertIn('row.get("kind") == "merge"', Path(stagelock.__file__).read_text(encoding="utf-8"))  # 26d's merge
+
+    def test_26f_says_where_d8_runs_and_that_its_live_fixtures_are_not_here(self):  # drill_fixtures_said_present
+        page = flat(spec_page("tohum", "26f"))
+        row = next(line for line in spec_page("tohum", "26a").splitlines() if line.startswith("| `exit.drill` |"))
+        self.assertEqual(row.split(" | ")[2], "`yaz`")
+        self.assertIn("`exit.drill` `yaz`'da koşar (`26a`)", page)
+        catalog = json.loads((BOOT / "vectors" / "revert_drill" / "catalog.json").read_text(encoding="utf-8"))
+        patches = [i["patch"] for i in catalog["instances"]]
+        self.assertEqual(sorted(patches), ["rd-build.patch", "rd-lint.patch", "rd-test.patch"])
+        for name in patches:  # the page says their bytes are nowhere: it changes with the epoch that brings them
+            self.assertEqual(list(ROOT.joinpath("seed").rglob(name)), [], name)
+        self.assertIn("Tohumun canlı prova fikstürleri, oyuncağa ekilecek kötü merge'ler, bu tohumda yoktur", page)
+
+    def test_the_changelog_names_each_report_answered_or_declined(self):  # changelog_drops_seed_042_045
+        entry = flat((ROOT / "spec" / "tohum" / "CHANGELOG.md").read_text(encoding="utf-8")[:9000])
+        for answered in ("`seed-042-d4-canary-inputs-unnamed` → `29s:", "`seed-043-sentinel-end-row-unnamed` → `26f:",
+                         "`seed-045-drill-live-inputs-unnamed` → `26f:"):
+            self.assertIn(answered, entry)
+        self.assertIn("declined: `seed-044-revert-facts-producers`: `29j:53-60`", entry)
+        self.assertIn("`build_ok`'un ve nöbetçinin lint toplamının üreticisini adlandırmaz", flat(spec_page("tohum", "29j")))
 
 
 class ReportAnswerPagesTest(unittest.TestCase):
@@ -1015,6 +1205,24 @@ class MutationShardTest(unittest.TestCase):
         self.assertIn("timeout-minutes: 60", job)
         self.assertLessEqual(-(-len(mutate.MUTANTS) // count), self.PER_SHARD,
                              f"{len(mutate.MUTANTS)} mutants in {count} shards: add shards to ci.yml")
+
+    def test_each_mutant_a_test_names_is_one(self):
+        """E486 (the eighth skeptic: three tests named mutants that no longer were, sixteen more were found): the
+        trailing comment on a test names the mutants it kills (`local/mutate.py`); a name there that is no mutant's
+        claims a measurement nothing makes."""
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("mutate", BOOT / "local" / "mutate.py")
+        mutate = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mutate)
+        names = {m[0] for m in mutate.MUTANTS}
+        dead = []
+        for path in sorted((BOOT / "tests").glob("*.py")):
+            for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+                found = re.search(r"def test_\w+\(self[^)]*\):[ \t]+#(.*)", line)
+                for word in found.group(1).split() if found else ():
+                    if re.fullmatch(r"[A-Za-z][A-Za-z0-9]*_[A-Za-z0-9_]+", word) and word not in names:
+                        dead.append(f"{path.name}:{number} {word}")
+        self.assertEqual(dead, [], "a test names a mutant local/mutate.py does not have")
 
 
 class SystemMapTest(unittest.TestCase):

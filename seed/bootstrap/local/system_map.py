@@ -74,7 +74,7 @@ LINKS = (
 # drawn under UNPLACED, so a new module shows up on the map before anyone files it.
 AREAS = (
     ("Entry", ("__init__", "__main__", "cli")),
-    ("Intake", ("canon", "classify", "config", "ghapi", "gitio", "importer", "licenses", "treehash")),
+    ("Intake", ("canon", "classify", "config", "ghapi", "gitio", "importer", "licenses", "stagelock", "treehash")),
     ("Sandbox", ("container", "controls", "manifest", "moduleless", "parts", "vectors")),
     ("Rival", ("reproduce", "rival", "rival_mcp", "secretscan")),
     ("Judgement", ("decide", "exitchecks", "ledgercheck", "stages", "state", "wiring")),
