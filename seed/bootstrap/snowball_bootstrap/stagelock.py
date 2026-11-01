@@ -259,7 +259,7 @@ def _state(repo: Path, ref: str, name: str) -> tuple[str, list[tuple[bytes, dict
         raise LockStop(f"{name} brain/state {head}: the ledger's tips are not the last anchored root (`13`, `29j`)")
     if not isinstance(last.get("rekor_uuid"), str) or not UUID.match(last["rekor_uuid"]):
         raise LockStop(f"{name} brain/state {ROOTS}: the last root row has no rekor_uuid")
-    where = ROOT_BUNDLE.format(root=root)
+    where = ROOT_BUNDLE.format(root=last["root"])  # the root row's own bundle (`26d`: named by its root)
     bundle = gitio.file_at(repo, head, where)
     if bundle is None:
         raise LockStop(f"{name} brain/state {head}: no {where}, the last root's Sigstore bundle the loop keeps beside "

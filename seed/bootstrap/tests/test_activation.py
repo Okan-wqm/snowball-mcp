@@ -1447,6 +1447,17 @@ class StageOpenAfterARetransferTest(StageOpenCase):
         self.toy = self.make_toy(toy[:2] + [first] + toy[2:])  # nor opens anything on its own
         self.refused("no PASS row after the last genesis")
 
+    def test_each_ledger_is_its_targets_from_its_first_genesis_to_its_last(self):  # stage_open_copy_target_unchecked stage_open_first_row_unchecked
+        """The ledger opens with its own target's genesis, and the genesis (B) ran from names that target too: a
+        ledger whose later genesis is another target's, or that another target's genesis opened, opens nothing."""
+        toy = self.two_runs(self.retransfer())
+        other = edited(toy[2], {"payload": dict(toy[2]["payload"], target="copy-t")})
+        self.toy = self.make_toy(toy[:2] + [other] + toy[3:] + [self.passed()])
+        self.refused("toy brain/state: the last genesis row is not the genesis of setup/summary.json's toy target")
+        first = edited(toy[0], {"payload": dict(toy[0]["payload"], target="copy-t")})
+        self.toy = self.make_toy([first] + toy[1:] + [self.passed()])
+        self.refused("toy brain/state: the first ledger row is not the genesis")
+
     def test_each_ledgers_last_genesis_names_the_last_transfer(self):  # stage_open_genesis_any_line
         old = self.retransfer()
         toy = self.two_runs(old)
