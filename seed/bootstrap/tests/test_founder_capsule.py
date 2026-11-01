@@ -1319,6 +1319,21 @@ class ImageAndEntrypointTest(unittest.TestCase):
         self.assertNotIn('"missing_capability"', source)  # no tuple or comparison names it as a kind
         self.assertEqual(source.count('row.get("kind") in REPORT_KINDS') + source.count('r.get("kind") in REPORT_KINDS'), 2)
 
+    def test_the_order_of_work_is_chosen_so_nothing_is_done_twice(self):  # E462, owner 2026-11-01
+        """The owner, in their own analogy: sweep the counter before the floor, or the crumbs make you sweep the floor
+        twice. The duty is general: choose an order in which a later step does not undo an earlier one, write why,
+        and write when a place had to be reopened. It names no layer, tool, class or concrete order."""
+        prompt = " ".join((FOUNDER / "prompt.md").read_text(encoding="utf-8").split())
+        for phrase in ("Sıra muhakemesi (sahip, 2026-11-01)", "önce tezgâhı yaparsan",
+                       "birinin sonucu bir öncekini bozmayacak ve aynı işi yeniden yaptırmayacak",
+                       "aynı yeri yeniden açmak zorunda kaldığında bunu ve nedenini de yaz",
+                       "Nasıl sıralayacağın senindir"):
+            self.assertIn(phrase, prompt)
+        start = prompt.index("Sıra muhakemesi")
+        paragraph = prompt[start:prompt.index("Nasıl sıralayacağın senindir", start)]
+        for hint in ("mimari", "arayüz", "kütüphane", "lint", "K0", "K2", "Nx", "önce ortak"):
+            self.assertNotIn(hint, paragraph)
+
     def test_the_system_is_for_every_repository_and_its_lessons_are_claims(self):  # E460, owner 2026-11-01
         """The owner: Snowball is a general application for every kind of repository, not tailored to this target; it
         knows and closes its own gaps, understands the given repository fully, gives its agents the repository's map

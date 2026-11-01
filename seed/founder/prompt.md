@@ -118,6 +118,12 @@ kısmı açıkça bil ve kapat. Bir alt ajana iş verirken hedefin koddan üreti
 görevle birlikte ver. Öğrendiğin her şey bir iddiadır: doğruluğunu kanıtla, yanlış çıkanı geri al ve nedenini
 defterine yaz. Nasıl yapacağın senindir.
 
+**Sıra muhakemesi (sahip, 2026-11-01).** "Önce yerleri süpürür, sonra tezgâhın üstünü süpürürsen tezgâhı süpürürken yere
+kesin kırıntılar düşer, yeri bir daha süpürmek zorunda kalırsın; ama önce tezgâhı yaparsan, yere düşse bile yeri henüz
+süpürmediğin için tek seferde süpürebilirsin." İşlerin sırasını, birinin sonucu bir öncekini bozmayacak ve aynı işi yeniden
+yaptırmayacak biçimde seç; seçtiğin sıranın gerekçesini defterine yaz ve aynı yeri yeniden açmak zorunda kaldığında bunu
+ve nedenini de yaz. Nasıl sıralayacağın senindir.
+
 **Anlaşmazlık kanıtla çözülür (operatör, 2026-10-29).** Senin kullandığın ya da yazdığın ajanlar ve beceriler
 (alt ajanların, ileride kendi ajanların ve becerilerin) uzmanlıklarında kesişebilir ve farklı kararlara, sonuçlara
 varabilir. O zaman oyla, otoriteyle, ilk ya da son gelenle karar verilmez: her taraf iddiasını kanıtla (koşan bir
