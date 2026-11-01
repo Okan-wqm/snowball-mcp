@@ -234,7 +234,7 @@ class PreviousSessionTest(unittest.TestCase):  # E360: how the last session ende
         head = "b" * 40
         notes = []
 
-        class Fake(launch.Pilot):
+        class Fake(quiet_pilot(launch)):  # the cycle's reads after the session never reach GitHub
             dispatched = False
 
             def fetch_result(self):  # the newest result is an older head's until the catch-up run
