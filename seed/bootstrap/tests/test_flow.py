@@ -678,6 +678,22 @@ class Flow(unittest.TestCase):
         self.assertIn("history_rewritten", meta["pre_reasons"])
         self.assertEqual(meta["kind"], "rejected")
 
+    def test_git_failing_on_the_ancestry_is_a_stop_never_history_rewritten(self):  # E384
+        """merge-base exits 128 on an object the pulled repository lacks: that is git failing, not the Founder
+        rewriting history, so the run stops (exit 2) instead of signing history_rewritten against the push."""
+        commit(self.brain, {"referee/a.py": "x = 1\n"}, "code")
+        self.state["last_accepted_sha"] = "e" * 40
+        out = Path(self.tmp.name) / "pulled_missing"
+        state_path = Path(self.tmp.name) / "state_missing.json"
+        state_path.write_text(json.dumps(self.state))
+        err = io.StringIO()
+        with mock.patch.object(cli.gitio, "has_commit", return_value=True), contextlib.redirect_stderr(err):
+            rc = cli.main(["pull", "--root", str(self.referee), "--state", str(state_path),
+                           "--work", str(Path(self.tmp.name) / "work"), "--out", str(out), "--remote", str(self.brain)])
+        self.assertEqual(rc, 2)
+        self.assertIn("git merge-base failed", err.getvalue())
+        self.assertFalse((out / "meta.json").exists())
+
     @posix_only
     def test_symlink_and_export_ignore(self):
         (self.brain / "referee").mkdir()

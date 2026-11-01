@@ -85,8 +85,13 @@ def has_commit(repo: Path, sha: str) -> bool:
 
 
 def is_ancestor(repo: Path, base: str, head: str) -> bool:
+    """Whether ``base`` is an ancestor of ``head``. Git answers 0 (yes) or 1 (no); anything else (a missing object, a
+    broken repository) is git failing, never a "no": read as one it became ``history_rewritten`` against the Founder
+    (E384)."""
     proc = subprocess.run(["git", *SAFE_CONFIG, "-C", str(repo), "merge-base", "--is-ancestor", base, head],
-                          capture_output=True, check=False)
+                          capture_output=True, env=_env(), check=False)
+    if proc.returncode not in (0, 1):
+        raise GitError(f"git merge-base failed: {proc.stderr.decode('utf-8', 'replace')[:500]}")
     return proc.returncode == 0
 
 

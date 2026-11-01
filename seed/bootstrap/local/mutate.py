@@ -1460,6 +1460,14 @@ MUTANTS = [
     ("start_refuses_the_exception", f"{PKG}/config.py", "    if summary.honesty_commitment is None:",
      "    if summary.honesty_commitment is None or summary.honesty_exception is not None:",
      "E297: a pilot restarted from a lost state cannot carry the owner's exception it was given"),
+    ("ancestry_failure_read_as_rewrite", f"{PKG}/gitio.py",
+     "    if proc.returncode not in (0, 1):\n        raise GitError(f\"git merge-base failed",
+     "    if False:\n        raise GitError(f\"git merge-base failed",
+     "E384: git failing on a missing object reads as 'not an ancestor' and signs history_rewritten against the push"),
+    ("ancestry_under_the_callers_git_env", f"{PKG}/gitio.py",
+     "capture_output=True, env=_env(), check=False)\n    if proc.returncode not in (0, 1):\n        raise GitError(f\"git merge-base",
+     "capture_output=True, check=False)\n    if proc.returncode not in (0, 1):\n        raise GitError(f\"git merge-base",
+     "E384: an inherited GIT_DIR or GIT_CONFIG points the ancestry check at another repository or configuration"),
     ("doc_floor_back_in_cancellable_ci", ".github/workflows/ci.yml", "jobs:\n  unit-linux:\n",
      "jobs:\n  doc-with-change:\n    if: github.event_name == 'push' && github.ref == 'refs/heads/main'\n"
      "    runs-on: ubuntu-24.04\n    steps:\n      - run: git diff --name-only \"$BEFORE\" \"$AFTER\" | "
