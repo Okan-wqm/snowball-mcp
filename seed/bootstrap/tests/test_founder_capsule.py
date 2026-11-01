@@ -1389,6 +1389,39 @@ class ImageAndEntrypointTest(unittest.TestCase):
         for hint in ("mimari", "arayüz", "kütüphane", "lint", "K0", "K2", "Nx", "önce ortak"):
             self.assertNotIn(hint, paragraph)
 
+    FINISH_WORK = "**İşi bitirerek ilerle (sahip, 2026-11-01).**"  # E500
+
+    def test_a_problem_is_closed_at_its_root_before_the_next_and_no_pr_is_left_open(self):  # E500, owner 2026-11-01
+        """The owner: on the target, never move to the next problem before this one is solved at its root; when the
+        tokens run out, go on from where it stopped; never leave a PR open; work in commits. One section, its own
+        title, after the Founder's duties and before what it may not do, in the prompt's wrapping. Unfinished work
+        lives on a work branch (never the brain's main nor the target's brain/integration), a cut session leaves the
+        next step in its last commit, and the session after a cut first resumes and closes what was left open; a
+        rejection still comes first, and the one-job-per-session rule stands."""
+        raw = (FOUNDER / "prompt.md").read_text(encoding="utf-8").replace("\r\n", "\n")
+        prompt = " ".join(raw.split())
+        self.assertEqual(prompt.count(self.FINISH_WORK), 1)
+        blocks = raw.split("\n\n")
+        at = next(i for i, block in enumerate(blocks) if block.startswith(self.FINISH_WORK))
+        self.assertTrue(blocks[at - 1].startswith("**Görevlerin (operatör, 2026-10-29).**"))
+        self.assertTrue(blocks[at + 1].startswith("**Yapamazsın:**"))
+        for line in blocks[at].split("\n"):
+            self.assertLessEqual(len(line), 120, line)
+        section = " ".join(blocks[at].split())
+        for phrase in ("bir problemi kökten çözmeden diğerine geçmesin",
+                       "kanıtı hakemden geçtiğinde biter; bitmeden sıradakine geçmezsin",
+                       "her oturumda yine tek iş yaparsın",
+                       "beyinde `wip/<konu>`, hedefte `brain/` altındaki dalın",
+                       "yarım iş beynin `main`'ine ve hedefin `brain/integration`'ına girmez",
+                       "çalışma dalının son commit mesajına sıradaki adımı yaz",
+                       "hakemin bir reddi varsa onu giderdikten sonra",
+                       "açtığın her PR oturum bitmeden ya birleşir ya kapanır",
+                       "yeni bir işe başlamadan kapanır",
+                       "Biten işin çalışma dalını sil"):
+            self.assertIn(phrase, section)
+        self.assertIn("Ret varsa bu oturumun ilk işi o nedeni düzeltmektir", prompt)  # the rejection rule is unchanged
+        self.assertNotIn("force", section.casefold())  # a work branch is pushed forward, never rewritten
+
     def test_the_system_is_for_every_repository_and_its_lessons_are_claims(self):  # E460, owner 2026-11-01; E463
         """The owner: Snowball is a general application for every kind of repository, not tailored to this target; it
         knows and closes its own gaps, understands the given repository fully, gives its agents the repository's map
