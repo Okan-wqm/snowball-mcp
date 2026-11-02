@@ -4,18 +4,22 @@ is pinned here, so a later edit that loosens it fails a test instead of passing 
 from __future__ import annotations
 
 import argparse
+import base64
 import contextlib
 import dataclasses
 import hashlib
+import http.server
 import importlib.util
 import io
 import json
 import os
 import re
+import socket
 import subprocess
 import sys
 import tarfile
 import tempfile
+import threading
 import time
 import unittest
 from datetime import datetime, timedelta, timezone
@@ -78,7 +82,7 @@ class CapsuleArgvTest(unittest.TestCase):
         logs = [self.argv[i + 1] for i, a in enumerate(self.argv) if a == "--mount" and "dst=/work/logs" in self.argv[i + 1]]
         self.assertEqual(len(logs), 1)
         src = Path(re.search(r"src=([^,]+)", logs[0]).group(1))
-        self.assertEqual(src, self.work / "logs" / "20261029T000000Z")
+        self.assertEqual(src, self.work / "logs" / "20261029T000000Z" / "capsule")  # E508: not the record's folder
         self.assertIn("BRAIN_SEED=" + "a" * 40, self.argv)
 
     def test_the_vector_inputs_are_mounted_read_only_where_the_commands_read_them(self):  # E244
@@ -159,7 +163,8 @@ class ResultShadowTest(unittest.TestCase):  # E344: a noop on the launcher's own
         self.pilot.metrics.write_text('{"stamp": "s1", "session_exit": 0, "minutes": 3, "pushed": true}\n\n{"stamp": "s2"',
                                       encoding="utf-8")
         self.pilot.previous_session_note("20261101T000000Z", 10800)
-        note = json.loads((self.work / "logs" / "20261101T000000Z" / "previous-session.json").read_text(encoding="utf-8"))
+        note = json.loads((self.work / "logs" / "20261101T000000Z" / "capsule" / "previous-session.json")
+                          .read_text(encoding="utf-8"))
         self.assertEqual(note["stamp"], "s1")
 
 
@@ -171,7 +176,7 @@ class PreviousSessionTest(unittest.TestCase):  # E360: how the last session ende
         self.pilot.verdict_on = lambda head: None  # the look-up has its own tests below; no test here reaches GitHub
 
     def note(self, stamp="20261031T210000Z"):
-        path = self.work / "logs" / stamp / "previous-session.json"
+        path = self.work / "logs" / stamp / "capsule" / "previous-session.json"  # the capsule's /work/logs (E508)
         return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else None
 
     def test_a_seed_epoch_between_does_not_hide_the_heads_verdict(self):  # E420: the live 20261101T045525Z case
@@ -893,7 +898,7 @@ class CycleRecordTest(unittest.TestCase):
         # --no-build: the sessions run the image's prompt, so that is the one attributed; the checkout's is beside it.
         self.assertEqual(rows, [{"kind": "intervention", "ts": rows[0]["ts"], "image_id": "sha256:" + "i" * 64,
                                  "prompt_sha256": "q" * 64, "checkout_prompt_sha256": launch.prompt_sha256(),
-                                 "seed_commit": "s" * 40,
+                                 "seed_commit": "s" * 40, "egress": "open",
                                  "args": {"cycles": "3", "model": "claude-opus-5-5", "no_build": "True"}}])
         self.assertEqual(pilot.prompt_sha256, "q" * 64)  # what every cycle row of this start names
         built = (FOUNDER / "prompt.md").read_bytes().replace(b"\r\n", b"\n")  # the bytes a build now would copy
@@ -1483,14 +1488,17 @@ class ImageAndEntrypointTest(unittest.TestCase):
         self.assertIn('CLAUDE_CONFIG_DIR="$(mktemp -d)"', self.entry)
         self.assertNotIn("ANTHROPIC_API_KEY", self.entry + self.dockerfile)
 
-    def test_four_tools_are_denied_and_no_other_is_narrowed(self):  # E380
+    def test_six_tools_are_denied_and_no_other_is_narrowed(self):  # E380, E508  # webfetch_not_disallowed
         """RemoteTrigger is the one default tool whose effect can outlive the capsule; the Cron tools die with the
-        session and were never used. Every other default tool stays: the session's tool set is the Founder's."""
-        call = self.entry[self.entry.index("claude -p"):self.entry.index('> "/work/logs/session-')]
+        session and were never used; WebFetch and WebSearch reach the web around the capsule's network (E508: a search
+        is served from outside, its snippets can quote any public repository). Every other default tool stays: the
+        session's tool set is the Founder's."""
+        call = self.entry[self.entry.index("claude -p"):self.entry.index('2> "/work/logs/session-')]
         denied = re.findall(r'--disallowedTools "([^"]*)"', self.entry)
         self.assertEqual(len(denied), 1)
         self.assertIn(f'--disallowedTools "{denied[0]}"', call)
-        self.assertEqual(denied[0].split(","), ["RemoteTrigger", "CronCreate", "CronDelete", "CronList"])
+        self.assertEqual(denied[0].split(","),
+                         ["RemoteTrigger", "CronCreate", "CronDelete", "CronList", "WebFetch", "WebSearch"])
         for narrowing in ("--tools", "--allowedTools", "--allowed-tools", "--disallowed-tools"):
             self.assertNotRegex(self.entry, rf"(?m){re.escape(narrowing)}(\s|=|$)", narrowing)
 
@@ -1596,7 +1604,8 @@ class BrainDefinitionsTest(unittest.TestCase):  # E450, owner 2026-11-01: the br
         self.assertEqual(self.files(plugin), [".claude-plugin/plugin.json"])
 
     def test_an_agent_whose_tools_leave_the_capsules_is_dropped_and_named(self):
-        entries = {"agents/ok.md": definition("ok", extra={"tools": "Read, Grep, Bash, Agent, Task, WebFetch, Skill"})}
+        entries = {"agents/ok.md": definition("ok",
+                                              extra={"tools": "Read, Grep, Bash, Agent, Task, NotebookEdit, Skill"})}
         for tool in self.defs.DENIED_TOOLS:
             entries[f"agents/deny-{tool.lower()}.md"] = definition(f"deny-{tool.lower()}", extra={"tools": f"Read, {tool}"})
         unknown = ("Foo", "Bash(git *)", "mcp__x__y", "read", "PowerShell")
@@ -1606,7 +1615,7 @@ class BrainDefinitionsTest(unittest.TestCase):  # E450, owner 2026-11-01: the br
         entries["agents/hole.md"] = definition("hole", extra={"tools": "Read,,Grep"})
         record, plugin = self.load(entries)
         self.assertEqual([(a["name"], a["tools"]) for a in record["agents"]],
-                         [("ok", ["Read", "Grep", "Bash", "Agent", "Task", "WebFetch", "Skill"])])
+                         [("ok", ["Read", "Grep", "Bash", "Agent", "Task", "NotebookEdit", "Skill"])])
         skipped = self.skipped(record)
         for tool in self.defs.DENIED_TOOLS:
             self.assertEqual(skipped[f"agents/deny-{tool.lower()}.md"], [f"tool_denied:{tool}"])
@@ -1616,7 +1625,7 @@ class BrainDefinitionsTest(unittest.TestCase):  # E450, owner 2026-11-01: the br
         self.assertEqual(skipped["agents/hole.md"], ["bad_tools"])
         self.assertEqual(self.files(plugin), [".claude-plugin/plugin.json", "agents/ok.md"])
 
-    def test_the_tool_sets_are_the_capsules(self):  # E380: the four the entrypoint denies, never one of them allowed
+    def test_the_tool_sets_are_the_capsules(self):  # E380, E508: the six the entrypoint denies, none of them allowed
         entry = (FOUNDER / "entrypoint.sh").read_text(encoding="utf-8")
         self.assertEqual(re.findall(r'--disallowedTools "([^"]*)"', entry), [",".join(self.defs.DENIED_TOOLS)])
         self.assertEqual(self.defs.ALLOWED_TOOLS & set(self.defs.DENIED_TOOLS), set())
@@ -1840,9 +1849,12 @@ class LauncherResumeTest(unittest.TestCase):
         class FakePilot:  # the launcher's Pilot as start() and run_cycles() see it; the cycle has its own tests
             idle = 0
 
-            def __init__(self, work, brain, referee, target):
+            def __init__(self, work, brain, referee, target, egress="open"):
                 self.work, self.report = work, work / "pilot-log.md"
-                seen["target"] = target
+                seen["target"], seen["egress"] = target, egress
+
+            def image_entrypoint(self):  # E508: what the build labelled; a start holds it to the checkout's
+                return seen.get("image_entrypoint", test.launch.entrypoint_sha256())
 
             def preflight(self):
                 seen["calls"].append("preflight")
@@ -2134,6 +2146,758 @@ class LauncherResumeTest(unittest.TestCase):
             with self.assertRaises(SystemExit):  # not Windows: no task, nothing run
                 launch.main(["--install-service"])
         self.assertEqual(len(calls), 2)
+
+
+
+# ---- E508: capsule containment --------------------------------------------------------------------------------------
+def load_egress():
+    """The capsule's relay (`seed/founder/egress.py`, E508): the operator's code, run beside the capsule."""
+    if "founder_egress" not in sys.modules:  # its dataclasses look their module up there
+        spec = importlib.util.spec_from_file_location("founder_egress", FOUNDER / "egress.py")
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = module
+        spec.loader.exec_module(module)
+    return sys.modules["founder_egress"]
+
+
+ALLOWED_REPO = "o/brain"
+# What a contained capsule must never reach through the relay (E508): the referee and the seed by path and by name
+# case, a longer name that starts with the brain's, the raw, codeload and objects hosts, the REST API outside the
+# brain, an IP literal, the cloud metadata address, the relay itself, encoded and dotted escapes. Each with the reason
+# the relay records.
+FORBIDDEN = (
+    ("CONNECT", "github.com:443", "connect_not_allowed"),
+    ("CONNECT", "raw.githubusercontent.com:443", "connect_not_allowed"),
+    ("CONNECT", "codeload.github.com:443", "connect_not_allowed"),
+    ("CONNECT", "objects.githubusercontent.com:443", "connect_not_allowed"),
+    ("CONNECT", "api.github.com:443", "connect_not_allowed"),
+    ("CONNECT", "140.82.121.3:443", "connect_not_allowed"),
+    ("CONNECT", "[2606:50c0:8000::153]:443", "connect_not_allowed"),
+    ("CONNECT", "api.anthropic.com:80", "connect_not_allowed"),
+    ("CONNECT", "api.anthropic.com.evil.example:443", "connect_not_allowed"),
+    ("CONNECT", "api.anthropic.com.:443", "connect_not_allowed"),
+    ("CONNECT", "statsig.anthropic.com:443", "connect_not_allowed"),
+    ("CONNECT", "claude.ai:443", "connect_not_allowed"),
+    ("CONNECT", "registry.npmjs.org:443", "connect_not_allowed"),
+    ("CONNECT", "169.254.169.254:80", "connect_not_allowed"),
+    ("CONNECT", "relay:3128", "connect_not_allowed"),
+    ("CONNECT", "api.anthropic.com", "connect_target"),
+    ("GET", "http://github.com/o/referee", "absolute_form"),
+    ("GET", "http://raw.githubusercontent.com/o/referee/main/vectors/vectors.json", "absolute_form"),
+    ("GET", "/git/o/referee.git/info/refs?service=git-upload-pack", "repo_not_allowed"),
+    ("GET", "/git/o/snowball-mcp.git/info/refs?service=git-upload-pack", "repo_not_allowed"),
+    ("POST", "/git/o/referee.git/git-upload-pack", "repo_not_allowed"),
+    ("GET", "/git/O/Referee/info/refs?service=git-upload-pack", "repo_not_allowed"),
+    ("GET", "/git/o/brain-referee.git/info/refs?service=git-upload-pack", "repo_not_allowed"),
+    ("GET", "/git/o/brain.git/archive/main.zip", "git_endpoint"),
+    ("GET", "/git/o/brain.git/info/lfs/objects/batch", "git_endpoint"),
+    ("GET", "/git/o/brain.git/info/refs", "git_endpoint"),
+    ("GET", "/git/o/brain.git/info/refs?service=git-upload-archive", "git_endpoint"),
+    ("POST", "/git/o/brain.git/info/refs?service=git-upload-pack", "git_endpoint"),
+    ("GET", "/git/o/brain.git/../referee.git/info/refs?service=git-upload-pack", "unsafe_path"),
+    ("GET", "/api/repos/o/referee/contents/vectors/vectors.json", "repo_not_allowed"),
+    ("GET", "/api/repos/O/REFEREE/contents/vectors", "repo_not_allowed"),
+    ("GET", "/api/repos/o/snowball-mcp/tarball/main", "repo_not_allowed"),
+    ("GET", "/api/repos/o/brain-referee/contents/vectors", "repo_not_allowed"),
+    ("GET", "/api/repos/o/brainx", "repo_not_allowed"),
+    ("GET", "/api/repos/o/brain/../referee/contents", "unsafe_path"),
+    ("GET", "/api/repos/o/brain/%2e%2e/referee/contents", "unsafe_path"),
+    ("GET", "/api/repos/o/brain%2F..%2Freferee", "unsafe_path"),
+    ("GET", "/api/repos/o/brain/contents/%00", "unsafe_path"),
+    ("GET", "/api/repos/o/brain/contents/%zz", "unsafe_path"),
+    ("GET", "/api/repos/o/brain\\..\\referee", "unsafe_path"),
+    ("GET", "/api/repos/o/brain/contents//x", "unsafe_path"),
+    ("GET", "/api/repositories/1/contents", "no_route"),
+    ("GET", "/api/user", "no_route"),
+    ("GET", "/api/search/code?q=repo:o/referee", "no_route"),
+    ("GET", "/o/referee/raw/main/vectors/vectors.json", "no_route"),
+    ("TRACE", "/api/repos/o/brain", "method"),
+    ("OPTIONS", "/api/repos/o/brain/contents", "method"),
+)
+
+
+class EgressDecisionTest(unittest.TestCase):
+    """E508: the relay's whole rule is `decide`, before any byte goes upstream."""
+
+    def setUp(self):
+        self.egress = load_egress()
+        self.policy = self.egress.policy([ALLOWED_REPO])
+
+    def test_every_forbidden_target_is_denied_with_its_reason(self):  # relay_allows_any_repo relay_prefix_match_loose
+        self.assertGreaterEqual(len(FORBIDDEN), 30)
+        for method, target, reason in FORBIDDEN:
+            decision = self.egress.decide(self.policy, method, target)
+            self.assertEqual((decision.allow, decision.reason), (False, reason), f"{method} {target}")
+
+    def test_the_brain_alone_passes_and_the_upstream_comes_from_the_route(self):
+        decide = self.egress.decide
+        cases = {
+            ("GET", "/git/o/brain.git/info/refs?service=git-upload-pack"):
+                ("https://github.com", "/o/brain.git/info/refs?service=git-upload-pack", "basic"),
+            ("GET", "/git/O/Brain/info/refs?service=git-receive-pack"):  # GitHub's names have no case
+                ("https://github.com", "/o/brain.git/info/refs?service=git-receive-pack", "basic"),
+            ("POST", "/git/o/brain.git/git-upload-pack"):
+                ("https://github.com", "/o/brain.git/git-upload-pack", "basic"),
+            ("POST", "/git/o/brain.git/git-receive-pack"):
+                ("https://github.com", "/o/brain.git/git-receive-pack", "basic"),
+            ("GET", "/api/repos/o/brain"): ("https://api.github.com", "/repos/o/brain", "bearer"),
+            ("PATCH", "/api/repos/o/brain/issues/1?x=a%2Fb"):
+                ("https://api.github.com", "/repos/o/brain/issues/1?x=a%2Fb", "bearer"),
+        }
+        for (method, target), (upstream, path, auth) in cases.items():
+            decision = decide(self.policy, method, target)
+            self.assertEqual((decision.allow, decision.upstream, decision.path, decision.auth),
+                             (True, upstream, path, auth), target)
+        model = decide(self.policy, "CONNECT", "API.Anthropic.com:443")
+        self.assertEqual((model.allow, model.upstream), (True, "api.anthropic.com:443"))
+        self.assertEqual(self.egress.MODEL_HOSTS, (("api.anthropic.com", 443),))  # the model's API and nothing else
+
+    def test_a_policy_names_real_repositories(self):
+        self.assertEqual(self.egress.policy(["O/Brain", "o/brain"]).repos, ("o/brain",))
+        for bad in ([], ["brain"], ["o/brain/x"], ["o/.."], ["-o/brain"], ["o/br ain"]):
+            with self.assertRaises(ValueError, msg=bad):
+                self.egress.policy(bad)
+
+    def test_the_token_is_read_from_its_line_and_never_elsewhere(self):
+        path = Path(tempfile.mkdtemp()) / "relay.env"
+        path.write_text("OTHER=1\nGITHUB_TOKEN=gh-tok\r\nGITHUB_TOKEN=second\n", encoding="utf-8")
+        self.assertEqual(self.egress.read_token(path), "gh-tok")
+        path.write_text("GITHUB_TOKEN=\n", encoding="utf-8")
+        with self.assertRaises(ValueError):
+            self.egress.read_token(path)
+        self.assertEqual(self.egress.auth_header("basic", "t"), "Basic eC1hY2Nlc3MtdG9rZW46dA==")
+        self.assertEqual(self.egress.auth_header("bearer", "t"), "Bearer t")
+
+
+class FakeGitHub:
+    """github.com and api.github.com on 127.0.0.1 for the relay's tests: git smart-HTTP served by `git http-backend`
+    over bare repositories in root, any other path answered 200 with what was asked. Every request it gets is recorded
+    with the Authorization header it came with, so a test sees what reached "GitHub" and with which credentials."""
+
+    def __init__(self, root: Path):
+        self.root, self.seen = root, []
+        fake = self
+        egress = load_egress()
+
+        class Handler(http.server.BaseHTTPRequestHandler):
+            def _serve(self):
+                body = b"".join(egress.read_body(self.rfile, self.headers) or [])
+                path, _, query = self.path.partition("?")
+                fake.seen.append({"method": self.command, "path": self.path,
+                                  "authorization": self.headers.get("Authorization"),
+                                  "cookie": self.headers.get("Cookie")})
+                if not path.endswith(("/info/refs", "/git-upload-pack", "/git-receive-pack")):
+                    self._reply(200, {"Content-Type": "application/json"}, json.dumps({"path": self.path}).encode())
+                    return
+                env = {**os.environ, "GIT_PROJECT_ROOT": str(fake.root), "GIT_HTTP_EXPORT_ALL": "1",
+                       "PATH_INFO": path, "QUERY_STRING": query, "REQUEST_METHOD": self.command,
+                       "CONTENT_TYPE": self.headers.get("Content-Type") or "", "CONTENT_LENGTH": str(len(body)),
+                       "REMOTE_USER": "relay", "REMOTE_ADDR": "127.0.0.1",
+                       "HTTP_CONTENT_ENCODING": self.headers.get("Content-Encoding") or "",
+                       "GIT_PROTOCOL": self.headers.get("Git-Protocol") or ""}
+                out = subprocess.run(["git", "http-backend"], input=body, env=env, capture_output=True,
+                                     check=True).stdout
+                ends = [(out.find(sep), sep) for sep in (b"\r\n\r\n", b"\n\n") if sep in out]
+                head, _, payload = out.partition(min(ends)[1])  # the CGI header block ends at the first blank line
+                headers, status = {}, 200
+                for line in head.decode("latin-1").splitlines():
+                    key, _, value = line.partition(":")
+                    if key.lower() == "status":
+                        status = int(value.split()[0])
+                    elif key:
+                        headers[key] = value.strip()
+                self._reply(status, headers, payload)
+
+            def _reply(self, status, headers, payload):
+                self.send_response(status)
+                for key, value in headers.items():
+                    self.send_header(key, value)
+                self.send_header("Content-Length", str(len(payload)))
+                self.end_headers()
+                self.wfile.write(payload)
+
+            do_GET = do_POST = do_PATCH = do_PUT = do_DELETE = do_HEAD = _serve
+
+            def log_message(self, *args):
+                pass
+
+        self.server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        self.url = f"http://127.0.0.1:{self.server.server_port}"
+        threading.Thread(target=self.server.serve_forever, daemon=True).start()
+
+    def close(self):
+        self.server.shutdown()
+        self.server.server_close()
+
+
+class RelayLiveTest(unittest.TestCase):
+    """E508: the relay itself, over real sockets on 127.0.0.1, in front of a fake GitHub and an echo server standing in
+    for the model's API. Forbidden requests never reach either, each is in the log as denied; the brain is cloned and
+    pushed through it with the relay's token alone."""
+
+    TOKEN = "relay-only-token-0123456789"
+
+    def setUp(self):
+        self.egress = load_egress()
+        self.tmp = Path(tempfile.mkdtemp())
+        self.github = FakeGitHub(self.tmp / "repos")
+        self.echo = socket.create_server(("127.0.0.1", 0))
+        threading.Thread(target=self._echo, daemon=True).start()
+        policy = self.egress.policy([ALLOWED_REPO], git_upstream=self.github.url, api_upstream=self.github.url,
+                                    connect=(("127.0.0.1", self.echo.getsockname()[1]),))
+        self.log = self.tmp / "log" / "egress.jsonl"
+        self.relay = self.egress.Relay(("127.0.0.1", 0), policy, self.TOKEN, self.log)
+        self.port = self.relay.server_address[1]
+        threading.Thread(target=self.relay.serve_forever, daemon=True).start()
+
+    def tearDown(self):
+        self.relay.shutdown()
+        self.relay.server_close()
+        self.github.close()
+        self.echo.close()
+
+    def _echo(self):
+        while True:
+            try:
+                conn, _ = self.echo.accept()
+            except OSError:
+                return
+            with conn:
+                while data := conn.recv(4096):
+                    conn.sendall(data)
+
+    def ask(self, method: str, target: str, extra: str = "") -> bytes:
+        """The relay's whole answer to one raw request."""
+        with socket.create_connection(("127.0.0.1", self.port), timeout=30) as conn:
+            conn.sendall(f"{method} {target} HTTP/1.1\r\nHost: relay\r\n{extra}Content-Length: 0\r\n\r\n".encode())
+            chunks = []
+            while data := conn.recv(65536):
+                chunks.append(data)
+        return b"".join(chunks)
+
+    def rows(self) -> list[dict]:
+        return [json.loads(line) for line in self.log.read_text(encoding="utf-8").splitlines()]
+
+    def test_nothing_forbidden_goes_out_each_logged(self):  # relay_deny_not_logged relay_allows_any_repo
+        for method, target, _ in FORBIDDEN:
+            self.assertTrue(self.ask(method, target).startswith(b"HTTP/1.1 403 "), f"{method} {target}")
+        self.assertEqual(self.github.seen, [])  # not one byte went upstream
+        rows = self.rows()
+        self.assertEqual([(r["method"], r["target"], r["decision"], r["reason"]) for r in rows],
+                         [(m, t, "deny", reason) for m, t, reason in FORBIDDEN])
+        self.assertTrue(all(set(r) == {"ts", "peer", "method", "target", "decision", "reason"} for r in rows))
+        self.assertTrue(self.ask("GET", "/api/repos/o/brain").startswith(b"HTTP/1.1 200 "))  # the control
+        self.assertEqual(self.rows()[-1]["decision"], "allow")
+
+    def test_a_malformed_request_is_logged_and_refused(self):
+        with socket.create_connection(("127.0.0.1", self.port), timeout=30) as conn:
+            conn.sendall(b"NONSENSE\r\n\r\n")
+            answer = b""
+            while data := conn.recv(65536):  # to the close: the row is written before the relay closes
+                answer += data
+        self.assertIn(b"Error code: 400", answer)  # read as HTTP/0.9: the error page without a status line
+        self.assertEqual([(r["decision"], r["reason"]) for r in self.rows()], [("deny", "malformed")])
+
+    def test_the_relays_token_replaces_the_clients_and_no_cookie_passes(self):
+        answer = self.ask("GET", "/api/repos/O/brain/contents/a.md?ref=main",
+                          "Authorization: Bearer capsule-made-up\r\nCookie: s=1\r\n")
+        self.assertTrue(answer.startswith(b"HTTP/1.1 200 "), answer[:60])
+        self.assertEqual(self.github.seen, [{"method": "GET", "path": "/repos/o/brain/contents/a.md?ref=main",
+                                             "authorization": f"Bearer {self.TOKEN}", "cookie": None}])
+
+    def test_the_model_tunnel_carries_bytes_both_ways(self):
+        with socket.create_connection(("127.0.0.1", self.port), timeout=30) as conn:
+            conn.sendall(f"CONNECT 127.0.0.1:{self.echo.getsockname()[1]} HTTP/1.1\r\nHost: x\r\n\r\n".encode())
+            head = b""
+            while b"\r\n\r\n" not in head:
+                head += conn.recv(1)
+            self.assertTrue(head.startswith(b"HTTP/1.1 200 "), head)
+            conn.sendall(b"tls bytes the relay cannot read")
+            self.assertEqual(conn.recv(4096), b"tls bytes the relay cannot read")
+        self.assertEqual([r["decision"] for r in self.rows()], ["allow"])
+
+    def test_the_brain_is_cloned_and_pushed_through_the_relay_alone(self):
+        bare = self.tmp / "repos" / "o" / "brain.git"
+        bare.parent.mkdir(parents=True)
+        subprocess.run(["git", "init", "-q", "--bare", "-b", "main", str(bare)], check=True)
+        seed = self.tmp / "seed"
+        make_repo(seed, {"a.txt": "one\n"})
+        sh(seed, "git", "push", "-q", str(bare), "main")
+        home = self.tmp / "home"
+        home.mkdir()
+        env = {**os.environ, "HOME": str(home), "GIT_CONFIG_NOSYSTEM": "1", "GIT_TERMINAL_PROMPT": "0",
+               "GIT_CONFIG_GLOBAL": str(home / ".gitconfig")}
+        relay = f"http://127.0.0.1:{self.port}"
+        # As the contained entrypoint does it: https://github.com/ URLs are rewritten to the relay.
+        subprocess.run(["git", "config", "--global", f"url.{relay}/git/.insteadOf", "https://github.com/"],
+                       env=env, check=True)
+        clone = self.tmp / "clone"
+        git = lambda *a: subprocess.run(["git", *a], env=env, check=True, capture_output=True)  # noqa: E731
+        git("clone", "-q", "https://github.com/o/brain.git", str(clone))
+        self.assertEqual((clone / "a.txt").read_text(encoding="utf-8"), "one\n")
+        git("-C", str(clone), "config", "user.email", "f@example.invalid")
+        git("-C", str(clone), "config", "user.name", "f")
+        (clone / "b.bin").write_bytes(os.urandom(3 << 20))  # past git's 1 MiB post buffer: a chunked push body
+        git("-C", str(clone), "add", "-A")
+        git("-C", str(clone), "commit", "-q", "-m", "work")
+        git("-C", str(clone), "-c", "http.extraHeader=Authorization: Basic Y2Fwc3VsZTpub3Bl", "push", "-q",
+            "origin", "main")
+        head = git("-C", str(clone), "rev-parse", "HEAD").stdout.strip()
+        self.assertEqual(sh(bare, "git", "rev-parse", "main"), head.decode())
+        basic = "Basic " + base64.b64encode(f"x-access-token:{self.TOKEN}".encode()).decode()
+        self.assertTrue(self.github.seen)
+        self.assertEqual({s["authorization"] for s in self.github.seen}, {basic})  # never the capsule's header
+        self.assertIn(("POST", "/o/brain.git/git-receive-pack"), {(s["method"], s["path"]) for s in self.github.seen})
+        self.assertEqual({r["decision"] for r in self.rows()}, {"allow"})
+        with self.assertRaises(subprocess.CalledProcessError):  # and nothing else: the control
+            git("clone", "-q", "https://github.com/o/referee.git", str(self.tmp / "other"))
+        self.assertEqual(self.rows()[-1]["decision"], "deny")
+
+
+class ContainedCapsuleTest(unittest.TestCase):
+    """E508: the launcher's contained egress. The capsule sits on an internal network with the relay's address, holds
+    the model's token alone, and the transcript is written on the host from its stdout. Open egress stays as it was."""
+
+    STAMP = "20261102T000000Z"
+
+    def setUp(self):
+        self.launch = load_launch()
+        self.work = Path(tempfile.mkdtemp())
+        self.pilot = self.launch.Pilot(self.work, "o/brain", "o/referee", "target", "contained")
+        self.pilot.seed = "a" * 40
+        self.argv = self.pilot.capsule_argv(self.STAMP, "claude-opus-5-5", 200, 50)
+
+    def mounts(self, argv) -> dict[str, tuple[Path, str]]:
+        out = {}
+        for i, arg in enumerate(argv):
+            if arg == "--mount":
+                spec = dict(part.split("=", 1) if "=" in part else (part, "") for part in argv[i + 1].split(","))
+                out[spec["dst"]] = (Path(spec["src"]), "readonly" if "readonly" in spec else "rw")
+        return out
+
+    def env(self, argv) -> dict[str, str]:
+        return dict(argv[i + 1].split("=", 1) for i, a in enumerate(argv) if a == "-e")
+
+    def test_the_capsule_is_on_the_internal_network_behind_the_relay(self):  # capsule_default_network
+        self.assertEqual(self.argv[self.argv.index("--network") + 1], self.launch.CAPSULE_NETWORK)
+        self.assertEqual([a for a in self.argv if a.startswith("--net")], ["--network"])
+        env = self.env(self.argv)
+        self.assertEqual((env["RELAY"], env["HTTPS_PROXY"], env["NO_PROXY"]),
+                         ("http://relay:3128", "http://relay:3128", "relay"))
+        relay = self.pilot.relay_argv(self.STAMP)
+        self.assertEqual([relay[i + 1] for i, a in enumerate(relay) if a == "--network"],
+                         [f"name={self.launch.CAPSULE_NETWORK},alias=relay", "bridge"])  # its one route out
+        opened = self.launch.Pilot(self.work, "o/brain", "o/referee", "target")
+        opened.seed = "a" * 40
+        self.assertFalse(any(a.startswith("--net") or a.startswith("RELAY") or "PROXY" in a
+                             for a in opened.capsule_argv(self.STAMP, "m", 1, 1)))  # open egress: as before
+        with self.assertRaises(ValueError):
+            self.launch.Pilot(self.work, "o/brain", "o/referee", "target", "half")
+
+    def test_the_github_token_is_the_relays_alone(self):  # token_in_capsule_env
+        capsule, relay = self.mounts(self.argv), self.mounts(self.pilot.relay_argv(self.STAMP))
+        self.assertEqual(capsule["/run/secrets/founder.env"], (self.work / "snowball-capsule.env", "readonly"))
+        self.assertEqual(relay["/run/secrets/relay.env"], (self.work / "snowball-relay.env", "readonly"))
+        secrets = {self.work / "snowball-founder.env", self.work / "snowball-relay.env"}
+        self.assertEqual({src for src, _ in capsule.values()} & secrets, set())
+        self.assertFalse(any(re.search(r"TOKEN|KEY|SECRET", k) for k in self.env(self.argv)))
+        # The relay sees its code, its token and its log: none of the capsule's inputs.
+        self.assertEqual(set(relay), {"/opt/relay/egress.py", "/run/secrets/relay.env", "/log"})
+        self.assertEqual(relay["/opt/relay/egress.py"][1], "readonly")
+        # The entrypoint refuses a GitHub token in a contained capsule, and git goes through the relay's address.
+        entry = (FOUNDER / "entrypoint.sh").read_text(encoding="utf-8")
+        branch = entry[entry.index('if [ -n "${RELAY:-}" ]; then'):entry.index("\nelse\n")]
+        self.assertIn('if [ -n "$(secret GITHUB_TOKEN)" ]; then', branch)
+        self.assertIn("exit 64", branch)
+        self.assertIn('url."$RELAY/git/".insteadOf "https://github.com/"', branch)
+        self.assertNotIn("extraheader", branch)
+
+    def test_the_relay_runs_the_capsules_pinned_python_locked_down(self):
+        relay = self.pilot.relay_argv(self.STAMP)
+        dockerfile = (FOUNDER / "Dockerfile").read_text(encoding="utf-8")
+        self.assertEqual(self.launch.relay_image(), re.findall(r"(?m)^FROM (\S+)", dockerfile)[-1])
+        self.assertRegex(self.launch.relay_image(), r"^docker\.io/library/python:3\.12-slim@sha256:[0-9a-f]{64}$")
+        self.assertIn(self.launch.relay_image(), relay)
+        for flag in ("--read-only", "--rm", "--detach"):
+            self.assertIn(flag, relay)
+        self.assertEqual(relay[relay.index("--cap-drop") + 1], "ALL")
+        self.assertEqual(relay[relay.index("--security-opt") + 1], "no-new-privileges")
+        self.assertNotIn("--privileged", relay)
+        self.assertEqual(relay[relay.index("--repo") + 1], "o/brain")  # the brain alone
+        self.assertEqual(relay.count("--repo"), 1)
+        self.assertEqual(relay[relay.index("--listen") + 1], "relay:3128")  # its capsule-network address, not 0.0.0.0
+        for argv in (relay, self.argv):
+            for i, arg in enumerate(argv):
+                if arg == "--mount":
+                    src = re.search(r"src=([^,]+)", argv[i + 1]).group(1)
+                    self.assertTrue(Path(src).is_relative_to(self.work), src)
+
+    def test_a_network_with_a_route_out_is_refused_never_used(self):  # capsule_network_not_internal
+        calls = []
+
+        def fake(states):
+            def run(*argv, **kw):
+                calls.append(argv)
+                out = states.pop(0) if argv[:3] == ("docker", "network", "inspect") else b""
+                return subprocess.CompletedProcess(argv, 0 if out is not None else 1, out or b"", b"")
+            return run
+        for states, problems, created in (([b"true\n"], [], False), ([None, b"true\n"], [], True),
+                                          ([b"false\n"], 1, False), ([None, None], 1, True)):
+            calls.clear()
+            with mock.patch.object(self.launch, "run", fake(list(states))):
+                found = self.pilot.network_problems()
+            self.assertEqual(len(found), problems if isinstance(problems, int) else 0, states)
+            made = [c for c in calls if c[:3] == ("docker", "network", "create")]
+            self.assertEqual(made, [("docker", "network", "create", "--internal", "snowball_capsule")] if created
+                             else [], states)
+
+    def test_contained_preflight_wants_both_secret_files_and_not_the_open_one(self):
+        def problems(pilot):
+            with mock.patch.object(self.launch, "run",
+                                   return_value=subprocess.CompletedProcess([], 1, b"", b"")), \
+                    self.assertRaises(SystemExit) as stop:
+                pilot.preflight()
+            return str(stop.exception)
+        text = problems(self.pilot)
+        self.assertIn("snowball-capsule.env is missing", text)
+        self.assertIn("snowball-relay.env is missing", text)
+        self.assertNotIn("snowball-founder.env", text)
+        opened = self.launch.Pilot(self.work, "o/brain", "o/referee", "target")
+        self.assertIn("snowball-founder.env is missing", problems(opened))
+
+    def fake_capsule(self, stdout: bytes, tamper: bytes, rc: int = 0, timeout: bool = False):
+        """subprocess.run as docker would run the capsule: stdout into the launcher's file, and the capsule writing
+        into everything it has mounted read-write (its /work/logs), the Founder's copy of the stream included."""
+        seen = {}
+        stream, timed_out = stdout, timeout
+
+        def run(cmd, stdout=None, stderr=None, timeout=None, check=False):
+            seen["cmd"] = cmd
+            stdout.write(stream)
+            stdout.flush()
+            for src, mode in self.mounts(cmd).values():  # then the Founder edits what it can reach
+                if mode == "rw":
+                    src.mkdir(parents=True, exist_ok=True)
+                    (src / f"session-{self.STAMP}.jsonl").write_bytes(tamper)
+            if timed_out:
+                raise subprocess.TimeoutExpired(cmd, timeout)
+            return subprocess.CompletedProcess(cmd, rc, None, b"git noise\nfounder_session stamp=x claude_exit=0\n")
+        return run, seen
+
+    STREAM = (json.dumps({"type": "system", "subtype": "init", "claude_code_version": "2.1.293", "model": "m"}) + "\n"
+              + json.dumps({"type": "result", "subtype": "success", "num_turns": 3, "total_cost_usd": 0.5,
+                            "result": "done"}) + "\n").encode()
+
+    def test_the_transcript_is_the_capsules_stdout_on_the_host_and_its_hash_holds(self):  # transcript_in_logs_mount
+        pilot = self.launch.Pilot(self.work, "o/brain", "o/referee", "target")  # open egress: the record is the same
+        pilot.seed = "a" * 40
+        forged = json.dumps({"type": "result", "num_turns": 99, "total_cost_usd": 0.0, "subtype": "success"}).encode()
+        fake, seen = self.fake_capsule(self.STREAM, forged + b"\n")
+        with mock.patch.object(self.launch.subprocess, "run", fake):
+            out = pilot.session(self.STAMP, "m", 1, 1, 60)
+        record = pilot.transcript(self.STAMP)
+        self.assertEqual(record.read_bytes(), self.STREAM)  # what the capsule wrote into its mounts changed nothing
+        for src, _ in self.mounts(seen["cmd"]).values():
+            self.assertFalse(record.is_relative_to(src), src)  # no mount of the capsule reaches the record
+        digest = hashlib.sha256(self.STREAM).hexdigest()
+        self.assertEqual(out["transcript_sha256"], digest)
+        self.assertEqual(record.with_name(record.name + ".sha256").read_text(encoding="utf-8"),
+                         f"{digest}  session-{self.STAMP}.jsonl\n")
+        self.assertEqual((out["turns"], out["cost_usd"], out["cli_version"]), (3, 0.5, "2.1.293"))  # read from it
+        self.assertEqual((out["line"], out["egress"]), ("founder_session stamp=x claude_exit=0", "open"))
+        self.assertNotIn("egress_denied", out)  # open egress: nothing counts refusals
+        self.assertEqual(out["transcript_results"], 1)
+        # What the capsule can do (measured: a process of its user writes to /proc/1/fd/N, the container's stdout):
+        # append a line. The record keeps every line the CLI wrote; the second `result` is counted for the report.
+        fake, _ = self.fake_capsule(self.STREAM + forged + b"\n", b"")
+        with mock.patch.object(self.launch.subprocess, "run", fake):
+            out = pilot.session(self.STAMP, "m", 1, 1, 60)
+        self.assertTrue(record.read_bytes().startswith(self.STREAM))
+        self.assertEqual(out["transcript_results"], 2)
+
+    def test_a_contained_session_runs_between_its_relays_start_and_stop(self):
+        order = []
+        log = self.pilot.session_logs(self.STAMP) / "relay" / "log" / "egress.jsonl"
+
+        def run(*argv, **kw):
+            order.append(argv[:2] if argv[1] not in ("run", "stop") else
+                         ("docker", "run", argv[argv.index("--name") + 1]) if argv[1] == "run" else
+                         ("docker", "stop", argv[-1]))
+            if argv[:2] == ("docker", "logs"):
+                return subprocess.CompletedProcess(argv, 0, b"relay listening on 0.0.0.0:3128 for o/brain\n", b"")
+            return subprocess.CompletedProcess(argv, 0, b"id\n", b"")
+        for timeout in (False, True):
+            order.clear()
+            fake, _ = self.fake_capsule(self.STREAM, b"", timeout=timeout)
+
+            def capsule(cmd, **kw):
+                order.append(("capsule",))
+                log.write_text("\n".join(json.dumps(r) for r in (
+                    {"decision": "allow", "method": "CONNECT", "target": "api.anthropic.com:443", "reason": "ok"},
+                    {"decision": "deny", "method": "GET", "target": "/api/repos/o/referee",
+                     "reason": "repo_not_allowed"},
+                )) + "\nnot json\n", encoding="utf-8")
+                return fake(cmd, **kw)
+            with mock.patch.object(self.launch, "run", run), \
+                    mock.patch.object(self.launch.subprocess, "run", capsule), \
+                    mock.patch.object(self.launch.time, "sleep"):
+                out = self.pilot.session(self.STAMP, "m", 1, 1, 60)
+            relay = "snowball_relay_" + self.STAMP.lower()
+            self.assertEqual(order[0], ("docker", "run", relay))
+            self.assertEqual(order[-1], ("docker", "stop", relay))  # after the capsule, a timeout too
+            self.assertLess(order.index(("capsule",)), len(order) - 1)
+            self.assertEqual((out["egress"], out["egress_allowed"], out["egress_denied"], out["egress_unreadable"]),
+                             ("contained", 1, 1, 1))
+            self.assertEqual(out["egress_denied_first"],
+                             [{"method": "GET", "target": "/api/repos/o/referee", "reason": "repo_not_allowed"}])
+            self.assertEqual(out["timed_out"], timeout)
+        code = (self.pilot.session_logs(self.STAMP) / "relay" / "egress.py").read_bytes()
+        self.assertEqual(code, (FOUNDER / "egress.py").read_bytes().replace(b"\r\n", b"\n"))  # what decided them
+
+    def test_a_relay_that_never_listens_is_an_outage_and_is_stopped(self):
+        calls = []
+
+        def run(*argv, **kw):
+            calls.append(argv[:2])
+            return subprocess.CompletedProcess(argv, 0, b"", b"")
+        clock = iter(range(0, 1000, 10))
+        with mock.patch.object(self.launch, "run", run), mock.patch.object(self.launch.time, "sleep"), \
+                mock.patch.object(self.launch.time, "monotonic", lambda: next(clock)), \
+                mock.patch.object(self.launch.subprocess, "run") as capsule:
+            with self.assertRaises(self.launch.RelayDown):
+                self.pilot.session(self.STAMP, "m", 1, 1, 60)
+        capsule.assert_not_called()  # no session without its relay
+        self.assertEqual(calls[-1], ("docker", "stop"))
+        self.assertTrue(issubclass(self.launch.RelayDown, self.launch.Outage))
+
+    def test_the_cycle_line_names_the_egress_the_hash_and_the_refusals(self):
+        report = []
+        launch = self.launch
+
+        class Fake(quiet_pilot(launch)):
+            heads = ["a" * 40, "a" * 40]
+
+            def fetch_result(self):
+                return None
+
+            def brain_head(self):
+                return self.heads.pop(0)
+
+            def ledger_rows(self, sha):
+                return []
+
+            def refresh_inputs(self):
+                pass
+
+            def session(self, *a):
+                return {"exit": 0, "minutes": 1, "egress": "contained", "transcript_sha256": "f" * 64,
+                        "transcript_results": 2, "egress_allowed": 4, "egress_denied": 2,
+                        "egress_denied_first": [{"method": "GET", "target": "/x", "reason": "no_route"}]}
+
+            def write(self, text):
+                report.append(text)
+
+        pilot = Fake(self.work, "o/brain", "o/referee", "target", "contained")
+        pilot.idle, pilot.seed = 0, "a" * 40
+        args = type("Args", (), dict(model="m", max_turns=1, budget_usd=1, session_timeout=1, referee_timeout=1))
+        with mock.patch.object(launch, "say"):
+            pilot.cycle(1, args)
+        row = json.loads(pilot.metrics.read_text(encoding="utf-8").splitlines()[-1])
+        keys = ("egress", "transcript_sha256", "transcript_results", "egress_allowed", "egress_denied")
+        self.assertEqual({k: row[k] for k in keys},
+                         {"egress": "contained", "transcript_sha256": "f" * 64, "transcript_results": 2,
+                          "egress_allowed": 4, "egress_denied": 2})
+        self.assertIn("- Dökümde 2 `result` olayı var", "".join(report))
+        self.assertIn("- Kapsülün reddedilen ağ istekleri: 2", "".join(report))
+        self.assertIn("/relay/log/egress.jsonl", "".join(report))
+
+    def test_the_entrypoint_writes_the_stream_to_stdout_and_nothing_else_there(self):
+        entry = (FOUNDER / "entrypoint.sh").read_text(encoding="utf-8")
+        self.assertLess(entry.index("exec 3>&1 1>&2"), entry.index("secret()"))  # before anything can print
+        self.assertNotIn('> "/work/logs/session-$stamp.jsonl"', entry)  # the record is no file of the capsule's
+        call = entry[entry.index("rc=$( { { code=0"):entry.index("rc=${rc:-1}")]
+        self.assertIn('2> "/work/logs/session-$stamp.err" 3>&- 4>&- || code=$?', call)
+        self.assertIn('| tee "/work/logs/session-$stamp.jsonl" >&3 4>&-; } 4>&1 ) || true', call)
+        self.assertIn('echo "$code" >&4', call)
+
+    def test_a_start_refuses_an_image_whose_entrypoint_is_not_the_checkouts(self):
+        work = Path(tempfile.mkdtemp())
+        seen = {"calls": []}
+        launch = self.launch
+
+        class FakePilot:
+            idle = 0
+
+            def __init__(self, work, brain, referee, target, egress="open"):
+                self.work, self.report = work, work / "pilot-log.md"
+                seen["egress"] = egress
+
+            def write(self, text):
+                pass
+
+            def preflight(self):
+                seen["calls"].append("preflight")
+
+            def build(self):
+                seen["calls"].append("build")
+
+            def image_entrypoint(self):
+                return seen.get("label")
+
+            def intervention(self, args):
+                seen["calls"].append("intervention")
+
+        def start(*argv):
+            with mock.patch.object(launch, "Pilot", FakePilot), mock.patch.object(launch, "say"), \
+                    mock.patch.object(launch, "run_cycles", lambda *a: seen["calls"].append("cycles")), \
+                    mock.patch.object(launch.shutil, "which", return_value="/usr/bin/tool"):
+                return launch.main([*argv, "--work", str(work)])
+        with self.assertRaises(SystemExit) as stop:
+            start("--no-build", "--egress", "contained")
+        self.assertIn("another entrypoint", str(stop.exception))
+        self.assertEqual((seen["calls"], seen["egress"]), (["preflight"], "contained"))
+        self.assertFalse((work / "RUNNING").exists())  # a resume would fail the same way
+        seen.update(calls=[], label=launch.entrypoint_sha256())
+        self.assertEqual(start("--no-build"), 0)
+        self.assertEqual(seen["calls"], ["preflight", "intervention", "cycles"])
+        self.assertEqual(launch.build_parser().parse_args([]).egress, "open")  # opt-in: a restart changes nothing
+
+    def test_the_build_labels_the_image_with_its_entrypoint(self):  # E508
+        calls = []
+
+        def fake_run(*argv, **kw):
+            calls.append(argv)
+            return subprocess.CompletedProcess(argv, 0, b"", b"")
+        with mock.patch.object(self.launch, "run", side_effect=fake_run), mock.patch.object(self.launch, "say"):
+            self.pilot.build()
+        labels = [calls[0][i + 1] for i, a in enumerate(calls[0]) if a == "--label"]
+        self.assertIn(f"{self.launch.ENTRYPOINT_LABEL}={self.launch.entrypoint_sha256()}", labels)
+        built = (FOUNDER / "entrypoint.sh").read_bytes().replace(b"\r\n", b"\n")
+        self.assertEqual(self.launch.entrypoint_sha256(), hashlib.sha256(built).hexdigest())
+        self.assertIn("founder/entrypoint.sh", self.launch.BUILD_FILES)
+        self.assertNotIn("founder/egress.py", self.launch.BUILD_FILES)  # the relay's code never enters the capsule
+
+
+PROBE = r'''
+import json, socket, ssl, sys
+RELAY = ("relay", 3128)
+out = []
+
+def note(kind, target, ok, detail):
+    out.append({"kind": kind, "target": target, "reached": ok, "detail": str(detail)[:200]})
+
+for host in ("github.com", "raw.githubusercontent.com", "codeload.github.com", "objects.githubusercontent.com",
+             "api.github.com", "api.anthropic.com", "pypi.org"):
+    try:
+        note("dns", host, True, socket.getaddrinfo(host, 443)[0][4])
+    except OSError as exc:
+        note("dns", host, False, exc)
+for host, port in (("140.82.121.3", 443), ("1.1.1.1", 443), ("8.8.8.8", 53), ("172.17.0.1", 80),
+                   ("169.254.169.254", 80), ("host.docker.internal", 80), ("host.docker.internal", 2375)):
+    try:
+        socket.create_connection((host, port), timeout=5).close()
+        note("tcp", f"{host}:{port}", True, "connected")
+    except OSError as exc:
+        note("tcp", f"{host}:{port}", False, exc)
+udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+udp.settimeout(5)
+try:
+    udp.sendto(bytes.fromhex("12340100000100000000000006676974687562036e65740000010001"), ("8.8.8.8", 53))
+    note("udp", "8.8.8.8:53", True, udp.recvfrom(512)[0][:8].hex())
+except OSError as exc:
+    note("udp", "8.8.8.8:53", False, exc)
+
+def ask(method, target):
+    with socket.create_connection(RELAY, timeout=30) as conn:
+        conn.sendall(f"{method} {target} HTTP/1.1\r\nHost: relay\r\nContent-Length: 0\r\n\r\n".encode())
+        head = b""
+        while b"\r\n" not in head:
+            data = conn.recv(1)
+            if not data:
+                break
+            head += data
+        return head.split(b"\r\n")[0].decode(errors="replace")
+
+for method, target in json.loads(sys.argv[1]):
+    status = ask(method, target)
+    note("relay", f"{method} {target}", " 403 " not in status, status)
+with socket.create_connection(RELAY, timeout=30) as conn:
+    conn.sendall(b"CONNECT api.anthropic.com:443 HTTP/1.1\r\nHost: api.anthropic.com:443\r\n\r\n")
+    head = b""
+    while b"\r\n\r\n" not in head:
+        head += conn.recv(1)
+    tls = ssl.create_default_context().wrap_socket(conn, server_hostname="api.anthropic.com")
+    note("model", "api.anthropic.com:443", True, f"{head.split(b' ')[1].decode()} {tls.version()}")
+note("brain", "info/refs", True, ask("GET", "/git/" + sys.argv[2] + ".git/info/refs?service=git-upload-pack"))
+print(json.dumps(out))
+'''
+
+
+@unittest.skipUnless(os.environ.get("SNOWBALL_EGRESS_PROBE"),
+                     "set SNOWBALL_EGRESS_PROBE to a name prefix to probe the real docker (network, relay, capsule)")
+class ContainmentProbeTest(unittest.TestCase):
+    """E508, opt-in: the launcher's own argv against the real docker. An internal network, the session's relay, and a
+    probe in the capsule's place (its argv, the pinned Python base as the founder user) that tries to get out every way
+    it can: DNS, TCP and UDP to addresses, and through the relay every forbidden target. It reaches the model's API
+    (a TLS handshake, no request) and the brain's git endpoint (GitHub answers the made-up token 401). Containers and
+    the network carry the prefix and are removed. Nothing secret is used."""
+
+    BRAIN = "Okan-wqm/snowball-rehearsal-brain"
+
+    def test_nothing_gets_out_but_the_model_and_the_brain_and_every_refusal_is_logged(self):
+        launch, prefix = load_launch(), os.environ["SNOWBALL_EGRESS_PROBE"].rstrip("_")
+        work = Path(tempfile.mkdtemp())
+        for folder in ("target", "referee", "vec"):
+            (work / folder).mkdir()
+        (work / launch.CAPSULE_ENV).write_text("CLAUDE_CODE_OAUTH_TOKEN=made-up-" + "0" * 40 + "\n", encoding="utf-8")
+        (work / launch.RELAY_ENV).write_text("GITHUB_TOKEN=made-up-" + "0" * 40 + "\n", encoding="utf-8")
+        pilot = launch.Pilot(work, self.BRAIN, "o/referee", "target", "contained")
+        pilot.network, pilot.container_prefix, pilot.seed = f"{prefix}_net", prefix, "a" * 40
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        relay_targets = [(m, t) for m, t, _ in FORBIDDEN] + [
+            ("GET", "/git/Okan-wqm/snowball-rehearsal-referee.git/info/refs?service=git-upload-pack"),
+            ("GET", "/api/repos/Okan-wqm/snowball-rehearsal-referee/contents/vectors"),
+            ("GET", "/api/repos/Okan-wqm/snowball-mcp/contents/seed")]
+        self.assertEqual(pilot.network_problems(), [])
+        try:
+            relay = pilot.start_relay(stamp)
+            try:
+                pilot.capsule_logs(stamp).mkdir(parents=True, exist_ok=True)
+                argv = pilot.capsule_argv(stamp, "m", 1, 1)
+                argv = [*argv[:-1], "--user", "10001:10001", "--entrypoint", "python3", launch.relay_image(),
+                        "-c", PROBE, json.dumps(relay_targets), self.BRAIN]
+                proc = subprocess.run(argv, capture_output=True, timeout=600)
+                self.assertEqual(proc.returncode, 0, proc.stderr.decode(errors="replace")[-2000:])
+                results = json.loads(proc.stdout)
+                # From the default bridge, where the relay has its route out, neither of its addresses answers.
+                nets = json.loads(subprocess.run(["docker", "inspect", "--format", "{{json .NetworkSettings.Networks}}",
+                                                  relay], capture_output=True, check=True).stdout)
+                code = ("import socket, sys\nfor ip in sys.argv[1:]:\n    try:\n"
+                        "        socket.create_connection((ip, 3128), timeout=5).close(); print('reached', ip)\n"
+                        "    except OSError as exc:\n        print('blocked', ip, exc)\n")
+                bridge = subprocess.run(["docker", "run", "--rm", "--name", f"{prefix}_bridge_{stamp.lower()}",
+                                         "--network", "bridge", "--entrypoint", "python3", launch.relay_image(), "-c",
+                                         code, *[n["IPAddress"] for n in nets.values()]],
+                                        capture_output=True, timeout=120, text=True)
+                print(bridge.stdout)
+                self.assertNotIn("reached", bridge.stdout)
+                self.assertEqual(bridge.stdout.count("blocked"), 2)
+            finally:
+                pilot.stop_relay(relay)
+        finally:
+            subprocess.run(["docker", "network", "rm", pilot.network], capture_output=True)
+        print("\n" + json.dumps(results, indent=1))
+        reached = [r for r in results if r["reached"] and r["kind"] not in ("model", "brain")]
+        self.assertEqual(reached, [])
+        self.assertEqual(len([r for r in results if not r["reached"]]), len(results) - 2)
+        self.assertTrue(next(r for r in results if r["kind"] == "model")["detail"].startswith("200 TLS"))
+        self.assertRegex(next(r for r in results if r["kind"] == "brain")["detail"], r" (200|401) ")
+        log = pilot.session_logs(stamp) / "relay" / "log" / "egress.jsonl"
+        rows = [json.loads(line) for line in log.read_text(encoding="utf-8").splitlines()]
+        denied = {(r["method"], r["target"]) for r in rows if r["decision"] == "deny"}
+        self.assertEqual(set(relay_targets) - denied, set())  # every refusal through the relay is in its log
+        self.assertEqual({r["decision"] for r in rows if r["method"] == "CONNECT"
+                          and r["target"] == "api.anthropic.com:443"}, {"allow"})
 
 
 if __name__ == "__main__":

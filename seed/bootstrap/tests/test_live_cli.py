@@ -28,13 +28,13 @@ CLAUDE = rival.resolve_claude(None)
 CFG = RivalConfig(model="claude-sonnet-5-5", effort="medium", max_turns=5, per_run_cap_usd_micros=1_000_000)
 # Flags the CLI accepts but leaves out of `claude --help` (verified against 2.1.293).
 HIDDEN_FLAGS = {"--system-prompt-file", "--max-turns"}
-DENIED = {"RemoteTrigger", "CronCreate", "CronDelete", "CronList"}  # E380
+DENIED = set(load_brain_defs().DENIED_TOOLS)  # E380, E508: the entrypoint's flag, one source
 # The default tools the Founder keeps. A signed-out CLI never offers WebFetch (nor RemoteTrigger), with the flag or
 # without it (2.1.293 on Windows and in the capsule's image); under a login it does, and the flag drops RemoteTrigger
-# only (checked with the API pointed at a closed port, E380). So a made-up token checks the rest.
-KEPT = {"Bash", "Read", "Write", "Edit", "Task", "Workflow", "WebSearch", "ScheduleWakeup", "ToolSearch", "TaskStop",
-        "ListAgents"}
-SIGNED_IN_ONLY = {"WebFetch"}
+# (checked with the API pointed at a closed port, E380) and, since E508, WebFetch and WebSearch. So a made-up token
+# checks the rest.
+KEPT = {"Bash", "Read", "Write", "Edit", "Task", "Workflow", "ScheduleWakeup", "ToolSearch", "TaskStop", "ListAgents"}
+SIGNED_IN_ONLY = {"WebFetch"}  # offered only signed in; denied (E508), so no agent of the brain may name it
 # On Linux, the capsule's platform, the session lists no Glob or Grep (its Bash searches; on Windows it does), yet a
 # brain agent that names them gets them (CapsuleBrainDefinitionsTest, 2.1.293 in the capsule's image).
 SEARCH_TOOLS = {"Glob", "Grep"}
@@ -44,7 +44,7 @@ def entrypoint_argv(claude: str, config_dir: Path, deny: bool = True) -> list[st
     """The capsule's own `claude -p` call from entrypoint.sh, its shell defaults filled in and a one-word prompt; with
     deny=False, without its --disallowedTools (the control: the tools the flag removes are there without it)."""
     text = ENTRYPOINT.read_text(encoding="utf-8")
-    call = text[text.index("claude -p "):text.index('> "/work/logs/session-')]
+    call = text[text.index("claude -p "):text.index('2> "/work/logs/session-')]
     call = re.sub(r"\$\{\w+:-([^}]*)\}", r"\1", call.replace("\\\n", " ").replace("\\\r\n", " "))
     argv = [arg.replace("$CLAUDE_CONFIG_DIR", str(config_dir)) for arg in shlex.split(call)]
     argv[argv.index("-p") + 1] = "hello"  # was "$(cat /opt/founder/prompt.md)"
@@ -231,11 +231,11 @@ class CapsuleToolSurfaceTest(unittest.TestCase):  # E380
     def test_an_agent_of_the_brain_may_name_every_tool_the_session_has_and_no_other(self):  # E450
         tools, allowed = set(self.tools(deny=True)), load_brain_defs().ALLOWED_TOOLS
         self.assertLessEqual(tools, allowed, sorted(tools - allowed))
-        self.assertLessEqual(allowed - tools, {"Agent"} | SIGNED_IN_ONLY | SEARCH_TOOLS, sorted(allowed - tools))
+        self.assertLessEqual(allowed - tools, {"Agent"} | SEARCH_TOOLS, sorted(allowed - tools))
 
     @unittest.skipUnless(os.environ.get("SNOWBALL_CLI_LOGIN") == "1",
                          "set SNOWBALL_CLI_LOGIN=1 to check the signed-in tool set with your own login")
-    def test_signed_in_the_flag_drops_remote_trigger_and_keeps_web_fetch(self):
+    def test_signed_in_the_flag_drops_remote_trigger_and_the_web_tools(self):
         """Opt-in, the operator's own login: the API is pointed at a closed port and the CLI is killed at init, so no
         request leaves the machine. A custom API address turns ToolSearch off, so it is not asked for here."""
         with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
@@ -246,9 +246,9 @@ class CapsuleToolSurfaceTest(unittest.TestCase):  # E380
             argv = entrypoint_argv(CLAUDE, Path(tmp))
             tools = set(init_tools(argv, env, Path(tmp)))
             without = set(init_tools(entrypoint_argv(CLAUDE, Path(tmp), deny=False), env, Path(tmp)))
-        self.assertIn("RemoteTrigger", without)
+        self.assertLessEqual({"RemoteTrigger"} | SIGNED_IN_ONLY, without)
         self.assertEqual(tools & DENIED, set())
-        self.assertEqual((KEPT | SIGNED_IN_ONLY) - {"ToolSearch"} - tools, set(), sorted(tools))
+        self.assertEqual(KEPT - {"ToolSearch"} - tools, set(), sorted(tools))
         allowed = load_brain_defs().ALLOWED_TOOLS  # E450: signed in too, an agent of the brain may name each of them
         self.assertLessEqual(tools, allowed, sorted(tools - allowed))
 

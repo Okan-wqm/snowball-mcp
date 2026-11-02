@@ -11,13 +11,20 @@ One cycle:
      that names what the cycle ran on (prompt, image, model, CLI, seed, rival configuration, target commit).
 
 Everything lives in one folder, <work> (the operator deletes it to remove the pilot):
-  <work>/snowball-founder.env   the Founder's two secrets; written by the operator, never read by this script
+  <work>/snowball-founder.env   the Founder's two secrets (open egress); written by the operator, never read by this
+                                script
+  <work>/snowball-capsule.env   contained egress (E508): CLAUDE_CODE_OAUTH_TOKEN alone, the capsule's only secret
+  <work>/snowball-relay.env     contained egress: GITHUB_TOKEN, mounted into the relay only; never read by this script
   <work>/aquaculture_platform   the target clone, mounted read-only
   <work>/referee/               the last referee result the Founder reads
   <work>/vec/                   the vectors' inputs, mounted read-only at /vec: cases.json (every data case's command,
                                 stdin and fixtures) and the fixtures; no expected value is there. A vector that
                                 contradicts its page stays red until the operator answers with a seed epoch.
-  <work>/logs/                  session transcripts
+  <work>/logs/<stamp>/          one session (E508): session-<stamp>.jsonl, the transcript, written here from the
+                                capsule's stdout, and its .sha256; capsule/, the only part the capsule mounts (its
+                                /work/logs: its copy of the stream, the CLI's stderr, brain-definitions.json,
+                                previous-session.json); relay/, the relay's code as it ran and its log of every request,
+                                allowed or denied (contained egress)
   <work>/pilot-log.md           the operator's report
   <work>/STOP                   create this file to stop after the current step
   <work>/cost-pending.jsonl     cost rows not written yet: the brain held work the referee had not accepted
@@ -96,6 +103,16 @@ READY_WAIT_S = 10 * 60  # past it the resume gives up; the task's next trigger t
 READY_RETRY_S = 30
 TASK_NAME = "Snowball Founder launcher"
 TASK_EVERY = "PT15M"
+# The capsule's network (E508). `open` is the default bridge, as before; `contained` is an internal Docker network with
+# no route out, whose one other member, the relay (egress.py), carries the model's API and the brain repository alone.
+EGRESS_MODES = ("open", "contained")
+CAPSULE_NETWORK = "snowball_capsule"
+RELAY_ALIAS, RELAY_PORT = "relay", 3128
+RELAY_URL = f"http://{RELAY_ALIAS}:{RELAY_PORT}"
+CAPSULE_ENV, RELAY_ENV = "snowball-capsule.env", "snowball-relay.env"
+CAPSULE_DIR, RELAY_DIR = "capsule", "relay"  # the parts of a session's folder: the capsule mounts the first alone
+RELAY_READY_S = 30
+ENTRYPOINT_LABEL = "snowball.entrypoint_sha256"  # the image's record of the entrypoint it runs (E508)
 
 
 def now() -> str:
@@ -116,6 +133,10 @@ class GitHubUnavailable(Outage):
 
 class NoVerdict(Outage):
     """The Founder's last push has no verdict yet: no session works blind on it (E168, E248)."""
+
+
+class RelayDown(Outage):
+    """Contained egress: the session's relay did not come up, so no session runs (E508)."""
 
 
 GH_RETRY_DELAYS_S = (10, 20, 40, 60, 60)  # about three minutes before a read counts as an outage
@@ -191,6 +212,48 @@ def prompt_sha256() -> str:
     """The checkout's prompt as `write_build_context` would copy it (LF): what a build now would put in the image. The
     prompt a running image holds is its build's label (`Pilot.image_prompt`); with --no-build the two can differ."""
     return hashlib.sha256((SEED / "founder" / "prompt.md").read_bytes().replace(b"\r\n", b"\n")).hexdigest()
+
+
+def entrypoint_sha256() -> str:
+    """The checkout's entrypoint as a build would copy it (LF). Unlike the prompt, the image's must be this one: the
+    launcher reads the transcript from the capsule's stdout and gives the relay's address to it (E508)."""
+    return hashlib.sha256((SEED / "founder" / "entrypoint.sh").read_bytes().replace(b"\r\n", b"\n")).hexdigest()
+
+
+def relay_image() -> str:
+    """The relay's image: the capsule's own pinned Python base (the Dockerfile's last FROM), one pin, never a copy."""
+    return re.findall(r"(?m)^FROM (\S+)", (SEED / "founder" / "Dockerfile").read_text(encoding="utf-8"))[-1]
+
+
+def bind(src: Path, dst: str, ro: bool) -> list[str]:
+    return ["--mount", f"type=bind,src={src},dst={dst}" + (",readonly" if ro else "")]
+
+
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as fh:
+        for block in iter(lambda: fh.read(1 << 20), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def egress_counts(log: Path) -> dict:
+    """The relay's log of one session (egress.py `Relay.record`): how many requests it carried and refused, and the
+    first refused ones (method, target, reason) for the report. A line that is not a row is counted as unreadable."""
+    allowed = denied = unreadable = 0
+    first: list[dict] = []
+    for line in (log.read_text(encoding="utf-8", errors="replace").splitlines() if log.is_file() else []):
+        row = _json_or_none(line)
+        if not isinstance(row, dict) or row.get("decision") not in ("allow", "deny"):
+            unreadable += 1
+        elif row["decision"] == "allow":
+            allowed += 1
+        else:
+            denied += 1
+            if len(first) < 5:
+                first.append({k: str(row.get(k, ""))[:200] for k in ("method", "target", "reason")})
+    return {"egress_allowed": allowed, "egress_denied": denied, "egress_unreadable": unreadable,
+            "egress_denied_first": first}
 
 
 def cost_summary(fact: dict) -> str:
@@ -362,10 +425,15 @@ def referee_vectors(blob: bytes, dest: Path) -> Path:
 
 
 class Pilot:
-    def __init__(self, work: Path, brain: str, referee: str, target: str) -> None:
+    def __init__(self, work: Path, brain: str, referee: str, target: str, egress: str = "open") -> None:
+        if egress not in EGRESS_MODES:
+            raise ValueError(f"egress {egress!r} is none of {EGRESS_MODES}")
         self.work, self.brain, self.referee = work, brain, referee
+        self.egress = egress
+        self.network, self.container_prefix = CAPSULE_NETWORK, "snowball"  # a probe of the real docker sets its own
         self.target = work / target
         self.env_file = work / "snowball-founder.env"
+        self.capsule_env, self.relay_env = work / CAPSULE_ENV, work / RELAY_ENV
         self.result_dir = work / "referee"
         self.inputs = work / "vec"  # the vectors' inputs, rebuilt before each session (E244)
         self.logs = work / "logs"
@@ -383,12 +451,17 @@ class Pilot:
 
     def preflight(self) -> None:
         problems = []
-        if not self.env_file.is_file() or self.env_file.stat().st_size < 40:
-            problems.append(f"{self.env_file} is missing or empty")
+        # The secrets are never read here, only that the operator wrote them: contained egress gives the capsule
+        # the model's token alone and the relay the GitHub token (E508).
+        for secrets in ((self.capsule_env, self.relay_env) if self.egress == "contained" else (self.env_file,)):
+            if not secrets.is_file() or secrets.stat().st_size < 40:
+                problems.append(f"{secrets} is missing or empty")
         if not self.target.is_dir():
             problems.append(f"target clone {self.target} is missing")
         if run("docker", "info", check=False).returncode != 0:
             problems.append("docker is not running")
+        elif self.egress == "contained":
+            problems += self.network_problems()
         if run("gh", "auth", "status", check=False).returncode != 0:
             problems.append("gh is not logged in")
         else:
@@ -400,6 +473,22 @@ class Pilot:
             sys.exit("preflight failed:\n  " + "\n  ".join(problems))
         self.result_dir.mkdir(exist_ok=True)
         self.logs.mkdir(exist_ok=True)
+
+    def network_internal(self) -> str:
+        proc = run("docker", "network", "inspect", "--format", "{{.Internal}}", self.network, check=False, timeout=60)
+        return proc.stdout.decode(errors="replace").strip() if proc.returncode == 0 else ""
+
+    def network_problems(self) -> list[str]:
+        """The capsule's network, made internal when it is missing (E508). One that exists with a route out is refused,
+        never used and never changed: the capsule would reach everything, and the deny log would see nothing."""
+        state = self.network_internal()
+        if not state:
+            run("docker", "network", "create", "--internal", self.network, check=False, timeout=60)
+            state = self.network_internal()
+        if state != "true":
+            return [f"docker network {self.network} is not internal ({state or 'missing'}): the capsule needs no "
+                    "route out"]
+        return []
 
     def summary(self) -> dict:
         raw = run("gh", "api", "-H", "Accept: application/vnd.github.raw",
@@ -426,12 +515,20 @@ class Pilot:
     def image_prompt(self) -> str | None:
         """The sha256 of the prompt the capsule image holds, from the label its build wrote (`build`); None for an
         image built before the label existed or when docker cannot say: unknown, never the checkout's guess."""
+        return self.image_label(PROMPT_LABEL)
+
+    def image_entrypoint(self) -> str | None:
+        """The sha256 of the entrypoint the capsule image holds, from its build's label (E508); None as above."""
+        return self.image_label(ENTRYPOINT_LABEL)
+
+    @staticmethod
+    def image_label(name: str) -> str | None:
         proc = run("docker", "image", "inspect", "--format", "{{json .Config.Labels}}", IMAGE, check=False, timeout=60)
         try:
             labels = json.loads(proc.stdout) if proc.returncode == 0 else None
         except ValueError:
             labels = None
-        value = labels.get(PROMPT_LABEL) if isinstance(labels, dict) else None
+        value = labels.get(name) if isinstance(labels, dict) else None
         return value if isinstance(value, str) and re.fullmatch(r"[0-9a-f]{64}", value) else None
 
     def intervention(self, args) -> None:
@@ -445,17 +542,20 @@ class Pilot:
                 "the sessions run the image's")
         self.record_metrics({"kind": INTERVENTION, "ts": now(), "args": {k: str(v) for k, v in sorted(vars(args).items())},
                              "image_id": self.image_id, "prompt_sha256": self.prompt_sha256,
-                             "checkout_prompt_sha256": checkout, "seed_commit": self.seed})
+                             "checkout_prompt_sha256": checkout, "seed_commit": self.seed, "egress": self.egress})
 
     def build(self) -> None:
         """Build from a copy of exactly the files the image needs: a synced folder (iCloud) can hand docker
         placeholders it cannot read, and nothing else of the repository belongs in the capsule. The image is labelled
-        with the sha256 of the prompt bytes it holds, so a later start without a build still knows them (E313)."""
+        with the sha256 of the prompt bytes it holds, so a later start without a build still knows them (E313), and of
+        its entrypoint's, which a start holds to the checkout's (E508)."""
         say("building the capsule image")
         with tempfile.TemporaryDirectory(prefix="snowball-founder-") as ctx:
             write_build_context(Path(ctx))
             built = hashlib.sha256(Path(ctx, "founder/prompt.md").read_bytes()).hexdigest()
+            entry = hashlib.sha256(Path(ctx, "founder/entrypoint.sh").read_bytes()).hexdigest()
             proc = run("docker", "build", "--quiet", "--label", f"{PROMPT_LABEL}={built}", "-t", IMAGE,
+                       "--label", f"{ENTRYPOINT_LABEL}={entry}",
                        "-f", str(Path(ctx, "founder/Dockerfile")), ctx, check=False, timeout=3600)
         if proc.returncode != 0:
             sys.exit("image build failed:\n" + proc.stderr.decode(errors="replace")[-4000:])
@@ -656,46 +756,127 @@ class Pilot:
 
     # ---- the session --------------------------------------------------------------------------------------
     def session_logs(self, stamp: str) -> Path:
+        """One session's folder on the host: the transcript, its hash and the relay's log; never mounted (E508)."""
         return self.logs / stamp
 
-    def capsule_argv(self, stamp: str, model: str, max_turns: int, budget_usd: int) -> list[str]:
-        def bind(src: Path, dst: str, ro: bool) -> list[str]:
-            return ["--mount", f"type=bind,src={src},dst={dst}" + (",readonly" if ro else "")]
+    def capsule_logs(self, stamp: str) -> Path:
+        """The one part of the session's folder the capsule mounts, as /work/logs (E155, E508)."""
+        return self.session_logs(stamp) / CAPSULE_DIR
 
-        return ["docker", "run", "--rm", "--name", f"snowball_founder_{stamp.lower()}",
-               "--read-only", "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
-               "--pids-limit", "1024", "--memory", "8g", "--cpus", "4",
-               "--tmpfs", "/tmp:rw,exec,size=2g,mode=1777",
-               "--tmpfs", "/home/founder:rw,size=256m,mode=1777",
-               "--tmpfs", "/work/brain:rw,exec,size=2g,mode=1777",
-               *bind(self.env_file, "/run/secrets/founder.env", True),
-               *bind(self.result_dir, "/work/referee", True),
-               *bind(self.target, "/work/target", True),
-               *bind(self.inputs, "/vec", True),  # where each case's command reads its fixtures, as in the referee's
-               *bind(self.session_logs(stamp), "/work/logs", False),  # its own folder: memory is the ledger (E155)
-               "-e", f"BRAIN_REPO={self.brain}", "-e", f"BRAIN_SEED={self.seed}", "-e", f"SESSION_STAMP={stamp}",
-               "-e", f"FOUNDER_MODEL={model}", "-e", f"FOUNDER_MAX_TURNS={max_turns}",
-               "-e", f"FOUNDER_MAX_BUDGET_USD={budget_usd}",
-               IMAGE]
+    def transcript(self, stamp: str) -> Path:
+        return self.session_logs(stamp) / f"session-{stamp}.jsonl"
+
+    def container(self, role: str, stamp: str) -> str:
+        """The name of a container this script starts: the capsule (`founder`) or its relay (`relay`)."""
+        return f"{self.container_prefix}_{role}_{stamp.lower()}"
+
+    def capsule_argv(self, stamp: str, model: str, max_turns: int, budget_usd: int) -> list[str]:
+        contained = self.egress == "contained"
+        # Contained, the capsule's one secret is the model's token; the GitHub token is the relay's (E508).
+        secrets = self.capsule_env if contained else self.env_file
+        egress = (["--network", self.network, "-e", f"RELAY={RELAY_URL}", "-e", f"HTTPS_PROXY={RELAY_URL}",
+                   "-e", f"NO_PROXY={RELAY_ALIAS}"] if contained else [])
+        return ["docker", "run", "--rm", "--name", self.container("founder", stamp),
+                "--read-only", "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
+                "--pids-limit", "1024", "--memory", "8g", "--cpus", "4",
+                "--tmpfs", "/tmp:rw,exec,size=2g,mode=1777",
+                "--tmpfs", "/home/founder:rw,size=256m,mode=1777",
+                "--tmpfs", "/work/brain:rw,exec,size=2g,mode=1777",
+                *egress,
+                *bind(secrets, "/run/secrets/founder.env", True),
+                *bind(self.result_dir, "/work/referee", True),
+                *bind(self.target, "/work/target", True),
+                *bind(self.inputs, "/vec", True),  # where each case's command reads its fixtures, as in the referee's
+                # Its own working folder (memory is the ledger, E155); the transcript is written outside it (E508).
+                *bind(self.capsule_logs(stamp), "/work/logs", False),
+                "-e", f"BRAIN_REPO={self.brain}", "-e", f"BRAIN_SEED={self.seed}", "-e", f"SESSION_STAMP={stamp}",
+                "-e", f"FOUNDER_MODEL={model}", "-e", f"FOUNDER_MAX_TURNS={max_turns}",
+                "-e", f"FOUNDER_MAX_BUDGET_USD={budget_usd}",
+                IMAGE]
+
+    def relay_argv(self, stamp: str) -> list[str]:
+        """The relay of one session (egress.py): on the capsule's network as `relay` and on the default bridge, the one
+        route out; locked down like the capsule, its code and token read-only, its log the session folder's. It listens
+        on its capsule-network address alone: another container on the bridge never reaches the brain's token."""
+        folder = self.session_logs(stamp) / RELAY_DIR
+        return ["docker", "run", "--detach", "--rm", "--name", self.container("relay", stamp),
+                "--network", f"name={self.network},alias={RELAY_ALIAS}", "--network", "bridge",
+                "--read-only", "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
+                "--user", "10001:10001", "--pids-limit", "256", "--memory", "512m", "--cpus", "1",
+                *bind(folder / "egress.py", "/opt/relay/egress.py", True),
+                *bind(self.relay_env, "/run/secrets/relay.env", True),
+                *bind(folder / "log", "/log", False),
+                "--entrypoint", "python3", relay_image(),
+                "-I", "/opt/relay/egress.py", "--listen", f"{RELAY_ALIAS}:{RELAY_PORT}",
+                "--token-file", "/run/secrets/relay.env", "--repo", self.brain, "--log", "/log/egress.jsonl"]
+
+    def start_relay(self, stamp: str) -> str:
+        """Start the session's relay and wait until it listens; its container's name. RelayDown when it does not come up
+        in RELAY_READY_S: no session runs without its relay (a contained capsule could not reach the model)."""
+        folder = self.session_logs(stamp) / RELAY_DIR
+        (folder / "log").mkdir(parents=True, exist_ok=True)
+        # The code as it runs, LF, beside its log: what decided this session's requests stays with them.
+        (folder / "egress.py").write_bytes((HERE / "egress.py").read_bytes().replace(b"\r\n", b"\n"))
+        name = self.container("relay", stamp)
+        proc = run(*self.relay_argv(stamp), check=False, timeout=120)
+        if proc.returncode != 0:
+            raise RelayDown(f"the relay did not start: {proc.stderr.decode(errors='replace').strip()[-300:]}")
+        deadline = time.monotonic() + RELAY_READY_S
+        while time.monotonic() < deadline:
+            logs = run("docker", "logs", name, check=False, timeout=30)
+            if b"relay listening on" in logs.stdout:
+                return name
+            time.sleep(0.5)
+        self.stop_relay(name)
+        raise RelayDown(f"the relay did not listen within {RELAY_READY_S} s")
+
+    @staticmethod
+    def stop_relay(name: str) -> None:
+        run("docker", "stop", "--time", "5", name, check=False, timeout=60)  # the container this script started
 
     def session(self, stamp: str, model: str, max_turns: int, budget_usd: int, timeout_s: int) -> dict:
-        self.session_logs(stamp).mkdir(parents=True, exist_ok=True)
+        self.capsule_logs(stamp).mkdir(parents=True, exist_ok=True)
         cmd = self.capsule_argv(stamp, model, max_turns, budget_usd)
+        relay = self.start_relay(stamp) if self.egress == "contained" else None
         started = time.monotonic()
         err = ""
         try:
-            proc = run(*cmd, check=False, timeout=timeout_s)
-            exit_code, tail = proc.returncode, proc.stdout.decode(errors="replace").strip().splitlines()[-1:]
-            err = proc.stderr.decode(errors="replace").strip()[-600:]  # docker's own complaint; the CLI's goes to logs/
+            # The transcript is the capsule's stdout, written here: no mount of the capsule reaches it (E508).
+            with self.transcript(stamp).open("wb") as record:
+                proc = subprocess.run(cmd, stdout=record, stderr=subprocess.PIPE, timeout=timeout_s, check=False)
+            exit_code = proc.returncode
+            err = proc.stderr.decode(errors="replace").strip()
+            tail = [line for line in err.splitlines() if line.startswith("founder_session ")][-1:]
+            err = err[-600:]  # docker's own complaint and the entrypoint's; the CLI's goes to capsule/
         except subprocess.TimeoutExpired:
-            run("docker", "stop", f"snowball_founder_{stamp.lower()}", check=False)  # the container this script started
+            run("docker", "stop", self.container("founder", stamp), check=False)  # the container this script started
             exit_code, tail = -1, ["session timed out"]
+        finally:
+            if relay:
+                self.stop_relay(relay)
         out = {"exit": exit_code, "minutes": round((time.monotonic() - started) / 60, 1), "line": tail[0] if tail else "",
-               "stderr": err}
-        out.update(self.transcript_summary(self.session_logs(stamp) / f"session-{stamp}.jsonl"))
-        out.update(self.transcript_init(self.session_logs(stamp) / f"session-{stamp}.jsonl"))
+               "stderr": err, "egress": self.egress}
+        out.update(self.transcript_record(stamp))
+        out.update(self.transcript_summary(self.transcript(stamp)))
+        out.update(self.transcript_init(self.transcript(stamp)))
+        if relay:
+            out.update(egress_counts(self.session_logs(stamp) / RELAY_DIR / "log" / "egress.jsonl"))
         out["timed_out"] = exit_code == -1 and tail == ["session timed out"]
         return out
+
+    def transcript_record(self, stamp: str) -> dict:
+        """The transcript's sha256, written beside it in `sha256sum` form, and how many `result` events it holds, both
+        for the cycle's line (E508). The capsule cannot rewrite or cut the record, but a process of its own user can
+        write to the container's stdout (/proc/1/fd/N, measured) and so append lines to it; the CLI writes one closing
+        `result`, so any other count is named in the report."""
+        path = self.transcript(stamp)
+        if not path.is_file():
+            return {"transcript_sha256": None, "transcript_results": None}
+        digest = sha256_file(path)
+        path.with_name(path.name + ".sha256").write_text(f"{digest}  {path.name}\n", encoding="utf-8")
+        with path.open("r", encoding="utf-8", errors="replace") as fh:
+            results = sum(1 for row in map(_json_or_none, fh) if isinstance(row, dict) and row.get("type") == "result")
+        return {"transcript_sha256": digest, "transcript_results": results}
 
     @staticmethod
     def transcript_init(path: Path) -> dict:
@@ -768,7 +949,7 @@ class Pilot:
                 "exit": last.get("session_exit"), "minutes": last.get("minutes"), "limit_minutes": round(limit_s / 60, 1),
                 "pushed": bool(last.get("pushed")), "ledger_rows_added": sum((last.get("ledger_new") or {}).values()),
                 "verdict": verdict}
-        folder = self.session_logs(stamp)
+        folder = self.capsule_logs(stamp)  # what the capsule sees at /work/logs (E508)
         folder.mkdir(parents=True, exist_ok=True)
         (folder / "previous-session.json").write_text(json.dumps(note, ensure_ascii=False, sort_keys=True) + "\n",
                                                       encoding="utf-8")
@@ -867,6 +1048,13 @@ class Pilot:
                  ]
         if sess.get("exit") not in (0, None) and sess.get("stderr"):
             lines.append(f"- Kapsül hatası: `{sess['stderr'].replace('`', chr(39))}`")
+        if sess.get("transcript_results") not in (None, 1):  # E508: the CLI writes one; the capsule can append
+            lines.append(f"- Dökümde {sess['transcript_results']} `result` olayı var (CLI yalnız birini yazar; kapsül "
+                         f"kayda satır ekleyebilir, silemez): `logs/{stamp}/session-{stamp}.jsonl`")
+        if sess.get("egress_denied"):  # contained egress (E508): every refused request is the relay's record
+            lines.append(f"- Kapsülün reddedilen ağ istekleri: {sess['egress_denied']} (ilkleri: "
+                         + json.dumps(sess.get("egress_denied_first"), ensure_ascii=False)[:600]
+                         + f"; kayıt `logs/{stamp}/{RELAY_DIR}/log/egress.jsonl`)")
         for row in new_rows:
             if row.get("kind") in REPORT_KINDS:
                 lines.append(f"  - **{row.get('kind')}**: {json.dumps(row, ensure_ascii=False)[:600]}")
@@ -914,6 +1102,11 @@ class Pilot:
             "rival_config": ({k: ((verdict or {}).get("rival") or {}).get(k) for k in RIVAL_CONFIG}
                              if (verdict or {}).get("rival") else None),
             "timed_out": bool(sess.get("timed_out")), "cost_row": cost,
+            # The capsule's network and the host's record of the session (E508): the transcript's hash, and in contained
+            # egress what the relay carried and refused (None in open egress: nothing counts it there).
+            "egress": sess.get("egress", self.egress), "transcript_sha256": sess.get("transcript_sha256"),
+            "transcript_results": sess.get("transcript_results"),
+            "egress_allowed": sess.get("egress_allowed"), "egress_denied": sess.get("egress_denied"),
             "reports_open": None if seen["reports_open"] is None else len(seen["reports_open"]),
             "reports_new": [r.get("payload", {}).get("summary", "")[:120] for r in new_rows
                             if r.get("kind") in REPORT_KINDS],
@@ -947,6 +1140,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--session-timeout", type=int, default=3 * 3600)
     p.add_argument("--referee-timeout", type=int, default=90 * 60)
     p.add_argument("--no-build", action="store_true")
+    p.add_argument("--egress", choices=EGRESS_MODES, default="open",
+                   help="contained: the capsule on an internal network behind the relay, which carries the model's API "
+                        "and the brain repository alone and records every refused request (E508); needs "
+                        f"{CAPSULE_ENV} and {RELAY_ENV} in the work folder. open: the default bridge, as before")
     p.add_argument("--resume", action="store_true",
                    help="continue the run <work>/RUNNING names, after a crash or a reboot (E505)")
     p.add_argument("--install-service", action="store_true",
@@ -985,13 +1182,17 @@ def start(parser: argparse.ArgumentParser, args) -> int:
             intent.clear()  # a start by hand replaces a cut run, also when its preflight then fails
         if shutil.which("gh") is None or shutil.which("docker") is None:
             sys.exit("gh and docker must be on PATH")
-        pilot = Pilot(args.work, args.brain, args.referee, args.target)
+        pilot = Pilot(args.work, args.brain, args.referee, args.target, args.egress)
         pilot.idle = int(intent.state.get("idle") or 0) if args.resume else 0
         pilot.preflight()
         if not args.resume:
             intent.write(rerun_argv(parser, args), args.cycles)
         if not args.no_build:
             pilot.build()
+        if pilot.image_entrypoint() != entrypoint_sha256():  # E508: the transcript and the relay need this entrypoint
+            intent.clear()  # a resume would only fail the same way: the operator starts again, building
+            sys.exit("the capsule image holds another entrypoint than this checkout's (or none recorded): start "
+                     "without --no-build")
         pilot.intervention(args)
         if not pilot.report.exists():
             pilot.write("# Snowball pilot günlüğü\n\nHer döngü: Kurucu oturumu → push → hakem → karar.\n")
