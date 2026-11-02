@@ -1,0 +1,252 @@
+# Snowball held runner (plan D5, register E510). A TEMPLATE: no public repository runs it. The operator installs it as
+# .github/workflows/held.yml in the private exam repository, beside the held set, and sets there (never in a public
+# repository): the variables REFEREE_REPO (owner/name of the referee repository) and HELD_SET (the held set's folder in
+# the exam repository: vectors.json of data groups and their fixtures); the secret REFEREE_READ_TOKEN only when the
+# run's own token cannot download the referee's public artifacts (a token that reads public repositories, nothing else).
+# Repository settings: default workflow permissions read-only; artifact retention at least 8 days; Actions minutes
+# counted against the owner's budget (`heldrun` docstring, E510).
+#
+# It works from the referee's public signed results alone: the referee holds no secret of this repository and this
+# repository none of the referee's. The referee's code is cloned anonymously (a public repository) and run from there.
+#
+# Jobs and what they may hold (`tohum/08` 1: no job that holds a secret runs brain or target code):
+#   hazir   contents and actions: read                      - runs no brain code; held inputs leave it blinded
+#   imza    actions: read, OIDC (Sigstore)                   - runs no brain code; signs an earlier run's statement
+#   kos     nothing                                          - brain code only inside --network none containers
+#   yargi   contents and actions: read                      - runs no brain code; judges, commits, appends the ledger
+#
+# A run ends long before the next one starts (test_heldrun HeldWorkflowTest): `imza` signs at a run's start, so a
+# statement's Rekor time is the schedule's, never how long brain code took on a held input.
+
+name: snowball-held
+
+on:
+  schedule:
+    - cron: "41 */3 * * *"
+  workflow_dispatch: {}
+
+permissions: {}
+
+concurrency:
+  group: snowball-held
+  cancel-in-progress: false
+
+env:
+  PYTHONPATH: referee/bootstrap
+  PYTHONDONTWRITEBYTECODE: "1"
+
+jobs:
+  hazir:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      new: ${{ steps.poll.outputs.new }}
+      carry: ${{ steps.poll.outputs.carry }}
+      ledger: ${{ steps.poll.outputs.ledger }}
+      referee_sha: ${{ steps.referee.outputs.sha }}
+      in_sha: ${{ steps.pack.outputs.in_sha }}
+    steps:
+      - id: referee
+        name: The referee's code, cloned anonymously
+        env:
+          REFEREE_REPO: ${{ vars.REFEREE_REPO }}
+        run: |
+          git clone --quiet --no-tags "https://github.com/$REFEREE_REPO.git" referee
+          echo "sha=$(git -C referee rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - id: poll
+        name: A new signed head, a statement to sign or a ledger to carry? (installs and verifies nothing)
+        env:
+          REFEREE_REPO: ${{ vars.REFEREE_REPO }}
+          REFEREE_TOKEN: ${{ secrets.REFEREE_READ_TOKEN || github.token }}
+          GH_TOKEN: ${{ github.token }}
+        run: python3 -m snowball_bootstrap.heldrun poll --referee-repo "$REFEREE_REPO" --out signed
+      - if: steps.poll.outputs.new == 'true'
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+          path: exam
+      - name: Sigstore (hash-pinned, license-checked)
+        if: steps.poll.outputs.new == 'true'
+        run: |
+          python3 -m venv /tmp/sig
+          /tmp/sig/bin/pip download --quiet --require-hashes --only-binary=:all: --no-deps \
+            -d /tmp/sigw -r referee/bootstrap/requirements/sign.txt
+          python3 -m snowball_bootstrap licenses --root referee --wheels /tmp/sigw
+          /tmp/sig/bin/pip install --quiet --no-index --find-links /tmp/sigw --require-hashes \
+            --only-binary=:all: --no-deps -r referee/bootstrap/requirements/sign.txt
+      - name: The signed result verified, its head fetched, the held inputs packed blinded
+        if: steps.poll.outputs.new == 'true'
+        env:
+          REFEREE_REPO: ${{ vars.REFEREE_REPO }}
+          HELD_SET: ${{ vars.HELD_SET }}
+        run: >
+          python3 -m snowball_bootstrap.heldrun prepare --referee referee --referee-repo "$REFEREE_REPO"
+          --signed signed --exam exam --held-set "$HELD_SET" --sigstore-python /tmp/sig/bin/python
+          --work work --out held-in
+      - id: pack
+        if: steps.poll.outputs.new == 'true'
+        run: >
+          python3 -m snowball_bootstrap pack --dir held-in --out held-in.tar
+          | sed -n 's/^sha256=/in_sha=/p' >> "$GITHUB_OUTPUT"
+      - if: steps.poll.outputs.new == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: held-in
+          path: held-in.tar
+          retention-days: 1
+          if-no-files-found: error
+
+  imza:
+    # The statements an earlier run judged, signed now (keyless, Rekor). It waits for nothing that runs brain code, and
+    # a `hazir` that failed past its poll (a head it could not pack) never keeps a statement unsigned.
+    needs: hazir
+    if: >-
+      !cancelled() && needs.hazir.outputs.carry == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      id-token: write
+    outputs:
+      ledger: ${{ steps.ledger.outputs.ledger }}
+    steps:
+      - name: The referee's code, the commit `hazir` read
+        env:
+          REFEREE_REPO: ${{ vars.REFEREE_REPO }}
+          REFEREE_SHA: ${{ needs.hazir.outputs.referee_sha }}
+        run: |
+          git clone --quiet --no-tags "https://github.com/$REFEREE_REPO.git" referee
+          git -C referee checkout --quiet --detach "$REFEREE_SHA"
+      - name: Sigstore (hash-pinned, license-checked)
+        run: |
+          python3 -m venv /tmp/sig
+          /tmp/sig/bin/pip download --quiet --require-hashes --only-binary=:all: --no-deps \
+            -d /tmp/sigw -r referee/bootstrap/requirements/sign.txt
+          python3 -m snowball_bootstrap licenses --root referee --wheels /tmp/sigw
+          /tmp/sig/bin/pip install --quiet --no-index --find-links /tmp/sigw --require-hashes \
+            --only-binary=:all: --no-deps -r referee/bootstrap/requirements/sign.txt
+      - name: The ledger this run started from, by the hash `hazir` read
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LEDGER: ${{ needs.hazir.outputs.ledger }}
+        run: python3 -m snowball_bootstrap.heldrun ledger-get --artifact "$LEDGER" --out ledger
+      - name: Sign every statement left to sign
+        run: python3 -m snowball_bootstrap.heldrun sign --ledger ledger --sigstore-python /tmp/sig/bin/python
+      - id: pack
+        run: >
+          python3 -m snowball_bootstrap pack --dir ledger --out ledger.tar
+          | sed -n 's/^sha256=/ledger_sha=/p' >> "$GITHUB_OUTPUT"
+      - id: up
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: held-ledger
+          path: ledger.tar
+          retention-days: 8
+          if-no-files-found: error
+      - id: ledger
+        env:
+          ID: ${{ steps.up.outputs.artifact-id }}
+          SHA: ${{ steps.pack.outputs.ledger_sha }}
+        run: echo "ledger=$ID=$SHA" >> "$GITHUB_OUTPUT"
+
+  kos:
+    needs: hazir
+    if: needs.hazir.outputs.new == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    permissions: {}  # no token: brain code runs here
+    outputs:
+      trace_sha: ${{ steps.pack.outputs.trace_sha }}
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with: { name: held-in }
+      - name: Verify and unpack
+        env:
+          IN_SHA: ${{ needs.hazir.outputs.in_sha }}
+        run: |
+          echo "$IN_SHA  held-in.tar" | sha256sum -c -
+          mkdir held-in && tar -xf held-in.tar -C held-in
+      - name: The referee's code, the commit `hazir` read
+        env:
+          REFEREE_REPO: ${{ vars.REFEREE_REPO }}
+          REFEREE_SHA: ${{ needs.hazir.outputs.referee_sha }}
+        run: |
+          git clone --quiet --no-tags "https://github.com/$REFEREE_REPO.git" referee
+          git -C referee checkout --quiet --detach "$REFEREE_SHA"
+      - name: Download locked wheels (no install scripts)
+        run: |
+          python3 -m venv /tmp/dl
+          /tmp/dl/bin/python -m snowball_bootstrap fetch-deps --pulled held-in/pulled --work work --out deps
+      - name: Held inputs in network-none containers
+        run: >
+          python3 -m snowball_bootstrap.heldrun run --referee referee --held-in held-in --deps deps --work work
+          --out trace
+      - id: pack
+        run: >
+          python3 -m snowball_bootstrap pack --dir trace --out trace.tar
+          | sed -n 's/^sha256=/trace_sha=/p' >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: held-trace
+          path: trace.tar
+          retention-days: 1
+          if-no-files-found: error
+
+  yargi:
+    needs: [hazir, imza, kos]
+    if: >-
+      !cancelled() && needs.hazir.result == 'success' && needs.hazir.outputs.new == 'true' &&
+      needs.kos.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+          path: exam
+      - name: The referee's code, the commit `hazir` read
+        env:
+          REFEREE_REPO: ${{ vars.REFEREE_REPO }}
+          REFEREE_SHA: ${{ needs.hazir.outputs.referee_sha }}
+        run: |
+          git clone --quiet --no-tags "https://github.com/$REFEREE_REPO.git" referee
+          git -C referee checkout --quiet --detach "$REFEREE_SHA"
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with: { name: held-in }
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with: { name: held-trace }
+      - name: Verify and unpack
+        env:
+          IN_SHA: ${{ needs.hazir.outputs.in_sha }}
+          TRACE_SHA: ${{ needs.kos.outputs.trace_sha }}
+        run: |
+          echo "$IN_SHA  held-in.tar" | sha256sum -c -
+          echo "$TRACE_SHA  trace.tar" | sha256sum -c -
+          mkdir held-in trace && tar -xf held-in.tar -C held-in && tar -xf trace.tar -C trace
+      - name: The ledger, as `imza` left it or else as `hazir` read it
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LEDGER: ${{ needs.imza.result == 'success' && needs.imza.outputs.ledger || needs.hazir.outputs.ledger }}
+        run: python3 -m snowball_bootstrap.heldrun ledger-get --artifact "$LEDGER" --out ledger
+      - name: Judge the trace on the held answers, commit to the outcome, append the row (no container)
+        env:
+          HELD_SET: ${{ vars.HELD_SET }}
+        run: >
+          python3 -m snowball_bootstrap.heldrun judge --referee referee --held-in held-in --trace trace
+          --exam exam --held-set "$HELD_SET" --ledger ledger --work work
+      - id: pack
+        run: python3 -m snowball_bootstrap pack --dir ledger --out ledger.tar
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: held-ledger
+          path: ledger.tar
+          retention-days: 8
+          overwrite: true
+          if-no-files-found: error

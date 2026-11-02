@@ -80,7 +80,7 @@ flowchart LR
 
 ## 2. Referee package: `seed/bootstrap/snowball_bootstrap`
 
-29 modules, 74 imports inside the package, 1 started as a separate process. Areas are roles. The overview has 6 areas and 14 edges; an arrow's number is how many imports cross from one area to the other.
+30 modules, 86 imports inside the package, 1 started as a separate process. Areas are roles. The overview has 6 areas and 17 edges; an arrow's number is how many imports cross from one area to the other.
 
 ```mermaid
 flowchart LR
@@ -89,7 +89,7 @@ flowchart LR
   a_Sandbox["Sandbox<br/>6 modules"]
   a_Rival["Rival<br/>4 modules"]
   a_Judgement["Judgement<br/>6 modules"]
-  a_Unplaced["Unplaced<br/>1 modules"]
+  a_Unplaced["Unplaced<br/>2 modules"]
   a_Entry -->|9| a_Intake
   a_Entry -->|6| a_Judgement
   a_Entry -->|2| a_Rival
@@ -103,7 +103,10 @@ flowchart LR
   a_Sandbox -->|3| a_Judgement
   a_Sandbox -->|1| a_Rival
   a_Sandbox -->|1| a_Unplaced
-  a_Unplaced -->|1| a_Intake
+  a_Unplaced -->|1| a_Entry
+  a_Unplaced -->|8| a_Intake
+  a_Unplaced -->|2| a_Judgement
+  a_Unplaced -->|2| a_Sandbox
 ```
 
 ### Entry
@@ -177,7 +180,7 @@ flowchart LR
 |---|---|---|
 | `__init__` | Snowball bootstrap referee. | - |
 | `__main__` | - | - |
-| `cli` | Command-line entry points: one subcommand per workflow step (`workflow/bootstrap.yml`). | `__main__` |
+| `cli` | Command-line entry points: one subcommand per workflow step (`workflow/bootstrap.yml`). | `__main__`, `heldrun` |
 
 ### Intake
 
@@ -214,15 +217,15 @@ flowchart LR
 
 | Module | What it is (first sentence of its docstring) | Imported by |
 |---|---|---|
-| `canon` | Canonical JSON (the RFC 8785 subset the seed allows) and hashing helpers. | `answers`, `cli`, `importer`, `ledgercheck`, `parts`, `reproduce`, `rival`, `stagelock` |
+| `canon` | Canonical JSON (the RFC 8785 subset the seed allows) and hashing helpers. | `answers`, `cli`, `heldrun`, `importer`, `ledgercheck`, `parts`, `reproduce`, `rival`, `stagelock` |
 | `classify` | What kind of push is this (`tohum/29b`, "İki tür push")? | `cli`, `exitchecks` |
-| `config` | Operator-written inputs, validated strictly. | `cli`, `exitchecks`, `rival`, `stagelock`, `stages`, `state` |
-| `ghapi` | Minimal GitHub REST calls the pull job needs: find and download the latest state artifact, and look at the newest failed run of this workflow (E13). | `cli` |
-| `gitio` | Git operations on the untrusted brain repository. | `cli`, `importer`, `stagelock` |
-| `importer` | Operator import at the Stage 0 exit and at each batch exit after it (`tohum/25a` 1-2, `asama-0/10a` #aktarim and #oyuncak, `asama-1/13` 3: "aynı komut"). | `cli`, `stagelock` |
+| `config` | Operator-written inputs, validated strictly. | `cli`, `exitchecks`, `heldrun`, `rival`, `stagelock`, `stages`, `state` |
+| `ghapi` | Minimal GitHub REST calls the pull job needs: find and download the latest state artifact, and look at the newest failed run of this workflow (E13). | `cli`, `heldrun` |
+| `gitio` | Git operations on the untrusted brain repository. | `cli`, `heldrun`, `importer`, `stagelock` |
+| `importer` | Operator import at the Stage 0 exit and at each batch exit after it (`tohum/25a` 1-2, `asama-0/10a` #aktarim and #oyuncak, `asama-1/13` 3: "aynı komut"). | `cli`, `heldrun`, `stagelock` |
 | `licenses` | License gate for downloaded wheels (`tohum/24`, "Lisans"). | `cli` |
-| `stagelock` | The stage lock and the counter it is bound to (`tohum/02` 5, `asama-0/10a` "Kilidin açılışı", `tohum/25a` 9, `26c`). | `cli`, `importer` |
-| `treehash` | Tree hashes over git-archive tarballs, and safe extraction of regular files only. | `cli`, `exitchecks`, `gitio`, `importer`, `moduleless`, `stages` |
+| `stagelock` | The stage lock and the counter it is bound to (`tohum/02` 5, `asama-0/10a` "Kilidin açılışı", `tohum/25a` 9, `26c`). | `cli`, `heldrun`, `importer` |
+| `treehash` | Tree hashes over git-archive tarballs, and safe extraction of regular files only. | `cli`, `exitchecks`, `gitio`, `heldrun`, `importer`, `moduleless`, `stages` |
 
 ### Sandbox
 
@@ -271,10 +274,10 @@ flowchart LR
 |---|---|---|
 | `container` | Run untrusted code in a nested, network-less, unprivileged container (`tohum/08` 2). | `cli`, `controls`, `moduleless`, `parts`, `reproduce`, `vectors` |
 | `controls` | Red controls: known answers about the runner itself (`tohum/08` 3). | `parts` |
-| `manifest` | The founder's test manifest (`snowball-tests.json`, `tohum/26c`) and its lock files. | `cli` |
+| `manifest` | The founder's test manifest (`snowball-tests.json`, `tohum/26c`) and its lock files. | `cli`, `heldrun` |
 | `moduleless` | Module-less red (`asama-0/14`; `tohum/04` 1, "Kasıtlı bozma"): a micro-feature's tests fail without it. | `cli` |
 | `parts` | `kos` in parts (E440): one push's run shared out among N parallel jobs and joined into the single job's `run.json`. | `cli` |
-| `vectors` | Apply the seed vectors (`tohum/29a`, `29d`) to the founder's code through the fixed interface. | `cli`, `parts` |
+| `vectors` | Apply the seed vectors (`tohum/29a`, `29d`) to the founder's code through the fixed interface. | `cli`, `heldrun`, `parts` |
 
 ### Rival
 
@@ -363,32 +366,63 @@ flowchart LR
 
 | Module | What it is (first sentence of its docstring) | Imported by |
 |---|---|---|
-| `decide` | The acceptance decision (`tohum/29b`, "Kabul" and "Aşama 0 çıkışının (A) parçası"). | `cli` |
+| `decide` | The acceptance decision (`tohum/29b`, "Kabul" and "Aşama 0 çıkışının (A) parçası"). | `cli`, `heldrun` |
 | `exitchecks` | The (A) conditions of `asama-0/10` that `pull` checks on the brain archive it already holds (`29b`; the narrowing note's draft `29e` "Tohum denetimleri": in `çek`, read from ... | `cli`, `decide` |
 | `ledgercheck` | The Founder's ledger (`asama-0/10` #kurucu-defteri, `asama-0/09` test 30, `tohum/26`, `00a`; E107, E280). | `cli`, `decide`, `exitchecks` |
-| `stages` | The stage tables (`asama-0/14`, `tohum/26c` "Aşama tablosu"): the machine copy of a stage's micro-features. | `cli`, `decide`, `manifest`, `moduleless`, `stagelock`, `vectors`, `wiring` |
+| `stages` | The stage tables (`asama-0/14`, `tohum/26c` "Aşama tablosu"): the machine copy of a stage's micro-features. | `cli`, `decide`, `heldrun`, `manifest`, `moduleless`, `stagelock`, `vectors`, `wiring` |
 | `state` | The bootstrap's memory between runs: the last signed result's ``state`` block. | `cli`, `decide` |
 | `wiring` | The loop workflow's wiring rules (`asama-0/10` #is-akisi, `asama-0/09` test 46, `asama-0/14` MF17; `tohum/08`, `01a`, `29p`; E100, E162, E281-E283). | `cli`, `exitchecks` |
 
 ### Unplaced
 
-1 modules, 1 edges out of them.
+2 modules, 13 edges out of them.
 
 ```mermaid
 flowchart LR
   subgraph a_Unplaced["Unplaced"]
     m_answers["answers"]
+    m_heldrun["heldrun"]
+  end
+  subgraph a_Entry["Entry"]
+    m_cli["cli"]:::outside
   end
   subgraph a_Intake["Intake"]
     m_canon["canon"]:::outside
+    m_config["config"]:::outside
+    m_ghapi["ghapi"]:::outside
+    m_gitio["gitio"]:::outside
+    m_importer["importer"]:::outside
+    m_stagelock["stagelock"]:::outside
+    m_treehash["treehash"]:::outside
+  end
+  subgraph a_Judgement["Judgement"]
+    m_decide["decide"]:::outside
+    m_stages["stages"]:::outside
+  end
+  subgraph a_Sandbox["Sandbox"]
+    m_manifest["manifest"]:::outside
+    m_vectors["vectors"]:::outside
   end
   m_answers --> m_canon
+  m_heldrun --> m_canon
+  m_heldrun --> m_cli
+  m_heldrun --> m_config
+  m_heldrun --> m_decide
+  m_heldrun --> m_ghapi
+  m_heldrun --> m_gitio
+  m_heldrun --> m_importer
+  m_heldrun --> m_manifest
+  m_heldrun --> m_stagelock
+  m_heldrun --> m_stages
+  m_heldrun --> m_treehash
+  m_heldrun --> m_vectors
   classDef outside stroke-dasharray: 4 3
 ```
 
 | Module | What it is (first sentence of its docstring) | Imported by |
 |---|---|---|
 | `answers` | The exam's answers apart from its inputs, and the pin that binds them to an epoch (E509). | `vectors` |
+| `heldrun` | Held cases: run only inside the private exam repository, published only as a salted commitment (plan D5, E510). | - |
 
 ### Commands
 
