@@ -70,15 +70,7 @@ class DockerRunner:
     def argv(self, name: str, cmd: str, cwd: str) -> list[str]:
         return [
             self.docker, "run", "--rm", "-i", "--name", name,
-            "--network", "none",
-            "--cap-drop", "ALL",
-            "--security-opt", "no-new-privileges",
-            "--read-only",
-            "--tmpfs", "/tmp:rw,exec,nosuid,size=1g",
-            "--user", "65534:65534",
-            "--pids-limit", "512",
-            "--memory", "4g",
-            "--cpus", "2",
+            *sandbox_flags(network="none"),
             "--mount", f"type=bind,src={self.src_dir},dst=/src,readonly",
             "--mount", f"type=bind,src={self.deps_dir},dst=/deps,readonly",
             "--mount", f"type=bind,src={self.vectors_dir},dst=/vec,readonly",
@@ -94,16 +86,39 @@ class DockerRunner:
         ]
 
     def run(self, cmd: str, *, cwd: str = ".", stdin: bytes = b"", timeout_s: int) -> RunResult:
-        if ".." in cwd.split("/") or cwd.startswith("/"):
-            raise ValueError("cwd must be a relative path inside the source tree")
-        name = f"snowball-{uuid.uuid4().hex[:16]}"
+        check_cwd(cwd)
+        name = container_name()
         argv = self.argv(name, cmd, cwd)
         self.executed.append(argv)
-        start = time.monotonic()
-        try:
-            proc = subprocess.run(argv, input=stdin, capture_output=True, timeout=timeout_s, check=False)
-        except subprocess.TimeoutExpired as exc:
-            subprocess.run([self.docker, "rm", "-f", name], capture_output=True, check=False)
-            return RunResult(124, exc.stdout or b"", exc.stderr or b"",
-                             int((time.monotonic() - start) * 1000), timed_out=True)
-        return RunResult(proc.returncode, proc.stdout, proc.stderr, int((time.monotonic() - start) * 1000))
+        return execute(self.docker, name, argv, stdin, timeout_s)
+
+
+def check_cwd(cwd: str) -> None:
+    if ".." in cwd.split("/") or cwd.startswith("/"):
+        raise ValueError("cwd must be a relative path inside the source tree")
+
+
+def container_name() -> str:
+    return f"snowball-{uuid.uuid4().hex[:16]}"
+
+
+def sandbox_flags(*, network: str, tmpfs: str = "1g", memory: str = "4g", cpus: str = "2") -> list[str]:
+    """The confinement of every container the referee starts for code it does not trust: no capability, no new
+    privilege, a read-only root with a size-bound ``/tmp``, the nobody user, bounded processes, memory and CPU. One
+    list, so the target toolchain's runs (`target_run`, E513) are confined exactly as the Python image's are; the
+    caller names the network, ``none`` wherever the tree's code runs."""
+    return ["--network", network, "--cap-drop", "ALL", "--security-opt", "no-new-privileges", "--read-only",
+            "--tmpfs", f"/tmp:rw,exec,nosuid,size={tmpfs}", "--user", "65534:65534", "--pids-limit", "512",
+            "--memory", memory, "--cpus", cpus]
+
+
+def execute(docker: str, name: str, argv: list[str], stdin: bytes, timeout_s: int) -> RunResult:
+    """Run one ``docker run`` argv; a run past ``timeout_s`` has its container removed and reads as timed out."""
+    start = time.monotonic()
+    try:
+        proc = subprocess.run(argv, input=stdin, capture_output=True, timeout=timeout_s, check=False)
+    except subprocess.TimeoutExpired as exc:
+        subprocess.run([docker, "rm", "-f", name], capture_output=True, check=False)
+        return RunResult(124, exc.stdout or b"", exc.stderr or b"",
+                         int((time.monotonic() - start) * 1000), timed_out=True)
+    return RunResult(proc.returncode, proc.stdout, proc.stderr, int((time.monotonic() - start) * 1000))

@@ -79,13 +79,13 @@ flowchart LR
 
 ## 2. Referee package: `seed/bootstrap/snowball_bootstrap`
 
-28 modules, 72 imports inside the package, 1 started as a separate process. Areas are roles. The overview has 5 areas and 12 edges; an arrow's number is how many imports cross from one area to the other.
+29 modules, 74 imports inside the package, 1 started as a separate process. Areas are roles. The overview has 5 areas and 12 edges; an arrow's number is how many imports cross from one area to the other.
 
 ```mermaid
 flowchart LR
   a_Entry["Entry<br/>3 modules"]
   a_Intake["Intake<br/>9 modules"]
-  a_Sandbox["Sandbox<br/>6 modules"]
+  a_Sandbox["Sandbox<br/>7 modules"]
   a_Rival["Rival<br/>4 modules"]
   a_Judgement["Judgement<br/>6 modules"]
   a_Entry -->|9| a_Intake
@@ -97,7 +97,7 @@ flowchart LR
   a_Judgement -->|4| a_Rival
   a_Rival -->|3| a_Intake
   a_Rival -->|1| a_Sandbox
-  a_Sandbox -->|2| a_Intake
+  a_Sandbox -->|3| a_Intake
   a_Sandbox -->|3| a_Judgement
   a_Sandbox -->|1| a_Rival
 ```
@@ -212,7 +212,7 @@ flowchart LR
 |---|---|---|
 | `canon` | Canonical JSON (the RFC 8785 subset the seed allows) and hashing helpers. | `cli`, `importer`, `ledgercheck`, `parts`, `reproduce`, `rival`, `stagelock` |
 | `classify` | What kind of push is this (`tohum/29b`, "İki tür push")? | `cli`, `exitchecks` |
-| `config` | Operator-written inputs, validated strictly. | `cli`, `exitchecks`, `rival`, `stagelock`, `stages`, `state` |
+| `config` | Operator-written inputs, validated strictly. | `cli`, `exitchecks`, `rival`, `stagelock`, `stages`, `state`, `target_run` |
 | `ghapi` | Minimal GitHub REST calls the pull job needs: find and download the latest state artifact, and look at the newest failed run of this workflow (E13). | `cli` |
 | `gitio` | Git operations on the untrusted brain repository. | `cli`, `importer`, `stagelock` |
 | `importer` | Operator import at the Stage 0 exit and at each batch exit after it (`tohum/25a` 1-2, `asama-0/10a` #aktarim and #oyuncak, `asama-1/13` 3: "aynı komut"). | `cli`, `stagelock` |
@@ -222,7 +222,7 @@ flowchart LR
 
 ### Sandbox
 
-6 modules, 12 edges out of them.
+7 modules, 14 edges out of them.
 
 ```mermaid
 flowchart LR
@@ -232,10 +232,12 @@ flowchart LR
     m_manifest["manifest"]
     m_moduleless["moduleless"]
     m_parts["parts"]
+    m_target_run["target_run"]
     m_vectors["vectors"]
   end
   subgraph a_Intake["Intake"]
     m_canon["canon"]:::outside
+    m_config["config"]:::outside
     m_treehash["treehash"]:::outside
   end
   subgraph a_Judgement["Judgement"]
@@ -254,6 +256,8 @@ flowchart LR
   m_parts --> m_container
   m_parts --> m_controls
   m_parts --> m_vectors
+  m_target_run --> m_config
+  m_target_run --> m_container
   m_vectors --> m_container
   m_vectors --> m_stages
   classDef outside stroke-dasharray: 4 3
@@ -261,11 +265,12 @@ flowchart LR
 
 | Module | What it is (first sentence of its docstring) | Imported by |
 |---|---|---|
-| `container` | Run untrusted code in a nested, network-less, unprivileged container (`tohum/08` 2). | `cli`, `controls`, `moduleless`, `parts`, `reproduce`, `vectors` |
+| `container` | Run untrusted code in a nested, network-less, unprivileged container (`tohum/08` 2). | `cli`, `controls`, `moduleless`, `parts`, `reproduce`, `target_run`, `vectors` |
 | `controls` | Red controls: known answers about the runner itself (`tohum/08` 3). | `parts` |
 | `manifest` | The founder's test manifest (`snowball-tests.json`, `tohum/26c`) and its lock files. | `cli` |
 | `moduleless` | Module-less red (`asama-0/14`; `tohum/04` 1, "Kasıtlı bozma"): a micro-feature's tests fail without it. | `cli` |
 | `parts` | `kos` in parts (E440): one push's run shared out among N parallel jobs and joined into the single job's `run.json`. | `cli` |
+| `target_run` | The target's toolchain in the referee (plan D8, register E513): the target's own tests and the rival's reproducers of a defect in target code run with node, npm and cargo, with ... | - |
 | `vectors` | Apply the seed vectors (`tohum/29a`, `29d`) to the founder's code through the fixed interface. | `cli`, `parts` |
 
 ### Rival

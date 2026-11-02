@@ -57,7 +57,12 @@ MAX_REPRODUCERS = 5
 OBSERVABLES = ("exit", "stdout_contains", "stderr_contains")
 SYMPTOM = tuple("expect_" + o for o in OBSERVABLES)
 CORRECT = tuple("correct_" + o for o in OBSERVABLES)
-REPRODUCER_FIELDS = ("cmd",) + SYMPTOM + CORRECT
+# Where a reproducer runs (E513): without ``image``, the referee's Python image, as every reproducer before E513 did;
+# with ``image: "target"``, the target toolchain image (`target_run`: node, npm and cargo with the target's dependencies
+# fetched from its locks), for a defect in target code. Only a review that offers it says so (`TARGET_PROTOCOL`); a
+# target reproducer elsewhere is not run and proves nothing (`reproduce.run_one`).
+TARGET_IMAGE = "target"
+REPRODUCER_FIELDS = ("cmd",) + SYMPTOM + CORRECT + ("image",)
 
 
 def side_holds(rep: dict[str, Any], side: str, seen: dict[str, Any]) -> bool:
@@ -132,6 +137,14 @@ Protocol for this review (bootstrap referee):
   for example 'gh'+'p_'+'A'*36, and describe it in claims without quoting it.
 - Finish by calling submit_verdict (mcp__snowball__submit_verdict) exactly once. Write claims in English, one sentence each,
   with at least one path:line reference.
+"""
+
+# Said only in a review that offers the target image (`run_rival(target=True)`, E513).
+TARGET_PROTOCOL = """- This review also offers the target image. A reproducer with image "target" runs at the
+  repository root in a container with no network, the target's toolchain (node, npm and cargo; no Python) and the
+  target's dependencies already installed from its lock files (cargo works offline from a vendored copy). Use it for
+  a defect in the target's TypeScript or Rust code, for example cargo test -p <crate> <test name> 2>&1, or node with
+  a short script. A reproducer without image runs in the Python 3.12 container.
 """
 
 # The Founder's ledger is its own reasoning; the rival judges the artefact, not the Founder's account of it (`29`).
@@ -230,6 +243,9 @@ TOOLS: list[dict[str, Any]] = [
                                 "properties": {
                                     "cmd": {"type": "string", "minLength": 1, "maxLength": MAX_CMD_CHARS},
                                     **{f: _observable_schema(f) for f in SYMPTOM + CORRECT},
+                                    "image": {"type": "string", "enum": [TARGET_IMAGE],
+                                              "description": "Only where the protocol offers the target image: "
+                                                             "run in it instead of the Python container."},
                                 },
                                 "required": ["cmd"],
                                 "additionalProperties": False,
@@ -407,6 +423,11 @@ def validate_verdict(raw: Any, box: ToolBox) -> dict[str, Any]:
                 elif value is not None and (not isinstance(value, str) or not value or len(value) > MAX_EXPECT_CHARS):
                     raise ValueError(f"{name} must be 1-{MAX_EXPECT_CHARS} characters")
                 clean_rep[name] = value
+            image = rep.get("image")
+            if image is not None and image != TARGET_IMAGE:
+                raise ValueError(f"reproducer image must be {TARGET_IMAGE!r} or left out (the Python container)")
+            if image == TARGET_IMAGE:
+                clean_rep["image"] = TARGET_IMAGE
             if all(clean_rep[name] is None for name in SYMPTOM):
                 raise ValueError("reproducer needs expect_exit, expect_stdout_contains or expect_stderr_contains")
             if all(clean_rep[name] is None for name in CORRECT):  # E260: the polarity is the rival's to name
@@ -738,13 +759,14 @@ def _texts(value: Any):
 
 def run_rival(cfg: RivalConfig, *, claude_bin: str | None, seat_prompt: str, context: str, tree_root: Path,
               budget_usd_micros: int, max_prompt_chars: int, pinned_version: str | None = None,
-              out: RivalOutcome | None = None) -> RivalOutcome:
+              out: RivalOutcome | None = None, target: bool = False) -> RivalOutcome:
     """One rival run. ``out`` may be handed in, so that a caller interrupted mid-run still holds what the run
-    booked (E13); ``pinned_version`` defaults to the pin the workflow installs."""
+    booked (E13); ``pinned_version`` defaults to the pin the workflow installs; ``target``: the referee can run
+    reproducers in the target image, and the protocol says so (E513)."""
     out = RivalOutcome() if out is None else out
     out.model_requested, out.effort = cfg.model, cfg.effort
     pinned = pinned_cli_version() if pinned_version is None else pinned_version
-    system_text = seat_prompt + PROTOCOL
+    system_text = seat_prompt + PROTOCOL + (TARGET_PROTOCOL if target else "")
     out.prompt_sha256 = hashlib.sha256((system_text + "\n" + context).encode("utf-8", "replace")).hexdigest()
     if len(system_text) + len(context) > max_prompt_chars:
         out.reasons.append("prompt_too_large")
