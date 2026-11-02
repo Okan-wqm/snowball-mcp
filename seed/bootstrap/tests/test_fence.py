@@ -8,6 +8,7 @@ nothing of how the exam or the watchers work.
 import base64
 import hashlib
 import json
+import os
 import random
 import re
 import unittest
@@ -233,9 +234,13 @@ class AmendmentPagesTest(unittest.TestCase):
     the Founder: they say general rules, never a case, a threshold, a watcher's mechanism or a path of the target."""
 
     TITLE = "**Profesyonel yol, kandırma değil (sahip, 2026-11-01).**"
+    # The private store is named by configuration alone (`secrets.EXAM_REPO`; E520, verifier finding 9): this list
+    # holds the word every such name would carry in these pages, never a name, and the operator's own name when the
+    # environment gives it (`SNOWBALL_EXAM_REPO`, set only where the store is known).
     HELD_BACK = ("gözcülerin", "eşik", "kanarya", "mutant", "mutasyon", "nakil", "ikiz", "dal kaldır", "held", "gizli",
-                 "tuz", "salt", "commitment", "safe_state", "alarm", "nan", "oksijen", "snowball-rehearsal-exam",
-                 "api.anthropic.com", "relay", "proxy", "transplant")
+                 "tuz", "salt", "commitment", "safe_state", "alarm", "nan", "oksijen", "exam", "api.anthropic.com",
+                 "relay", "proxy", "transplant",
+                 *filter(None, [os.environ.get("SNOWBALL_EXAM_REPO", "").strip().casefold()]))
 
     @staticmethod
     def flat(text):

@@ -263,7 +263,12 @@ işleri ve sınav çekme adımı koşmaz, `check-snapshot` hiçbir şey okumaz, 
 **Sabitleyen dönemden önce operatörün kurduğu:**
 - Hakem reposunda Environment `answers` (dağıtım dalı yalnız `main`): `ANSWERS_KEY` sınav deposunun salt okunur dağıtım
   anahtarının özel yarısı, `EXAM_REPO` deponun `sahip/ad`'ı. İkisi de yalnız `kos`'un çekme adımının ortamındadır;
-  depo adı ve düzeni hiçbir `spec/tohum` sayfasına, isteme, beyne ya da hafızaya yazılmaz.
+  depo adı ve düzeni hiçbir `spec/tohum` sayfasına, isteme, beyne, hafızaya, koda ya da teste yazılmaz (E520). Bu
+  reponun geçmişinde bir kez geçen ad yanmıştır: depo başka, tahmin edilmez bir adla kurulur.
+- Sınav deposunda (gizli koşucu, `held.yml`) sırlar `HELD_SIGNING_KEY` ve `HELD_SIGNING_PASSWORD`: her dönem yeni bir
+  cosign anahtar çiftinin şifreli özel yarısı ve parolası; açık yarısı o dönemin sınav sürümünde listelenir, böylece
+  dönemin pini anahtarı ilk ifadeden önce sabitler. İfadeler anahtarla imzalanır, kimliksiz (keyless) imzalanmaz:
+  Sigstore sertifikası sınav deposunun ve iş akışının adını herkese açık kayda sonsuza dek yazardı (E520).
 - Sınav sürümünde görünen vakaların cevapları ve gözcülerin parametreleri (`watchers.load_params`: tuz, canlı gözcüler,
   eşikler; varsayılanı yoktur, eksikse sınav okunmamış sayılır); K6 belgeleri isteğe bağlıdır, yokken K6 dürüstçe
   `not_live`'dır.
@@ -277,7 +282,8 @@ işleri ve sınav çekme adımı koşmaz, `check-snapshot` hiçbir şey okumaz, 
   yalnız genişletebilir.
 
 **Kim ne yapar (sabitli koşu).** `gozcu` (anahtarsız) gözcülerin durağan geçişini (`watchers.static_pass`, E514)
-çekilen push'un kendi çıktıları üzerinde koşar ve bulguları yazar. `kos` sınavı pinde okur (`answers`), vektörleri
+çekilen push'un kendi çıktıları üzerinde koşar ve bulguları yazar; yapıtı herkese açık çekme ve koddan herkesin
+çıkarabileceği kadardır, bir gün tutulur (`kos` dakikalar sonra okur). `kos` sınavı pinde okur (`answers`), vektörleri
 görünen cevaplarla yargılar, `gozcu`'nun bulgularını o dönemin gizli parametreleriyle yayımlar (`watchers.publish`:
 istismar kuralı tektir, `watchers.level`; kanıt hash'leri tuzludur) ve K6 durumunu deponun K6 belgelerinden ölçer
 (`k6.evaluate`, E512; çitin geri çağırması çitin kendi eşleyicisiyle). Kanaryayı taşıyan bir `run.json` hiç yazılmaz.
@@ -287,8 +293,14 @@ bir kural tutmaz.
 **Sabitli sonuç** `snowball-bootstrap-result/2`'dir ve üç alan ekler: `exam` (`exam_sha256`, görünen vakaların `n`
 ve `pass`'ı; gizli vakalar yalnız özel depoda koşar, burada sayıları yoktur), `k6` (`status`: `not_live`,
 `exam_built`, `exam_strong`, `live`; bu koşuda ölçülmediyse son imzalı alan taşınır, hiç yoksa `not_live`) ve
-`istismar` (gözcülerin yayımladığı istismar düzeyindeki bulgular: `watcher`, `signal`, `ref`, `level`, `declared`,
-`evidence_sha256`, `reproducer`). Yeni gerekçeler:
+`istismar` (gözcülerin yayımladığı istismar düzeyindeki bulgular, yalnız `watcher`, `level`, `ref` ve `sealed_sha256`:
+bulgunun bütün kaydının (sinyal, kanıt, yeniden üretici, bildirim) dönem tuzuyla HMAC'i; E520). Uyarılar tek bir
+sayıdır (`gozcu_suphe:<n>`), gözcülerin kendi sınırlarına dair notları sayılmaz. Sinyal adı, yeniden üretici, düzenleme,
+geri konan dosya, ikiz komut, fikstür yolu, silinen değişkenler, eşik ve K6 sayıları ne imzalı sonuçta ne `run.json`'da
+yer alır: Kurucuya yalnız bir bit ve bir sayaç gider (sahip, 2026-11-02). İtirazda operatör kaydı özel tarafta
+`watchers.opens` ile açar. `k6` alanı yalnız `status`, `fell_from_live`, `exam_sha256`, `scope` ve değerlendirmenin
+tuzlu hash'i `sealed_sha256`'dır (`k6.public_field`): aileler, sayılar ve karşılanmayan koşullar özeldir. Yeni
+gerekçeler:
 
 | Gerekçe | Kimin | Ne olur |
 |---|---|---|

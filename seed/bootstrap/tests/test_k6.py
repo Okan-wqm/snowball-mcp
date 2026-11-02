@@ -1,13 +1,15 @@
-"""K6's state and strength (E512): `k6.evaluate` turns an exam, its runs and the live prerequisites into the signed
-`k6` field, and the fence opens only on `live`.
+"""K6's state and strength (E512): `k6.evaluate` turns an exam, its runs and the live prerequisites into the private
+evaluation, `k6.public_field` into the signed `k6` field (E520), and the fence opens only on `live`.
 
 The exam here is synthetic and says nothing of a real one: abstract modes, clauses and cases in four families, each
 with twenty mutants (ten of them fail-safe inversions), fifty canaries and two cases, every mutant and canary caught.
 From that strong exam each test removes one piece of evidence and checks the status, the reason and the numbers that
-are signed. The real exam, its answers, mutants, canaries and held path list are private and never come here.
+are kept. The real exam, its answers, mutants, canaries and held path list are private and never come here.
 """
 
 import copy
+import hashlib
+import hmac
 import json
 import math
 import unittest
@@ -117,6 +119,27 @@ class StatusTest(unittest.TestCase):
                            (None, "live:prerequisites_unknown")):
             field = judge(exam, runs, ready=ready)
             self.assertEqual((field["status"], field["unmet"]), ("exam_strong", [why]))
+
+    def test_the_signed_field_is_the_status_and_a_sealed_hash(self):  # k6_counts_published
+        """E520 (verifier finding 10, plan D6/D7, owner "yalnız bir bit + sayaç"): the signed field carries the status,
+        the fall from live, the pin and the scope; no family, count, base-red number or unmet name. The sealed hash is
+        an HMAC of the whole evaluation under the epoch's salt, so the operator opens it and no one else can."""
+        exam, runs = strong()
+        runs["canaries"][60]["failed_cases"] = []
+        evaluation = judge(exam, runs, previous="live")
+        field = k6.public_field(evaluation, SALT)
+        self.assertEqual(field, {"status": "not_live", "fell_from_live": True, "exam_sha256": PIN, "scope": k6.SCOPE,
+                                 "sealed_sha256": hmac.new(SALT, k6.SEAL_TAG + canon.canonical(evaluation),
+                                                           hashlib.sha256).hexdigest()})
+        self.assertEqual(tuple(field), k6.PUBLIC_KEYS)
+        text = json.dumps(field)
+        for private in ("canary", "families", "unmet", "killed", "base_red", "S:", "58156"):
+            self.assertNotIn(private, text)
+        strong_field = k6.public_field(judge(*strong(), previous="exam_strong"), SALT)
+        self.assertNotEqual(strong_field["sealed_sha256"], field["sealed_sha256"])
+        self.assertNotEqual(k6.public_field(evaluation, OTHER_SALT)["sealed_sha256"], field["sealed_sha256"])
+        with self.assertRaises(k6.K6Error):
+            k6.public_field(evaluation, b"short")
 
     def test_a_missed_canary_after_live_falls_back_to_not_live(self):  # missed_canary_keeps_live
         """E512: one missed canary ends `exam_strong`; after a signed `live` the status is `not_live`, never a middle

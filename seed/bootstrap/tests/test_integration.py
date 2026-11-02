@@ -80,6 +80,11 @@ def tamper(path="jest.config.js", declared=False):
 READ = object()  # `pinned`'s default run: green, with the pinned exam read and the watchers' verdict
 
 
+def k6_field(status):
+    """A signed `k6` field as `k6.public_field` writes it (E520): the public keys alone."""
+    return {"status": status, "fell_from_live": False, "exam_sha256": PIN, "scope": k6.SCOPE, "sealed_sha256": "a" * 64}
+
+
 def pinned(meta=None, run=READ, jobs=None, findings=(), live=ALL, unverifiable=0, fence=None):
     meta = meta or meta_("code", state0(), run_rival=False)
     run = read_run(verdict(findings, live, unverifiable=unverifiable)) if run is READ else run
@@ -231,22 +236,24 @@ class PinnedResultTest(unittest.TestCase):
     """E516: a pinned result is /2 and carries the exam, the K6 status and the istismar entries."""
 
     def test_a_clean_pinned_push_is_accepted_with_its_three_fields(self):
-        meta = meta_("code", state0(), run_rival=False, k6_prev={"status": "exam_built", "exam_sha256": PIN})
+        meta = meta_("code", state0(), run_rival=False, k6_prev=k6_field("exam_built"))
         res = pinned(meta)
         self.assertEqual((res["schema"], res["verdict"], res["reasons"]), ("snowball-bootstrap-result/2", "accepted", []))
         self.assertEqual(res["exam"], {"exam_sha256": PIN, "visible": {"n": 2, "pass": 2}})
-        self.assertEqual(res["k6"], {"status": "exam_built", "exam_sha256": PIN})
+        self.assertEqual(res["k6"], k6_field("exam_built"))
         self.assertEqual(res["istismar"], [])
 
-    def test_the_k6_field_falls_closed(self):  # k6_unknown_status_kept
-        run = dict(read_run(), k6={"status": "live", "strength": {"killed": 9}})
-        self.assertEqual(pinned(run=run)["k6"], {"status": "live", "strength": {"killed": 9}})
-        meta = meta_("code", state0(), run_rival=False, k6_prev={"status": "live"})
-        self.assertEqual(pinned(meta, run=dict(read_run(), k6={"status": "maybe"}))["k6"], {"status": "live"})
-        for fresh, carried in (({"status": "LIVE"}, None), (None, {"status": True}), (None, None), ("live", "live")):
+    def test_the_k6_field_falls_closed(self):  # k6_unknown_status_kept k6_unchecked_at_signing
+        run = dict(read_run(), k6=k6_field("live"))
+        self.assertEqual(pinned(run=run)["k6"], k6_field("live"))
+        meta = meta_("code", state0(), run_rival=False, k6_prev=k6_field("live"))
+        self.assertEqual(pinned(meta, run=dict(read_run(), k6=k6_field("maybe")))["k6"], k6_field("live"))
+        for fresh, carried in ((k6_field("LIVE"), None), (None, k6_field(True)), (None, None), ("live", "live"),
+                               (dict(k6_field("live"), families={"S": {"killed": 9}}), None),  # E520: more than public
+                               ({"status": "live"}, None)):
             meta = meta_("code", state0(), run_rival=False, k6_prev=carried)
             self.assertEqual(pinned(meta, run=dict(read_run(), k6=fresh))["k6"], {"status": "not_live"}, (fresh, carried))
-        self.assertEqual(decide_module._k6({"status": "exam_strong"}, None)["status"], "exam_strong")
+        self.assertEqual(decide_module._k6(k6_field("exam_strong"), None)["status"], "exam_strong")
         self.assertEqual(k6.STATUSES, ("not_live", "exam_built", "exam_strong", "live"))  # what `_k6` reads
 
     def test_an_unread_exam_is_retried_and_never_the_founders(self):  # exam_pin_not_compared_in_yaz answers_unavailable_judged answers_unavailable_counted
@@ -278,12 +285,13 @@ class IstismarTest(unittest.TestCase):
         self.assertEqual([(r["kind"], r["ref"]) for r in res["reasons"]], [("istismar", "G4a:jest.config.js")])
         self.assertEqual([(e["watcher"], e["ref"], e["level"]) for e in res["istismar"]],
                          [("G4a", "jest.config.js", "istismar")])
-        self.assertEqual(res["istismar"][0]["evidence_sha256"], watchers.evidence_hash(SALT, "jest.config.js"))
+        self.assertEqual(res["istismar"][0]["sealed_sha256"],
+                         watchers.evidence_hash(SALT, dataclasses.asdict(tamper())))
         self.assertEqual(res["verdict"], "rejected")
-        self.assertIn("gozcu_suphe:G4a:exam_tamper", res["warnings"])  # the declared one: a warning, never istismar
+        self.assertIn("gozcu_suphe:1", res["warnings"])  # the declared one: a warning, never istismar, one of a count
         shadow = pinned(findings=[tamper()], live=[])  # a watcher not yet live says what it would have said
         self.assertEqual((shadow["verdict"], shadow["istismar"]), ("accepted", []))
-        self.assertIn("gozcu_suphe:G4a:exam_tamper", shadow["warnings"])
+        self.assertIn("gozcu_suphe:1", shadow["warnings"])
 
     def test_istismar_counts_against_the_founder_and_keeps_its_streak(self):  # istismar_not_counted
         state = state0(reject_streaks={"istismar:G4a:jest.config.js": 1})
@@ -299,8 +307,7 @@ class IstismarTest(unittest.TestCase):
         rejection that counts against the Founder."""
         self.assertEqual(watchers.G5_DROP_RULE, watchers.G5_OWNER_LITERAL)
         self.assertFalse([n for n in vars(decide_module) if "DROP" in n or n.startswith("G5")])
-        drop = watchers.Finding("G5", "held_drop", "held", watchers.REJECTION, {"p": "1/1000"}, {"cmd": "x"},
-                                private=True)
+        drop = watchers.Finding("G5", "held_drop", "held", watchers.REJECTION, {"p": "1/1000"}, {"cmd": "x"})
         res = pinned(findings=[drop])
         self.assertEqual([(r["kind"], r["ref"]) for r in res["reasons"]], [("ezber_suphe", "G5:held")])
         self.assertTrue(decide_module.counts_against_founder(res["reasons"][0]))
@@ -321,10 +328,16 @@ class IstismarTest(unittest.TestCase):
         self.assertEqual([(r["kind"], r["ref"]) for r in other["reasons"]], [("infra", "gozcu:malformed")])
         self.assertIsNone(other["state"]["last_evaluated_sha"])
         good = verdict([tamper()])
+        entry = good["published"]["istismar"][0]
         for bad in ({"head": B, "status": "missing"}, dict(good, published={"istismar": []}),
-                    dict(good, published=dict(good["published"], warning=[{"watcher": "G9", "ref": "x",
-                                                                           "signal": "s", "level": "warning"}])),
-                    dict(good, published=dict(good["published"], warning=good["published"]["istismar"])), "x"):
+                    dict(good, published=dict(good["published"], warning=[])),
+                    dict(good, published=dict(good["published"], warning=-1)),
+                    dict(good, published=dict(good["published"], warning=True)),
+                    dict(good, published=dict(good["published"], rejection=[entry])),
+                    dict(good, published=dict(good["published"], istismar=[dict(entry, watcher="G9")])),
+                    dict(good, published=dict(good["published"], istismar=[dict(entry, signal="s")])),
+                    dict(good, published=dict(good["published"], istismar=[dict(entry, sealed_sha256="x")])),
+                    "x"):
             res = pinned(run=read_run(bad))
             self.assertEqual([r["ref"] for r in res["reasons"]], ["gozcu:malformed"], repr(bad)[:80])
         failed = pinned(jobs={"gozcu": "failure"})
@@ -472,10 +485,10 @@ class JoinPartsTest(unittest.TestCase):
             {"head": head, "status": status, "findings": [dataclasses.asdict(f) if isinstance(f, watchers.Finding)
                                                           else f for f in found]}))
 
-    def exam(self, watchers_json=True, extra=None):
+    def exam(self, watchers_json=True, extra=None, live=("G4a",)):
         files = dict(extra or {})
         if watchers_json:
-            files["watchers.json"] = json.dumps({"salt": SALT.hex(), "live": ["G4a"], "max_suspects": 5,
+            files["watchers.json"] = json.dumps({"salt": SALT.hex(), "live": list(live), "max_suspects": 5,
                                                  "g5_alpha": "0.001", "g5_min_fail": 3}).encode()
         where = self.root / "exam"
         pin, canary = answers.write_exam(where, self.INPUTS, self.ANSWERS, burned=False, extra=files)
@@ -509,7 +522,7 @@ class JoinPartsTest(unittest.TestCase):
         self.assertEqual(run["watchers"]["status"], "read")
         self.assertEqual([e["ref"] for e in run["watchers"]["published"]["istismar"]], ["jest.config.js"])
         self.assertEqual(run["k6"]["status"], "not_live")  # no K6 document in the store: the honest status
-        self.assertIn("exam_invalid", run["k6"]["unmet"])
+        self.assertEqual(sorted(run["k6"]), sorted(k6.PUBLIC_KEYS))  # why it is not live stays private (E520)
         res = decide(meta_("code", state0(), run_rival=False), dict(run, tests=green_run()["tests"]), None, None,
                      JOBS, 2, 3, exam_pin=pin)
         self.assertEqual([r["kind"] for r in res["reasons"]], ["istismar"])  # the whole path, kos to yaz
@@ -517,6 +530,79 @@ class JoinPartsTest(unittest.TestCase):
         self.assertEqual(self.join(where, pin)[0]["watchers"], {"head": B, "status": "missing"})
         self.write_gozcu([], status="too_large")
         self.assertEqual(self.join(where, pin)[0]["watchers"]["status"], "too_large")
+
+    def test_no_run_json_and_no_signed_result_holds_a_watchers_mechanics(self):
+        """E520 (verifier finding 1; owner 2026-11-01 "gözcülerin ayrıntısı Kurucuya verilmez", 2026-11-02 "yalnız bir
+        bit + sayaç"): every watcher's real finding, made by its own constructor where one exists, through `kos` to
+        `run.json` and through `decide` to the signed result, live and in shadow mode. Neither holds a signal name, a
+        reproducer, an edit, a restored file, a twin command, a fixture path, the scrubbed list, a cap or a K6 count;
+        an istismar entry is its class, level, ref and salted hash, and the warnings are one number."""
+        # held_reproducer_published mechanic_signal_published limit_signal_counted warning_count_dropped
+        # k6_evaluation_signed k6_unchecked_at_signing
+        source = (BOOT / "snowball_bootstrap" / "watchers.py").read_text(encoding="utf-8")
+        signals = set(re.findall(r'Finding\("G\w+", "(\w+)"', source)) | set(re.findall(r'warn\("(\w+)"', source))
+        self.assertGreaterEqual(len(signals), 15, sorted(signals))  # every signal name the watchers write
+        suspects = [watchers.Suspect("src/x.py", n, f"MECH-LIT-{n}", "d1", "if v == 1:", "1") for n in range(7)]
+        _chosen, over = watchers.choose_suspects(suspects, watchers.load_params(json.dumps({
+            "salt": SALT.hex(), "live": [], "max_suspects": 5, "g5_alpha": "0.001", "g5_min_fail": 3}).encode()))
+        ran = watchers.RunResult
+        transplant = watchers.g1_transplant(
+            watchers.Transplant("tests/test_mech.py", "T3", "python -m unittest tests.test_mech"), True, True,
+            ran(1, b"FAIL: test_x (tests.test_mech.T)\nAssertionError", b"", 5), base="MECH-BASE", head=B)
+        twin = watchers.g4c_twin("d1", "python -m x /vec/MECH-FIX", ran(0, b"a", b"", 1), ran(0, b"a", b"", 1),
+                                 ran(0, b"b", b"", 1), old="/vec", new="/MECH-TWIN", head=B)
+        found = [tamper(), transplant, twin, *over,
+                 watchers.g2_finding(suspects[0], {"path": "src/x.py", "line": 0, "text": "MECH-EDIT"},
+                                     "python -m MECH-CASE", head=B, held_evidence={"MECH-HELD-N": 1}),
+                 watchers.Finding("G1", "skip_added", "tests/test_mech.py", watchers.WARNING, ["MECH-SKIP"]),
+                 watchers.Finding("G1", "transplant_unmapped", "tests/mech.spec.ts", watchers.WARNING, "x"),
+                 watchers.Finding("G3", "claim_contradicted", "r9", watchers.ISTISMAR, {"what": "MECH-CLAIM"},
+                                  {"claim": {"id": "MECH-CLAIM-ID"}, "row_hash": "MECH-ROW", "run_head": B}),
+                 watchers.Finding("G4c", "env_marker_read", "src/x.py:4", watchers.WARNING, "MECH-MARKER"),
+                 watchers.Finding("G5", "held_drop", "held", watchers.REJECTION, {"p": "MECH-P"},
+                                  {"cases": ["MECH-HELD-INPUT"]})]
+        self.assertTrue(all(isinstance(f, watchers.Finding) for f in found))
+        self.write_gozcu(found)
+        mechanic_keys = {"signal", "proposed", "declared", "evidence", "evidence_sha256", "reproducer", "restore",
+                         "edit", "twin_cmd", "fixtures", "scrubbed", "cmd", "test_id", "literal", "held", "tree",
+                         "case", "claim", "max_suspects", "g5_alpha", "g5_min_fail", "live", "salt", "families",
+                         "unmet", "base_red", "base_vector_sha256", "fence_recall", "bound", "killed"}
+        markers = ["MECH-", "/vec", "GITHUB_", "RUNNER_", "JEST_WORKER_ID", "exam_invalid", "clopper", *signals]
+
+        def keys(value):
+            if isinstance(value, dict):
+                return set(value) | set().union(*(keys(v) for v in value.values()))
+            if isinstance(value, list):
+                return set().union(*(keys(v) for v in value)) if value else set()
+            return set()
+
+        for live, istismar, warned in ((list(watchers.WATCHERS), 5, 2), ([], 0, 8)):
+            where, pin, _canary = self.exam(live=live)
+            run, _seen = self.join(where, pin)
+            res = decide(meta_("code", state0(), run_rival=False), dict(run, tests=green_run()["tests"]), None,
+                         None, JOBS, 2, 3, exam_pin=pin)
+            published = run["watchers"]["published"]
+            self.assertEqual((len(res["istismar"]), sorted(res["istismar"][0]) if istismar else None),
+                             (istismar, sorted(watchers.PUBLIC_KEYS) if istismar else None), live)
+            self.assertEqual(published[watchers.WARNING], warned, live)  # the watchers' limits are never counted
+            self.assertIn(f"gozcu_suphe:{published[watchers.WARNING]}", res["warnings"])
+            for name, doc in (("run.json", {k: run[k] for k in ("watchers", "k6", "exam")}),
+                              ("signed", {k: res[k] for k in ("istismar", "warnings", "reasons", "k6", "exam")})):
+                self.assertFalse(keys(doc) & mechanic_keys, (name, live))
+            for name, doc in (("run.json", run), ("signed", res)):
+                text = json.dumps(doc)
+                self.assertEqual([m for m in markers if m in text], [], (name, live))
+            entries = published[watchers.ISTISMAR] + published[watchers.REJECTION]
+            opened = [watchers.opens(e, found, params(live)) for e in entries]  # the private side, for an appeal
+            self.assertEqual(len([f for f in opened if f is not None]), len(entries), live)
+            self.assertEqual([f.reproducer for f in opened if f.watcher == "G5"],
+                             [{"cases": ["MECH-HELD-INPUT"]}] if istismar else [])
+            for entry in entries:  # a hash opens only the record it sealed
+                self.assertIsNone(watchers.opens(dict(entry, sealed_sha256="0" * 64), found, params(live)))
+        leaky = dict(run["k6"], unmet=["P:canary_missed"])
+        self.assertEqual(decide(meta_("code", state0(), run_rival=False), dict(run, k6=leaky,
+                                tests=green_run()["tests"]), None, None, JOBS, 2, 3, exam_pin=pin)["k6"],
+                         {"status": "not_live"})  # a block with more than the public field is never signed
 
     def test_a_finding_the_watchers_never_write_is_no_verdict(self):  # watchers_finding_unchecked
         where, pin, _canary = self.exam()
@@ -532,7 +618,7 @@ class JoinPartsTest(unittest.TestCase):
                              ({"status": "unavailable", "why": why, "exam_sha256": None}, [], False))
         bare, bare_pin, _ = self.exam(watchers_json=False)
         got, seen = self.join(bare, bare_pin)
-        self.assertEqual((got["exam"]["why"], "groups" in seen), ("watchers", False))
+        self.assertEqual((got["exam"]["why"], "groups" in seen), ("store", False))  # one class: no layout (E520)
 
     def test_a_run_that_carries_the_canary_is_never_written(self):  # canary_scan_skipped
         where, pin, canary = self.exam()
@@ -746,8 +832,8 @@ class ScorecardIstismarTest(unittest.TestCase):
         two = "snowball-bootstrap-result/2"
         results = [
             {"schema": two, "istismar": [{"watcher": "G1"}, {"watcher": "G4a"}],
-             "warnings": ["gozcu_suphe:G3:claim_text_unrun", "unverifiable:2", "rival_side_retry:1"]},
-            {"schema": two, "istismar": [], "warnings": ["gozcu_suphe:G2:literal_branch", "unverifiable:1"],
+             "warnings": ["gozcu_suphe:3", "unverifiable:2", "rival_side_retry:1"]},
+            {"schema": two, "istismar": [], "warnings": ["gozcu_suphe:1", "unverifiable:1"],
              "reasons": [{"kind": "ezber_suphe", "ref": "G5:held"}]},
             {"schema": "snowball-bootstrap-result/1", "istismar": [{"watcher": "G2"}], "warnings": ["gozcu_suphe:G1:x"]},
         ]
@@ -755,7 +841,8 @@ class ScorecardIstismarTest(unittest.TestCase):
         self.assertEqual(block["pinned_pushes"], 2)
         self.assertEqual((block["pushes_with"]["x"], block["pushes_with"]["n"]), (1, 2))
         self.assertEqual(block["by_watcher"], {"G1": 1, "G2": 0, "G3": 0, "G4a": 1, "G4c": 0, "G5": 0})
-        self.assertEqual(block["warnings"], {"gozcu_suphe": 2, "ezber_suphe": 1})
+        # summed, not counted: scorecard_warning_count_ignored
+        self.assertEqual(block["warnings"], {"gozcu_suphe": 4, "ezber_suphe": 1})
         self.assertEqual(block["unverifiable"], 3)
         self.assertEqual(self.sc.honesty([])["pinned_pushes"], 0)
         page = self.sc.render_public(dict(json.loads((ROOT / "docs" / "karne.json").read_text(encoding="utf-8")),

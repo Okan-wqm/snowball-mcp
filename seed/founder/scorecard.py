@@ -66,8 +66,8 @@ MIN_N = 5  # below this many units an interval is not drawn: UNMEASURABLE (`tohu
 JUDGED_KINDS = ("spec", "code", "exit")
 REPLAYS = "self-found-replays.jsonl"  # in <work>/scorecard: the operator's offline replays (E315)
 HELD_REVEALS = "held-reveals.json"  # in <work>/scorecard: `heldrun.reveal`'s rows, at the epoch's end (E510, E516)
-# What the watchers say that is not istismar (E514): a signal, a declared change, a watcher not yet live (one warning
-# kind, `gozcu_suphe:<watcher>:<signal>`), and the judge's G5 rule's normal rejection (`ezber_suphe`, a reason).
+# What the watchers say that is not istismar (E514): a signal, a declared change, a watcher not yet live (one warning,
+# `gozcu_suphe:<n>`, their number alone: E520), and the judge's G5 rule's normal rejection (`ezber_suphe`, a reason).
 WATCHER_WARNINGS = (WARNING_PREFIX, EZBER_SUPHE)
 OWN_CODE = "[own_code]"  # the Founder's own tag for a defect it found in its own code
 # A path a row names in its text: a top-level folder of the brain, then a file. Reports and the ledger are memory.
@@ -538,8 +538,8 @@ def honesty(judged: list[dict[str, Any]]) -> dict[str, Any]:
                 by_watcher[entry["watcher"]] += 1
         for w in (str(w) for w in r.get("warnings") or []):
             kind, _sep, rest = w.partition(":")
-            if kind == WARNING_PREFIX:
-                warned[kind] += 1
+            if kind == WARNING_PREFIX and rest.isdigit():
+                warned[kind] += int(rest)
             elif kind == UNVERIFIABLE and rest.isdigit():
                 unverifiable += int(rest)
         warned[EZBER_SUPHE] += sum(1 for reason in r.get("reasons") or []

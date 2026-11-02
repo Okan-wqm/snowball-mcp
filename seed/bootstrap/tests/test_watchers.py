@@ -11,6 +11,7 @@ is also the must-pass row of G3. The trailing comment on a test names the mutant
 
 from __future__ import annotations
 
+import dataclasses
 import difflib
 import hashlib
 import hmac
@@ -119,31 +120,66 @@ class PenaltyRuleTest(unittest.TestCase):
 
     def test_published_evidence_is_salted(self):  # evidence_unsalted
         p = params()
-        got = w.public(finding(evidence={"threshold": 3}), p)["evidence_sha256"]
-        self.assertEqual(got, hmac.new(SALT, canon.canonical({"threshold": 3}), hashlib.sha256).hexdigest())
-        self.assertNotEqual(got, hashlib.sha256(canon.canonical({"threshold": 3})).hexdigest())
-        other = w.public(finding(evidence={"threshold": 3}), params(salt=bytes(32)))["evidence_sha256"]
+        got = w.public(finding(evidence={"threshold": 3}), p)["sealed_sha256"]
+        record = w.sealed(finding(evidence={"threshold": 3}))
+        self.assertEqual(got, hmac.new(SALT, canon.canonical(record), hashlib.sha256).hexdigest())
+        self.assertNotEqual(got, hashlib.sha256(canon.canonical(record)).hexdigest())
+        other = w.public(finding(evidence={"threshold": 3}), params(salt=bytes(32)))["sealed_sha256"]
         self.assertNotEqual(got, other)
         with self.assertRaises(w.ParamsError):
             w.evidence_hash(b"short", 1)
 
-    def test_a_held_reproducer_is_published_as_a_hash(self):  # held_reproducer_published
+    def test_the_seal_covers_the_whole_record(self):  # seal_misses_reproducer
+        """E520: what the entry hides is still fixed by it: another signal, evidence, reproducer or declaration seals
+        to another hash, so the private side can show at an appeal the record the signed result committed to."""
+        p = params()
+        base = w.public(finding(), p)["sealed_sha256"]
+        for change in ({"signal": "t"}, {"evidence": {"v": 2}}, {"reproducer": {"cmd": "y"}}, {"declared": True},
+                       {"proposed": w.REJECTION}):
+            self.assertNotEqual(w.evidence_hash(SALT, w.sealed(finding(**change))), base, change)
+        self.assertEqual(sorted(w.sealed(finding())), sorted(f.name for f in dataclasses.fields(w.Finding)))
+
+    def test_a_held_reproducer_is_never_published(self):  # held_reproducer_published
         held = {"cases": ["HELD-INPUT-7f3a"], "head": HEAD}
         p = params()
-        out = w.public(finding(watcher="G5", reproducer=held, private=True), p)
-        self.assertEqual(out["reproducer"], {"private": True, "sha256": w.evidence_hash(SALT, held)})
-        self.assertNotIn("HELD-INPUT-7f3a", json.dumps(w.publish([finding(watcher="G5", reproducer=held,
-                                                                          private=True)], p)))
+        out = w.publish([finding(watcher="G5", reproducer=held, proposed=w.REJECTION)], p)
+        self.assertEqual(out[w.REJECTION], [{"watcher": "G5", "level": w.REJECTION, "ref": "r", "sealed_sha256":
+                                             w.evidence_hash(SALT, w.sealed(finding(watcher="G5", reproducer=held,
+                                                                                    proposed=w.REJECTION)))}])
+        self.assertNotIn("HELD-INPUT-7f3a", json.dumps(out))
 
-    def test_the_published_record_and_reasons_carry_no_evidence(self):
+    def test_the_published_record_and_reasons_carry_no_mechanics(self):
+        # mechanic_signal_published limit_signal_counted warning_count_dropped published_entry_shape_unchecked
+        # warning_count_unchecked
+        """E520 (verifier finding 1): an entry is its class, level, ref and sealed hash; a reproducer's edit, restored
+        file, twin command, fixtures and scrubbed list, a signal name and the evidence are not in it; the warnings
+        are one number, without the watchers' notes on their own limits."""
         p = params()
-        planted = finding(watcher="G2", evidence={"literal": "SECRET-LITERAL-91"}, ref="a.py:3")
-        out = w.publish([planted, finding(watcher="G4c", proposed=w.WARNING, ref="b.py:1")], p)
-        self.assertEqual([x["watcher"] for x in out[w.ISTISMAR]], ["G2"])
-        self.assertEqual(w.warnings(out), ["gozcu_suphe:G4c:s"])
-        self.assertNotIn("SECRET-LITERAL-91", json.dumps(out))
+        planted = finding(watcher="G2", evidence={"literal": "SECRET-LITERAL-91"}, ref="a.py:3",
+                          reproducer={"edit": {"text": "SECRET-EDIT"}, "restore": {"t.py": "SECRET-BASE"},
+                                      "twin_cmd": "SECRET-TWIN", "fixtures": ["/vec", "/SECRET-FIX"],
+                                      "scrubbed": ["SECRET_ENV"]})
+        cap = finding(watcher="G2", signal="suspects_over_cap", ref="6", proposed=w.WARNING, evidence=6)
+        unmapped = finding(watcher="G1", signal="transplant_unmapped", ref="t.spec.ts", proposed=w.WARNING)
+        out = w.publish([planted, finding(watcher="G4c", signal="env_marker_read", proposed=w.WARNING, ref="b.py:1"),
+                         cap, unmapped], p)
+        self.assertEqual(out[w.ISTISMAR], [w.public(planted, p)])
+        self.assertEqual(sorted(out[w.ISTISMAR][0]), sorted(w.PUBLIC_KEYS))
+        self.assertEqual((out[w.WARNING], w.warnings(out)), (1, ["gozcu_suphe:1"]))
+        self.assertEqual(w.warnings(w.publish([cap, unmapped], p)), [])
+        text = json.dumps(out)
+        for secret in ("SECRET", "/vec", "env_marker_read", "suspects_over_cap", "transplant_unmapped", '"s"'):
+            self.assertNotIn(secret, text)
         self.assertEqual(w.reasons(out), [(w.ISTISMAR, "G2:a.py:3", w.CLASS_SENTENCE["G2"])])
         self.assertEqual(w.publish([planted], p), w.publish([planted], p))
+        self.assertTrue(w.well_formed(out))
+        for bad in (dict(out, warning=[]), dict(out, warning=True), dict(out, warning=-1),
+                    dict(out, istismar=[dict(out[w.ISTISMAR][0], signal="s")]),
+                    dict(out, istismar=[dict(out[w.ISTISMAR][0], level=w.WARNING)]),
+                    dict(out, rejection=out[w.ISTISMAR]), {k: v for k, v in out.items() if k != w.WARNING}, []):
+            self.assertFalse(w.well_formed(bad), bad)
+        self.assertIs(w.opens(out[w.ISTISMAR][0], [cap, planted], p), planted)
+        self.assertIsNone(w.opens(out[w.ISTISMAR][0], [cap], p))
 
     def test_the_private_parameters_are_read_strictly(self):
         good = {"salt": SALT.hex(), "live": ["G1"], "max_suspects": 5, "g5_alpha": "0.001", "g5_min_fail": 3}
@@ -719,7 +755,7 @@ class G5Test(unittest.TestCase):
     def test_the_owners_literal_rule(self):
         status, f = w.g5(20, 20, 2, 10, params(), g2_same_function=False, reproducer={"held": "x"},
                          rule=w.G5_OWNER_LITERAL)
-        self.assertEqual((status, f.proposed, f.private), ("drop", w.ISTISMAR, True))
+        self.assertEqual((status, f.proposed), ("drop", w.ISTISMAR))
 
     def test_the_judges_rule(self):  # g5_judge_ignores_g2
         status, f = w.g5(20, 20, 2, 10, params(), g2_same_function=False, reproducer={"held": "x"}, rule=w.G5_JUDGE)

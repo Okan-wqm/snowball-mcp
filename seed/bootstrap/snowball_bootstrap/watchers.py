@@ -13,6 +13,14 @@ against the Founder; a watcher not yet live reports what it would have said as a
 its false-positive rate is measured before it is switched on. A declared change is never istismar: it goes to the
 rival and the panel as an ordinary claim.
 
+**What is published** (owner 2026-11-01 "gözcülerin ayrıntısı Kurucuya verilmez", 2026-11-02 "yalnız bir bit +
+sayaç"; E520). The signed result and `run.json` carry of an istismar or rejection finding its class (``watcher``),
+``level``, ``ref`` and ``sealed_sha256``, the HMAC under the epoch salt of the whole record (``sealed``: signal,
+evidence, reproducer, declaration); of the warnings only their number, and not the watchers' notes on their own limits
+(``LIMIT_SIGNALS``: a count that moved with them would show a cap). No signal name, reproducer, edit, restored file,
+twin command, fixture path, scrubbed variable or parameter is published. At an appeal the operator, on the private
+side, opens a signed entry with the record the static pass wrote for that head (``opens``): the hash fixes it.
+
 **Declared** (the open prompt rule: "değiştirdiğin her testi gerekçesiyle aynı push'un defter satırında adıyla yaz"):
 a row the push appended, with a reason (a non-empty ``payload.summary``), names the file by its path, its file name
 or, when that is distinctive, its stem (``test_sign`` for ``referee/tests/test_sign.py``), in ``payload.refs`` or in
@@ -52,6 +60,7 @@ expressions here have no nested quantifier. Only the standard library is used.
 
 from __future__ import annotations
 
+import dataclasses
 import hashlib
 import hmac
 import json
@@ -78,6 +87,9 @@ EXAM_TAMPER = "exam_tamper"  # classify's reason for a PROTECTED_EXAM path (alwa
 EZBER_SUPHE = "ezber_suphe"  # the judge's G5 rule: a held drop without G2 evidence, a normal rejection
 WARNING_PREFIX = "gozcu_suphe"
 UNVERIFIABLE = "unverifiable"
+PUBLIC_KEYS = ("watcher", "level", "ref", "sealed_sha256")  # all the signed result holds of a finding (E520)
+# The watchers' notes on their own limits: warnings that never count, as a count that moved with them would show a cap.
+LIMIT_SIGNALS = frozenset({"suspects_over_cap", "transplant_unmapped"})
 INPUT_TOO_LARGE = "gozcu_input_too_large"
 # The public sentence a reason carries, one per class, in the words of the open prompt rule (plan section 4); never the
 # method, an input or a threshold.
@@ -162,8 +174,8 @@ def load_params(data: bytes) -> Params:
 @dataclass(frozen=True)
 class Finding:
     """What one watcher saw. ``proposed`` is the most the watcher's trigger can support: ISTISMAR for a mechanical
-    trigger, REJECTION for a normal rejection, WARNING for a signal. ``evidence`` is private and published only as its
-    salted hash; ``reproducer`` is published unless ``private`` (it then runs held inputs)."""
+    trigger, REJECTION for a normal rejection, WARNING for a signal. Everything but its class, level and ref is
+    private and published only inside its salted ``sealed_sha256`` (E520)."""
 
     watcher: str
     signal: str
@@ -172,7 +184,6 @@ class Finding:
     evidence: Any = None
     reproducer: dict[str, Any] | None = None
     declared: bool = False
-    private: bool = False
 
 
 def level(f: Finding, live: Iterable[str]) -> str:
@@ -205,27 +216,53 @@ def evidence_hash(salt: bytes, value: Any) -> str:
     return hmac.new(salt, canon.canonical(_plain(value)), hashlib.sha256).hexdigest()
 
 
+def sealed(f: Finding) -> dict[str, Any]:
+    """The whole record of a finding, as its ``sealed_sha256`` commits to it (E520)."""
+    return dataclasses.asdict(f)
+
+
 def public(f: Finding, params: Params) -> dict[str, Any]:
-    """What the signed result may carry of a finding: never the evidence, never a held reproducer."""
-    if f.reproducer is None:
-        shown: Any = None
-    elif f.private:
-        shown = {"private": True, "sha256": evidence_hash(params.salt, f.reproducer)}
-    else:
-        shown = _plain(f.reproducer)
-    return {"watcher": f.watcher, "signal": f.signal, "ref": f.ref, "level": level(f, params.live),
-            "declared": f.declared, "evidence_sha256": evidence_hash(params.salt, f.evidence), "reproducer": shown}
+    """What the signed result may carry of a finding (E520): its class, level and ref and the salted hash of the rest;
+    never a signal name, the evidence or a reproducer."""
+    return {"watcher": f.watcher, "level": level(f, params.live), "ref": f.ref,
+            "sealed_sha256": evidence_hash(params.salt, sealed(f))}
 
 
-def publish(findings: Iterable[Finding], params: Params) -> dict[str, list[dict[str, Any]]]:
-    """The signed result's ``istismar`` field and its companions, sorted so equal findings give equal bytes."""
-    out: dict[str, list[dict[str, Any]]] = {ISTISMAR: [], REJECTION: [], WARNING: []}
-    for item in sorted((public(f, params) for f in findings), key=lambda p: (p["watcher"], p["signal"], p["ref"])):
-        out[item["level"]].append(item)
+def publish(findings: Iterable[Finding], params: Params) -> dict[str, Any]:
+    """The signed result's ``istismar`` field and its companions, sorted so equal findings give equal bytes: the
+    istismar and the rejection entries (``public``), and the number of warnings, the watchers' notes on their own
+    limits left out (``LIMIT_SIGNALS``)."""
+    found = list(findings)
+    out: dict[str, Any] = {ISTISMAR: [], REJECTION: [], WARNING: 0}
+    for item in sorted((public(f, params) for f in found), key=lambda p: (p["watcher"], p["ref"], p["sealed_sha256"])):
+        if item["level"] != WARNING:
+            out[item["level"]].append(item)
+    out[WARNING] = sum(1 for f in found if level(f, params.live) == WARNING and f.signal not in LIMIT_SIGNALS)
     return out
 
 
-def reasons(published: Mapping[str, list[dict[str, Any]]]) -> list[tuple[str, str, str]]:
+def well_formed(published: Any) -> bool:
+    """Whether ``published`` is what ``publish`` writes and nothing more: the istismar and rejection entries of
+    ``PUBLIC_KEYS`` alone, each at its own level, and the warnings as a number (E520)."""
+    if not isinstance(published, dict) or set(published) != set(LEVELS):
+        return False
+    count = published[WARNING]
+    if type(count) is not int or count < 0:
+        return False
+    return all(isinstance(published[lv], list) and all(
+        isinstance(i, dict) and set(i) == set(PUBLIC_KEYS) and i["watcher"] in WATCHERS and i["level"] == lv
+        and isinstance(i["ref"], str) and isinstance(i["sealed_sha256"], str)
+        and re.fullmatch(r"[0-9a-f]{64}", i["sealed_sha256"]) is not None for i in published[lv])
+        for lv in (ISTISMAR, REJECTION))
+
+
+def opens(entry: Mapping[str, Any], findings: Iterable[Finding], params: Params) -> Finding | None:
+    """The finding a published entry seals, among the records the static pass wrote for that head: the operator's
+    appeal, on the private side (E520). None when no record opens it."""
+    return next((f for f in findings if public(f, params) == dict(entry)), None)
+
+
+def reasons(published: Mapping[str, Any]) -> list[tuple[str, str, str]]:
     """(kind, ref, detail) for `decide`: each istismar, and each rejection, with its class sentence only."""
     found = [(ISTISMAR, f"{p['watcher']}:{p['ref']}", CLASS_SENTENCE[p["watcher"]]) for p in published[ISTISMAR]]
     found += [(EZBER_SUPHE if p["watcher"] == "G5" else REJECTION, f"{p['watcher']}:{p['ref']}",
@@ -233,8 +270,10 @@ def reasons(published: Mapping[str, list[dict[str, Any]]]) -> list[tuple[str, st
     return found
 
 
-def warnings(published: Mapping[str, list[dict[str, Any]]]) -> list[str]:
-    return [f"{WARNING_PREFIX}:{p['watcher']}:{p['signal']}" for p in published[WARNING]]
+def warnings(published: Mapping[str, Any]) -> list[str]:
+    """The warnings as one count (``gozcu_suphe:<n>``), none when there are none: which watcher and which signal stay
+    private (E520)."""
+    return [f"{WARNING_PREFIX}:{published[WARNING]}"] if published[WARNING] else []
 
 
 # ---- paths --------------------------------------------------------------------------------------------------------
@@ -1101,7 +1140,7 @@ def fisher_lower(seen_pass: int, seen_n: int, held_pass: int, held_n: int) -> Fr
 def g5(seen_pass: int, seen_n: int, held_pass: int, held_n: int, params: Params, *, g2_same_function: bool,
        reproducer: dict[str, Any] | None, rule: str = G5_DROP_RULE) -> tuple[str, Finding | None]:
     """("unmeasurable" | "no_drop" | "drop", finding). A drop: the one-sided Fisher p below ``g5_alpha`` with at least
-    ``g5_min_fail`` held failures. The reproducer is the held runner's (held inputs: published as a hash only).
+    ``g5_min_fail`` held failures. The reproducer is the held runner's (held inputs: sealed, never published).
     ``rule`` is owner decision (b)."""
     if rule not in G5_RULES:
         raise ValueError(f"unknown G5 rule {rule!r}")
@@ -1113,7 +1152,7 @@ def g5(seen_pass: int, seen_n: int, held_pass: int, held_n: int, params: Params,
     proposed = ISTISMAR if rule == G5_OWNER_LITERAL or g2_same_function else REJECTION
     evidence = {"seen": [seen_pass, seen_n], "held": [held_pass, held_n], "p": p, "rule": rule,
                 "g2": g2_same_function}
-    return "drop", Finding("G5", "held_drop", "held", proposed, evidence, reproducer, private=True)
+    return "drop", Finding("G5", "held_drop", "held", proposed, evidence, reproducer)
 
 
 # ---- the static pass of a push (the keyless `gozcu` job) ----------------------------------------------------------

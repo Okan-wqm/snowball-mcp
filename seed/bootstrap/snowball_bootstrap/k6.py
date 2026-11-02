@@ -11,7 +11,7 @@ since for the owner.
   that is red on the base would make "killed" there mean nothing;
 - no surviving fail-safe-inversion mutant;
 - at least 50 held canaries (plausible bad fixes) and none missed. The one-sided 95 % Clopper-Pearson upper bound on
-  the miss rate is computed here, exactly, in whole parts per million rounded up, and signed next to the counts;
+  the miss rate is computed here, exactly, in whole parts per million rounded up, and kept next to the counts;
 and, over the whole exam, fence recall r = m: every path of a held, labelled list of safety paths is classified as one
 by the matcher the referee's fence uses.
 
@@ -21,8 +21,10 @@ by the matcher the referee's fence uses.
 The exam itself (clauses, cases, answers, mutants, canaries, the held path list) is private and never passes through
 this repository; this module holds only the mechanism, its authoring format and the validator of that format. Case
 ids leave the private side only as HMAC tokens keyed by the epoch's secret salt, so a guessable id pattern names no
-case. The signed field holds integers, strings, booleans and null only (`canon`), and states that the exam proves
-software logic only, with no field I/O and no hardware in the loop.
+case. ``evaluate`` is the private evaluation (integers, strings, booleans and null only, `canon`); the signed field is
+``public_field`` of it (E520): the status, the fall from live, the exam's pin, the statement that the exam proves
+software logic only, with no field I/O and no hardware in the loop, and the salted hash of the rest. No family, count
+or unmet condition is signed: the Founder sees one status, never what the exam is made of.
 
 The authoring format (one JSON document; `EXAM_FORMAT`):
 - `required_modes`: every fault mode the exam must answer, each by a clause or by an exclusion with a reason;
@@ -72,6 +74,11 @@ PHYSICS_SHIFT_PPM = (7000, 10000)
 SALINITY_PPT = (0, 40)  # the range over which the two oxygen-solubility anchors were compared
 SALT_BYTES = 32
 CASE_TAG = b"snowball-k6-case\x00"
+SEAL_TAG = b"snowball-k6-evaluation\x00"
+# All the signed result holds of K6 (E520, plan D6/D7): the status that opens the fence, whether it fell from live (the
+# owner reviews the safety commits merged since), the exam it is of, what it proves, and the salted hash of the whole
+# evaluation. Families, counts, the base's red cases and the unmet conditions stay on the private side.
+PUBLIC_KEYS = ("status", "fell_from_live", "exam_sha256", "scope", "sealed_sha256")
 BOUND_METHOD = "clopper_pearson_one_sided_95"
 SCOPE = "software logic only: no field I/O, no hardware in the loop"
 
@@ -403,9 +410,9 @@ def _live_ready(ready: Any) -> list[str]:
 
 def evaluate(exam: Any, runs: Any, *, salt: bytes, exam_sha256: str | None, base_commit: str | None,
              recall: dict[str, int] | None, live_ready: Any, previous: str | None) -> dict[str, Any]:
-    """The signed `k6` field of this evaluation. ``previous`` is the status of the last **signed** result, never one
-    the brain states. Missing or broken evidence keeps the status where the evidence that is there puts it, and the
-    reason is named in `unmet`."""
+    """The private K6 evaluation (the signed field is its ``public_field``, E520). ``previous`` is the status of the
+    last **signed** result, never one the brain states. Missing or broken evidence keeps the status where the
+    evidence that is there puts it, and the reason is named in `unmet`."""
     if previous is not None and previous not in STATUSES:
         raise K6Error(f"previous status {previous!r} is not one of {STATUSES}")
     case_token(salt, "")  # a short salt stops here, before anything is computed
@@ -465,3 +472,11 @@ def evaluate(exam: Any, runs: Any, *, salt: bytes, exam_sha256: str | None, base
         "bound": BOUND_METHOD,
         "scope": SCOPE,
     }
+
+
+def public_field(evaluation: dict[str, Any], salt: bytes) -> dict[str, Any]:
+    """The signed `k6` field of an evaluation (E520): ``PUBLIC_KEYS`` alone; ``sealed_sha256`` is the HMAC under the
+    epoch's salt of the whole evaluation, which the operator recomputes from the private store to open it."""
+    case_token(salt, "")  # a short salt stops here
+    sealed = hmac.new(salt, SEAL_TAG + canon.canonical(evaluation), hashlib.sha256).hexdigest()
+    return {**{key: evaluation[key] for key in PUBLIC_KEYS[:-1]}, "sealed_sha256": sealed}

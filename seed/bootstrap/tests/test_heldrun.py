@@ -308,12 +308,36 @@ class LedgerTest(HeldCase):
         opened = heldrun.reveal(run.ledger, lambda s, b: seen.append((s.name, b.name)))
         self.assertEqual([(r["row_id"], r["pass"], r["signed"]) for r in opened], [("h1", 4, True), ("h2", 2, False)])
         name = run.row["statement_sha256"]
-        self.assertEqual(seen, [(f"{name}.json", f"{name}.sigstore.json")])
+        self.assertEqual(seen, [(f"{name}.json", f"{name}.cosign.json")])
 
         def bad(_s, _b):
             raise ImportErrorStop("signature verification failed")
         with self.assertRaises(ImportErrorStop):
             heldrun.reveal(run.ledger, bad)
+
+    def test_statements_are_signed_by_the_epochs_key_never_by_an_identity(self):  # held_signed_keyless
+        """E520 (verifier finding 9): a keyless Sigstore certificate names the exam repository and its workflow in a
+        public log for good. The signer is cosign with the epoch's held key from the environment; without the key it
+        signs nothing (cosign would fall back to keyless); `reveal` checks with the public half."""
+        # held_key_not_required
+        calls = []
+
+        def ran(argv, **_kw):
+            calls.append(argv)
+            return SimpleNamespace(returncode=0, stderr="")
+        stmt, bundle, pub = Path("s.json"), Path("b.json"), Path("held.pub")
+        with mock.patch.object(heldrun.subprocess, "run", ran), \
+                mock.patch.dict(heldrun.os.environ, {heldrun.SIGNING_KEY_ENV: "-----BEGIN ENCRYPTED KEY-----"}):
+            heldrun.key_signer("/tmp/cosign")(stmt, bundle)
+            heldrun.key_verifier("/tmp/cosign", pub)(stmt, bundle)
+        self.assertEqual(calls, [["/tmp/cosign", "sign-blob", "--key", f"env://{heldrun.SIGNING_KEY_ENV}", "--bundle",
+                                  "b.json", "--yes", "s.json"],
+                                 ["/tmp/cosign", "verify-blob", "--key", "held.pub", "--bundle", "b.json", "s.json"]])
+        with mock.patch.object(heldrun.subprocess, "run", ran), mock.patch.dict(heldrun.os.environ, {}, clear=True):
+            with self.assertRaisesRegex(heldrun.HeldError, "held key"):
+                heldrun.key_signer("/tmp/cosign")(stmt, bundle)
+        self.assertEqual(len(calls), 2)  # nothing ran without the key
+        self.assertFalse(hasattr(heldrun, "held_identity"))
 
 
 class EligibilityTest(unittest.TestCase):
@@ -468,9 +492,13 @@ class HeldWorkflowTest(unittest.TestCase):
         imza = held_job("imza")
         self.assertIn("    needs: hazir\n", imza)
         self.assertIn("      !cancelled() && needs.hazir.outputs.carry == 'true'\n", imza)  # past a failed `hazir` too
-        self.assertEqual([n for n in self.JOBS if "id-token: write" in held_job(n)], ["imza"])
+        self.assertNotIn("id-token", HELD_YML)  # E520: no certificate names this repository: held_job_has_oidc
         self.assertEqual([n for n in self.JOBS if "heldrun sign " in held_job(n)], ["imza"])
         self.assertNotIn("sigstore sign", HELD_YML)
+        self.assertEqual([n for n in self.JOBS if "secrets.HELD_SIGNING" in held_job(n)], ["imza"])
+        sign = imza.split("- name: Sign every statement left to sign", 1)[1].split("\n      - ", 1)[0]
+        self.assertEqual(imza.count("secrets.HELD_SIGNING"), sign.count("secrets.HELD_SIGNING"))  # its step only
+        self.assertIn('| sha256sum -c -', imza.split("cosign v2.4.1", 1)[1].split("\n      - ", 1)[0])
         cron = re.search(r'cron: "(\d+) \*/(\d+) \* \* \*"', HELD_YML)
         interval = int(cron.group(2)) * 60
         minutes = {n: int(re.search(r"timeout-minutes: (\d+)", held_job(n)).group(1)) for n in self.JOBS}
@@ -510,7 +538,8 @@ class HeldWorkflowTest(unittest.TestCase):
         """The template is public; what it reads of the exam repository comes from the exam repository's own variables.
         Every variable and secret is named for the operator, and no context is pasted into a shell script (E17)."""
         names = set(re.findall(r"\$\{\{ (?:vars|secrets)\.([A-Z_]+)", HELD_YML))
-        self.assertEqual(names, {"REFEREE_REPO", "HELD_SET", "REFEREE_READ_TOKEN"})
+        self.assertEqual(names, {"REFEREE_REPO", "HELD_SET", "REFEREE_READ_TOKEN", "HELD_SIGNING_KEY",
+                                 "HELD_SIGNING_PASSWORD"})
         for name in names:
             self.assertIn(name, heldrun.__doc__)
             self.assertIn(name, HELD_YML.split("\nname:", 1)[0])

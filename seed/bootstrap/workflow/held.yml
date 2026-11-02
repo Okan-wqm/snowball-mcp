@@ -2,7 +2,9 @@
 # .github/workflows/held.yml in the private exam repository, beside the held set, and sets there (never in a public
 # repository): the variables REFEREE_REPO (owner/name of the referee repository) and HELD_SET (the held set's folder in
 # the exam repository: vectors.json of data groups and their fixtures); the secret REFEREE_READ_TOKEN only when the
-# run's own token cannot download the referee's public artifacts (a token that reads public repositories, nothing else).
+# run's own token cannot download the referee's public artifacts (a token that reads public repositories, nothing else);
+# the secrets HELD_SIGNING_KEY and HELD_SIGNING_PASSWORD, the epoch's cosign key pair (private half, encrypted, and its
+# password), made afresh each epoch, its public half listed in the epoch's exam version (`heldrun` docstring, E520).
 # Repository settings: default workflow permissions read-only; artifact retention at least 8 days; Actions minutes
 # counted against the owner's budget (`heldrun` docstring, E510).
 #
@@ -11,12 +13,13 @@
 #
 # Jobs and what they may hold (`tohum/08` 1: no job that holds a secret runs brain or target code):
 #   hazir   contents and actions: read                      - runs no brain code; held inputs leave it blinded
-#   imza    actions: read, OIDC (Sigstore)                   - runs no brain code; signs an earlier run's statement
+#   imza    actions: read; the held key in one step          - runs no brain code; signs an earlier run's statement
 #   kos     nothing                                          - brain code only inside --network none containers
 #   yargi   contents and actions: read                      - runs no brain code; judges, commits, appends the ledger
 #
 # A run ends long before the next one starts (test_heldrun HeldWorkflowTest): `imza` signs at a run's start, so a
-# statement's Rekor time is the schedule's, never how long brain code took on a held input.
+# statement's Rekor time is the schedule's, never how long brain code took on a held input. No job has OIDC: a keyless
+# Sigstore certificate would name this repository and its workflow in a public log for good (E520).
 
 name: snowball-held
 
@@ -101,8 +104,9 @@ jobs:
           if-no-files-found: error
 
   imza:
-    # The statements an earlier run judged, signed now (keyless, Rekor). It waits for nothing that runs brain code, and
-    # a `hazir` that failed past its poll (a head it could not pack) never keeps a statement unsigned.
+    # The statements an earlier run judged, signed now with the epoch's held key (cosign, Rekor: a digest and a public
+    # key that names nothing, E520). It waits for nothing that runs brain code, and a `hazir` that failed past its poll
+    # (a head it could not pack) never keeps a statement unsigned.
     needs: hazir
     if: >-
       !cancelled() && needs.hazir.outputs.carry == 'true'
@@ -110,7 +114,6 @@ jobs:
     timeout-minutes: 10
     permissions:
       actions: read
-      id-token: write
     outputs:
       ledger: ${{ steps.ledger.outputs.ledger }}
     steps:
@@ -121,21 +124,21 @@ jobs:
         run: |
           git clone --quiet --no-tags "https://github.com/$REFEREE_REPO.git" referee
           git -C referee checkout --quiet --detach "$REFEREE_SHA"
-      - name: Sigstore (hash-pinned, license-checked)
+      - name: cosign v2.4.1 (hash-pinned, Apache-2.0)
         run: |
-          python3 -m venv /tmp/sig
-          /tmp/sig/bin/pip download --quiet --require-hashes --only-binary=:all: --no-deps \
-            -d /tmp/sigw -r referee/bootstrap/requirements/sign.txt
-          python3 -m snowball_bootstrap licenses --root referee --wheels /tmp/sigw
-          /tmp/sig/bin/pip install --quiet --no-index --find-links /tmp/sigw --require-hashes \
-            --only-binary=:all: --no-deps -r referee/bootstrap/requirements/sign.txt
+          curl -sSfL -o /tmp/cosign https://github.com/sigstore/cosign/releases/download/v2.4.1/cosign-linux-amd64
+          echo "8b24b946dd5809c6bd93de08033bcf6bc0ed7d336b7785787c080f574b89249b  /tmp/cosign" | sha256sum -c -
+          chmod +x /tmp/cosign
       - name: The ledger this run started from, by the hash `hazir` read
         env:
           GH_TOKEN: ${{ github.token }}
           LEDGER: ${{ needs.hazir.outputs.ledger }}
         run: python3 -m snowball_bootstrap.heldrun ledger-get --artifact "$LEDGER" --out ledger
-      - name: Sign every statement left to sign
-        run: python3 -m snowball_bootstrap.heldrun sign --ledger ledger --sigstore-python /tmp/sig/bin/python
+      - name: Sign every statement left to sign (the key in this step only)
+        env:
+          HELD_SIGNING_KEY: ${{ secrets.HELD_SIGNING_KEY }}
+          COSIGN_PASSWORD: ${{ secrets.HELD_SIGNING_PASSWORD }}
+        run: python3 -m snowball_bootstrap.heldrun sign --ledger ledger --cosign /tmp/cosign
       - id: pack
         run: >
           python3 -m snowball_bootstrap pack --dir ledger --out ledger.tar

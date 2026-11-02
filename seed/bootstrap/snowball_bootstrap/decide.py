@@ -273,14 +273,8 @@ def _watchers_verdict(doc: Any, head: str) -> tuple[list[dict[str, Any]], list[d
     if doc.get("status") == "too_large":  # the static pass refused an input over its bound (critique G-1)
         return [], [_reason(watchers.INPUT_TOO_LARGE, ref="gozcu")], []
     published = doc.get("published")
-    if doc.get("status") != "read" or not isinstance(published, dict) or set(published) != set(watchers.LEVELS):
+    if doc.get("status") != "read" or not watchers.well_formed(published):
         return None
-    for level in watchers.LEVELS:
-        items = published[level]
-        if not isinstance(items, list) or not all(
-                isinstance(i, dict) and i.get("watcher") in watchers.WATCHERS and i.get("level") == level
-                and isinstance(i.get("ref"), str) and isinstance(i.get("signal"), str) for i in items):
-            return None
     said = [_reason(kind, ref=ref[:200], detail=sentence) for kind, ref, sentence in watchers.reasons(published)]
     seen = watchers.warnings(published)
     unverifiable = doc.get("unverifiable", 0)
@@ -304,10 +298,11 @@ def _fence_reasons(doc: Any, head: str) -> list[dict[str, Any]]:
 
 def _k6(fresh: Any, carried: Any) -> dict[str, Any]:
     """The signed `k6` field (E516, plan D7): the block `kos` measured from the pinned exam on this run, else the last
-    signed one carried, else not live. A block whose status is not one of the four is not a block: never live."""
-    from .k6 import STATUSES as K6_STATUSES  # under a pin only (E512)
+    signed one carried, else not live. A block whose status is not one of the four, or that holds more than the
+    public field (`k6.PUBLIC_KEYS`, E520: no family, count or unmet condition is signed), is not a block: never live."""
+    from .k6 import PUBLIC_KEYS as K6_PUBLIC, STATUSES as K6_STATUSES  # under a pin only (E512)
     for block in (fresh, carried):
-        if isinstance(block, dict) and block.get("status") in K6_STATUSES:
+        if isinstance(block, dict) and set(block) == set(K6_PUBLIC) and block.get("status") in K6_STATUSES:
             return copy.deepcopy(block)
     return {"status": "not_live"}
 

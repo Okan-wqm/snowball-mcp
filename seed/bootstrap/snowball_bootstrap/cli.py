@@ -840,8 +840,8 @@ def cmd_join_parts(args: argparse.Namespace) -> int:
     answers, watchers = pinned_module("answers", "E509"), pinned_module("watchers", "E514")
     root, out = Path(args.root), Path(args.out)
 
-    def unavailable(why: str) -> int:  # a class only: no file of the store is named in an artifact or a log
-        return _write_run(out, {"exam": {"status": "unavailable", "why": why, "exam_sha256": None}, "green": False,
+    def unavailable() -> int:  # one class: which file of the store failed is its layout (E520), in no artifact or log
+        return _write_run(out, {"exam": {"status": "unavailable", "why": "store", "exam_sha256": None}, "green": False,
                                 "tests": [], "vectors": [], "controls": [], "module_less": [], "licenses": []})
     try:
         store = exam_store(Path(args.exam) if args.exam else None, pin)
@@ -849,11 +849,11 @@ def cmd_join_parts(args: argparse.Namespace) -> int:
                          exam=store.visible)
         raw_params = store.read(WATCHERS_FILE)
     except answers.AnswersError:  # before any broad handler: an unread store is an outage, never the Founder's (E509)
-        return unavailable("store")
+        return unavailable()
     try:
         params = watchers.load_params(raw_params or b"")  # no defaults: the epoch's store names them (E514)
     except watchers.ParamsError:
-        return unavailable("watchers")
+        return unavailable()
     if fixture_lookups(root / "vectors", store.visible):  # E244 on the answers: the Founder would read them in /vec
         raise config.ConfigError("a public fixture of vectors/ carries an answer its case must compute (E509): the "
                                  "operator installs the exam's admitted vectors only")
@@ -938,9 +938,10 @@ def _published(gozcu: Path | None, head: str | None, params: Any) -> dict[str, A
 
 
 def _k6_block(store: PinnedStore, meta: dict[str, Any], summary_cfg: config.Summary) -> dict[str, Any]:
-    """The signed `k6` field of this run (E516, plan D7), evaluated by `k6.evaluate` (E512) from the exam store's K6
-    documents (none yet: `not_live`), the epoch's salt and pin, the one copy target's base, the fence's recall measured
-    with the referee's own matcher (`fence.touches_safety` on the owner's list), and the last signed status."""
+    """The signed `k6` field of this run (E516, plan D7): `k6.public_field` (E520) of the evaluation `k6.evaluate`
+    (E512) makes from the exam store's K6 documents (none yet: `not_live`), the epoch's salt and pin, the one copy
+    target's base, the fence's recall measured with the referee's own matcher (`fence.touches_safety` on the owner's
+    list), and the last signed status."""
     k6, fence = pinned_module("k6", "E512"), pinned_module("fence", "E511")
     exam, runs, held, ready = (_json_or_none(store.read(rel)) for rel in K6_FILES)
     copies = [t for t in summary_cfg.targets or () if t.kind == "copy"]
@@ -950,9 +951,11 @@ def _k6_block(store: PinnedStore, meta: dict[str, Any], summary_cfg: config.Summ
         recall = k6.fence_recall(held, lambda path: bool(fence.touches_safety([path], copy.safety_paths)))
     prev = meta.get("k6_prev")
     previous = prev.get("status") if isinstance(prev, dict) and prev.get("status") in k6.STATUSES else None
-    return k6.evaluate(exam, runs, salt=bytes.fromhex(store.salt), exam_sha256=store.pin,
-                       base_commit=copy.base_sha if copy is not None else None, recall=recall, live_ready=ready,
-                       previous=previous)
+    salt = bytes.fromhex(store.salt)
+    evaluation = k6.evaluate(exam, runs, salt=salt, exam_sha256=store.pin,
+                             base_commit=copy.base_sha if copy is not None else None, recall=recall,
+                             live_ready=ready, previous=previous)
+    return k6.public_field(evaluation, salt)  # E520: the status and a sealed hash; counts and unmet stay private
 
 
 def _target_counts(doc: Any, head: str | None) -> dict[str, Any] | None:

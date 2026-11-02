@@ -9,25 +9,31 @@ and what each may hold (the referee's rule, `tohum/08` 1: no job that holds a se
   hazir   contents: read (the held set), actions: read (its own ledger)       - runs no brain code
           the referee's newest signed result is read and, when new, verified with Sigstore exactly as the import does
           (`25a` 1); its head is fetched from the public brain; the held inputs go out blinded (every ``expect`` empty)
-  imza    actions: read, id-token: write                                       - runs no brain code
+  imza    actions: read; the epoch's held key in its sign step only             - runs no brain code
           signs the statements an earlier run judged, at the start of this run: a statement's Rekor time is a run's
-          start (the schedule), never how long brain code took on a held input
+          start (the schedule), never how long brain code took on a held input. The signature is a key's (cosign),
+          never a keyless certificate: one would name this repository and its workflow in a public log (E520)
   kos     nothing (``permissions: {}``); brain code only in --network none containers, as the referee's `kos_parca`
           its trace names each call by an HMAC under a per-run key, never by the input or its plain hash
   yargi   contents: read, actions: read                                        - runs no brain code
           judges the trace with the held answers (`vectors.replay`), commits to the outcome and appends a ledger row
 
-The only thing a run makes public is Rekor's record of a signed statement, ``{schema, head, result_sha256,
-held_set_sha256, commitment}``, where ``commitment = sha256(canonical({bits, n, pass, salt}))`` with a fresh 256-bit
-salt the trace's key never shares. Without the salt the statement cannot be opened, so even the count of held cases is
-not public (no per-push aggregate, the ladder problem, critique A-5). The plain counts, the per-case bits and the salt
+The only thing a run makes public is Rekor's record of a signed statement: its digest, the signature and a public key
+that names nothing (E520). The statement, ``{schema, head, result_sha256, held_set_sha256, commitment}``, has
+``commitment = sha256(canonical({bits, n, pass, salt}))`` with a fresh 256-bit salt the trace's key never shares.
+Without the salt the statement cannot be opened, so even the count of held cases is not public (no per-push
+aggregate, the ladder problem, critique A-5). Until `reveal` publishes the public key, nothing ties a Rekor entry to
+this runner. The plain counts, the per-case bits and the salt
 stay in the ledger: one private artifact, ``held-ledger``, hash-chained like the Founder's ledger (`tohum/26`), carried
 from run to run by the hash each job names and revealed at the epoch's end (`reveal`), when anyone can check every row
 against its signed statement.
 
-What the operator sets in the exam repository (never in a public one): the repository variables ``REFEREE_REPO`` (the
-referee repository, owner/name) and ``HELD_SET`` (the held set's folder inside the exam repository: a ``vectors.json``
-of data groups and the fixtures beside it, the referee's `vectors/` layout); optionally the secret
+What the operator sets in the exam repository (never in a public one): the secrets ``HELD_SIGNING_KEY`` and
+``HELD_SIGNING_PASSWORD``, an encrypted cosign key pair's private half and its password, made afresh each epoch, whose
+public half the epoch's exam version lists (so the public pin commits to the key before any statement, and `reveal`
+checks each statement with it); the repository variables ``REFEREE_REPO`` (the referee repository, owner/name) and
+``HELD_SET`` (the held set's folder inside the exam repository: a ``vectors.json`` of data groups and the fixtures
+beside it, the referee's `vectors/` layout); optionally the secret
 ``REFEREE_READ_TOKEN``, a token that reads public repositories only, when the run's own token cannot download the
 referee's public artifacts (unmeasured, see E510). Artifact retention of at least 8 days: the run's own artifacts keep 1
 day, the ledger 8 and is carried forward at least weekly.
@@ -78,7 +84,7 @@ ELIGIBLE = ("code", "exit")  # the kinds of push whose head runs code the held c
 CARRY_DAYS = 7  # an idle ledger is uploaded again after a week, before its 8 days run out
 MAX_LEDGER_BYTES = 200_000_000
 REFEREE_WORKFLOW = ".github/workflows/bootstrap.yml"
-HELD_WORKFLOW = ".github/workflows/held.yml"
+SIGNING_KEY_ENV = "HELD_SIGNING_KEY"  # the private half, in `imza`'s sign step only; cosign reads COSIGN_PASSWORD
 SANDBOX_FAULT = "sandbox"
 HEX64 = re.compile(r"^[0-9a-f]{64}\Z")
 SHA40 = re.compile(r"^[0-9a-f]{40}\Z")
@@ -201,10 +207,6 @@ def referee_identity(referee_repo: str) -> str:
     return f"https://github.com/{referee_repo}/{REFEREE_WORKFLOW}@refs/heads/main"
 
 
-def held_identity(exam_repo: str) -> str:
-    return f"https://github.com/{exam_repo}/{HELD_WORKFLOW}@refs/heads/main"
-
-
 def eligible(result: Any) -> str | None:
     """The head a signed result asks the held cases about: a code or exit push's (a spec push runs no code)."""
     if not isinstance(result, dict) or result.get("kind") not in ELIGIBLE:
@@ -275,7 +277,7 @@ def append_row(folder: Path, rows: list[dict[str, Any]], fields: dict[str, Any],
 
 
 def bundle_path(folder: Path, row: dict[str, Any]) -> Path:
-    return folder / BUNDLES / f"{row['statement_sha256']}.sigstore.json"
+    return folder / BUNDLES / f"{row['statement_sha256']}.cosign.json"
 
 
 def statement_path(folder: Path, row: dict[str, Any]) -> Path:
@@ -504,24 +506,40 @@ def cmd_ledger_get(args: argparse.Namespace) -> int:
     return 0
 
 
-def _sigstore_signer(python: str) -> Callable[[Path, Path], None]:
+def key_signer(cosign: str) -> Callable[[Path, Path], None]:
+    """``sign_pending``'s signer (E520): the epoch's held key from ``SIGNING_KEY_ENV``, uploaded to Rekor with a public
+    key that names nothing. Without the key nothing is signed: cosign would otherwise sign keyless, and its certificate
+    names this repository and its workflow in a public log for good."""
     def sign(path: Path, bundle: Path) -> None:
-        proc = subprocess.run([python, "-m", "sigstore", "sign", "--bundle", str(bundle), str(path)],
-                              capture_output=True, text=True, check=False)
+        if not os.environ.get(SIGNING_KEY_ENV):
+            raise HeldError(f"{SIGNING_KEY_ENV} is not set: no statement is signed without the epoch's held key")
+        proc = subprocess.run([cosign, "sign-blob", "--key", f"env://{SIGNING_KEY_ENV}", "--bundle", str(bundle),
+                               "--yes", str(path)], capture_output=True, text=True, check=False)
         if proc.returncode != 0:
-            raise HeldError(f"sigstore sign failed: {proc.stderr.strip()[:300]}")
+            raise HeldError(f"cosign sign-blob failed: {proc.stderr.strip()[:300]}")
     return sign
 
 
+def key_verifier(cosign: str, public_key: Path) -> Callable[[Path, Path], None]:
+    """``reveal``'s check (E520): the bundle signs the statement with the epoch's public key and is in Rekor."""
+    def verify(path: Path, bundle: Path) -> None:
+        proc = subprocess.run([cosign, "verify-blob", "--key", str(public_key), "--bundle", str(bundle), str(path)],
+                              capture_output=True, text=True, check=False)
+        if proc.returncode != 0:
+            raise HeldError(f"{path.name}: cosign verify-blob failed: {proc.stderr.strip()[:300]}")
+    return verify
+
+
 def cmd_sign(args: argparse.Namespace) -> int:
-    signed = sign_pending(Path(args.ledger), _sigstore_signer(args.sigstore_python))
+    signed = sign_pending(Path(args.ledger), key_signer(args.cosign))
     print(f"held statements signed: {len(signed)}")
     return 0
 
 
 def cmd_reveal(args: argparse.Namespace) -> int:
-    identity = held_identity(args.exam_repo)
-    rows = reveal(Path(args.ledger), lambda s, b: verify_signature(s, b, identity, args.sigstore_python))
+    key = Path(args.public_key)
+    rows = reveal(Path(args.ledger), key_verifier(args.cosign, key))
+    print(f"public key sha256={canon.sha256_hex(key.read_bytes())}", file=sys.stderr)  # the one the exam version lists
     print(json.dumps(rows, indent=2))
     return 0
 
@@ -542,8 +560,8 @@ def build_parser() -> argparse.ArgumentParser:
     add("run", cmd_run, "--referee", "--held-in", "--deps", "--work", "--out")
     add("judge", cmd_judge, "--referee", "--held-in", "--trace", "--exam", "--held-set", "--ledger", "--work")
     add("ledger-get", cmd_ledger_get, "--artifact", "--out")
-    add("sign", cmd_sign, "--ledger", "--sigstore-python")
-    add("reveal", cmd_reveal, "--ledger", "--exam-repo", "--sigstore-python")
+    add("sign", cmd_sign, "--ledger", "--cosign")
+    add("reveal", cmd_reveal, "--ledger", "--public-key", "--cosign")
     return parser
 
 

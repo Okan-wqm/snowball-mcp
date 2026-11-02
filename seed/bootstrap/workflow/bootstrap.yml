@@ -241,8 +241,10 @@ jobs:
           if-no-files-found: error
 
   gozcu:
-    # The static watchers (E516, plan D9): keyless, no brain code; their findings reach `decide` by the hash this job
-    # names. Only once an epoch pins the private exam; before that this job never runs.
+    # The static watchers (E516, plan D9): keyless, no brain code; their findings reach `kos` by the hash this job
+    # names, and `kos` publishes only their class, level, ref and a salted hash (E520). The artifact is what the public
+    # pull and the public code give anyone, kept 1 day: `kos` reads it minutes later. Only once an epoch pins the
+    # private exam; before that this job never runs.
     needs: cek
     if: needs.cek.outputs.exam_pinned == 'true' && needs.cek.outputs.run_tests == 'true'
     runs-on: ubuntu-24.04
@@ -270,7 +272,7 @@ jobs:
         with:
           name: gozcu
           path: gozcu.tar
-          retention-days: 7
+          retention-days: 1
           if-no-files-found: error
 
   kos_hedef:
