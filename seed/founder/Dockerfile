@@ -1,7 +1,8 @@
 # The Founder's capsule (register E90, E91, E112). The Founder runs here and only here: never as the
 # operator, never with the operator's GitHub login or Claude configuration. It holds two secrets, read at
 # start from a file the operator mounts read-only: a fine-grained GitHub token that can write only the brain
-# repository, and the system's own Claude login token. Its Claude configuration is fresh in every session,
+# repository, and the system's own Claude login token; with contained egress (E508) only the latter, the GitHub
+# token being the relay's (launch.py, egress.py). Its Claude configuration is fresh in every session,
 # with no project or local settings, no MCP servers and no auto-memory, so nothing the Founder commits to
 # the brain repository can widen its own permissions in the next session. The brain's agents/ and skills/
 # load as a plugin only after brain_defs.py has checked them (E450): their tools inside the capsule's own.

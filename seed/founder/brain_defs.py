@@ -64,18 +64,17 @@ AGENT_KEYS = ("name", "description", "tools", "model")  # in the order they are 
 SKILL_KEYS = ("name", "description")
 REQUIRED_KEYS = ("name", "description")
 
-# The capsule's tool surface (entrypoint.sh, E380). The four are what `--disallowedTools` removes; an agent naming one
-# is dropped. ALLOWED_TOOLS is every other tool the capsule's session can have, as the pinned CLI 2.1.293 names it in
-# its init event (signed out) plus `WebFetch`, which it offers only signed in, `Agent`, the name the API and the
-# documentation give the tool the init event calls `Task`, and `Glob` and `Grep`: on Linux, the capsule's platform, the
-# session does not list them (its Bash searches), yet an agent that names them gets them. test_founder_capsule holds
-# DENIED_TOOLS to the entrypoint's flag; test_live_cli holds ALLOWED_TOOLS to the CLI's init event and to the tools a
-# brain agent's subagent is given.
-DENIED_TOOLS = ("RemoteTrigger", "CronCreate", "CronDelete", "CronList")
+# The capsule's tool surface (entrypoint.sh, E380, E508). The six are what `--disallowedTools` removes; an agent naming
+# one is dropped. WebFetch and WebSearch reach the web around the capsule's network (E508). ALLOWED_TOOLS is every other
+# tool the capsule's session can have, as the pinned CLI 2.1.293 names it in its init event (signed out), `Agent`, the
+# name the API and the documentation give the tool the init event calls `Task`, and `Glob` and `Grep`: on Linux, the
+# capsule's platform, the session does not list them (its Bash searches), yet an agent that names them gets them.
+# test_founder_capsule holds DENIED_TOOLS to the entrypoint's flag; test_live_cli holds ALLOWED_TOOLS to the CLI's init
+# event and to the tools a brain agent's subagent is given.
+DENIED_TOOLS = ("RemoteTrigger", "CronCreate", "CronDelete", "CronList", "WebFetch", "WebSearch")
 ALLOWED_TOOLS = frozenset({
     "Agent", "Task", "Bash", "Edit", "EnterWorktree", "ExitWorktree", "Glob", "Grep", "ListAgents", "NotebookEdit",
-    "Read", "ReportFindings", "ScheduleWakeup", "SendMessage", "Skill", "TaskStop", "ToolSearch", "WebFetch",
-    "WebSearch", "Workflow", "Write"})
+    "Read", "ReportFindings", "ScheduleWakeup", "SendMessage", "Skill", "TaskStop", "ToolSearch", "Workflow", "Write"})
 
 # The seed's agent configuration (`24a`; the referee's classify.AGENT_DIRS and AGENT_FILES, which test_founder_capsule
 # holds these to): a path with such a component or last component is never loaded, whatever folder it is in.
