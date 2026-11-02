@@ -24,10 +24,10 @@ from typing import Any, Iterator
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
     from snowball_bootstrap import secretscan
-    from snowball_bootstrap.rival import SecretWithheld, TOOLS, ToolBox, validate_verdict
+    from snowball_bootstrap.rival import SecretWithheld, ToolBox, tools, validate_verdict
 else:
     from . import secretscan
-    from .rival import SecretWithheld, TOOLS, ToolBox, validate_verdict
+    from .rival import SecretWithheld, ToolBox, tools, validate_verdict
 
 PROTOCOL_VERSION = "2024-11-05"
 READ_TOOLS = ("read_file", "grep", "glob")
@@ -140,7 +140,7 @@ class RivalServer:
             result = {}
         elif method == "tools/list":
             result = {"tools": [{"name": t["name"], "description": t["description"],
-                                 "inputSchema": t["input_schema"]} for t in TOOLS]}
+                                 "inputSchema": t["input_schema"]} for t in tools(self.box.target)]}
         elif method == "tools/call":
             text, is_error = self.call(str(params.get("name")), params.get("arguments"))
             result = {"content": [{"type": "text", "text": text}], "isError": is_error}
@@ -176,10 +176,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--tree", required=True)
     parser.add_argument("--verdict-out", required=True)
     parser.add_argument("--stats-out", required=True)
+    parser.add_argument("--target", action="store_true", help="the review offers the target image (E513)")
     args = parser.parse_args(argv)
     sys.stdin.reconfigure(encoding="utf-8", errors="replace", newline="\n")
     sys.stdout.reconfigure(encoding="utf-8", newline="\n")
-    server = RivalServer(ToolBox(Path(args.tree)), Path(args.verdict_out), Path(args.stats_out))
+    server = RivalServer(ToolBox(Path(args.tree), target=args.target), Path(args.verdict_out), Path(args.stats_out))
     serve(server, sys.stdin, sys.stdout)
     return 0
 

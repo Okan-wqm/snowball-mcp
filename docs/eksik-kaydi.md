@@ -3103,12 +3103,22 @@ Testler `tests/test_rival_memory.py`'de, sınıf adları kalem numarasıyla. Dur
   onu okur. `answers_unavailable` `answers.REASON`'dır. Kalkan kurala bağlı beş mutant çıktı (`exam_tamper_not_istismar`,
   `istismar_from_declared`, `istismar_without_reproducer`, `held_drop_rule_default_judge`,
   `g5_ignores_branch_evidence`; aynı davranışı E514'ün mutantları tutar), beşinin çapası yeni koda taşındı, yedi yeni
-  mutant eklendi; paketlerin bütçe için tuttuğu 25 mutant (E509 7, E513 2, E514 16) kaydedildi. 1116 mutant, 75 parça.
+  mutant eklendi; paketlerin bütçe için tuttuğu 25 mutant (E509 7, E513 2, E514 16) kaydedildi. 1119 mutant, 75 parça.
+- **Sabitten önce hakem aynı kalır (rakip ve imzalı durum).** E513 rakibin araç şemasına `image`'ı her incelemede
+  ekliyordu ve imzalı durumdaki her yeniden üretici `"image": null` ile yazılıyordu: hedef imajı hiç yokken rakibin
+  gördüğü şema ve imzalı durumun baytları değişiyordu. Şimdi alan yalnız hedef imajı sunan incelemede vardır
+  (`rival.tools(target)`, `ToolBox(target=)`, `rival_mcp --target`); sunulmayan incelemede gönderilen `image`, E513'ten
+  önceki gibi bilinmeyen alan olarak düşer ve yeniden üretici Python'da koşar; imzalı durum `image`'ı yalnız onu
+  adlandıran yeniden üreticide tutar (`decide._reproducer`). `test_reproducer_polarity` ve `test_rival_memory` `main`'deki
+  metinlerine döndü. Mutantlar `target_field_always_offered`, `target_image_accepted_unoffered`,
+  `python_reproducer_signed_with_image`; `verdict_not_validated`'ın çapası yeni çağrıya taşındı.
 - **Açık kalan.** Pull'un reddettiği push'ta gözcü koşmaz: `exam_tamper` ret olur, istismar kaydı olmaz (canlı anahtar
   yalnız `kos`'ta). G1'in nakli, G2'nin dal kaldırması, G4c'nin ikiz koşusu, G3'ün iddiaları ve G5'in gizli sayıları
   hakemin işlerine bağlı değildir; mutasyon cırcırı (E515) da bağlı değildir (maliyet sahibin (d) kararı). Kopya PR
   başlarını yargılayan iş ve hakemin kapı App'i yoktur. `kos_hedef` taban koşusunun sayıları yalnız `run.json`'da durur,
-  hiçbir hüküm okumaz.
+  hiçbir hüküm okumaz. Rakibe hedef imajı hiçbir koşuda sunulmaz (`cagir` `run_rival(target=)` vermez, `yeniden`
+  `TargetRunner` kurmaz): `yeniden` hedefin bağımlılık tar'larını almaz; o devir (artefakt boyutu, ağ) ayrı bir tasarım
+  kararıdır.
 
 ## Doğrulanmış sağlam taraflar
 Kapsayıcı bayrakları ve kırmızı kontroller; host'ta kabuk enjeksiyonu yok; `$GITHUB_OUTPUT`'a serbest

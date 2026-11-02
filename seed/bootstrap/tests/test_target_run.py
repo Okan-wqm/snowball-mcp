@@ -13,8 +13,9 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
-from snowball_bootstrap import canon, reproduce, rival, state, target_run
+from snowball_bootstrap import canon, decide, reproduce, rival, rival_mcp, state, target_run
 from snowball_bootstrap.config import ConfigError, RivalConfig
 from snowball_bootstrap.container import RunResult, sandbox_flags
 from snowball_bootstrap.rival import TARGET_IMAGE, ToolBox, validate_verdict
@@ -424,19 +425,55 @@ class RivalTargetImageTest(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
-    def verdict(self, rep):
+    def verdict(self, rep, box=None):
         return validate_verdict({"verdict": "refuted", "attempts": [
             {"claim": "c", "evidence_refs": [{"path": "a.rs", "line_start": 1, "line_end": 1}], "reproducer": rep}]},
-            self.box)["attempts"][0]["reproducer"]
+            box or ToolBox(Path(self.tmp.name), target=True))["attempts"][0]["reproducer"]
+
+    @staticmethod
+    def reproducer_schema(tools):
+        tool = next(t for t in tools if t["name"] == "submit_verdict")
+        return tool["input_schema"]["properties"]["attempts"]["items"]["properties"]["reproducer"]
 
     def test_the_image_is_kept_only_when_it_is_the_target(self):
         self.assertEqual(self.verdict(_rep(image="target"))["image"], TARGET_IMAGE)
         self.assertNotIn("image", self.verdict(_rep()))
         with self.assertRaises(ValueError):
             self.verdict(_rep(image="python:3.12"))
-        tool = next(t for t in rival.TOOLS if t["name"] == "submit_verdict")
-        rep = tool["input_schema"]["properties"]["attempts"]["items"]["properties"]["reproducer"]
-        self.assertEqual(rep["properties"]["image"]["enum"], [TARGET_IMAGE])
+        self.assertEqual(self.reproducer_schema(rival.tools(True))["properties"]["image"]["enum"], [TARGET_IMAGE])
+
+    def test_no_offer_no_field(self):  # target_field_always_offered target_image_accepted_unoffered
+        """E516 at the merge: the field exists only where the review offers the image; elsewhere the rival's tools
+        are what they were before E513 and an `image` it sends is dropped like any other field it may not send,
+        so its reproducer runs in Python as before. The flag reaches the rival's MCP server through its argv."""
+        self.assertIs(rival.tools(False), rival.TOOLS)
+        self.assertNotIn("image", self.reproducer_schema(rival.TOOLS)["properties"])
+        self.assertNotIn("image", self.verdict(_rep(image="target"), self.box))
+        self.assertNotIn("image", self.verdict(_rep(image="python:3.12"), self.box))
+        offered = rival.tools(True)
+        self.assertEqual([t for t in offered if t["name"] != "submit_verdict"],
+                         [t for t in rival.TOOLS if t["name"] != "submit_verdict"])  # the read tools either way
+        self.assertNotIn("image", self.reproducer_schema(rival.TOOLS)["properties"])  # tools(True) copied, never wrote
+        with tempfile.TemporaryDirectory() as tmp:
+            for target, flag in ((False, []), (True, ["--target"])):
+                argv = rival._cli_argv("claude", RivalConfig(model="claude-sonnet-5-5", effort="low", max_turns=1,
+                                                             per_run_cap_usd_micros=1),
+                                       Path(tmp), Path(tmp), 1, target=target)
+                self.assertTrue(argv)
+                server = json.loads((Path(tmp) / "mcp.json").read_text())["mcpServers"][rival.MCP_SERVER]
+                self.assertEqual(server["args"][8:], flag)
+                with mock.patch.object(rival_mcp, "serve") as serve, mock.patch.object(rival_mcp, "sys"):
+                    rival_mcp.main(server["args"][2:])
+                listed = serve.call_args.args[0].handle({"jsonrpc": "2.0", "id": 1, "method": "tools/list"})
+                schema = self.reproducer_schema([dict(t, input_schema=t["inputSchema"])
+                                                 for t in listed["result"]["tools"]])
+                self.assertEqual("image" in schema["properties"], target)
+
+    def test_a_python_reproducer_is_signed_as_before(self):  # python_reproducer_signed_with_image
+        """E516 at the merge: the signed state keeps `image` only on a reproducer that names it."""
+        self.assertEqual(decide._reproducer(_rep()), {k: _rep().get(k) for k in rival.REPRODUCER_FIELDS
+                                                      if k != "image"})
+        self.assertEqual(decide._reproducer(_rep(image="target"))["image"], TARGET_IMAGE)
 
     def test_target_protocol_only_when_offered(self):
         cfg = RivalConfig(model="claude-sonnet-5-5", effort="low", max_turns=1, per_run_cap_usd_micros=1)

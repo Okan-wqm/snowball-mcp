@@ -147,8 +147,7 @@ class E06ReproducerContract(unittest.TestCase):
         rep = tool["input_schema"]["properties"]["attempts"]["items"]["properties"]["reproducer"]
         self.assertEqual(set(rep["properties"]),
                          {"cmd", "expect_exit", "expect_stdout_contains", "expect_stderr_contains",
-                          "correct_exit", "correct_stdout_contains", "correct_stderr_contains",
-                          "image"})  # E260: both sides; E513: the target image, where a review offers it
+                          "correct_exit", "correct_stdout_contains", "correct_stderr_contains"})  # E260: both sides
         self.assertEqual(rep["properties"]["expect_stderr_contains"]["maxLength"], rival.MAX_EXPECT_CHARS)
         self.assertIn("because of the defect", tool["description"] + rep["description"])
 

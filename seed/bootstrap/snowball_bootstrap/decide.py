@@ -198,7 +198,11 @@ def _learning(state: dict[str, Any], reasons: list[dict[str, Any]], limit: int,
 
 
 def _reproducer(rep: dict[str, Any] | None) -> dict[str, Any] | None:
-    return None if rep is None else {k: rep.get(k) for k in REPRODUCER_FIELDS}
+    """A reproducer as the signed state keeps it: every field, and `image` only where it names one, so a Python
+    reproducer is signed exactly as it was before the target image (E513, E516)."""
+    if rep is None:
+        return None
+    return {k: rep.get(k) for k in REPRODUCER_FIELDS if k != "image" or rep.get(k) is not None}
 
 
 def _observed(result: dict[str, Any] | None, head: str) -> dict[str, Any] | None:

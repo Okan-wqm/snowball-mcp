@@ -281,7 +281,7 @@ class E260ReproducerPolarity(unittest.TestCase):
         res = run_decide(meta2("code", res["state"], head="8" * 40), green(), refuted_by(corrected),
                          reproduce.run_reproducers(ON_FIX, [corrected], 5, control=EMPTY), CODE_JOBS)
         self.assertEqual((res["state"]["open_claims"][0]["rewritten"], res["state"]["open_claims"][0]["reproducer"]),
-                         (True, dict(corrected["reproducer"], image=None)))  # E513: kept with every field
+                         (True, corrected["reproducer"]))
 
     # ------------------------------------------------------------ the live state and the rival's instructions
 
@@ -318,8 +318,7 @@ class E260ReproducerPolarity(unittest.TestCase):
         tool = next(t for t in rival.TOOLS if t["name"] == "submit_verdict")
         rep = tool["input_schema"]["properties"]["attempts"]["items"]["properties"]["reproducer"]
         self.assertEqual(set(rep["properties"]), {"cmd", "expect_exit", "expect_stdout_contains", "expect_stderr_contains",
-                                                  "correct_exit", "correct_stdout_contains", "correct_stderr_contains",
-                                                  "image"})  # E513: the target image, where a review offers it
+                                                  "correct_exit", "correct_stdout_contains", "correct_stderr_contains"})
         self.assertEqual(rep["properties"]["correct_stdout_contains"]["maxLength"], rival.MAX_EXPECT_CHARS)
         self.assertIn("once the code is correct", rep["description"])
 

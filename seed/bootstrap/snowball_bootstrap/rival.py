@@ -243,9 +243,6 @@ TOOLS: list[dict[str, Any]] = [
                                 "properties": {
                                     "cmd": {"type": "string", "minLength": 1, "maxLength": MAX_CMD_CHARS},
                                     **{f: _observable_schema(f) for f in SYMPTOM + CORRECT},
-                                    "image": {"type": "string", "enum": [TARGET_IMAGE],
-                                              "description": "Only where the protocol offers the target image: "
-                                                             "run in it instead of the Python container."},
                                 },
                                 "required": ["cmd"],
                                 "additionalProperties": False,
@@ -265,6 +262,22 @@ TOOLS: list[dict[str, Any]] = [
         },
     },
 ]
+# The reproducer's `image`, in a review that offers the target image and in no other (E513): elsewhere the rival is
+# offered exactly the tools it had before, and an `image` it sends anyway is dropped like any field it may not send.
+TARGET_REPRODUCER = {"image": {"type": "string", "enum": [TARGET_IMAGE],
+                               "description": "Only where the protocol offers the target image: run in it instead of "
+                                              "the Python container."}}
+
+
+def tools(target: bool) -> list[dict[str, Any]]:
+    """The rival's tools: ``TOOLS``, and in a review that offers the target image, a reproducer that may name it."""
+    if not target:
+        return TOOLS
+    out = json.loads(json.dumps(TOOLS))
+    verdict = next(t for t in out if t["name"] == "submit_verdict")
+    verdict["input_schema"]["properties"]["attempts"]["items"]["properties"]["reproducer"]["properties"].update(
+        json.loads(json.dumps(TARGET_REPRODUCER)))
+    return out
 
 
 def extract_seat_prompt(seats_markdown: str) -> str:
@@ -293,8 +306,9 @@ class ToolBox:
     """Read-only access to one extracted tree; nothing outside it is reachable, and the Founder's ledger
     inside it is not either (E10)."""
 
-    def __init__(self, root: Path):
+    def __init__(self, root: Path, *, target: bool = False):
         self.root = root.resolve()
+        self.target = target  # the review offers the target image: a reproducer may name it (E513, `tools`)
 
     def _hidden(self, target: Path) -> bool:
         """A name check only: staying inside the tree is `_resolve`'s job, and stays measured there."""
@@ -423,7 +437,7 @@ def validate_verdict(raw: Any, box: ToolBox) -> dict[str, Any]:
                 elif value is not None and (not isinstance(value, str) or not value or len(value) > MAX_EXPECT_CHARS):
                     raise ValueError(f"{name} must be 1-{MAX_EXPECT_CHARS} characters")
                 clean_rep[name] = value
-            image = rep.get("image")
+            image = rep.get("image") if box.target else None  # where the review offers the target image (E513)
             if image is not None and image != TARGET_IMAGE:
                 raise ValueError(f"reproducer image must be {TARGET_IMAGE!r} or left out (the Python container)")
             if image == TARGET_IMAGE:
@@ -668,10 +682,12 @@ def _run_cli(argv: list[str], stdin: str, cwd: Path, env: dict[str, str],
             signal.signal(signal.SIGTERM, previous)
 
 
-def _cli_argv(claude_bin: str, cfg: RivalConfig, run_dir: Path, tree_root: Path, budget_usd_micros: int) -> list[str]:
+def _cli_argv(claude_bin: str, cfg: RivalConfig, run_dir: Path, tree_root: Path, budget_usd_micros: int, *,
+              target: bool = False) -> list[str]:
     server = {"command": sys.executable,
               "args": ["-I", str(MCP_SCRIPT), "--tree", str(tree_root.resolve()),
-                       "--verdict-out", str(run_dir / "verdict.json"), "--stats-out", str(run_dir / "stats.json")]}
+                       "--verdict-out", str(run_dir / "verdict.json"), "--stats-out", str(run_dir / "stats.json")]
+              + (["--target"] if target else [])}  # E513: the server offers the target image's reproducer field
     (run_dir / "mcp.json").write_text(json.dumps({"mcpServers": {MCP_SERVER: server}}), encoding="utf-8")
     return [
         claude_bin, "-p", "--output-format", "stream-json", "--verbose", "--no-session-persistence",
@@ -788,7 +804,7 @@ def run_rival(cfg: RivalConfig, *, claude_bin: str | None, seat_prompt: str, con
         (run_dir / "system.txt").write_text(system_text, encoding="utf-8", newline="\n")
         cwd = run_dir / "cwd"
         cwd.mkdir()
-        argv = _cli_argv(claude_bin, cfg, run_dir, tree_root, budget)
+        argv = _cli_argv(claude_bin, cfg, run_dir, tree_root, budget, target=target)
         seen_init: dict[str, Any] = {}
 
         def check_init(init: dict[str, Any]) -> str | None:
@@ -882,7 +898,7 @@ def run_rival(cfg: RivalConfig, *, claude_bin: str | None, seat_prompt: str, con
                 out.reasons.append(f"no_verdict:{result.get('stop_reason')}")
             return out
         try:
-            verdict = validate_verdict(raw, ToolBox(tree_root))
+            verdict = validate_verdict(raw, ToolBox(tree_root, target=target))
         except ValueError as exc:
             out.reasons.append(f"malformed_verdict:{exc}")
             return out
