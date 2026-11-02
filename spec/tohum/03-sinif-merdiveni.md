@@ -36,7 +36,7 @@ koşturur: adapter → oracle → düzeltme → merge → defter → maliyet ini
 | K1, K2 bulgu, K3, K4, K8 | K0'ın Aşama 1 PASS satırı |
 | K2 silme | + `07a` kanıtları, harita (a) aynı çıkışta |
 | K5 | + LLM avcı, Held-out havuzu, Panel aynı çıkışta |
-| K6 düzeltme | K5 yetenekleri önceki PASS'ta + Güvenlik avcısı ve bekçi testleri + Güvenlik yoluna dokunma aynı çıkışta |
+| K6 düzeltme | Hakemin son imzalı sonucunda `k6.status`'ü `live`: K6 sınavı güçlü, Güvenlik avcısı, bekçi testleri ve avcıdan farklı modelden test oracle'ı canlı + Güvenlik yoluna dokunma aynı çıkışta |
 | K7 | + LLM avcı |
 | K3, K7, K8 | `class_floors` yazılı |
 
@@ -44,10 +44,11 @@ koşturur: adapter → oracle → düzeltme → merge → defter → maliyet ini
 yakalamadan sınıf merge etmez; bulguları `blocked` satırdır (Y8). Geçen aşama ya da açık sınıf sayısı hiçbir puana girmez.
 
 **K6 Aşama 1'den gözlenir, önkoşulları kapanınca düzeltilir.** Açık bulmak, kanıtlamak, bildirmek ve bir kuralı bekçi
-testine bağlamak davranışı değiştirmez; bunu Aşama 1'den, P2 partisiyle gelen hakemin bağımsız güvenlik
-avcısı yapar (`30f`, `asama-1/13`). Aşama 0'ın güvenlik mikro özelliği `secrets.scan`'dir.
-Hedefin koduna güvenlik düzeltmesi yalnız K6 canlı olunca yazılır. Bilinen açık sınıfları, bulma yolları
-ve kapanış testleri `30`–`30c`'de, hedefin tehdit modeli `30d`'de, güvenlik defteri `30e`'dedir.
+testine bağlamak davranışı değiştirmez; bunu Aşama 1'den, P2 partisiyle gelen hakemin bağımsız güvenlik avcısı yapar
+(`30f`, `asama-1/13`). Aşama 0'ın güvenlik mikro özelliği `secrets.scan`'dir. Hedefin koduna güvenlik düzeltmesi
+yalnız K6 canlı olunca yazılır. K6 önceki aşamanın PASS'ini beklemez: önkoşulu tutunca hangi aşamada olursa olsun
+açılır, Aşama 1'de de; `k6.status`'ü hakem imzalar, beyin değil (sahip, 2026-11-01). Bilinen açık sınıfları, bulma
+yolları ve kapanış testleri `30`–`30c`'de, hedefin tehdit modeli `30d`'de, güvenlik defteri `30e`'dedir.
 
 **K8, dokümanı kodla birlikte geliştirir.** Kod ile doküman çelişirse referans koddur (Y1); doküman
 ilk bağlanmada okunur ama hiçbir karar ona dayanmaz. Doküman düzeltmesi ve yeni doküman kod

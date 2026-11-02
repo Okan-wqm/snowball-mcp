@@ -38,6 +38,7 @@ kazanır (Y1). Vakası, kodu değişip dokümanı değişmeyen geçmiş commit'l
 doküman satırlarından gelir.
 
 Aşama 0'ın ve Aşama 1'in sınıfı K0, property'si `lint`'tir. Aşama 4'ün property'si K5 vakaları
-arasından en çok vakası olandır; K6 property'leri Aşama 5'e kadar `blocked`'dır (`tohum/05`). K6
-property'lerinin açık sınıfları ve kapanış testleri güvenlik kataloğundadır (`tohum/30`–`30c`); P2 ile
-Aşama 1'den test edilir ve bildirilir, düzeltilmez (`tohum/30f`).
+arasından en çok vakası olandır; K6 property'leri hakemin imzalı `k6.status`'ü `live` olana kadar
+`blocked`'dır (`tohum/03`, `tohum/05`). K6 property'lerinin açık sınıfları ve kapanış testleri
+güvenlik kataloğundadır (`tohum/30`–`30c`); P2 ile Aşama 1'den test edilir ve bildirilir
+(`tohum/30f`); `live` olana kadar düzeltilmez.

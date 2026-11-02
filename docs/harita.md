@@ -80,7 +80,7 @@ flowchart LR
 
 ## 2. Referee package: `seed/bootstrap/snowball_bootstrap`
 
-30 modules, 86 imports inside the package, 1 started as a separate process. Areas are roles. The overview has 6 areas and 17 edges; an arrow's number is how many imports cross from one area to the other.
+31 modules, 89 imports inside the package, 1 started as a separate process. Areas are roles. The overview has 6 areas and 17 edges; an arrow's number is how many imports cross from one area to the other.
 
 ```mermaid
 flowchart LR
@@ -89,7 +89,7 @@ flowchart LR
   a_Sandbox["Sandbox<br/>6 modules"]
   a_Rival["Rival<br/>4 modules"]
   a_Judgement["Judgement<br/>6 modules"]
-  a_Unplaced["Unplaced<br/>2 modules"]
+  a_Unplaced["Unplaced<br/>3 modules"]
   a_Entry -->|9| a_Intake
   a_Entry -->|6| a_Judgement
   a_Entry -->|2| a_Rival
@@ -104,7 +104,7 @@ flowchart LR
   a_Sandbox -->|1| a_Rival
   a_Sandbox -->|1| a_Unplaced
   a_Unplaced -->|1| a_Entry
-  a_Unplaced -->|8| a_Intake
+  a_Unplaced -->|11| a_Intake
   a_Unplaced -->|2| a_Judgement
   a_Unplaced -->|2| a_Sandbox
 ```
@@ -219,13 +219,13 @@ flowchart LR
 |---|---|---|
 | `canon` | Canonical JSON (the RFC 8785 subset the seed allows) and hashing helpers. | `answers`, `cli`, `heldrun`, `importer`, `ledgercheck`, `parts`, `reproduce`, `rival`, `stagelock` |
 | `classify` | What kind of push is this (`tohum/29b`, "İki tür push")? | `cli`, `exitchecks` |
-| `config` | Operator-written inputs, validated strictly. | `cli`, `exitchecks`, `heldrun`, `rival`, `stagelock`, `stages`, `state` |
+| `config` | Operator-written inputs, validated strictly. | `cli`, `exitchecks`, `fence`, `heldrun`, `rival`, `stagelock`, `stages`, `state` |
 | `ghapi` | Minimal GitHub REST calls the pull job needs: find and download the latest state artifact, and look at the newest failed run of this workflow (E13). | `cli`, `heldrun` |
 | `gitio` | Git operations on the untrusted brain repository. | `cli`, `heldrun`, `importer`, `stagelock` |
-| `importer` | Operator import at the Stage 0 exit and at each batch exit after it (`tohum/25a` 1-2, `asama-0/10a` #aktarim and #oyuncak, `asama-1/13` 3: "aynı komut"). | `cli`, `heldrun`, `stagelock` |
+| `importer` | Operator import at the Stage 0 exit and at each batch exit after it (`tohum/25a` 1-2, `asama-0/10a` #aktarim and #oyuncak, `asama-1/13` 3: "aynı komut"). | `cli`, `fence`, `heldrun`, `stagelock` |
 | `licenses` | License gate for downloaded wheels (`tohum/24`, "Lisans"). | `cli` |
 | `stagelock` | The stage lock and the counter it is bound to (`tohum/02` 5, `asama-0/10a` "Kilidin açılışı", `tohum/25a` 9, `26c`). | `cli`, `heldrun`, `importer` |
-| `treehash` | Tree hashes over git-archive tarballs, and safe extraction of regular files only. | `cli`, `exitchecks`, `gitio`, `heldrun`, `importer`, `moduleless`, `stages` |
+| `treehash` | Tree hashes over git-archive tarballs, and safe extraction of regular files only. | `cli`, `exitchecks`, `fence`, `gitio`, `heldrun`, `importer`, `moduleless`, `stages` |
 
 ### Sandbox
 
@@ -375,12 +375,13 @@ flowchart LR
 
 ### Unplaced
 
-2 modules, 13 edges out of them.
+3 modules, 16 edges out of them.
 
 ```mermaid
 flowchart LR
   subgraph a_Unplaced["Unplaced"]
     m_answers["answers"]
+    m_fence["fence"]
     m_heldrun["heldrun"]
   end
   subgraph a_Entry["Entry"]
@@ -404,6 +405,9 @@ flowchart LR
     m_vectors["vectors"]:::outside
   end
   m_answers --> m_canon
+  m_fence --> m_config
+  m_fence --> m_importer
+  m_fence --> m_treehash
   m_heldrun --> m_canon
   m_heldrun --> m_cli
   m_heldrun --> m_config
@@ -422,6 +426,7 @@ flowchart LR
 | Module | What it is (first sentence of its docstring) | Imported by |
 |---|---|---|
 | `answers` | The exam's answers apart from its inputs, and the pin that binds them to an epoch (E509). | `vectors` |
+| `fence` | The K6 fence, kept by the referee (E511; `tohum/05` "Fiziksel güvenlik", `tohum/03` `class_requires`). | - |
 | `heldrun` | Held cases: run only inside the private exam repository, published only as a salted commitment (plan D5, E510). | - |
 
 ### Commands

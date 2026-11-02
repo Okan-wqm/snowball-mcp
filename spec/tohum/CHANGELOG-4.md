@@ -29,6 +29,15 @@ Okunma: bir sayfanın geçmişi aranırken
   `29h:27-28`); `spec-036-cycle-composition-unowned` → declined: devrin bileşimi MF17'nin, Kurucu'nun kodudur
   (`asama-0/14:44`, `:48`; `00a:13-14`); seed-029 (e) ve seed-030 (f) aynı yanıtı alır. 80 satır sınırı için
   2026-10-31'in dört kaydı (E341; E294, E308; E338, E339; E249) `CHANGELOG-3.md`'ye taşındı.
+- 2.2 (2026-11-01, E411–E417; üçüncü şüphecinin bulgusu): `26d`'ye olgular: son kökün Sigstore paketi döngünündür ve
+  kök satırının yanında, aynı `brain/state` commit'inde `<state_root>/chain/<kök>.sigstore.json`'dadır (`stage-open`
+  oradan okur; `27a`); `<state_root>` `01a`'nın `.brain/`'idir, başka bir `state_root` tohum dönemi ister (E417, sahibin
+  yetkisiyle operatör kararı); zincirli satırın kuralları (son satır da LF ile biter,
+  CR yok, anahtar iki kez yok); kök Rekor v1 `hashedrekord`'dur (`sigstore` 4.5.0 `sign --rekor-version 1`; bayraksız en
+  yüksek sürüm, v2). Genesis satırı `events`, `kind: genesis`, hakemin kendi satırı; (B)'nin koştuğu genesis defterin
+  son genesis'idir ve kural yalnız ondan sonrakileri sayar: yeniden aktarım kilidi kapatmaz (`25a` "Başarısızlık").
+  Öneri, `proposed_by`'ı boş olmayan dizgi olan satırdır. `00b`: `26c` ve `26d` üç görevde okunur. 80 satır sınırı için
+  2026-10-31'in dört kaydı daha `CHANGELOG-3.md`'ye taşındı (`main`'le birleşince orada).
 - 2.2 (2026-11-01, E404, E405; ikinci şüphecinin bulgusu): PASS satırı ve `stage-open`'ın kuralı yeni `26d`'de: `events`
   satırı, `payload` `{stage: 0, verdict: "PASS", import_line_sha256, copy_genesis_row_hash, copy_merge_row_hashes[],
   owner_exception?}`, hakemin kendi satırı (`trust` `verified` ya da `observed`); merge satırı `kind: merge`; önerilmiş
@@ -61,19 +70,3 @@ Okunma: bir sayfanın geçmişi aranırken
   `spec-038-expect-reason-comparison` → `26c:55-59` "Hazır aday". Yeni sayfalar `29e` ve `29r` (`INDEX`, `00b`); 80
   satır sınırı için 2026-10-30 ve 2026-10-31'in dört kaydı `CHANGELOG-3.md`'ye taşındı.
 - 2.2 (2026-11-01, E400; Kurucu raporu spec-015 -> `29g`, `29d`, `24`, `30c`): npm workspaces kilidi. Kök, çalışma alanı bağı (`link` doğru, `resolved` depo içi göreli yol) ve böyle bir bağın adlandırdığı çalışma alanı dizini getirilmez ve denetlenmez; iç içe `<çalışma alanı>/node_modules/<paket>` dahil başka her girdi pakettir, getirilir ve denetlenir (`29g`; vakalar `workspaces_lock`, `workspace_folder_needs_its_link`, `nested_registry_not_allowed`). Hangi girdinin getirilip denetlendiği yalnız `29g`'dedir; `29d`, `24` ve `30c` oraya bakar.
-- 2.2 (2026-10-31, E333; uzman tartışması ve hakem, ikinci tur 2026-11-01): önyükleme hakemi `asama-0/10a`'nın kuralını
-  uygular: kabul edilmiş çıkıştan ((A)) sonra spec, kod ya da çıkış push'unda Kurucu kayıtları dışında yalnız `candidates/`
-  ve `targets/` değişebilir: `referee/` `referee_changed_after_exit`, başka yol `changed_after_exit:<yol>` (`29b` "Çıkıştan
-  sonra"). Dondurma Aşama 0'ındır: kilit sonraki aşamayı açınca ya da (B) kırmızıyken operatör aktarımı geri alıp başı
-  `control.json` `reverted_exits`'e yazınca biter (`26c`, `25a` "Başarısızlık"). İmzalı durum çıkışın başını taşır
-  (`snowball-bootstrap-state/4`; `/3` aynen taşınır, taşıdığı sonuç aktarılabilir bir çıkışsa onun başıyla).
-- 2.2 (2026-10-31, E342, E93; Kurucu raporu seed-040, uzman tartışması ve hakem): önyükleme hakeminin imzalı durumunun
-  arayüzü `29b` "Durum"dadır: artefakt, hakem reposunun `main`'indeki koşuların süresi dolmamış en yeni `bootstrap-state`'i
-  (iki dosya); açılışı `sigstore verify identity` (`bootstrap.yml`'in `main` kimliği, GitHub OIDC yayıncısı), doğrulanamazsa
-  ya da yoksa çıkış 2; son kabul `state.last_accepted_sha`. `26c` `referee_tree_sha256`'nın kuralını, kodun her retini
-  (arşivin her yerindeki bağ, özel dosya ve güvensiz ad dahil) ve bilinen cevaplı örneğini (`/vec/treehash/three-files.tar`;
-  vektör vakası değil) verir; D1'in nasıl kurulacağı Kurucu'nundur. Raporların okuyucusu (E93): `pull` beynin
-  `reports/*.json`'unu okur; imzalı sonuç `reports[]` `{id, kind, ref, state, sha256}` ve açık rapor varsa `reports_open:<n>`
-  uyarısını taşır; rakibin isteği `reports/`'u yine dışarıda tutar (`26c`); `disputed` kuralı E53'te kalır. Her dönemin
-  günlük satırı yanıtladığı ya da reddettiği rapor kimliklerini adlandırır; bu dönem: `seed-040-d1-bootstrap-state-read` →
-  `29b:30-34`, `26c:39-45`.
