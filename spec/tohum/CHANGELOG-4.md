@@ -4,6 +4,10 @@ Tarih: 2026-11-01 · Sürüm: 2.2
 Okunma: bir sayfanın geçmişi aranırken
 Çapa: git geçmişi ve zincirdeki spec hash satırları
 
+- 2.2 (2026-11-01, E404, E405; ikinci şüphecinin bulgusu): PASS satırı ve `stage-open`'ın kuralı yeni `26d`'de: `events`
+  satırı, `payload` `{stage: 0, verdict: "PASS", import_line_sha256, copy_genesis_row_hash, copy_merge_row_hashes[],
+  owner_exception?}`, hakemin kendi satırı (`trust` `verified` ya da `observed`); merge satırı `kind: merge`; önerilmiş
+  kopyası sayılmaz; oyuncağın merge'ünden sonra gelir, son aktarımı adlandırır. Alanlar `26` ve `26b`–`26d`'de (`25a` 9).
 - 2.2 (2026-11-01, E390–E399; Kurucu raporları; E156, E158, E159, E234, E235, E281 kapandı): bu dönemin yanıtladığı ve
   reddettiği raporlar: `seed-002-29b-stale-after-narrowing` → `29b:13` (giriş), `29b:67-73` "Çıkış isteği";
   `seed-003-toy-repo-no-reader` → `27:67` (`tests/fixtures/toy-repo/`); `seed-005-push-class-ledger` → `29e:11-16`

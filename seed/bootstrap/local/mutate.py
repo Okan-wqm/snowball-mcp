@@ -2563,6 +2563,8 @@ MUTANTS = [
      "E499: the page promises live drill fixtures the seed does not hold"),
     ("changelog_drops_seed_042_045", "spec/tohum/CHANGELOG.md", "declined: `seed-044-revert-facts-producers`",
      "declined: seed-044", "E499: the entry no longer names the report it declines"),
+    ("changelog_drops_seed_046", "spec/tohum/CHANGELOG.md", "`10a:25` (`flaky` yeşil değildir)",
+     "(`flaky` yeşil değildir)", "E503: the answer to seed-046 no longer names the line that says a flaky end is no green"),
     # ---- E491: P2's table (`26e`), its MF1's test numbered on `30d`
     ("stage1_p2_not_carried", f"{PKG}/stages.py", 'BATCHES: dict[int, tuple[str, ...]] = {1: ("P1", "P2")}',
      'BATCHES: dict[int, tuple[str, ...]] = {1: ("P1",)}', "E491: after P1 no table is open, P2 is never judged"),

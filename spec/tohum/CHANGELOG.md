@@ -20,6 +20,10 @@ Okunma: bir sayfanın geçmişi aranırken
   declined: `seed-044-revert-facts-producers`: `29j:53-60` her olgunun ne olduğunu söyler (`build_ok` kodun kırmızı
   başta derlenip yüklenmesi, lint merge'ün ilk ebeveynindeki ve baştaki araç toplamı); üreticileri Kurucu'nun hakem
   kodudur (seed-023 ve seed-030 gibi).
+  Dönem kesildikten sonra gelen rapor: `seed-046-pass-row-unnamed` → `26d:36-47` (PASS satırı, `part: events`, hakemin
+  kendi satırı; ek alan serbest: `conditions`, `not_checked`), `26d:9` (yazarı döngü hakemi), `29s:19-24` (bir koşu her
+  hedefe hizmet eder), `10a:44` (PASS koşulların makine denetimi: denetlenmeyen satır tutmuş sayılmaz), `26f:12-14` ve
+  `10a:25` (`flaky` yeşil değildir), `10a:26` (her ekim), `26d:35` ve `10a:24` (`hunk_covered` merge yükünde, kapılamaz).
 - 2.2 (2026-11-01, E478–E485; sekizinci şüphecinin bulgusu): `25a` 1–2: içe aktarma beyni git'in nesne
   denetimiyle getirir; `.git`, `.gitattributes` ve `.gitmodules`'ü her derinlikte, harf duyarsız ve HFS+ biçimiyle,
   Windows'un tutamadığı adı (`|?*"<>`, 260 karakterden uzun yol) her sistemde, oyuncakta `.github`'ı reddeder;
@@ -42,10 +46,6 @@ Okunma: bir sayfanın geçmişi aranırken
   son genesis'idir ve kural yalnız ondan sonrakileri sayar: yeniden aktarım kilidi kapatmaz (`25a` "Başarısızlık").
   Öneri, `proposed_by`'ı boş olmayan dizgi olan satırdır. `00b`: `26c` ve `26d` üç görevde okunur. 80 satır sınırı için
   2026-10-31'in dört kaydı daha `CHANGELOG-3.md`'ye taşındı (`main`'le birleşince orada).
-- 2.2 (2026-11-01, E404, E405; ikinci şüphecinin bulgusu): PASS satırı ve `stage-open`'ın kuralı yeni `26d`'de: `events`
-  satırı, `payload` `{stage: 0, verdict: "PASS", import_line_sha256, copy_genesis_row_hash, copy_merge_row_hashes[],
-  owner_exception?}`, hakemin kendi satırı (`trust` `verified` ya da `observed`); merge satırı `kind: merge`; önerilmiş
-  kopyası sayılmaz; oyuncağın merge'ünden sonra gelir, son aktarımı adlandırır. Alanlar `26` ve `26b`–`26d`'de (`25a` 9).
 - 2.2 (2026-11-01, E450; sahibin onayı): Kurucu kapsülü her oturumun başında beynin `agents/` ve `skills/` dizinlerindeki
   ajan ve skill tanımlarını denetleyip `brain` eklentisi olarak yükler, beynin başka hiçbir dosyasını yapılandırma olarak
   yüklemez; iki dizin beyin ağacında, biçim, düşürme kuralları ve yükleme kaydı `24a` "Ajan ve skill tanımları"nda. 80
@@ -71,8 +71,8 @@ Okunma: bir sayfanın geçmişi aranırken
   `29h:27-28`); `spec-036-cycle-composition-unowned` → declined: devrin bileşimi MF17'nin, Kurucu'nun kodudur
   (`asama-0/14:44`, `:48`; `00a:13-14`); seed-029 (e) ve seed-030 (f) aynı yanıtı alır. 80 satır sınırı için
   2026-10-31'in dört kaydı (E341; E294, E308; E338, E339; E249) `CHANGELOG-3.md`'ye taşındı.
-- 2.2 (2026-10-31 – 2026-11-01, E93, E333, E342, E390–E400): önyükleme hakeminin çıkıştan sonraki kuralı, imzalı
-  durumun arayüzü, Kurucu raporlarının yanıtları ve npm workspaces kilidi: `CHANGELOG-4.md`.
+- 2.2 (2026-10-31 – 2026-11-01, E93, E333, E342, E390–E400, E404, E405): önyükleme hakeminin çıkıştan sonraki kuralı,
+  imzalı durumun arayüzü, Kurucu raporlarının yanıtları, npm workspaces kilidi, PASS satırı ve `stage-open`: `CHANGELOG-4.md`.
 - 2.2 (2026-10-30 – 2026-10-31, E64, E65, E249, E280–E301, E308, E317–E324, E338, E339, E341, E344): ders provasının
   aileleri ve sınav tarafı, sistem haritası, Aşama 0 çıkışının karar verilemeyen koşulları, `control`'ün döngü arayüzü,
   sınıf merdiveninin varsayılanlığı, yük altında performans ve `main`'in salt okunur okunuşu: `CHANGELOG-3.md`.

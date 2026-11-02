@@ -662,6 +662,32 @@ class LoopReportsPageTest(unittest.TestCase):
         self.assertIn("declined: `seed-044-revert-facts-producers`: `29j:53-60`", entry)
         self.assertIn("`build_ok`'un ve nöbetçinin lint toplamının üreticisini adlandırmaz", flat(spec_page("tohum", "29j")))
 
+    def test_seed_046_is_answered_by_lines_that_say_it(self):  # changelog_drops_seed_046
+        """E503: the Founder's seed-046 (the PASS row's part, kind and payload, its writer, the conditions it judges,
+        a flaky sentinel end, a failed drill, #kapsama-kaydi's field) came after this epoch's commit was cut; every
+        question has a seed line, and each line the answer names says what the answer says it does."""
+        entry = flat((ROOT / "spec" / "tohum" / "CHANGELOG.md").read_text(encoding="utf-8")[:9000])
+        self.assertIn("`seed-046-pass-row-unnamed` → `26d:36-47`", entry)
+        pages = {"26d": ROOT / "spec" / "tohum" / "26d-semalar-pass-satiri.md",
+                 "26f": ROOT / "spec" / "tohum" / "26f-semalar-nobetci-ve-prova.md",
+                 "29s": next((ROOT / "spec" / "tohum").glob("29s-*.md")),
+                 "10a": ROOT / "spec" / "asama-0" / "10a-cikis-canli-dongu.md"}
+        says = {("26d", 36, 47): ("**PASS satırı**", "başka alan da", "copy_merge_row_hashes"),
+                ("26d", 9, 9): ("PASS satırını döngü hakemi yazar",),
+                ("29s", 19, 24): ("her girdiye dizinin", "sırasıyla hizmet eder"),
+                ("10a", 44, 44): ("PASS bir imza değil, bu koşulların makine",),
+                ("26f", 12, 14): ("verdict: green|flaky", "`flaky` kararı"),
+                ("10a", 25, 25): ("#nobetci", "nöbetçi yeşil"),
+                ("10a", 26, 26): ("#geri-alma", "her biri geri alınmış"),
+                ("26d", 35, 35): ("**Merge satırı**", "serbest"),
+                ("10a", 24, 24): ("#kapsama-kaydi", "kapılamaz")}
+        for (page, first, last), words in says.items():
+            ref = f"`{page}:{first}`" if first == last else f"`{page}:{first}-{last}`"
+            self.assertIn(ref, entry[entry.index("seed-046"):], ref)
+            lines = " ".join(" ".join(pages[page].read_text(encoding="utf-8").splitlines()[first - 1:last]).split())
+            for word in words:
+                self.assertIn(word, lines, ref)
+
 
 class ReportAnswerPagesTest(unittest.TestCase):
     """The answers a seed epoch gives the Founder's reports (E390-E399) are interface facts the referee's code holds:
