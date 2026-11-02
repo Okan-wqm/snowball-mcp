@@ -79,7 +79,7 @@ flowchart LR
 
 ## 2. Referee package: `seed/bootstrap/snowball_bootstrap`
 
-28 modules, 72 imports inside the package, 1 started as a separate process. Areas are roles. The overview has 5 areas and 12 edges; an arrow's number is how many imports cross from one area to the other.
+29 modules, 74 imports inside the package, 1 started as a separate process. Areas are roles. The overview has 6 areas and 13 edges; an arrow's number is how many imports cross from one area to the other.
 
 ```mermaid
 flowchart LR
@@ -88,6 +88,7 @@ flowchart LR
   a_Sandbox["Sandbox<br/>6 modules"]
   a_Rival["Rival<br/>4 modules"]
   a_Judgement["Judgement<br/>6 modules"]
+  a_Unplaced["Unplaced<br/>1 modules"]
   a_Entry -->|9| a_Intake
   a_Entry -->|6| a_Judgement
   a_Entry -->|2| a_Rival
@@ -100,6 +101,7 @@ flowchart LR
   a_Sandbox -->|2| a_Intake
   a_Sandbox -->|3| a_Judgement
   a_Sandbox -->|1| a_Rival
+  a_Unplaced -->|2| a_Intake
 ```
 
 ### Entry
@@ -210,9 +212,9 @@ flowchart LR
 
 | Module | What it is (first sentence of its docstring) | Imported by |
 |---|---|---|
-| `canon` | Canonical JSON (the RFC 8785 subset the seed allows) and hashing helpers. | `cli`, `importer`, `ledgercheck`, `parts`, `reproduce`, `rival`, `stagelock` |
+| `canon` | Canonical JSON (the RFC 8785 subset the seed allows) and hashing helpers. | `cli`, `importer`, `k6`, `ledgercheck`, `parts`, `reproduce`, `rival`, `stagelock` |
 | `classify` | What kind of push is this (`tohum/29b`, "İki tür push")? | `cli`, `exitchecks` |
-| `config` | Operator-written inputs, validated strictly. | `cli`, `exitchecks`, `rival`, `stagelock`, `stages`, `state` |
+| `config` | Operator-written inputs, validated strictly. | `cli`, `exitchecks`, `k6`, `rival`, `stagelock`, `stages`, `state` |
 | `ghapi` | Minimal GitHub REST calls the pull job needs: find and download the latest state artifact, and look at the newest failed run of this workflow (E13). | `cli` |
 | `gitio` | Git operations on the untrusted brain repository. | `cli`, `importer`, `stagelock` |
 | `importer` | Operator import at the Stage 0 exit and at each batch exit after it (`tohum/25a` 1-2, `asama-0/10a` #aktarim and #oyuncak, `asama-1/13` 3: "aynı komut"). | `cli`, `stagelock` |
@@ -361,6 +363,28 @@ flowchart LR
 | `stages` | The stage tables (`asama-0/14`, `tohum/26c` "Aşama tablosu"): the machine copy of a stage's micro-features. | `cli`, `decide`, `manifest`, `moduleless`, `stagelock`, `vectors`, `wiring` |
 | `state` | The bootstrap's memory between runs: the last signed result's ``state`` block. | `cli`, `decide` |
 | `wiring` | The loop workflow's wiring rules (`asama-0/10` #is-akisi, `asama-0/09` test 46, `asama-0/14` MF17; `tohum/08`, `01a`, `29p`; E100, E162, E281-E283). | `cli`, `exitchecks` |
+
+### Unplaced
+
+1 modules, 2 edges out of them.
+
+```mermaid
+flowchart LR
+  subgraph a_Unplaced["Unplaced"]
+    m_k6["k6"]
+  end
+  subgraph a_Intake["Intake"]
+    m_canon["canon"]:::outside
+    m_config["config"]:::outside
+  end
+  m_k6 --> m_canon
+  m_k6 --> m_config
+  classDef outside stroke-dasharray: 4 3
+```
+
+| Module | What it is (first sentence of its docstring) | Imported by |
+|---|---|---|
+| `k6` | The K6 exam's state and strength (E512): when the physical-safety fence (`tohum/05`) may open, decided by numbers. | - |
 
 ### Commands
 
