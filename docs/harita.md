@@ -79,7 +79,7 @@ flowchart LR
 
 ## 2. Referee package: `seed/bootstrap/snowball_bootstrap`
 
-28 modules, 72 imports inside the package, 1 started as a separate process. Areas are roles. The overview has 5 areas and 12 edges; an arrow's number is how many imports cross from one area to the other.
+29 modules, 76 imports inside the package, 1 started as a separate process. Areas are roles. The overview has 6 areas and 15 edges; an arrow's number is how many imports cross from one area to the other.
 
 ```mermaid
 flowchart LR
@@ -88,6 +88,7 @@ flowchart LR
   a_Sandbox["Sandbox<br/>6 modules"]
   a_Rival["Rival<br/>4 modules"]
   a_Judgement["Judgement<br/>6 modules"]
+  a_Unplaced["Unplaced<br/>1 modules"]
   a_Entry -->|9| a_Intake
   a_Entry -->|6| a_Judgement
   a_Entry -->|2| a_Rival
@@ -100,6 +101,9 @@ flowchart LR
   a_Sandbox -->|2| a_Intake
   a_Sandbox -->|3| a_Judgement
   a_Sandbox -->|1| a_Rival
+  a_Unplaced -->|1| a_Intake
+  a_Unplaced -->|1| a_Judgement
+  a_Unplaced -->|2| a_Sandbox
 ```
 
 ### Entry
@@ -218,7 +222,7 @@ flowchart LR
 | `importer` | Operator import at the Stage 0 exit and at each batch exit after it (`tohum/25a` 1-2, `asama-0/10a` #aktarim and #oyuncak, `asama-1/13` 3: "aynı komut"). | `cli`, `stagelock` |
 | `licenses` | License gate for downloaded wheels (`tohum/24`, "Lisans"). | `cli` |
 | `stagelock` | The stage lock and the counter it is bound to (`tohum/02` 5, `asama-0/10a` "Kilidin açılışı", `tohum/25a` 9, `26c`). | `cli`, `importer` |
-| `treehash` | Tree hashes over git-archive tarballs, and safe extraction of regular files only. | `cli`, `exitchecks`, `gitio`, `importer`, `moduleless`, `stages` |
+| `treehash` | Tree hashes over git-archive tarballs, and safe extraction of regular files only. | `cli`, `exitchecks`, `gitio`, `importer`, `moduleless`, `mutation`, `stages` |
 
 ### Sandbox
 
@@ -261,10 +265,10 @@ flowchart LR
 
 | Module | What it is (first sentence of its docstring) | Imported by |
 |---|---|---|
-| `container` | Run untrusted code in a nested, network-less, unprivileged container (`tohum/08` 2). | `cli`, `controls`, `moduleless`, `parts`, `reproduce`, `vectors` |
+| `container` | Run untrusted code in a nested, network-less, unprivileged container (`tohum/08` 2). | `cli`, `controls`, `moduleless`, `mutation`, `parts`, `reproduce`, `vectors` |
 | `controls` | Red controls: known answers about the runner itself (`tohum/08` 3). | `parts` |
 | `manifest` | The founder's test manifest (`snowball-tests.json`, `tohum/26c`) and its lock files. | `cli` |
-| `moduleless` | Module-less red (`asama-0/14`; `tohum/04` 1, "Kasıtlı bozma"): a micro-feature's tests fail without it. | `cli` |
+| `moduleless` | Module-less red (`asama-0/14`; `tohum/04` 1, "Kasıtlı bozma"): a micro-feature's tests fail without it. | `cli`, `mutation` |
 | `parts` | `kos` in parts (E440): one push's run shared out among N parallel jobs and joined into the single job's `run.json`. | `cli` |
 | `vectors` | Apply the seed vectors (`tohum/29a`, `29d`) to the founder's code through the fixed interface. | `cli`, `parts` |
 
@@ -358,9 +362,39 @@ flowchart LR
 | `decide` | The acceptance decision (`tohum/29b`, "Kabul" and "Aşama 0 çıkışının (A) parçası"). | `cli` |
 | `exitchecks` | The (A) conditions of `asama-0/10` that `pull` checks on the brain archive it already holds (`29b`; the narrowing note's draft `29e` "Tohum denetimleri": in `çek`, read from ... | `cli`, `decide` |
 | `ledgercheck` | The Founder's ledger (`asama-0/10` #kurucu-defteri, `asama-0/09` test 30, `tohum/26`, `00a`; E107, E280). | `cli`, `decide`, `exitchecks` |
-| `stages` | The stage tables (`asama-0/14`, `tohum/26c` "Aşama tablosu"): the machine copy of a stage's micro-features. | `cli`, `decide`, `manifest`, `moduleless`, `stagelock`, `vectors`, `wiring` |
+| `stages` | The stage tables (`asama-0/14`, `tohum/26c` "Aşama tablosu"): the machine copy of a stage's micro-features. | `cli`, `decide`, `manifest`, `moduleless`, `mutation`, `stagelock`, `vectors`, `wiring` |
 | `state` | The bootstrap's memory between runs: the last signed result's ``state`` block. | `cli`, `decide` |
 | `wiring` | The loop workflow's wiring rules (`asama-0/10` #is-akisi, `asama-0/09` test 46, `asama-0/14` MF17; `tohum/08`, `01a`, `29p`; E100, E162, E281-E283). | `cli`, `exitchecks` |
+
+### Unplaced
+
+1 modules, 4 edges out of them.
+
+```mermaid
+flowchart LR
+  subgraph a_Unplaced["Unplaced"]
+    m_mutation["mutation"]
+  end
+  subgraph a_Intake["Intake"]
+    m_treehash["treehash"]:::outside
+  end
+  subgraph a_Judgement["Judgement"]
+    m_stages["stages"]:::outside
+  end
+  subgraph a_Sandbox["Sandbox"]
+    m_container["container"]:::outside
+    m_moduleless["moduleless"]:::outside
+  end
+  m_mutation --> m_container
+  m_mutation --> m_moduleless
+  m_mutation --> m_stages
+  m_mutation --> m_treehash
+  classDef outside stroke-dasharray: 4 3
+```
+
+| Module | What it is (first sentence of its docstring) | Imported by |
+|---|---|---|
+| `mutation` | Mutation-kill ratchet on the Founder's code (E515; the A/F/G plan's WP7, watcher G1, red team T3). | - |
 
 ### Commands
 
