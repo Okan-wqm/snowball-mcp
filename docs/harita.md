@@ -79,7 +79,7 @@ flowchart LR
 
 ## 2. Referee package: `seed/bootstrap/snowball_bootstrap`
 
-28 modules, 72 imports inside the package, 1 started as a separate process. Areas are roles. The overview has 5 areas and 12 edges; an arrow's number is how many imports cross from one area to the other.
+29 modules, 74 imports inside the package, 1 started as a separate process. Areas are roles. The overview has 6 areas and 14 edges; an arrow's number is how many imports cross from one area to the other.
 
 ```mermaid
 flowchart LR
@@ -88,6 +88,7 @@ flowchart LR
   a_Sandbox["Sandbox<br/>6 modules"]
   a_Rival["Rival<br/>4 modules"]
   a_Judgement["Judgement<br/>6 modules"]
+  a_Unplaced["Unplaced<br/>1 modules"]
   a_Entry -->|9| a_Intake
   a_Entry -->|6| a_Judgement
   a_Entry -->|2| a_Rival
@@ -100,6 +101,8 @@ flowchart LR
   a_Sandbox -->|2| a_Intake
   a_Sandbox -->|3| a_Judgement
   a_Sandbox -->|1| a_Rival
+  a_Sandbox -->|1| a_Unplaced
+  a_Unplaced -->|1| a_Intake
 ```
 
 ### Entry
@@ -210,7 +213,7 @@ flowchart LR
 
 | Module | What it is (first sentence of its docstring) | Imported by |
 |---|---|---|
-| `canon` | Canonical JSON (the RFC 8785 subset the seed allows) and hashing helpers. | `cli`, `importer`, `ledgercheck`, `parts`, `reproduce`, `rival`, `stagelock` |
+| `canon` | Canonical JSON (the RFC 8785 subset the seed allows) and hashing helpers. | `answers`, `cli`, `importer`, `ledgercheck`, `parts`, `reproduce`, `rival`, `stagelock` |
 | `classify` | What kind of push is this (`tohum/29b`, "İki tür push")? | `cli`, `exitchecks` |
 | `config` | Operator-written inputs, validated strictly. | `cli`, `exitchecks`, `rival`, `stagelock`, `stages`, `state` |
 | `ghapi` | Minimal GitHub REST calls the pull job needs: find and download the latest state artifact, and look at the newest failed run of this workflow (E13). | `cli` |
@@ -222,7 +225,7 @@ flowchart LR
 
 ### Sandbox
 
-6 modules, 12 edges out of them.
+6 modules, 13 edges out of them.
 
 ```mermaid
 flowchart LR
@@ -244,6 +247,9 @@ flowchart LR
   subgraph a_Rival["Rival"]
     m_secretscan["secretscan"]:::outside
   end
+  subgraph a_Unplaced["Unplaced"]
+    m_answers["answers"]:::outside
+  end
   m_controls --> m_container
   m_manifest --> m_stages
   m_moduleless --> m_container
@@ -254,6 +260,7 @@ flowchart LR
   m_parts --> m_container
   m_parts --> m_controls
   m_parts --> m_vectors
+  m_vectors --> m_answers
   m_vectors --> m_container
   m_vectors --> m_stages
   classDef outside stroke-dasharray: 4 3
@@ -362,6 +369,26 @@ flowchart LR
 | `state` | The bootstrap's memory between runs: the last signed result's ``state`` block. | `cli`, `decide` |
 | `wiring` | The loop workflow's wiring rules (`asama-0/10` #is-akisi, `asama-0/09` test 46, `asama-0/14` MF17; `tohum/08`, `01a`, `29p`; E100, E162, E281-E283). | `cli`, `exitchecks` |
 
+### Unplaced
+
+1 modules, 1 edges out of them.
+
+```mermaid
+flowchart LR
+  subgraph a_Unplaced["Unplaced"]
+    m_answers["answers"]
+  end
+  subgraph a_Intake["Intake"]
+    m_canon["canon"]:::outside
+  end
+  m_answers --> m_canon
+  classDef outside stroke-dasharray: 4 3
+```
+
+| Module | What it is (first sentence of its docstring) | Imported by |
+|---|---|---|
+| `answers` | The exam's answers apart from its inputs, and the pin that binds them to an epoch (E509). | `vectors` |
+
 ### Commands
 
 Every subcommand of `cli.py`, the jobs that run it, and the package modules its handler reaches through `cli.py`'s own helpers. A command no job runs is run by the operator or a local tool.
@@ -390,7 +417,7 @@ Every subcommand of `cli.py`, the jobs that run it, and the package modules its 
 
 ## 3. Launcher links
 
-`seed/founder/launch.py` runs on the operator's machine and imports 6 referee modules, so the launcher applies the referee's own rules instead of a copy (E244). Through them it loads 16: `canon`, `classify`, `config`, `container`, `decide`, `exitchecks`, `gitio`, `ledgercheck`, `reproduce`, `rival`, `secretscan`, `stages`, `state`, `treehash`, `vectors`, `wiring`.
+`seed/founder/launch.py` runs on the operator's machine and imports 6 referee modules, so the launcher applies the referee's own rules instead of a copy (E244). Through them it loads 17: `answers`, `canon`, `classify`, `config`, `container`, `decide`, `exitchecks`, `gitio`, `ledgercheck`, `reproduce`, `rival`, `secretscan`, `stages`, `state`, `treehash`, `vectors`, `wiring`.
 
 ```mermaid
 flowchart LR
