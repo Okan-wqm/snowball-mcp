@@ -37,9 +37,10 @@ denetler; tutmazsa yazmaz ve sert durur:
 | `docs/`, `status.md` | Yalnız `docs.render` çıktısı ve hakemin `status.block` bloğu; elle düzenleme ret |
 
 **`brain/integration` kuralları.** Ruleset: `deletion`, `non_fast_forward`, `pull_request`, zorunlu
-kontrol (strict, `integration_id` = yazar App'i); bypass aktörü yok. Her düzeltme kendi
-`brain/c/<id>` dalından tek PR'dır. Merge'ler sıralıdır: bir merge'ün nöbetçisi yeşil olmadan
-sonraki merge yapılmaz; nöbetçi kırmızıysa o merge'ü hakem geri alır (`07`).
+kontrol (strict, `integration_id` = yazar App'i); bypass aktörü yok. Kopyada dal korumasında ayrıca
+hakemin `snowball-fence` kontrolü zorunludur (`25a` 3). Her düzeltme kendi `brain/c/<id>` dalından
+tek PR'dır. Merge'ler sıralıdır: bir merge'ün nöbetçisi yeşil olmadan sonraki merge yapılmaz;
+nöbetçi kırmızıysa o merge'ü hakem geri alır (`07`).
 
 **Kapı yeniden koşturur.** Merge kararında kapı (`gate.check`) oyuncunun raporunu okumakla
 yetinmez: aracı, oracle'ı ve etkilenen-test komutunu kendi `koş` işinde yeniden koşturur, sonuçları

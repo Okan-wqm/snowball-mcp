@@ -79,7 +79,7 @@ flowchart LR
 
 ## 2. Referee package: `seed/bootstrap/snowball_bootstrap`
 
-28 modules, 72 imports inside the package, 1 started as a separate process. Areas are roles. The overview has 5 areas and 12 edges; an arrow's number is how many imports cross from one area to the other.
+29 modules, 75 imports inside the package, 1 started as a separate process. Areas are roles. The overview has 6 areas and 13 edges; an arrow's number is how many imports cross from one area to the other.
 
 ```mermaid
 flowchart LR
@@ -88,6 +88,7 @@ flowchart LR
   a_Sandbox["Sandbox<br/>6 modules"]
   a_Rival["Rival<br/>4 modules"]
   a_Judgement["Judgement<br/>6 modules"]
+  a_Unplaced["Unplaced<br/>1 modules"]
   a_Entry -->|9| a_Intake
   a_Entry -->|6| a_Judgement
   a_Entry -->|2| a_Rival
@@ -100,6 +101,7 @@ flowchart LR
   a_Sandbox -->|2| a_Intake
   a_Sandbox -->|3| a_Judgement
   a_Sandbox -->|1| a_Rival
+  a_Unplaced -->|3| a_Intake
 ```
 
 ### Entry
@@ -212,13 +214,13 @@ flowchart LR
 |---|---|---|
 | `canon` | Canonical JSON (the RFC 8785 subset the seed allows) and hashing helpers. | `cli`, `importer`, `ledgercheck`, `parts`, `reproduce`, `rival`, `stagelock` |
 | `classify` | What kind of push is this (`tohum/29b`, "İki tür push")? | `cli`, `exitchecks` |
-| `config` | Operator-written inputs, validated strictly. | `cli`, `exitchecks`, `rival`, `stagelock`, `stages`, `state` |
+| `config` | Operator-written inputs, validated strictly. | `cli`, `exitchecks`, `fence`, `rival`, `stagelock`, `stages`, `state` |
 | `ghapi` | Minimal GitHub REST calls the pull job needs: find and download the latest state artifact, and look at the newest failed run of this workflow (E13). | `cli` |
 | `gitio` | Git operations on the untrusted brain repository. | `cli`, `importer`, `stagelock` |
-| `importer` | Operator import at the Stage 0 exit and at each batch exit after it (`tohum/25a` 1-2, `asama-0/10a` #aktarim and #oyuncak, `asama-1/13` 3: "aynı komut"). | `cli`, `stagelock` |
+| `importer` | Operator import at the Stage 0 exit and at each batch exit after it (`tohum/25a` 1-2, `asama-0/10a` #aktarim and #oyuncak, `asama-1/13` 3: "aynı komut"). | `cli`, `fence`, `stagelock` |
 | `licenses` | License gate for downloaded wheels (`tohum/24`, "Lisans"). | `cli` |
 | `stagelock` | The stage lock and the counter it is bound to (`tohum/02` 5, `asama-0/10a` "Kilidin açılışı", `tohum/25a` 9, `26c`). | `cli`, `importer` |
-| `treehash` | Tree hashes over git-archive tarballs, and safe extraction of regular files only. | `cli`, `exitchecks`, `gitio`, `importer`, `moduleless`, `stages` |
+| `treehash` | Tree hashes over git-archive tarballs, and safe extraction of regular files only. | `cli`, `exitchecks`, `fence`, `gitio`, `importer`, `moduleless`, `stages` |
 
 ### Sandbox
 
@@ -361,6 +363,30 @@ flowchart LR
 | `stages` | The stage tables (`asama-0/14`, `tohum/26c` "Aşama tablosu"): the machine copy of a stage's micro-features. | `cli`, `decide`, `manifest`, `moduleless`, `stagelock`, `vectors`, `wiring` |
 | `state` | The bootstrap's memory between runs: the last signed result's ``state`` block. | `cli`, `decide` |
 | `wiring` | The loop workflow's wiring rules (`asama-0/10` #is-akisi, `asama-0/09` test 46, `asama-0/14` MF17; `tohum/08`, `01a`, `29p`; E100, E162, E281-E283). | `cli`, `exitchecks` |
+
+### Unplaced
+
+1 modules, 3 edges out of them.
+
+```mermaid
+flowchart LR
+  subgraph a_Unplaced["Unplaced"]
+    m_fence["fence"]
+  end
+  subgraph a_Intake["Intake"]
+    m_config["config"]:::outside
+    m_importer["importer"]:::outside
+    m_treehash["treehash"]:::outside
+  end
+  m_fence --> m_config
+  m_fence --> m_importer
+  m_fence --> m_treehash
+  classDef outside stroke-dasharray: 4 3
+```
+
+| Module | What it is (first sentence of its docstring) | Imported by |
+|---|---|---|
+| `fence` | The K6 fence, kept by the referee (E511; `tohum/05` "Fiziksel güvenlik", `tohum/03` `class_requires`). | - |
 
 ### Commands
 

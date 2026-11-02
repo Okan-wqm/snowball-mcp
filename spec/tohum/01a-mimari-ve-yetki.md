@@ -46,8 +46,9 @@ App'i yalnız mühürlü depodadır. Beyin App'i yoktur.
 **Hakem, oyuncudan ayrıdır.** Hedefte beynin hiçbir kimliği ve iş akışı yoktur. Hakem reposunun
 zamanlayıcısı beyin reposunu ve hedefi yoklar, adayı çeker, sırsız işte yeniden koşturur ve kararı
 hakem koduyla verir. `brain/integration`'daki zorunlu kontrolün kaynağı yazar App'ine sabittir;
-başka kimlik raporlayamaz ve bu kullanıcı hesabında da çalışır. Yazar App'i `main`'e yazamaz:
-yazma modu bunu taşıyan bir `main` ruleset'i ister (`21`, `25a`).
+başka kimlik raporlayamaz ve bu kullanıcı hesabında da çalışır. Kopyada ikinci zorunlu kontrol
+`snowball-fence`'in kaynağı hakemin kapı App'ine sabittir: güvenlik yolunun çiti (`05`, `25a` 3).
+Yazar App'i `main`'e yazamaz: yazma modu bunu taşıyan bir `main` ruleset'i ister (`21`, `25a`).
 
 **Hakem değişikliği ve bilinen sınır.** Hakem reposu ruleset'e dayandırılmadığı için (özel Free planda yoktur) hiçbir App
 ona yazmaz. Döngü hakeminin kodu yalnız operatör aktarımıyla değişir: **aşama çıkışında ya da parti

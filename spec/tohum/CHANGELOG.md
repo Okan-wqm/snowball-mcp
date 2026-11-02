@@ -4,6 +4,14 @@ Tarih: 2026-10-29 · Sürüm: 2.2
 Okunma: bir sayfanın geçmişi aranırken
 Çapa: git geçmişi ve zincirdeki spec hash satırları
 
+- 2.2 (2026-11-02, E511, E517; sahibin kararı (2026-11-01): çit kaldırılmaz, kapısı öne çekilir, K6 Aşama 1 içinde
+  canlı edilir; kandırma puanı düşürür): `03` `class_requires`: K6 düzeltmesinin önkoşulu hakemin son imzalı sonucunda
+  `k6.status`'ün `live` olmasıdır (K6 sınavı güçlü, Güvenlik avcısı, bekçi testleri ve avcıdan farklı modelden test
+  oracle'ı canlı) ve güvenlik yoluna dokunma aynı çıkışta; K5'in önceki PASS'i aranmaz, K6 hangi aşamada olursa olsun
+  açılır, durumu hakem imzalar. `25a` 3: kopyanın `brain/integration`'ında ikinci zorunlu kontrol `snowball-fence`,
+  hakemin kapı App'inin, dal korumasında (genesis'in okuduğu ruleset kuralları değişmez); `live` olmadıkça operatörün
+  güvenlik yollarına dokunan baş kırmızıdır; `01a` ve `01b` buna bakar. Kurucu istemine açık kural: kandırma puanı
+  düşürür, kaydı imzalı sonuçtadır. 80 satır sınırı için E411–E417 kaydı `CHANGELOG-4.md`'ye taşındı.
 - 2.2 (2026-11-01, E490–E499; Kurucu raporu, E373'ün kalanları, act10 şüphecisinin bulgusu): `25a` 1: içe aktarma
   iki repodan yalnız `main`'i okur ve yalnız her itmenin göndereceğini git'in nesne denetiminden geçirir; 255 bayttan
   uzun tek ad ve boş repo adı durdurur. Yeni `29s` döngünün üç girdisini verir, hiçbiri
@@ -37,15 +45,6 @@ Okunma: bir sayfanın geçmişi aranırken
   itilir; çalışma ağacı yoktur. `26d`: `stage-open` klonun commit'indeki hakem ağacını ve genesis'in ağaç ve sonuç
   hash'lerini aktarım satırına bağlar, kopyanın tabanı vardır, profil okunabilir olmalıdır, kaydın verisinin hash'i
   kökün kendisidir; `26a` `rekor.anchor` bunu söyler.
-- 2.2 (2026-11-01, E411–E417; üçüncü şüphecinin bulgusu): `26d`'ye olgular: son kökün Sigstore paketi döngünündür ve
-  kök satırının yanında, aynı `brain/state` commit'inde `<state_root>/chain/<kök>.sigstore.json`'dadır (`stage-open`
-  oradan okur; `27a`); `<state_root>` `01a`'nın `.brain/`'idir, başka bir `state_root` tohum dönemi ister (E417, sahibin
-  yetkisiyle operatör kararı); zincirli satırın kuralları (son satır da LF ile biter,
-  CR yok, anahtar iki kez yok); kök Rekor v1 `hashedrekord`'dur (`sigstore` 4.5.0 `sign --rekor-version 1`; bayraksız en
-  yüksek sürüm, v2). Genesis satırı `events`, `kind: genesis`, hakemin kendi satırı; (B)'nin koştuğu genesis defterin
-  son genesis'idir ve kural yalnız ondan sonrakileri sayar: yeniden aktarım kilidi kapatmaz (`25a` "Başarısızlık").
-  Öneri, `proposed_by`'ı boş olmayan dizgi olan satırdır. `00b`: `26c` ve `26d` üç görevde okunur. 80 satır sınırı için
-  2026-10-31'in dört kaydı daha `CHANGELOG-3.md`'ye taşındı (`main`'le birleşince orada).
 - 2.2 (2026-11-01, E450; sahibin onayı): Kurucu kapsülü her oturumun başında beynin `agents/` ve `skills/` dizinlerindeki
   ajan ve skill tanımlarını denetleyip `brain` eklentisi olarak yükler, beynin başka hiçbir dosyasını yapılandırma olarak
   yüklemez; iki dizin beyin ağacında, biçim, düşürme kuralları ve yükleme kaydı `24a` "Ajan ve skill tanımları"nda. 80
@@ -71,8 +70,9 @@ Okunma: bir sayfanın geçmişi aranırken
   `29h:27-28`); `spec-036-cycle-composition-unowned` → declined: devrin bileşimi MF17'nin, Kurucu'nun kodudur
   (`asama-0/14:44`, `:48`; `00a:13-14`); seed-029 (e) ve seed-030 (f) aynı yanıtı alır. 80 satır sınırı için
   2026-10-31'in dört kaydı (E341; E294, E308; E338, E339; E249) `CHANGELOG-3.md`'ye taşındı.
-- 2.2 (2026-10-31 – 2026-11-01, E93, E333, E342, E390–E400, E404, E405): önyükleme hakeminin çıkıştan sonraki kuralı,
-  imzalı durumun arayüzü, Kurucu raporlarının yanıtları, npm workspaces kilidi, PASS satırı ve `stage-open`: `CHANGELOG-4.md`.
+- 2.2 (2026-10-31 – 2026-11-01, E93, E333, E342, E390–E400, E404, E405, E411–E417): önyükleme hakeminin çıkıştan
+  sonraki kuralı, imzalı durumun arayüzü, Kurucu raporlarının yanıtları, npm workspaces kilidi, PASS satırı ve
+  `stage-open`, son kökün paketi ve `<state_root>`: `CHANGELOG-4.md`.
 - 2.2 (2026-10-30 – 2026-10-31, E64, E65, E249, E280–E301, E308, E317–E324, E338, E339, E341, E344): ders provasının
   aileleri ve sınav tarafı, sistem haritası, Aşama 0 çıkışının karar verilemeyen koşulları, `control`'ün döngü arayüzü,
   sınıf merdiveninin varsayılanlığı, yük altında performans ve `main`'in salt okunur okunuşu: `CHANGELOG-3.md`.

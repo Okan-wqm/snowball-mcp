@@ -4,6 +4,15 @@ Tarih: 2026-11-01 · Sürüm: 2.2
 Okunma: bir sayfanın geçmişi aranırken
 Çapa: git geçmişi ve zincirdeki spec hash satırları
 
+- 2.2 (2026-11-01, E411–E417; üçüncü şüphecinin bulgusu): `26d`'ye olgular: son kökün Sigstore paketi döngünündür ve
+  kök satırının yanında, aynı `brain/state` commit'inde `<state_root>/chain/<kök>.sigstore.json`'dadır (`stage-open`
+  oradan okur; `27a`); `<state_root>` `01a`'nın `.brain/`'idir, başka bir `state_root` tohum dönemi ister (E417, sahibin
+  yetkisiyle operatör kararı); zincirli satırın kuralları (son satır da LF ile biter,
+  CR yok, anahtar iki kez yok); kök Rekor v1 `hashedrekord`'dur (`sigstore` 4.5.0 `sign --rekor-version 1`; bayraksız en
+  yüksek sürüm, v2). Genesis satırı `events`, `kind: genesis`, hakemin kendi satırı; (B)'nin koştuğu genesis defterin
+  son genesis'idir ve kural yalnız ondan sonrakileri sayar: yeniden aktarım kilidi kapatmaz (`25a` "Başarısızlık").
+  Öneri, `proposed_by`'ı boş olmayan dizgi olan satırdır. `00b`: `26c` ve `26d` üç görevde okunur. 80 satır sınırı için
+  2026-10-31'in dört kaydı daha `CHANGELOG-3.md`'ye taşındı (`main`'le birleşince orada).
 - 2.2 (2026-11-01, E404, E405; ikinci şüphecinin bulgusu): PASS satırı ve `stage-open`'ın kuralı yeni `26d`'de: `events`
   satırı, `payload` `{stage: 0, verdict: "PASS", import_line_sha256, copy_genesis_row_hash, copy_merge_row_hashes[],
   owner_exception?}`, hakemin kendi satırı (`trust` `verified` ya da `observed`); merge satırı `kind: merge`; önerilmiş
