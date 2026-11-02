@@ -2640,6 +2640,12 @@ MUTANTS = [
     ("stage_open_from_a_subdirectory", f"{PKG}/stagelock.py", "    if prefix:" + chr(10) + "        raise LockStop(",
      "    if False:" + chr(10) + "        raise LockStop(",
      "E497: --referee inside the checkout finds no lock in the commit and writes one beneath itself"),
+    ("unit_shard_overwrites_a_class", "seed/bootstrap/local/unit_shard.py", "        out[i % n].extend(by_class[name])",
+     "        out[i % n] = list(by_class[name])", "E501: a shard keeps only its last class; the other tests run nowhere"),
+    ("unit_shard_all_in_one", "seed/bootstrap/local/unit_shard.py", "        out[i % n].extend(by_class[name])",
+     "        out[0].extend(by_class[name])", "E501: every class in shard 0; the other Windows jobs run nothing"),
+    ("unit_shard_accepts_k_past_n", "seed/bootstrap/local/unit_shard.py", "not 0 <= int(k) < int(n)",
+     "not 0 <= int(k) <= int(n)", "E501: K/N with K = N names a shard that does not exist"),
 ]
 
 

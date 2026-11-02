@@ -1184,6 +1184,64 @@ class DocWithChangeTest(unittest.TestCase):
         self.assertIn('git diff --name-only "$BEFORE" "$AFTER" | ' + command, floor)  # the whole pushed range
 
 
+class UnitShardTest(unittest.TestCase):
+    """E501: on 2026-11-01 (run 41362049865) the referee's unit suite outgrew the Windows job's 20 minutes (the git
+    tests of the activation tooling take minutes there; it had run in 6 to 8) and the job was cancelled, so main was
+    not green. The Windows job runs the suite in shards (`local/unit_shard.py`); a shard that dropped a test, a test
+    run twice, or a matrix that names other shards than the runner's K/N would hide that."""
+
+    @staticmethod
+    def runner():
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("unit_shard", BOOT / "local" / "unit_shard.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
+
+    def test_the_windows_matrix_and_the_runner_name_the_same_shards(self):
+        ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+        job = re.search(r"(?ms)^  unit-windows:\n(.*?)(?=^  \S|\Z)", ci).group(1)
+        shards = json.loads(re.search(r"(?m)^        shard: (\[[0-9, ]+\])$", job).group(1))
+        count = int(re.search(r'local/unit_shard\.py "\$SHARD/([0-9]+)"', job).group(1))
+        self.assertEqual(shards, list(range(count)), "the matrix and K/N name different shards")
+        self.assertIn("timeout-minutes: 20", job)
+        self.assertIn("fail-fast: false", job)
+        self.assertNotIn("unittest discover -s tests\n", job.split("Drill judge tests")[0])  # no unsharded run left
+        self.assertIn("if: matrix.shard == 0", job.split("Drill judge tests")[1])  # the drill judge runs once
+
+    def test_the_shards_are_the_whole_suite_once_with_each_class_whole(self):  # unit_shard_overwrites_a_class, unit_shard_all_in_one
+        unit_shard = self.runner()
+        suite = unittest.defaultTestLoader.discover(str(BOOT / "tests"), top_level_dir=str(BOOT / "tests"))
+        every = sorted(t.id() for t in unit_shard.flatten(suite))
+        self.assertGreater(len(every), 500)
+        for n in (1, 4, 7):
+            parts = unit_shard.shards(n, suite)
+            self.assertEqual(len(parts), n)
+            ids = [t.id() for part in parts for t in part]
+            self.assertEqual(sorted(ids), every, n)  # nothing dropped, nothing twice
+            homes = {}
+            for k, part in enumerate(parts):
+                for test in part:
+                    self.assertEqual(homes.setdefault(unit_shard.class_of(test), k), k, test.id())
+        self.assertTrue(all(unit_shard.shards(4, suite)))  # no empty shard: each job runs tests
+
+    def test_a_module_that_fails_to_import_is_still_run(self):
+        unit_shard = self.runner()
+        broken = unittest.defaultTestLoader.loadTestsFromName("no_such_test_module_e501")
+        suite = unittest.TestSuite([broken, unittest.defaultTestLoader.loadTestsFromTestCase(UnitShardTest)])
+        ids = [t.id() for part in unit_shard.shards(4, suite) for t in part]
+        self.assertIn("unittest.loader._FailedTest.no_such_test_module_e501", ids)
+
+    def test_a_bad_shard_spec_stops(self):  # unit_shard_accepts_k_past_n
+        unit_shard = self.runner()
+        for spec in ("4/4", "-1/4", "a/4", "1", "1/0"):
+            with self.assertRaises(SystemExit, msg=spec):
+                unit_shard.parse(spec)
+        self.assertEqual(unit_shard.parse("3/4"), (3, 4))
+        with self.assertRaises(ValueError):
+            unit_shard.shards(0, unittest.TestSuite())
+
+
 class MutationShardTest(unittest.TestCase):
     """E410: the referee's mutants run in CI shards under one timeout. On 2026-11-01 (run 41267568917, 560 mutants in
     8 shards, 70 a shard) a mutant took 41 to more than 51 seconds on a standard runner; three shards ended in 46 to

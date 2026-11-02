@@ -46,6 +46,11 @@ jobs:
   unit-windows:
     runs-on: windows-2025  # the operator imports at stage exits on Windows
     timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        # the suite outgrew one 20-minute job on Windows (E501, test_wiring UnitShardTest): its classes in 4 shards
+        shard: [0, 1, 2, 3]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -56,8 +61,11 @@ jobs:
       - name: Referee unit tests
         working-directory: seed/bootstrap
         shell: bash
-        run: PYTHONPATH=".;tests" python -m unittest discover -s tests
+        env:
+          SHARD: ${{ matrix.shard }}
+        run: PYTHONPATH=".;tests" python local/unit_shard.py "$SHARD/4"
       - name: Drill judge tests
+        if: matrix.shard == 0
         working-directory: seed/drill
         shell: bash
         run: python -m unittest discover -s tests
