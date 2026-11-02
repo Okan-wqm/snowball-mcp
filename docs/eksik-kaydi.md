@@ -3049,7 +3049,7 @@ Testler `tests/test_rival_memory.py`'de, sınıf adları kalem numarasıyla. Dur
   kurulur (değer → satırlar); eşitlik sorgusu tek arama, önek sorgusu yalnız ayrık değerleri okur. (3) `unclosed --all`
   kapanmış kalemleri de `closed_by` ile verir (yalnız açıklar listelenince `closed_by` hep boştu). (4) `tail` `--before`
   alır, `show`'un `next`'i kalan seçicilerdir; bir satır bütçeden uzunsa `--from C` pencereyle verilir. (5) 975 mutant
-  64 × 15'e sığmıyordu: CI mutasyon işi 65 parça (`mutation_shards_back_to_eight` çapası 65'e). (6) İki eski testin
+  64 × 15'e sığmıyordu: CI mutasyon işi 65 parça (`mutation_shards_back_to_eight` çapası 65'e); E507 ile birleşince 977 mutant 66 parça (çapa 66'ya). (6) İki eski testin
   başlangıç satırı beklentisi ve Docker'sız çalışması için `image_context` yamalandı (`CycleRecordTest`,
   `PreviousSessionTest`).
 - **Ölçüm** (bu Windows host, Python 3.12.1, gerçek defterin kopyası; süreç içi, 3 koşunun en iyisi). 1x: katı

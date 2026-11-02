@@ -2378,7 +2378,7 @@ MUTANTS = [
      "STDLIB_KEPT.get(stage, frozenset())", "STDLIB_KEPT.get(0, frozenset())",
      "E507: Stage 0's kept `profile` is allowed in every stage's table"),
     ("mutation_shards_back_to_eight", ".github/workflows/ci.yml",
-     "        shard: [" + ", ".join(str(k) for k in range(65)) + "]\n",
+     "        shard: [" + ", ".join(str(k) for k in range(66)) + "]\n",
      "        shard: [0, 1, 2, 3, 4, 5, 6, 7]\n",
      "E410: fewer shards than the mutants need, and the mutation run hits its timeout and is cancelled"),
     # E450: the brain's agent and skill definitions, checked in the capsule before claude starts (seed/founder/brain_defs.py)
