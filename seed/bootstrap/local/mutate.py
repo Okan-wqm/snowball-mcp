@@ -25,6 +25,7 @@ ROOT = BOOT.parents[1]
 PKG = "seed/bootstrap/snowball_bootstrap"
 CANARY = "seed/bootstrap/local/canary.py"
 DEFS = "seed/founder/brain_defs.py"  # the capsule's loader of the brain's definitions (E450)
+LINDEX = "seed/founder/ledger_index.py"  # the capsule's read-only index of the Founder's ledger (E506)
 
 # (name, file, old text found exactly once, new text, what the mutant stands for)
 MUTANTS = [
@@ -2377,7 +2378,7 @@ MUTANTS = [
      "STDLIB_KEPT.get(stage, frozenset())", "STDLIB_KEPT.get(0, frozenset())",
      "E507: Stage 0's kept `profile` is allowed in every stage's table"),
     ("mutation_shards_back_to_eight", ".github/workflows/ci.yml",
-     "        shard: [" + ", ".join(str(k) for k in range(64)) + "]\n",
+     "        shard: [" + ", ".join(str(k) for k in range(65)) + "]\n",
      "        shard: [0, 1, 2, 3, 4, 5, 6, 7]\n",
      "E410: fewer shards than the mutants need, and the mutation run hits its timeout and is cancelled"),
     # E450: the brain's agent and skill definitions, checked in the capsule before claude starts (seed/founder/brain_defs.py)
@@ -2716,6 +2717,62 @@ MUTANTS = [
     ("service_task_only_at_logon", "seed/founder/launch.py",
      "<TimeTrigger>{every}<StartBoundary>{esc(start)}</StartBoundary><Enabled>true</Enabled></TimeTrigger>", "",
      "E505: a crash while logged on is resumed only at the next logon"),
+    # ---- E506: the ledger's read-only index in the capsule (the owner's decision on gap D, 2026-11-02)
+    ("lindex_first_row_dropped", LINDEX, "for number, raw in enumerate(self.lines, start=1):",
+     "for number, raw in enumerate(self.lines[1:], start=2):", "E506: the ledger's first row is never found"),
+    ("lindex_last_row_dropped", LINDEX, "for number, raw in enumerate(self.lines, start=1):",
+     "for number, raw in enumerate(self.lines[:-1], start=1):", "E506: the newest row, the tip, is never found"),
+    ("lindex_row_listed_twice", LINDEX,
+     "namers = list(dict.fromkeys(at for at, _where in named.get(f\"{tag}:{rid}\", ())))",
+     "namers = [at for at, _where in named.get(f\"{tag}:{rid}\", ())]",
+     "E506: a row naming another twice is listed twice among its closers"),
+    ("lindex_line_span_kept", LINDEX, 'SPAN = re.compile(r":[0-9]+(?:-[0-9]+)?\\Z")',
+     'SPAN = re.compile(r":[0-9]+\\Z")', "E506: a path cited with a line range :n-m is a different path"),
+    ("lindex_evidence_paths_ignored", LINDEX, 'out.append((path, "evidence_refs"))', "pass",
+     "E506: the paths in evidence_refs are not found"),
+    ("lindex_paths_casefolded", LINDEX, 'out.append((path, "refs"))', 'out.append((path.casefold(), "refs"))',
+     "E506: two paths that differ in case are one"),
+    ("lindex_tag_digit_guard_lost", LINDEX, 'TAG = re.compile(r"([a-z_]+):(?![0-9])(.+)\\Z", re.DOTALL)',
+     'TAG = re.compile(r"([a-z_]+):(.+)\\Z", re.DOTALL)', "E506: a path:line ref such as foo:12 is read as a tag"),
+    ("lindex_commit_exact_only", LINDEX, 'if how == "commit" and HEX_PREFIX.match(query):', "if False:",
+     "E506: a short commit finds nothing among the full SHAs"),
+    ("lindex_report_prefix_without_dash", LINDEX, 'value.startswith(query + "-")', "value.startswith(query)",
+     "E506: report seed-04 finds seed-043's rows"),
+    ("lindex_early_closer_counts", LINDEX, "for at in namers if at > line]", "for at in namers if at != line]",
+     "E506: a row named before it was written counts as closed"),
+    ("lindex_supersedes_not_named", LINDEX, 'via.setdefault(line, set()).add("supersedes")', "pass",
+     "E506: named misses the rows that supersede it"),
+    ("lindex_unfinished_session_missed", LINDEX, "out.append(current)  # unfinished", "pass  # unfinished",
+     "E506: a session cut before its end row vanishes from the sessions"),
+    ("lindex_duplicate_key_accepted", LINDEX,
+     'raise Unreadable("duplicate_key")  # a later key never hides an earlier one',
+     "pass  # a later key never hides an earlier one", "E506: a duplicate key is read, the last one silently wins"),
+    ("lindex_unreadable_line_skipped", LINDEX, 'self.unreadable.append({"line": number, "rule": str(exc)})', "pass",
+     "E506: a line not read is skipped and the answer says it is complete"),
+    ("lindex_tip_from_first_row", LINDEX, "line, row = self.rows[-1]", "line, row = self.rows[0]",
+     "E506: every answer names the first row as the tip it read"),
+    ("lindex_count_is_page_size", LINDEX, "head.update(count=len(items), shown=0",
+     "head.update(count=min(len(items), args.limit), shown=0", "E506: count is the page, not every match"),
+    ("lindex_text_claims_exact", LINDEX, '"tier": "text", "guarantee": "none"}', '"tier": "exact"}',
+     "E506: the text tier's candidates are presented as exact"),
+    ("lindex_text_is_regex", LINDEX, "at = hay.find(term)",
+     "at = re.search(term, hay).start() if re.search(term, hay) else -1",
+     "E506: a term is a pattern: exit.request matches exit_request"),
+    ("lindex_imports_referee_code", LINDEX, "import argparse\n",
+     "import argparse\nfrom snowball_bootstrap import canon  # noqa: F401\n",
+     "E506: the capsule's tool reaches for the referee's code"),
+    ("capsule_lacks_ledger_index", "seed/founder/Dockerfile",
+     "COPY founder/ledger_index.py /opt/founder/ledger_index.py\n", "",
+     "E506: the prompt names a tool the image does not hold"),
+    ("ledger_index_not_in_build_files", "seed/founder/launch.py", '               "founder/ledger_index.py",\n', "",
+     "E506: the build context lacks the tool and the image build fails"),
+    ("build_context_label_skips_a_file", "seed/founder/launch.py", "for rel in BUILD_FILES}",
+     'for rel in ("founder/prompt.md",)}', "E506: a stale tool in the image is not seen; the label covers the prompt"),
+    ("prompt_ledger_index_line_missing", "seed/founder/prompt.md",
+     " Defter için salt-okur bir araç var:\n   `python3 -I /opt/founder/ledger_index.py --help` "
+     "(alan değerine göre tam bulma ve katlamalar; her yanıt okuduğu ucu\n   yazar, zinciri doğrulamaz; "
+     "`text` yalnız aday verir).", "",
+     "E506: the image holds the tool and the Founder is never told"),
 ]
 
 

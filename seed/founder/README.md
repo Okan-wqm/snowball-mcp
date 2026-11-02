@@ -45,6 +45,24 @@ araçların kayıttaki gibi, klonun `CLAUDE.md`'sinin hiç görünmediğini dene
 cümlesini taşır (`prompt.md` "Beynin tanımları"); tanım yazıp yazmamak Kurucu'nundur. İmaj yeniden kurulunca geçerli
 olur.
 
+**Defterin salt-okur dizini** (E506, sahibin kararı 2026-11-02, boşluk D). İmajda `/opt/founder/ledger_index.py`
+vardır; Kurucu onu isterse `python3 -I /opt/founder/ledger_index.py <komut>` ile koşturur (`-I`: `/work/brain`'deki ya
+da `PYTHONPATH`'teki bir modül araçtan önce yüklenmez). Talimat bunu bir cümleyle söyler (`prompt.md` 2. madde); hiçbir
+görev, etiket ya da soru adlandırmaz. Araç her çağrıda defterin baytlarını bir kez okur ve hiçbir şey yazmaz ya da
+saklamaz (önbellek yok, beyne dizin dosyası yok); her yanıtın ilk satırı okuduğu baytları (`bytes`, `sha256`, `rows`)
+ve ucu (`tip`: son okunabilir satır) yazar, `"verified": false` der: zinciri, satır hash'lerini ve anlam kurallarını
+yargılamaz (hakemin ve Kurucu'nun kendi denetiminin işi; hakemin kodu kapsüle girmez). Kesin katman alan değerine göre
+bulur (`kind`, `part`, `derivation`, `trust`, `row_id`, `row_hash`, `supersedes`, satır numarası, `snapshot_id` öneki,
+`ts` günü, yol, rapor, `<etiket>:<değer>` ref'i); bulduğu, defterin her satırını aynı kuralla taramanın bulduğudur
+(`tests/test_ledger_index.py`: 300 rastgele defterde ve gerçek defterin `4423ff3` kopyasında bağımsız kâhinle).
+Katlamalar: `unclosed --tag T` (sonraki bir satırın `T:<row_id>` ref'iyle adlanmayan satırlar; kapatanın geçerliliği
+yargılanmaz), `sessions`, `named`, `history`, `tail`, `keys`, `show` (satırlar olduğu gibi). `text` katmanı serbest
+metinde düz dizgi arar ve yalnız aday verir (`"guarantee": "none"`). Bir sayfa `--limit`'te ya da 24.000 baytta biter,
+`next` devamının tam argümanıdır (CLI 30 KB'yi aşan çıktının yalnız 2 KB'lik önizlemesini gösterir). Çıkış 0; okunamayan
+satır varsa 1 (yanıtlar okunanları kapsar, okunamayanlar adlarıyla listelenir); kullanım hatası ya da defter yoksa 2.
+"Yürürlükteki kararlar" ve "açık raporlar" izdüşümü yoktur: kararı geri çekmenin yapısal biçimi yok (bugün 225/225
+karar "yürürlükte" görünürdü), sahibin kararını bekler. İmaj yeniden kurulunca geçerli olur.
+
 **Klasör.** Pilotun her şeyi tek klasördedir (varsayılan `F:\snowball-work`); silinince pilot iz bırakmaz:
 
 | Yol | Ne |
@@ -55,7 +73,7 @@ olur.
 | `vec/` | vektörlerin girdileri, kapsüle `/vec` olarak salt okunur (E244): `cases.json` (her veri vakasının `id`, `purpose`, `cmd`, `stdin`, `fixture` ve `changed` alanları) ve fikstürler; beklenen değer yok. Her oturumdan önce hakem reposunun `main`'indeki `vectors/`'ten, hakemin kendi `vectors.founder_inputs`'uyla yeniden kurulur |
 | `logs/` | oturum dökümleri (`stream-json`); her oturumun klasöründe `brain-definitions.json`, beynin yüklenen ve düşen ajan ve skill tanımları (E450) |
 | `pilot-log.md` | operatörün raporu: her döngüde push, hakem kararı, yeni defter satırları ve bildirimler, maliyet satırının ne olduğu, beynin açık raporları ve yaşları |
-| `pilot-metrics.jsonl` | her döngünün ölçümü: push, karar, nedenler ve **sahipleri** (hakemin kendi kuralıyla: Kurucu / rakip / hakem), rakibin kanıtlanmış bulguları, eski çürütmeler, yeni bildirimler, süre, maliyet, hakemin yeniden inceleme sayısı; sonucun neye bağlanacağı (E313): `prompt_sha256`, `image_id`, `model`, `cli_version` ve `model_served` (dökümün `init` olayı), `seed_commit`, `spec_tohum_tree`, `rival_config`, `target_sha`, `timed_out`. Her başlatıcı başlangıcı ayrı bir `kind: intervention` satırıdır (argümanlar, imaj, prompt hash'i). `prompt_sha256` imajın kendisinin: kurulum imajı içindeki prompt'un sha256'sıyla etiketler (`snowball.prompt_sha256`), `--no-build` eski imajı koşturur, etiketsiz imajda `null`; çalışma kopyasınınki `checkout_prompt_sha256` |
+| `pilot-metrics.jsonl` | her döngünün ölçümü: push, karar, nedenler ve **sahipleri** (hakemin kendi kuralıyla: Kurucu / rakip / hakem), rakibin kanıtlanmış bulguları, eski çürütmeler, yeni bildirimler, süre, maliyet, hakemin yeniden inceleme sayısı; sonucun neye bağlanacağı (E313): `prompt_sha256`, `image_id`, `model`, `cli_version` ve `model_served` (dökümün `init` olayı), `seed_commit`, `spec_tohum_tree`, `rival_config`, `target_sha`, `timed_out`. Her başlatıcı başlangıcı ayrı bir `kind: intervention` satırıdır (argümanlar, imaj, prompt hash'i). `prompt_sha256` imajın kendisinin: kurulum imajı içindeki prompt'un sha256'sıyla etiketler (`snowball.prompt_sha256`), `--no-build` eski imajı koşturur, etiketsiz imajda `null`; çalışma kopyasınınki `checkout_prompt_sha256`; `context_sha256` imajın bütün kurulum dosyalarınınki (E506): kurulum imajı `snowball.context_sha256` ile de etiketler (`BUILD_FILES`'ın her dosyası, LF ile, sıralı `<yol>\0<sha256>\n` satırlarının sha256'sı), çalışma kopyasınınki `checkout_context_sha256`; ikisi farklıysa başlatıcı bunu söyler: yalnız prompt değil, değişmiş bir araç ya da yükleyici de görünür |
 | `cost-pending.jsonl` | henüz yazılamamış maliyet satırları (aşağıda) |
 | `reports-seen.json` | başlatıcının her beyin raporunu ilk gördüğü an: raporun yaşı |
 | `STOP` | oluşturulursa başlatıcı o adımdan sonra durur |

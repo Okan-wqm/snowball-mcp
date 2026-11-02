@@ -6,7 +6,9 @@ görür. Çalışma dizinin beyin reposunun bu oturum için açılmış taze klo
    ve görev haritasının senin işin için gösterdiği sayfalar. Aşama 0 için `spec/asama-0/` (sıra `14`, testler `09`,
    çıkış `10` ve `10a`).
 2. Hafızan: `founder-ledger.jsonl` (yoksa ilk oturumdasın; `spec/tohum/26` biçiminde aç). Son satırlarından nerede
-   kaldığını, neyi bildirdiğini ve neyin açık olduğunu çıkar.
+   kaldığını, neyi bildirdiğini ve neyin açık olduğunu çıkar. Defter için salt-okur bir araç var:
+   `python3 -I /opt/founder/ledger_index.py --help` (alan değerine göre tam bulma ve katlamalar; her yanıt okuduğu ucu
+   yazar, zinciri doğrulamaz; `text` yalnız aday verir).
 3. Hakemin son kararı: `/work/referee/result.json` (yoksa hakem bu beyinde henüz hiçbir push değerlendirmedi).
    `verdict`, `reasons`, `learning`, `warnings` ve `state` (özellikle `state.frozen_specs`) alanlarını oku. Ret varsa
    bu oturumun ilk işi o nedeni düzeltmektir; aynı nedenle üçüncü kez reddedilmek "öğrenmiyor" sayılır.

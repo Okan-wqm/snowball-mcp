@@ -4,6 +4,10 @@ Tarih: 2026-11-01 · Sürüm: 2.2
 Okunma: bir sayfanın geçmişi aranırken
 Çapa: git geçmişi ve zincirdeki spec hash satırları
 
+- 2.2 (2026-11-01, E450; sahibin onayı): Kurucu kapsülü her oturumun başında beynin `agents/` ve `skills/` dizinlerindeki
+  ajan ve skill tanımlarını denetleyip `brain` eklentisi olarak yükler, beynin başka hiçbir dosyasını yapılandırma olarak
+  yüklemez; iki dizin beyin ağacında, biçim, düşürme kuralları ve yükleme kaydı `24a` "Ajan ve skill tanımları"nda. 80
+  satır sınırı için 2026-10-31 E344 kaydı `CHANGELOG-3.md`'ye taşındı.
 - 2.2 (2026-11-01, E421–E436; sahibin yetkisiyle operatör kararı (2026-11-01); sahip geri alabilir; Kurucu raporları;
   E150, E231, E260 kapandı): **Fiziksel güvenlik** (`05`, tek yer): fiziksel bir süreci süren, durduran, alarm veren ya
   da koruyan kod güvenlik yoludur; risk ağırlıklıdır, K6 kapısı olmadan biçimleyici dahil dokunulmaz; yolları sistem

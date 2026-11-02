@@ -235,6 +235,7 @@ class PreviousSessionTest(unittest.TestCase):  # E360: how the last session ende
         self.pilot.metrics.write_text(json.dumps(row) + "\n", encoding="utf-8")
         args = argparse.Namespace(work=self.work, cycles=1, no_build=True)
         with mock.patch.object(self.pilot, "image_prompt", return_value="p" * 64), \
+                mock.patch.object(self.pilot, "image_context", return_value=None), \
                 mock.patch.object(self.pilot, "image", return_value=None), mock.patch.object(self.launch, "say"):
             self.pilot.intervention(args)
             self.pilot.intervention(args)  # two starts in a row (a preflight failure, then a start that ran)
@@ -886,13 +887,16 @@ class CycleRecordTest(unittest.TestCase):
         args = argparse.Namespace(cycles=3, model="claude-opus-5-5", no_build=True)
         with mock.patch.object(launch.Pilot, "image", return_value="sha256:" + "i" * 64), \
                 mock.patch.object(launch.Pilot, "image_prompt", return_value="q" * 64), \
+                mock.patch.object(launch.Pilot, "image_context", return_value=None), \
                 mock.patch.object(launch, "say") as said:
             pilot.intervention(args)
-        self.assertIn("the sessions run the image's", said.call_args[0][0])  # the difference is said
+        self.assertIn("the sessions run the image's", said.call_args_list[0][0][0])  # the difference is said
         rows = [json.loads(line) for line in pilot.metrics.read_text(encoding="utf-8").splitlines()]
         # --no-build: the sessions run the image's prompt, so that is the one attributed; the checkout's is beside it.
+        # E506: so are all the build files together; an image built before that label has none (null).
         self.assertEqual(rows, [{"kind": "intervention", "ts": rows[0]["ts"], "image_id": "sha256:" + "i" * 64,
                                  "prompt_sha256": "q" * 64, "checkout_prompt_sha256": launch.prompt_sha256(),
+                                 "context_sha256": None, "checkout_context_sha256": launch.context_sha256(),
                                  "seed_commit": "s" * 40,
                                  "args": {"cycles": "3", "model": "claude-opus-5-5", "no_build": "True"}}])
         self.assertEqual(pilot.prompt_sha256, "q" * 64)  # what every cycle row of this start names
@@ -2134,6 +2138,106 @@ class LauncherResumeTest(unittest.TestCase):
             with self.assertRaises(SystemExit):  # not Windows: no task, nothing run
                 launch.main(["--install-service"])
         self.assertEqual(len(calls), 2)
+
+class LedgerIndexCapsuleTest(unittest.TestCase):  # E506, owner 2026-11-02 (gap D)
+    """The ledger's read-only index reaches the Founder with the image and never with the brain (E150 stands): it is
+    copied into the image and is a build file, it imports the standard library alone (the referee's code never enters
+    the capsule: `prompt.md` forbids reading it and MF1's chain is the Founder's own task), the prompt names it once,
+    as a fact, and the image's label covers every build file, so a tool the checkout changed and the image does not
+    hold is said at the start, not only a changed prompt."""
+
+    SENTENCE = ("Defter için salt-okur bir araç var: `python3 -I /opt/founder/ledger_index.py --help` (alan değerine "
+                "göre tam bulma ve katlamalar; her yanıt okuduğu ucu yazar, zinciri doğrulamaz; `text` yalnız aday "
+                "verir).")
+
+    def test_the_image_copies_the_tool(self):  # capsule_lacks_ledger_index
+        dockerfile = (FOUNDER / "Dockerfile").read_text(encoding="utf-8")
+        self.assertIn("COPY founder/ledger_index.py /opt/founder/ledger_index.py\n", dockerfile)
+        self.assertIn("founder/ledger_index.py", re.findall(r"(?m)^COPY (?!--)(\S+) \S+$", dockerfile))
+        self.assertNotIn("ledger_index", (FOUNDER / "entrypoint.sh").read_text(encoding="utf-8"))  # the Founder's call
+
+    def test_every_file_the_image_copies_is_a_build_file(self):  # ledger_index_not_in_build_files
+        dockerfile = (FOUNDER / "Dockerfile").read_text(encoding="utf-8")
+        build = load_launch().BUILD_FILES
+        sources = re.findall(r"(?m)^COPY (?!--)(\S+) \S+$", dockerfile)
+        for source in sources:  # the whole class: a file the image copies and the build context lacks breaks the build
+            with self.subTest(source=source):
+                if source.endswith("/"):
+                    self.assertTrue(any(rel.startswith(source) for rel in build))
+                else:
+                    self.assertIn(source, build)
+
+    def test_the_tool_imports_the_standard_library_alone(self):  # lindex_imports_referee_code
+        import ast
+        tree = ast.parse((FOUNDER / "ledger_index.py").read_text(encoding="utf-8"))
+        names = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                names |= {alias.name.split(".")[0] for alias in node.names}
+            elif isinstance(node, ast.ImportFrom):
+                self.assertEqual(node.level, 0)
+                names.add((node.module or "").split(".")[0])
+        self.assertEqual(names - set(sys.stdlib_module_names), set())
+        self.assertEqual(names & {"snowball_bootstrap", "canon", "ledgercheck", "helpers"}, set())
+        proc = subprocess.run([sys.executable, "-I", str(FOUNDER / "ledger_index.py"), "--help"], capture_output=True,
+                              timeout=60)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn(b'"verified": false', proc.stdout)
+
+    def test_the_prompt_names_the_tool_once_as_a_fact_in_its_memory_item(self):  # prompt_ledger_index_line_missing
+        raw = (FOUNDER / "prompt.md").read_text(encoding="utf-8").replace("\r\n", "\n")
+        item = raw[raw.index("2. Hafızan:"):raw.index("\n3. ")]
+        self.assertTrue(" ".join(item.split()).endswith(self.SENTENCE))
+        self.assertEqual(" ".join(raw.split()).count("ledger_index"), 1)
+        for line in item.split("\n"):
+            self.assertLessEqual(len(line), 120, line)
+        for hint in ("closes", "seed_issue", "unclosed", "--tag", "kullan", "faydal", "gerekirse", "istersen", "meli",
+                     "malı", "rapor"):
+            self.assertNotIn(hint, item.casefold())  # no task, no tag, no question: whether and how is the Founder's
+
+    def test_the_label_covers_every_build_file(self):  # build_context_label_skips_a_file
+        """And a start says when the image's build files are not the checkout's."""
+        launch = load_launch()
+        seed = Path(tempfile.mkdtemp())
+        for rel in launch.BUILD_FILES:
+            (seed / rel).parent.mkdir(parents=True, exist_ok=True)
+            (seed / rel).write_bytes(f"{rel}\r\nline\n".encode())
+        launch.SEED = seed
+        base = launch.context_sha256()
+        ctx = Path(tempfile.mkdtemp())
+        launch.write_build_context(ctx)
+        self.assertEqual(launch.context_sha256(ctx), base)  # the context's LF bytes: the checkout's hash
+        for rel in launch.BUILD_FILES:
+            with self.subTest(rel=rel):
+                kept = (seed / rel).read_bytes()
+                (seed / rel).write_bytes(kept + b"x")
+                self.assertNotEqual(launch.context_sha256(), base)
+                (seed / rel).write_bytes(kept)
+        pilot = launch.Pilot(Path(tempfile.mkdtemp()), "o/brain", "o/referee", "target")
+        calls = []
+
+        def fake_run(*argv, **kw):
+            calls.append(argv)
+            return subprocess.CompletedProcess(argv, 0, b"sha256:x\n", b"")
+        with mock.patch.object(launch, "run", side_effect=fake_run), mock.patch.object(launch, "say"):
+            pilot.build()
+        labels = [calls[0][i + 1] for i, arg in enumerate(calls[0]) if arg == "--label"]
+        self.assertEqual(labels, [f"{launch.PROMPT_LABEL}={launch.prompt_sha256()}", f"{launch.CONTEXT_LABEL}={base}"])
+        for image_context, said in (("b" * 64, True), (base, False)):
+            def docker(*argv, **kw):
+                if "{{json .Config.Labels}}" in argv:
+                    out = {launch.PROMPT_LABEL: launch.prompt_sha256(), launch.CONTEXT_LABEL: image_context}
+                    return subprocess.CompletedProcess(argv, 0, json.dumps(out).encode(), b"")
+                return subprocess.CompletedProcess(argv, 0, b"sha256:" + b"i" * 64 + b"\n", b"")
+            pilot.metrics.unlink(missing_ok=True)
+            with mock.patch.object(launch, "run", side_effect=docker), mock.patch.object(launch, "say") as say:
+                pilot.intervention(argparse.Namespace(no_build=True))
+            row = json.loads(pilot.metrics.read_text(encoding="utf-8"))
+            self.assertEqual((row["context_sha256"], row["checkout_context_sha256"]), (image_context, base))
+            messages = [c[0][0] for c in say.call_args_list]
+            self.assertEqual(any("build files are " + "b" * 64 in m and base in m for m in messages), said, messages)
+            self.assertEqual(len(messages), 1 if said else 0)  # the prompt agrees: only the stale files are said
+
 
 
 if __name__ == "__main__":

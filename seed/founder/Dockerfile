@@ -26,6 +26,8 @@ RUN useradd --create-home --uid 10001 founder
 COPY founder/entrypoint.sh /opt/founder/entrypoint.sh
 COPY founder/prompt.md /opt/founder/prompt.md
 COPY founder/brain_defs.py /opt/founder/brain_defs.py
+# The ledger's read-only index (E506): run as `python3 -I /opt/founder/ledger_index.py`; it writes nothing.
+COPY founder/ledger_index.py /opt/founder/ledger_index.py
 RUN chmod 0555 /opt/founder/entrypoint.sh
 
 ENV DISABLE_AUTOUPDATER=1 \

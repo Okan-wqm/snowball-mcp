@@ -75,6 +75,7 @@ VERDICT_LOOKBACK = 10  # results scanned for a head's own verdict: seed epochs a
 REFEREE_VECTORS = "vectors"  # the referee repo's copy of seed/bootstrap/vectors (README, seed delivery step 3)
 MAX_REFEREE_RETRIES = 2  # with the first run, as many as the referee's own retries (decide.RIVAL_SIDE_WARN)
 BUILD_FILES = ("founder/Dockerfile", "founder/entrypoint.sh", "founder/prompt.md", "founder/brain_defs.py",
+               "founder/ledger_index.py",
                "bootstrap/requirements/claude-cli/package.json", "bootstrap/requirements/claude-cli/package-lock.json")
 LAUNCHER_NAME, LAUNCHER_EMAIL = "Snowball launcher", "launcher@snowball.invalid"  # its commits are not the Founder's
 GH_CREDENTIAL = "credential.helper=!gh auth git-credential"  # the operator's login, never a token on a command line
@@ -85,6 +86,7 @@ REPORTS_SEEN = "reports-seen.json"
 RIVAL_CONFIG = ("prompt_sha256", "model_served", "effort", "cli_version")  # of the result's rival block
 INTERVENTION = "intervention"  # a launcher start's metrics row (E313); no verdict kind is ever this word
 PROMPT_LABEL = "snowball.prompt_sha256"  # the image's own record of the prompt bytes it was built with (E313)
+CONTEXT_LABEL = "snowball.context_sha256"  # and of every build file's bytes (E506)
 # The Founder's report rows the cycle log shows: kinds of the closed set (`26`). A missing capability is a seed_issue
 # whose text starts missing_capability: (prompt.md), never a kind of its own (E158).
 REPORT_KINDS = ("seed_issue", "blocked")
@@ -191,6 +193,16 @@ def prompt_sha256() -> str:
     """The checkout's prompt as `write_build_context` would copy it (LF): what a build now would put in the image. The
     prompt a running image holds is its build's label (`Pilot.image_prompt`); with --no-build the two can differ."""
     return hashlib.sha256((SEED / "founder" / "prompt.md").read_bytes().replace(b"\r\n", b"\n")).hexdigest()
+
+
+def context_sha256(root: Path | None = None) -> str:
+    """One hash of every file the image is built from (`BUILD_FILES`), with LF line ends as `write_build_context` copies
+    them: sha256 over the sorted lines `<path>\\0<sha256 of its bytes>\\n`. Of the checkout by default, of a build
+    context when `root` names one; the two agree when the context was copied from this checkout (E506)."""
+    base = SEED if root is None else root
+    digests = {rel: hashlib.sha256((base / rel).read_bytes().replace(b"\r\n", b"\n")).hexdigest()
+               for rel in BUILD_FILES}
+    return hashlib.sha256("".join(sorted(f"{rel}\0{digest}\n" for rel, digest in digests.items())).encode()).hexdigest()
 
 
 def cost_summary(fact: dict) -> str:
@@ -375,6 +387,7 @@ class Pilot:
         self.epoch: str | None = None  # the last seed epoch's brain commit (`26c` seed_epochs[]), if any
         self.brain_remote = f"https://github.com/{brain}.git"
         self.prompt_sha256: str | None = None  # what this launcher start built the capsule with (E313)
+        self.context_sha256: str | None = None  # and every build file the image holds (E506)
         self.image_id: str | None = None
 
     # ---- checks -------------------------------------------------------------------------------------------
@@ -423,39 +436,55 @@ class Pilot:
         proc = run("docker", "image", "inspect", "--format", "{{.Id}}", IMAGE, check=False, timeout=60)
         return proc.stdout.decode().strip() or None if proc.returncode == 0 else None
 
-    def image_prompt(self) -> str | None:
-        """The sha256 of the prompt the capsule image holds, from the label its build wrote (`build`); None for an
-        image built before the label existed or when docker cannot say: unknown, never the checkout's guess."""
+    def image_label(self, name: str) -> str | None:
+        """A sha256 the capsule image's build wrote as a label (`build`); None for an image built before the label
+        existed or when docker cannot say: unknown, never the checkout's guess."""
         proc = run("docker", "image", "inspect", "--format", "{{json .Config.Labels}}", IMAGE, check=False, timeout=60)
         try:
             labels = json.loads(proc.stdout) if proc.returncode == 0 else None
         except ValueError:
             labels = None
-        value = labels.get(PROMPT_LABEL) if isinstance(labels, dict) else None
+        value = labels.get(name) if isinstance(labels, dict) else None
         return value if isinstance(value, str) and re.fullmatch(r"[0-9a-f]{64}", value) else None
+
+    def image_prompt(self) -> str | None:
+        """The sha256 of the prompt the capsule image holds (E313)."""
+        return self.image_label(PROMPT_LABEL)
+
+    def image_context(self) -> str | None:
+        """The `context_sha256` of the files the capsule image was built from (E506)."""
+        return self.image_label(CONTEXT_LABEL)
 
     def intervention(self, args) -> None:
         """One metrics row per launcher start: every start is the operator's touch, and what it ran with is what a later
         difference is attributed to (E313). The prompt is the image's own (with --no-build an older image runs); the
-        checkout's is written beside it, and a difference is said."""
+        checkout's is written beside it, and a difference is said. So are all the image's build files together (E506):
+        a tool or loader file changed in the checkout and not rebuilt is said too, not only the prompt."""
         self.prompt_sha256, self.image_id = self.image_prompt(), self.image()
-        checkout = prompt_sha256()
+        self.context_sha256 = self.image_context()
+        checkout, checkout_context = prompt_sha256(), context_sha256()
         if self.prompt_sha256 != checkout:
             say(f"the capsule image's prompt is {self.prompt_sha256 or 'unknown'}, the checkout's {checkout}: "
                 "the sessions run the image's")
+        if self.context_sha256 != checkout_context:
+            say(f"the capsule image's build files are {self.context_sha256 or 'unknown'}, the checkout's "
+                f"{checkout_context}: the sessions run the image's")
         self.record_metrics({"kind": INTERVENTION, "ts": now(), "args": {k: str(v) for k, v in sorted(vars(args).items())},
                              "image_id": self.image_id, "prompt_sha256": self.prompt_sha256,
-                             "checkout_prompt_sha256": checkout, "seed_commit": self.seed})
+                             "checkout_prompt_sha256": checkout, "context_sha256": self.context_sha256,
+                             "checkout_context_sha256": checkout_context, "seed_commit": self.seed})
 
     def build(self) -> None:
         """Build from a copy of exactly the files the image needs: a synced folder (iCloud) can hand docker
         placeholders it cannot read, and nothing else of the repository belongs in the capsule. The image is labelled
-        with the sha256 of the prompt bytes it holds, so a later start without a build still knows them (E313)."""
+        with the sha256 of the prompt bytes it holds, so a later start without a build still knows them (E313), and with
+        the `context_sha256` of every file it was built from (E506)."""
         say("building the capsule image")
         with tempfile.TemporaryDirectory(prefix="snowball-founder-") as ctx:
             write_build_context(Path(ctx))
             built = hashlib.sha256(Path(ctx, "founder/prompt.md").read_bytes()).hexdigest()
             proc = run("docker", "build", "--quiet", "--label", f"{PROMPT_LABEL}={built}", "-t", IMAGE,
+                       "--label", f"{CONTEXT_LABEL}={context_sha256(Path(ctx))}",
                        "-f", str(Path(ctx, "founder/Dockerfile")), ctx, check=False, timeout=3600)
         if proc.returncode != 0:
             sys.exit("image build failed:\n" + proc.stderr.decode(errors="replace")[-4000:])
