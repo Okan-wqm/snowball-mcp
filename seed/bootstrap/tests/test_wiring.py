@@ -1310,6 +1310,22 @@ class MutationShardTest(unittest.TestCase):
                         dead.append(f"{path.name}:{number} {word}")
         self.assertEqual(dead, [], "a test names a mutant local/mutate.py does not have")
 
+    def test_a_stale_anchor_is_seen_before_any_mutant_runs(self):  # mutate_stale_anchor_unseen
+        """E504: on 2026-11-02 (run 41376835109) E502 rewrote the shard list a mutant's anchor quoted; the anchor was
+        found 0 times, and only its one shard of 64 said so, after the whole run. Each shard now checks every anchor
+        first: one missing or found twice is named, a file that is gone too."""
+        import importlib.util
+        import tempfile
+        spec = importlib.util.spec_from_file_location("mutate", BOOT / "local" / "mutate.py")
+        mutate = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mutate)
+        with tempfile.TemporaryDirectory() as tmp:
+            (Path(tmp) / "a.py").write_text("x = 1\ny = 2\ny = 2\n", encoding="utf-8")
+            mutants = [("fresh", "a.py", "x = 1\n", "x = 0\n", ""), ("gone", "a.py", "z = 3\n", "z = 0\n", ""),
+                       ("twice", "a.py", "y = 2\n", "y = 0\n", ""), ("no_file", "b.py", "x", "y", "")]
+            self.assertEqual(mutate.stale_anchors(Path(tmp), mutants),
+                             ["gone (a.py: found 0x)", "twice (a.py: found 2x)", "no_file (b.py: found 0x)"])
+
 
 class SystemMapTest(unittest.TestCase):
     """The owner's rule E301: `docs/harita.md`, the map of what connects to what, is drawn from the code by

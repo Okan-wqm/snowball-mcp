@@ -32,7 +32,7 @@ CODE = b"LIMIT = 3\n\n\ndef allowed(n):\n    return n <= LIMIT\n"
 NOTES = b"NOTE = 'the second accepted push'\n"
 CORRECT_LINE = "n <= LIMIT"
 CHAIN = "referee/ledger/chain.py"
-ORACLE = "python -c 'from referee.ledger.chain import allowed; assert allowed(3)'  # canary-oracle-7f3a"
+ORACLE = "python -c 'from referee.ledger.chain import allowed; assert allowed(3)'  # canary-oracle-zq-x9"
 SUITE = "python -m unittest t13"
 REQUIRED_KINDS = {"wrong_boundary", "dropped_check", "inverted_condition", "swallowed_error", "chain_off_by_one",
                   "secret_slip"}
@@ -306,7 +306,7 @@ class Pipeline(unittest.TestCase):
             pulled = self.world.run_dir() / plant.id / "pulled"
             for name in ("meta.json", "diff.patch", "brain.tar"):
                 data = (pulled / name).read_bytes()
-                for secret in ("canary-oracle-7f3a", plant.id, plant.kind, plant.why, "canary@example"):
+                for secret in ("canary-oracle-zq-x9", plant.id, plant.kind, plant.why, "canary@example"):
                     self.assertNotIn(secret.encode(), data, name)
         self.assertEqual((sh(self.world.brain, "git", "show-ref"), gitio.git(self.world.mirror, "show-ref")), before)
 
@@ -523,7 +523,7 @@ class Pipeline(unittest.TestCase):
             request = (kept / "request.txt").read_text(encoding="utf-8")
             self.assertIn("+    return n < LIMIT", request)  # it is the real request
             for text in (request, (kept / "system.txt").read_text(encoding="utf-8")):
-                for secret in (plant.id, plant.kind, plant.why, "7f3a", "canary", "example.invalid"):
+                for secret in (plant.id, plant.kind, plant.why, "zq-x9", "canary", "example.invalid"):
                     self.assertNotIn(secret, text.lower())
 
     def test_a_stale_anchor_stops_the_run(self):

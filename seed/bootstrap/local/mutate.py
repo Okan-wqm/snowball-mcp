@@ -2364,8 +2364,13 @@ MUTANTS = [
     ("kos_join_ignores_a_failed_part", "seed/bootstrap/workflow/bootstrap.yml",
      '        run: test "$RESULT" = success' + chr(10), '        run: "true"' + chr(10),
      "E440: the join runs on although a part failed"),
+    # E504: a stale anchor stops every shard before any mutant runs
+    ("mutate_stale_anchor_unseen", "seed/bootstrap/local/mutate.py",
+     "        if texts[rel].count(old) != 1:\n            stale.append(",
+     "        if texts[rel].count(old) > 1:\n            stale.append(",
+     "E504: an anchor a change left behind survives in its one shard and is seen only after the whole run"),
     ("mutation_shards_back_to_eight", ".github/workflows/ci.yml",
-     "        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23]\n",
+     "        shard: [" + ", ".join(str(k) for k in range(64)) + "]\n",
      "        shard: [0, 1, 2, 3, 4, 5, 6, 7]\n",
      "E410: fewer shards than the mutants need, and the mutation run hits its timeout and is cancelled"),
     # E450: the brain's agent and skill definitions, checked in the capsule before claude starts (seed/founder/brain_defs.py)
@@ -2651,6 +2656,21 @@ MUTANTS = [
 ]
 
 
+def stale_anchors(root: Path = ROOT, mutants=MUTANTS) -> list[str]:
+    """The mutants whose anchor is not exactly once in its file. Every shard checks them all before it runs one, so
+    an anchor a change left behind stops each shard in its first second instead of surviving only in the shard that
+    holds its mutant (E504)."""
+    texts: dict[str, str] = {}
+    stale = []
+    for name, rel, old, _new, _why in mutants:
+        if rel not in texts:
+            path = root / rel
+            texts[rel] = path.read_text(encoding="utf-8") if path.is_file() else ""
+        if texts[rel].count(old) != 1:
+            stale.append(f"{name} ({rel}: found {texts[rel].count(old)}x)")
+    return stale
+
+
 def run_mutant(index: int, mutant: tuple[str, str, str, str, str] | None) -> tuple[bool, str, float]:
     """Apply one mutant (or none: the baseline) to a fresh copy and run the unit tests there."""
     started = time.monotonic()
@@ -2705,6 +2725,10 @@ def main() -> int:
         for _i, m in chosen:
             print(f"{m[0]:34} {m[4]}")
         return 0
+    stale = stale_anchors()
+    if stale:
+        print(f"stale mutant anchors, update them first: {'; '.join(stale)}", file=sys.stderr)
+        return 2
     killed, detail, _ = run_mutant(-1, None)  # without this a failing environment makes every mutant "killed"
     if killed:
         print(f"the unmutated code already fails its tests ({detail}); fix that first", file=sys.stderr)
