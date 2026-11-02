@@ -80,7 +80,7 @@ flowchart LR
 
 ## 2. Referee package: `seed/bootstrap/snowball_bootstrap`
 
-32 modules, 91 imports inside the package, 1 started as a separate process. Areas are roles. The overview has 6 areas and 17 edges; an arrow's number is how many imports cross from one area to the other.
+33 modules, 93 imports inside the package, 1 started as a separate process. Areas are roles. The overview has 6 areas and 17 edges; an arrow's number is how many imports cross from one area to the other.
 
 ```mermaid
 flowchart LR
@@ -89,7 +89,7 @@ flowchart LR
   a_Sandbox["Sandbox<br/>7 modules"]
   a_Rival["Rival<br/>4 modules"]
   a_Judgement["Judgement<br/>6 modules"]
-  a_Unplaced["Unplaced<br/>3 modules"]
+  a_Unplaced["Unplaced<br/>4 modules"]
   a_Entry -->|9| a_Intake
   a_Entry -->|6| a_Judgement
   a_Entry -->|2| a_Rival
@@ -104,7 +104,7 @@ flowchart LR
   a_Sandbox -->|1| a_Rival
   a_Sandbox -->|1| a_Unplaced
   a_Unplaced -->|1| a_Entry
-  a_Unplaced -->|11| a_Intake
+  a_Unplaced -->|13| a_Intake
   a_Unplaced -->|2| a_Judgement
   a_Unplaced -->|2| a_Sandbox
 ```
@@ -217,9 +217,9 @@ flowchart LR
 
 | Module | What it is (first sentence of its docstring) | Imported by |
 |---|---|---|
-| `canon` | Canonical JSON (the RFC 8785 subset the seed allows) and hashing helpers. | `answers`, `cli`, `heldrun`, `importer`, `ledgercheck`, `parts`, `reproduce`, `rival`, `stagelock` |
+| `canon` | Canonical JSON (the RFC 8785 subset the seed allows) and hashing helpers. | `answers`, `cli`, `heldrun`, `importer`, `k6`, `ledgercheck`, `parts`, `reproduce`, `rival`, `stagelock` |
 | `classify` | What kind of push is this (`tohum/29b`, "İki tür push")? | `cli`, `exitchecks` |
-| `config` | Operator-written inputs, validated strictly. | `cli`, `exitchecks`, `fence`, `heldrun`, `rival`, `stagelock`, `stages`, `state`, `target_run` |
+| `config` | Operator-written inputs, validated strictly. | `cli`, `exitchecks`, `fence`, `heldrun`, `k6`, `rival`, `stagelock`, `stages`, `state`, `target_run` |
 | `ghapi` | Minimal GitHub REST calls the pull job needs: find and download the latest state artifact, and look at the newest failed run of this workflow (E13). | `cli`, `heldrun` |
 | `gitio` | Git operations on the untrusted brain repository. | `cli`, `heldrun`, `importer`, `stagelock` |
 | `importer` | Operator import at the Stage 0 exit and at each batch exit after it (`tohum/25a` 1-2, `asama-0/10a` #aktarim and #oyuncak, `asama-1/13` 3: "aynı komut"). | `cli`, `fence`, `heldrun`, `stagelock` |
@@ -380,7 +380,7 @@ flowchart LR
 
 ### Unplaced
 
-3 modules, 16 edges out of them.
+4 modules, 18 edges out of them.
 
 ```mermaid
 flowchart LR
@@ -388,6 +388,7 @@ flowchart LR
     m_answers["answers"]
     m_fence["fence"]
     m_heldrun["heldrun"]
+    m_k6["k6"]
   end
   subgraph a_Entry["Entry"]
     m_cli["cli"]:::outside
@@ -425,6 +426,8 @@ flowchart LR
   m_heldrun --> m_stages
   m_heldrun --> m_treehash
   m_heldrun --> m_vectors
+  m_k6 --> m_canon
+  m_k6 --> m_config
   classDef outside stroke-dasharray: 4 3
 ```
 
@@ -433,6 +436,7 @@ flowchart LR
 | `answers` | The exam's answers apart from its inputs, and the pin that binds them to an epoch (E509). | `vectors` |
 | `fence` | The K6 fence, kept by the referee (E511; `tohum/05` "Fiziksel güvenlik", `tohum/03` `class_requires`). | - |
 | `heldrun` | Held cases: run only inside the private exam repository, published only as a salted commitment (plan D5, E510). | - |
+| `k6` | The K6 exam's state and strength (E512): when the physical-safety fence (`tohum/05`) may open, decided by numbers. | - |
 
 ### Commands
 
