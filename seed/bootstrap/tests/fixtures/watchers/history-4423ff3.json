@@ -1,0 +1,546 @@
+{
+ "source": "public brain Okan-wqm/snowball-rehearsal-brain and the referee's signed result of its head",
+ "base": "e22b78ad502df6029d895f0ba7d5af407417481b",
+ "head": "4423ff329a1d3664c97b4fc622dce12cefb0d1ed",
+ "snapshot": "ab9586d4259d94ca3877a4ab5a92fe120e3b43b3",
+ "verdict": "rejected",
+ "reasons": [
+  {
+   "kind": "refutation_reproduced",
+   "ref": "repro:6ddd7bef2c02570e"
+  }
+ ],
+ "changed": [
+  [
+   "M",
+   "docs/map/brain.md"
+  ],
+  [
+   "M",
+   "founder-ledger.jsonl"
+  ],
+  [
+   "M",
+   "referee/.github/workflows/loop.yml"
+  ],
+  [
+   "M",
+   "referee/loop/accepted.py"
+  ],
+  [
+   "M",
+   "referee/loop/cagir.py"
+  ],
+  [
+   "A",
+   "referee/loop/inputs.py"
+  ],
+  [
+   "M",
+   "referee/loop/job.py"
+  ],
+  [
+   "M",
+   "referee/loop/rekor.py"
+  ],
+  [
+   "M",
+   "referee/loop/sign.py"
+  ],
+  [
+   "M",
+   "referee/tests/capture_rekor_entry.py"
+  ],
+  [
+   "M",
+   "referee/tests/fake_claude.py"
+  ],
+  [
+   "A",
+   "referee/tests/loop_inputs_world.py"
+  ],
+  [
+   "A",
+   "referee/tests/mutants/loop_inputs.json"
+  ],
+  [
+   "M",
+   "referee/tests/mutants/sign.json"
+  ],
+  [
+   "M",
+   "referee/tests/test_accepted.py"
+  ],
+  [
+   "M",
+   "referee/tests/test_loop_cagir.py"
+  ],
+  [
+   "M",
+   "referee/tests/test_loop_cek.py"
+  ],
+  [
+   "M",
+   "referee/tests/test_loop_workflow.py"
+  ],
+  [
+   "M",
+   "referee/tests/test_loop_yaz.py"
+  ],
+  [
+   "M",
+   "referee/tests/test_rekor.py"
+  ],
+  [
+   "M",
+   "referee/tests/test_sign.py"
+  ],
+  [
+   "M",
+   "reports/seed-041-loop-run-inputs-unnamed.json"
+  ],
+  [
+   "M",
+   "reports/seed-042-d4-canary-inputs-unnamed.json"
+  ],
+  [
+   "M",
+   "snowball-tests.json"
+  ],
+  [
+   "M",
+   "spec/tohum/00b-gorev-haritasi.md"
+  ],
+  [
+   "M",
+   "spec/tohum/18a-politika-baslangic-degerleri.md"
+  ],
+  [
+   "M",
+   "spec/tohum/25a-kurulum-etkinlestirme.md"
+  ],
+  [
+   "M",
+   "spec/tohum/26-semalar.md"
+  ],
+  [
+   "M",
+   "spec/tohum/26a-arac-imzalari.md"
+  ],
+  [
+   "M",
+   "spec/tohum/26c-semalar-asama-0.md"
+  ],
+  [
+   "A",
+   "spec/tohum/26d-semalar-pass-satiri.md"
+  ],
+  [
+   "A",
+   "spec/tohum/26e-semalar-asama-1.md"
+  ],
+  [
+   "A",
+   "spec/tohum/26f-semalar-nobetci-ve-prova.md"
+  ],
+  [
+   "M",
+   "spec/tohum/27-sozluk-ve-okuyucular.md"
+  ],
+  [
+   "M",
+   "spec/tohum/27a-okuyucular-hedef-durumu.md"
+  ],
+  [
+   "M",
+   "spec/tohum/29b-onyukleme-hakemi.md"
+  ],
+  [
+   "M",
+   "spec/tohum/29p-kontrol-komutu.md"
+  ],
+  [
+   "A",
+   "spec/tohum/29s-dongu-girdileri.md"
+  ],
+  [
+   "M",
+   "spec/tohum/30d-hedef-guvenlik-profili.md"
+  ],
+  [
+   "A",
+   "spec/tohum/CHANGELOG-4.md"
+  ],
+  [
+   "M",
+   "spec/tohum/CHANGELOG.md"
+  ],
+  [
+   "A",
+   "tests/test_install_steps_spec.py"
+  ]
+ ],
+ "rows": [
+  {
+   "derivation": "llm_inference",
+   "evidence_refs": [],
+   "kind": "session_start",
+   "part": "founder",
+   "payload": {
+    "refs": [
+     "spec/tohum/CHANGELOG.md",
+     "spec/tohum/29s-dongu-girdileri.md"
+    ],
+    "summary": "Read 00, 00a, 00b, the ledger tail (f576-f583), result.json and the seed epoch 7f8ef62 (snowball-mcp a577826). Verdict on 7f8ef62: seed_update, reasons [], learning.repeated [], warnings reports_open:28; frozen spec/asama-0 unchanged. previous-session.json: exit 0, 44.8 min, pushed, accepted. The epoch answers seed-041 (29s: brain repo from bootstrap.json brain_repo, a run serves every targets[] entry in order, Sigstore from bootstrap/requirements/sign.txt installed by a given step), seed-042 (29s: the canary CLI from bootstrap/requirements/claude-cli by a given step, model bootstrap.json rival.model), seed-043 and seed-045 (new 26f: sentinel/revert/commit/plant rows; live drill fixtures not in this seed), seed-046 (new 26d: the PASS row's payload, written by the loop referee); seed-044 declined (producers are the Founder's). Open claim d235b0fe39f2 (harness.pass_row unwired) stands until the PASS row is wired. Today's loop.yml contradicts 29s: it reads vars.BRAIN_REPO, vars.LOOP_TARGET, vars.CANARY_MODEL, vars.CLAUDE_CLI_SHA512 and runs sigstore and claude from PATH, which no step installs."
+   },
+   "prev_hash": "5c2cd60a377cbb21693ff1445a9e0d7e5659b6b7e64fecbe1575afa254778d2e",
+   "row_hash": "d850209988a24f14a3af91b8229c55cdef8b2bc41a515882f82a9c95a89cdffb",
+   "row_id": "f584",
+   "snapshot_id": "7f8ef62bdb2790a1c494a1be05030b289b8fa6cb",
+   "trust": "inferred",
+   "ts": "2026-11-02T05:46:32Z"
+  },
+  {
+   "derivation": "llm_inference",
+   "evidence_refs": [],
+   "kind": "decision",
+   "part": "founder",
+   "payload": {
+    "refs": [
+     "spec/tohum/29s-dongu-girdileri.md",
+     "spec/tohum/26d-semalar-pass-satiri.md",
+     "spec/tohum/26f-semalar-nobetci-ve-prova.md"
+    ],
+    "summary": "Order after the epoch, by what each change rests on: (1) 29s's three inputs (brain repo, Sigstore, canary CLI and model): without them no loop.yml run can start at all (a run needing operator variables 29s forbids); this session. (2) 29s's targets: every run serves toy then copy, per-target artifacts and the copy's genesis gate; it reshapes every job and is what the PASS row's wiring stands on, so it comes before (4). (3) 26f's row shapes (sentinel, revert, commit, plant) against loop.watch, loop.drill and ledger.schema: leaf changes. (4) 26d: harness.pass_row's payload to 26d and its call in yaz after both targets are served (closes claim d235b0fe39f2). Then the exit audit (f581) and the exit request. (1) before (2) because (2) reshapes job inputs and outputs, not how a job finds its programs; (1) done first is not reopened by (2)."
+   },
+   "prev_hash": "d850209988a24f14a3af91b8229c55cdef8b2bc41a515882f82a9c95a89cdffb",
+   "row_hash": "993c8257ba652b5b9d1fa221105da5e4a621c7ce399405aa765bbf2dd8fdde82",
+   "row_id": "f585",
+   "snapshot_id": "7f8ef62bdb2790a1c494a1be05030b289b8fa6cb",
+   "trust": "inferred",
+   "ts": "2026-11-02T05:46:37Z"
+  },
+  {
+   "derivation": "llm_inference",
+   "evidence_refs": [],
+   "kind": "decision",
+   "part": "founder",
+   "payload": {
+    "refs": [
+     "referee/loop/inputs.py",
+     "spec/tohum/29s-dongu-girdileri.md"
+    ],
+    "summary": "Architecture of 29s's inputs: one module, loop.inputs, is the single reader of each input (brain_repo and rival_model from bootstrap.json, the sigstore program, the claude CLI) and holds the two install steps' run text; loop.job renders them from Job.installs, so a job's install steps are registry data like its secrets. bootstrap.json is read from the job's checkout (the run's commit), the commit cek already reads setup/ and policy.json from, so every operator file of one run comes from one commit; 29s also names the control clone (main as it is now), not read. Each reader checks only its own field (cek is not stopped by a bad rival.model). The Sigstore program became an argv prefix (python -m sigstore) in loop.accepted, loop.sign and loop.rekor, with no default: the old default 'sigstore on PATH' was exactly what 29s removes, and a default the live path never uses is a trap. The CLI's sha512 pin is computed from the installed file when cagir reads it and given to MF15, which re-hashes before exec: 29s says the lock and the version check are the pin; the hash only ties the executed bytes to those the job found, and is in the line (claude_sha512) as evidence. Test 46's copies of the two steps are bound to the page by tests/test_install_steps_spec.py, as test_control_step_spec binds 29p's step; test 46 gains install_missing, install_order and operator_variable (a register of the vars still read, each with why)."
+   },
+   "prev_hash": "993c8257ba652b5b9d1fa221105da5e4a621c7ce399405aa765bbf2dd8fdde82",
+   "row_hash": "bfd79f554bfca4d4622ab7c5303e6e56caf2f78e79b2f69c49f2dcdc12b6442e",
+   "row_id": "f586",
+   "snapshot_id": "7f8ef62bdb2790a1c494a1be05030b289b8fa6cb",
+   "trust": "inferred",
+   "ts": "2026-11-02T06:12:36Z"
+  },
+  {
+   "derivation": "llm_inference",
+   "evidence_refs": [],
+   "kind": "build",
+   "part": "founder",
+   "payload": {
+    "refs": [
+     "referee/loop/inputs.py",
+     "referee/loop/job.py",
+     "referee/tests/test_loop_workflow.py",
+     "tests/test_install_steps_spec.py",
+     "referee/tests/mutants/loop_inputs.json"
+    ],
+    "summary": "Built tohum/29s's three inputs into the loop: new loop.inputs (brain_repo and rival_model from the checkout's bootstrap.json, strict JSON, regular file, 1 MiB bound; the sigstore step's program; the claude step's CLI; the two steps' run text); loop.job: Job.installs renders the sigstore step in cek and yaz and the claude step in cagir right after control; cek takes the brain repo from bootstrap.json and runs both Sigstore checks with the step's program; cagir takes the CLI from the step's path and the model from rival.model, hashes the CLI and puts claude_sha512 in its line; yaz signs with the step's program (_signer); LOOP_BRAIN_REPO, LOOP_CANARY_MODEL, LOOP_CLAUDE_SHA512 and claude-on-PATH are gone. loop.accepted, loop.sign and loop.rekor take the program as an argv prefix with no default. Tests: test_loop_cek (brain repo from bootstrap.json with the variables set and ignored; ten unusable bootstrap files, a symlink, no sigstore program: no verdict before any API call or git process; both checks' argv start with the step's program), test_loop_cagir (model from bootstrap.json, variables ignored; ten unusable bootstrap files and one 1 MiB + 1 byte, the bound itself accepted; a CLI on PATH is not used), test_loop_yaz (the signer's program and pin; without the program no verdict and no write), test 46 (install_missing, install_order, operator_variable, with mutated copies firing each), tests/test_install_steps_spec.py (both copies and the rendered jobs equal 29s's blocks; a changed page is seen; blocks not guessed), test_accepted/test_sign/test_rekor on the prefix form. mutants/loop_inputs.json 14 of 14 killed; sign.json's stale rekor_version_unpinned re-aimed, 10 of 10 killed; every kept mutant: 173 killed, test_loop_handover no_cache timeout (next row). docs/map/brain.md regenerated (55 modules, off the live path 5). tests/run_like_referee.py -j 8: 21 of 21 ok."
+   },
+   "prev_hash": "bfd79f554bfca4d4622ab7c5303e6e56caf2f78e79b2f69c49f2dcdc12b6442e",
+   "row_hash": "32ce6fc64de62530458521fed454e24776c475a6ab4337500d613b423bb1e424",
+   "row_id": "f587",
+   "snapshot_id": "ab9586d4259d94ca3877a4ab5a92fe120e3b43b3",
+   "trust": "inferred",
+   "ts": "2026-11-02T07:19:58Z"
+  },
+  {
+   "derivation": "llm_inference",
+   "evidence_refs": [],
+   "kind": "seed_issue",
+   "part": "founder",
+   "payload": {
+    "refs": [
+     "referee/loop/sign.py",
+     "referee/tests/fixtures/rekor-entry.json",
+     "spec/tohum/29s-dongu-girdileri.md"
+    ],
+    "summary": "Own code, two gaps found while wiring 29s, both open: (1) the real-sigstore evidence in tests/fixtures/rekor-entry.json and test_sign records sigstore 4.5.1's exits, but 29s and 26d pin sigstore==4.5.0 for the loop; no exit of 4.5.0 on those bundles is recorded, so 'the signer and the D1 check agree with the pinned program' is untested (loop.sign's docstring now says so). Closing it needs the pinned 4.5.0 wheels and network, which this capsule's referee sandbox lacks; capture_rekor_entry.py takes the program as an argument and can record it. (2) Hypothesis, not tested: 29s's claude step requires node >= 22 on ubuntu-24.04; if the runner's default node is older the step is red and cagir has no verdict every run. Evidence it holds: 29s says the step is bootstrap.yml's cagir's, and the bootstrap referee's rival runs on this brain's pushes (result.json rival_artifacts). Not a seed issue unless a live run shows it."
+   },
+   "prev_hash": "32ce6fc64de62530458521fed454e24776c475a6ab4337500d613b423bb1e424",
+   "row_hash": "5f4ebe3f07e015425e2368c3918db512a32bc690a7cf71a320f3351ad990e8eb",
+   "row_id": "f588",
+   "snapshot_id": "ab9586d4259d94ca3877a4ab5a92fe120e3b43b3",
+   "trust": "inferred",
+   "ts": "2026-11-02T07:20:05Z"
+  },
+  {
+   "derivation": "llm_inference",
+   "evidence_refs": [],
+   "kind": "seed_issue",
+   "part": "founder",
+   "payload": {
+    "refs": [
+     "referee/tests/mutants/test_loop_handover.json",
+     "referee/tests/test_loop_handover.py"
+    ],
+    "summary": "Own tests, found by running every kept mutant: test_loop_handover.json's no_cache (removes @functools.cache from _recorded) is 'timeout', not 'killed': with the cache gone every register re-runs the recorded tests and test_loop_handover.py passes the runner's 900 s bound. Measured alone, 15m41s on this change's tree and 15m41s on 7f8ef62 (git worktree, same runner): it was already so before this push, so this change did not cause it. The mutant shows the cache is needed for time, not that a test catches its removal by value; Cache.test_a_test_runs_once_for_every_register would kill it if the file got that far. Fix for a later session: run the mutant against Cache only (tests ['test_loop_handover.py'] -> a pattern naming the Cache case is not expressible in mutate.py's pattern list), or give mutate.py per-mutant test ids."
+   },
+   "prev_hash": "5f4ebe3f07e015425e2368c3918db512a32bc690a7cf71a320f3351ad990e8eb",
+   "row_hash": "cc802640298879c1c8922ae7589017b2574e8a107d73dd958fd9bef2b8727ee3",
+   "row_id": "f589",
+   "snapshot_id": "ab9586d4259d94ca3877a4ab5a92fe120e3b43b3",
+   "trust": "inferred",
+   "ts": "2026-11-02T07:36:51Z"
+  },
+  {
+   "derivation": "llm_inference",
+   "evidence_refs": [],
+   "kind": "decision",
+   "part": "founder",
+   "payload": {
+    "refs": [],
+    "summary": "Learned: (1) the seed epoch answered six reports at once, and the gap between code and seed showed up only by reading each new page against the workflow the code renders (vars.* in loop.yml); test 46 now holds a register of the operator variables still read, so the next such gap is red by rule, not found by reading. (2) Changing a parameter's type (the Sigstore program from a name to an argv prefix) with no default made every caller visible at once (the tests that relied on 'sigstore on PATH' failed), which a kept default would have hidden. (3) Running every kept mutant took about 40 minutes under -j 8, three quarters of the waiting in this session, for one result outside the change (no_cache). Measured value for the target this session: none merged; the loop can now start a run without any of the three operator variables 29s forbids, the step that was missing before (B) can run."
+   },
+   "prev_hash": "cc802640298879c1c8922ae7589017b2574e8a107d73dd958fd9bef2b8727ee3",
+   "row_hash": "1cac2f09820605f34531081102b8d728e33436b143af18325fb860d6c1fa0603",
+   "row_id": "f590",
+   "snapshot_id": "ab9586d4259d94ca3877a4ab5a92fe120e3b43b3",
+   "trust": "inferred",
+   "ts": "2026-11-02T07:36:52Z"
+  },
+  {
+   "derivation": "llm_inference",
+   "evidence_refs": [],
+   "kind": "decision",
+   "part": "founder",
+   "payload": {
+    "refs": [],
+    "summary": "Proposal (own idea): mutate.py --changed BASE: run only the kept mutants whose file or whose tests' modules the diff from BASE touches (the import graph is already in status.depmap), and the full set only before the exit request. Cost about 40 lines and a test; gain: this session's 40-minute full run would have been the 24 mutants of loop_inputs.json, sign.json and the job's tests, about 3 minutes, so each code push spends its time on the change. Next, in order (f585): (2) 29s 'Hedefler': every run serves toy then copy, per-target artifacts, the copy's genesis gate (closes seed-041 and the LOOP_TARGET entry of test 46's VARS register); (3) 26f's row shapes; (4) 26d's PASS payload and its call in yaz (claim d235b0fe39f2); then the exit audit (f581)."
+   },
+   "prev_hash": "1cac2f09820605f34531081102b8d728e33436b143af18325fb860d6c1fa0603",
+   "row_hash": "2a0c1edcc6bf1aabce1b541d16ed3f10d9244b146b64a6983404c1a4e9d80114",
+   "row_id": "f591",
+   "snapshot_id": "ab9586d4259d94ca3877a4ab5a92fe120e3b43b3",
+   "trust": "inferred",
+   "ts": "2026-11-02T07:36:52Z"
+  },
+  {
+   "derivation": "llm_inference",
+   "evidence_refs": [],
+   "kind": "session_end",
+   "part": "founder",
+   "payload": {
+    "refs": [],
+    "summary": "Pushing one code request: tohum/29s's three inputs in the loop (loop.inputs; the sigstore step in cek and yaz, the claude step in cagir, brain repo and canary model from bootstrap.json, Sigstore as the step's program everywhere; no LOOP_BRAIN_REPO, LOOP_CANARY_MODEL, LOOP_CLAUDE_SHA512, claude on PATH). Tests T46 (test_loop_cek, test_loop_cagir, test_loop_yaz, test_loop_workflow's three new rules, new root test_install_steps_spec.py), T46's test_accepted, test_sign, test_rekor; mutants loop_inputs 14/14 and sign 10/10 killed, all kept mutants killed except the pre-existing no_cache timeout (f589); docs/map/brain.md regenerated; run_like_referee 21/21. Reports: seed-042 confirmed; seed-041 updated, open until the targets change. Open: seed-041 (targets), seed-043..046 answered by the epoch and not yet followed in code, claim d235b0fe39f2. Expected: accepted."
+   },
+   "prev_hash": "2a0c1edcc6bf1aabce1b541d16ed3f10d9244b146b64a6983404c1a4e9d80114",
+   "row_hash": "e7c6fac6675392eccfbe39f9aa60a00c06ea281396f81fbcf287aa37e510d1f5",
+   "row_id": "f592",
+   "snapshot_id": "ab9586d4259d94ca3877a4ab5a92fe120e3b43b3",
+   "trust": "inferred",
+   "ts": "2026-11-02T07:37:05Z"
+  }
+ ],
+ "base_tests": [
+  {
+   "id": "T13",
+   "cmd": "cd referee && python -m unittest discover -s tests -p 'test_chain.py'"
+  },
+  {
+   "id": "T38",
+   "cmd": "cd referee && python -m unittest discover -s tests -p 'test_secrets.py' && python -m unittest discover -s tests -p 'test_cli.py'"
+  },
+  {
+   "id": "T20",
+   "cmd": "cd referee && python -m unittest discover -s tests -p 'test_contained_red.py'"
+  },
+  {
+   "id": "T21",
+   "cmd": "cd referee && python -m unittest discover -s tests -p 'test_contained.py'"
+  },
+  {
+   "id": "T19",
+   "cmd": "cd referee && python -m unittest discover -s tests -p 'test_profile.py'"
+  },
+  {
+   "id": "T47",
+   "cmd": "cd referee && python -m unittest discover -s tests -p 'test_profile_units.py' && python -m unittest discover -s tests -p 'test_profile_fit.py' && python -m unittest discover -s tests -p 'test_profile_safety.py'"
+  },
+  {
+   "id": "T34",
+   "cmd": "cd referee && python -m unittest discover -s tests -p 'test_deps_npm.py'"
+  },
+  {
+   "id": "T48",
+   "cmd": "cd referee && python -m unittest discover -s tests -p 'test_unit_verify.py' && python -m unittest discover -s tests -p 'test_lint_record.py' && python -m unittest discover -s tests -p 'test_kos.py' && cd .. && python -m unittest discover -s tests -p 'test_toy_repo.py'"
+  },
+  {
+   "id": "T23",
+   "cmd": "cd referee && python -m unittest discover -s tests -p 'test_diffguard.py'"
+  },
+  {
+   "id": "T35",
+   "cmd": "cd referee && python -m unittest discover -s tests -p 'test_check.py'"
+  },
+  {
+   "id": "T49",
+   "cmd": "cd referee && python -m unittest discover -s tests -p 'test_write.py'"
+  },
+  {
+   "id": "T39",
+   "cmd": "cd referee && python -m unittest discover -s tests -p 'test_append.py' && python -m unittest discover -s tests -p 'test_cycle.py'"
+  },
+  {
+   "id": "T40",
+   "cmd": "cd referee && python -m unittest discover -s tests -p 'test_anchor.py' && python -m unittest discover -s tests -p 'test_rekor.py' && python -m unittest discover -s tests -p 'test_sign.py'"
+  },
+  {
+   "id": "T36",
+   "cmd": "cd referee && python -m unittest discover -s tests -p 'test_sentinel.py'"
+  },
+  {
+   "id": "T25",
+   "cmd": "cd referee && python -m unittest discover -s tests -p 'test_revert.py'"
+  },
+  {
+   "id": "T50",
+   "cmd": "cd referee && python -m unittest discover -s tests -p 'test_revert_drill.py'"
+  },
+  {
+   "id": "T37",
+   "cmd": "cd referee && python -m unittest discover -s tests -p 'test_llm_call.py'"
+  },
+  {
+   "id": "T42",
+   "cmd": "cd referee && python -m unittest discover -s tests -p 'test_status_block.py' && python -m unittest discover -s tests -p 'test_depmap.py' && python -m unittest discover -s tests -p 'test_mutate.py'"
+  },
+  {
+   "id": "T46",
+   "cmd": "cd referee && python -m unittest discover -s tests -p 'test_loop_workflow.py' && python -m unittest discover -s tests -p 'test_loop_kos.py' && python -m unittest discover -s tests -p 'test_loop_cagir.py' && python -m unittest discover -s tests -p 'test_loop_getir.py' && python -m unittest discover -s tests -p 'test_loop_yaz.py' && python -m unittest discover -s tests -p 'test_loop_write.py' && python -m unittest discover -s tests -p 'test_serial.py' && python -m unittest discover -s tests -p 'test_watch.py' && python -m unittest discover -s tests -p 'test_loop_handover.py' && python -m unittest discover -s tests -p 'test_loop_cek.py' && python -m unittest discover -s tests -p 'test_loop_state.py' && python -m unittest discover -s tests -p 'test_treehash.py' && python -m unittest discover -s tests -p 'test_accepted.py' && python -m unittest discover -s tests -p 'test_gitobj.py' && python -m unittest discover -s tests -p 'test_fetch.py' && cd .. && python -m unittest discover -s tests -p 'test_toy_pulled.py' && python -m unittest discover -s tests -p 'test_control_step_spec.py'"
+  },
+  {
+   "id": "T45",
+   "cmd": "cd referee && python -m unittest discover -s tests -p 'test_activate.py' && python -m unittest discover -s tests -p 'test_pass_row.py' && cd .. && python -m unittest discover -s tests -p 'test_toy_candidates.py'"
+  },
+  {
+   "id": "T14",
+   "cmd": "cd referee && python -m unittest discover -s tests -p 'test_schema.py' && cd .. && python -m unittest discover -s tests -p 'test_founder_ledger.py' && python -m unittest discover -s tests -p 'test_run_like_referee.py'"
+  }
+ ],
+ "run_tests": [
+  {
+   "id": "T13",
+   "ok": true,
+   "timed_out": false
+  },
+  {
+   "id": "T38",
+   "ok": true,
+   "timed_out": false
+  },
+  {
+   "id": "T20",
+   "ok": true,
+   "timed_out": false
+  },
+  {
+   "id": "T21",
+   "ok": true,
+   "timed_out": false
+  },
+  {
+   "id": "T19",
+   "ok": true,
+   "timed_out": false
+  },
+  {
+   "id": "T47",
+   "ok": true,
+   "timed_out": false
+  },
+  {
+   "id": "T34",
+   "ok": true,
+   "timed_out": false
+  },
+  {
+   "id": "T48",
+   "ok": true,
+   "timed_out": false
+  },
+  {
+   "id": "T23",
+   "ok": true,
+   "timed_out": false
+  },
+  {
+   "id": "T35",
+   "ok": true,
+   "timed_out": false
+  },
+  {
+   "id": "T49",
+   "ok": true,
+   "timed_out": false
+  },
+  {
+   "id": "T39",
+   "ok": true,
+   "timed_out": false
+  },
+  {
+   "id": "T40",
+   "ok": true,
+   "timed_out": false
+  },
+  {
+   "id": "T36",
+   "ok": true,
+   "timed_out": false
+  },
+  {
+   "id": "T25",
+   "ok": true,
+   "timed_out": false
+  },
+  {
+   "id": "T50",
+   "ok": true,
+   "timed_out": false
+  },
+  {
+   "id": "T37",
+   "ok": true,
+   "timed_out": false
+  },
+  {
+   "id": "T42",
+   "ok": true,
+   "timed_out": false
+  },
+  {
+   "id": "T46",
+   "ok": true,
+   "timed_out": false
+  },
+  {
+   "id": "T45",
+   "ok": true,
+   "timed_out": false
+  },
+  {
+   "id": "T14",
+   "ok": true,
+   "timed_out": false
+  }
+ ],
+ "diff": "diff --git a/referee/.github/workflows/loop.yml b/referee/.github/workflows/loop.yml\nindex 88ba41c..89322fd 100644\n--- a/referee/.github/workflows/loop.yml\n+++ b/referee/.github/workflows/loop.yml\n@@ -31,0 +32,9 @@ jobs:\n+      - name: sigstore\n+        if: steps.control.outputs.go == 'true'\n+        run: |\n+          set -eu\n+          cd \"$RUNNER_TEMP/control/bootstrap\"\n+          python3 -m venv \"$RUNNER_TEMP/sig\"\n+          \"$RUNNER_TEMP/sig/bin/pip\" download --quiet --require-hashes --only-binary=:all: --no-deps -d \"$RUNNER_TEMP/sigw\" -r requirements/sign.txt\n+          python3 -m snowball_bootstrap licenses --root .. --wheels \"$RUNNER_TEMP/sigw\"\n+          \"$RUNNER_TEMP/sig/bin/pip\" install --quiet --no-index --find-links \"$RUNNER_TEMP/sigw\" --require-hashes --only-binary=:all: --no-deps -r requirements/sign.txt\n@@ -41 +49,0 @@ jobs:\n-          LOOP_BRAIN_REPO: ${{ vars.BRAIN_REPO }}\n@@ -176,0 +185,9 @@ jobs:\n+      - name: claude\n+        if: steps.control.outputs.go == 'true'\n+        run: |\n+          set -eu\n+          C=\"$RUNNER_TEMP/control/bootstrap/requirements/claude-cli\"\n+          node -e 'process.exit(Number(process.versions.node.split(\".\")[0]) >= 22 ? 0 : 1)'\n+          npm ci --prefix \"$C\" --no-audit --no-fund\n+          pinned=$(node -p \"require('$C/package.json').dependencies['@anthropic-ai/claude-code']\")\n+          test \"$(\"$C/node_modules/.bin/claude\" --version | cut -d' ' -f1)\" = \"$pinned\"\n@@ -194,2 +210,0 @@ jobs:\n-          LOOP_CANARY_MODEL: ${{ vars.CANARY_MODEL }}\n-          LOOP_CLAUDE_SHA512: ${{ vars.CLAUDE_CLI_SHA512 }}\n@@ -228,0 +244,9 @@ jobs:\n+      - name: sigstore\n+        if: steps.control.outputs.go == 'true'\n+        run: |\n+          set -eu\n+          cd \"$RUNNER_TEMP/control/bootstrap\"\n+          python3 -m venv \"$RUNNER_TEMP/sig\"\n+          \"$RUNNER_TEMP/sig/bin/pip\" download --quiet --require-hashes --only-binary=:all: --no-deps -d \"$RUNNER_TEMP/sigw\" -r requirements/sign.txt\n+          python3 -m snowball_bootstrap licenses --root .. --wheels \"$RUNNER_TEMP/sigw\"\n+          \"$RUNNER_TEMP/sig/bin/pip\" install --quiet --no-index --find-links \"$RUNNER_TEMP/sigw\" --require-hashes --only-binary=:all: --no-deps -r requirements/sign.txt\ndiff --git a/referee/loop/accepted.py b/referee/loop/accepted.py\nindex f1e1054..73ea891 100644\n--- a/referee/loop/accepted.py\n+++ b/referee/loop/accepted.py\n@@ -41,3 +41,4 @@ a tree the hash refuses is ``referee_tree_refused`` (the hash's reasons after it\n-Out of scope, stated: which ``sigstore`` program runs (the seed's pinned requirements in ``bootstrap/requirements/``\n-serve the loop too, asama-0/01; the file that pins it for this job is not named in any page this clone has, so the\n-caller gives the program); the bundle's transparency-log checks beyond what ``sigstore verify identity`` does; the\n+Which ``sigstore`` program runs is the caller's argument (``sigstore``, an argv prefix): in a run, the one the\n+``sigstore`` step installs from ``bootstrap/requirements/sign.txt`` (tohum/29s, ``loop.inputs.sigstore``).\n+\n+Out of scope, stated: the bundle's transparency-log checks beyond what ``sigstore verify identity`` does; the\n@@ -45 +46 @@ other fields of ``result.json`` (its previous result's hash, the frozen specs);\n-commit is fetched from (``repo_url`` makes the URL of the name its caller gives); the artifact's retention.\n+commit is fetched from (``repo_url`` makes the URL of the name its caller gives: ``loop.inputs.brain_repo``); the artifact's retention.\n@@ -64 +65 @@ import zipfile\n-from typing import Any, Callable\n+from typing import Any, Callable, Sequence\n@@ -159 +160 @@ def workflow_identity(repo: str, workflow: str) -> str:\n-def identity_argv(sigstore: str, bundle: str, identity: str, artifact: str) -> list[str]:\n+def identity_argv(sigstore: Sequence[str], bundle: str, identity: str, artifact: str) -> list[str]:\n@@ -161,2 +162,3 @@ def identity_argv(sigstore: str, bundle: str, identity: str, artifact: str) -> l\n-    ``identity`` and GitHub Actions' issuer: the one form both of the loop's Sigstore checks run.\"\"\"\n-    return [sigstore, \"verify\", \"identity\", \"--bundle\", bundle, \"--cert-identity\", identity,\n+    ``identity`` and GitHub Actions' issuer: the one form both of the loop's Sigstore checks run. ``sigstore`` is\n+    the program's argv prefix (``loop.inputs.sigstore``: ``(<python>, -m, sigstore)`` in a run).\"\"\"\n+    return [*sigstore, \"verify\", \"identity\", \"--bundle\", bundle, \"--cert-identity\", identity,\n@@ -166 +168 @@ def identity_argv(sigstore: str, bundle: str, identity: str, artifact: str) -> l\n-def verify_argv(sigstore: str, repo: str, directory: str) -> list[str]:\n+def verify_argv(sigstore: Sequence[str], repo: str, directory: str) -> list[str]:\n@@ -179 +181 @@ def run_verifier(argv: list[str]) -> int:\n-def open_state(result: bytes, bundle: bytes, repo: str, sigstore: str = \"sigstore\",\n+def open_state(result: bytes, bundle: bytes, repo: str, sigstore: Sequence[str],\n@@ -283 +285 @@ def list_artifacts(http: Any, repo: str) -> list[Any]:\n-def read_state(http: Any, repo: str, sigstore: str = \"sigstore\",\n+def read_state(http: Any, repo: str, sigstore: Sequence[str],\ndiff --git a/referee/loop/cagir.py b/referee/loop/cagir.py\nindex d50d39a..d048720 100644\n--- a/referee/loop/cagir.py\n+++ b/referee/loop/cagir.py\n@@ -41,4 +41,5 @@ whole new ledger by ``ledger.cycle`` before anything is signed.\n-Out of scope, stated: where the ``claude`` CLI, its sha512 pin and the model come from in a real run (the job's\n-environment, ``loop.job``; no page this clone has names them for the loop: founder ledger and report\n-seed-042) and the CLI's real output shapes\n-(asama-0/10a ``#model``).\n+The ``claude`` CLI, its sha512 pin and the model are the caller's arguments: in a run, ``loop.job``'s ``cagir`` gives\n+the CLI the ``claude`` step installs, the sha512 of that file when the job read it and ``bootstrap.json``'s\n+``rival.model`` (``loop.inputs``, tohum/29s).\n+\n+Out of scope, stated: the CLI's real output shapes (asama-0/10a ``#model``).\ndiff --git a/referee/loop/inputs.py b/referee/loop/inputs.py\nnew file mode 100644\nindex 0000000..4847c89\n--- /dev/null\n+++ b/referee/loop/inputs.py\n@@ -0,0 +1,135 @@\n+\"\"\"The loop's inputs that come from the referee repository's own files, not from operator variables (stage 0,\n+MF17): the brain repository, the Sigstore program and the canary's ``claude`` CLI and model.\n+\n+Rules: tohum/29s (no input of a ``loop.yml`` run is an operator variable, a trigger input or a program already on the\n+runner's PATH). One reader per input, used by every job that needs it:\n+\n+- **The brain repository** (``brain_repo``): ``bootstrap.json``'s ``brain_repo``, ``owner/name``\n+  (``loop.accepted.repo_name``'s rule). ``cek`` reads it for D1's fetch of the accepted brain commit.\n+- **The canary's model** (``rival_model``): ``bootstrap.json``'s ``rival.model``, a non-empty string. ``cagir``\n+  sends it as the canary's requested model (D4).\n+- **The Sigstore program** (``sigstore``): ``$RUNNER_TEMP/sig/bin/python -m sigstore``, the virtual environment the\n+  ``sigstore`` step (``STEPS[\"sigstore\"]``, 29s's text) installs from the control step's clone of\n+  ``bootstrap/requirements/sign.txt``. ``cek`` verifies with it (the bootstrap state, the root's Rekor entry), ``yaz``\n+  signs with it (``loop.sign``).\n+- **The canary's CLI** (``claude``): ``$RUNNER_TEMP/control/bootstrap/requirements/claude-cli/node_modules/.bin/claude``,\n+  the program the ``claude`` step (``STEPS[\"claude\"]``, 29s's text) installs with ``npm ci`` from the pinned lock and\n+  checks against the pinned version. That lock and version check is the pin (29s: there is no separate pin of the\n+  executable's bytes); ``cagir`` hashes the file when the job reads it and gives that sha512 to MF15\n+  (``dispatcher.llm_call``), which hashes it again before it starts the process: the bytes run are the bytes the\n+  job found after the step, not a pin from elsewhere.\n+\n+``bootstrap.json`` is read from the job's checkout (``$GITHUB_WORKSPACE/bootstrap.json``), the run's own commit of the\n+referee repository, the commit ``cek`` also reads ``setup/`` and ``policy.json`` from: every operator file of one\n+run comes from one commit. 29s also names the control step's clone (``$RUNNER_TEMP/control/bootstrap.json``, ``main``\n+as it is now); it is not read here. The file must be a regular file holding one JSON object with no duplicate key\n+and no ``NaN`` or ``Infinity``; each reader checks only its own field, so a job is not stopped by a field it does\n+not use. Every refusal is ``InputError`` with one reason: ``bootstrap_unreadable`` (absent, not a regular file, not\n+UTF-8, not that JSON), ``brain_repo_invalid``, ``rival_model_invalid``, ``sigstore_missing`` and ``claude_missing``\n+(the step's program is not a file: the step did not run or failed). A job turns each into no verdict (exit 2):\n+these are the operator's files and the run's own steps, not the brain's work.\n+\n+Out of scope, stated: what the two steps do (29s's text, run by Actions; test 46 checks the workflow carries them\n+exactly and ``tests/test_install_steps_spec.py`` binds the copies to 29s); the other fields of ``bootstrap.json``\n+(the bootstrap referee's); which targets a run serves (29s \"Hedefler\"; ``loop.job`` still reads ``LOOP_TARGET``).\n+\"\"\"\n+\n+from __future__ import annotations\n+\n+import json\n+import os\n+import stat\n+from typing import Any\n+\n+from ledger import chain\n+from loop import accepted as A\n+\n+BOOTSTRAP = \"bootstrap.json\"\n+MAX_BOOTSTRAP = 1 << 20\n+\n+SIGSTORE_PYTHON = (\"sig\", \"bin\", \"python\")  # under $RUNNER_TEMP\n+CLAUDE_CLI = (\"control\", \"bootstrap\", \"requirements\", \"claude-cli\", \"node_modules\", \".bin\", \"claude\")\n+\n+# tohum/29s \"Sigstore\" and \"Kanaryanın claude CLI'si\": each step's ``run``, byte for byte (``loop.job`` adds the\n+# name and the control gate).\n+SIGSTORE_RUN = (\n+    \"set -eu\\n\"\n+    \"cd \\\"$RUNNER_TEMP/control/bootstrap\\\"\\n\"\n+    \"python3 -m venv \\\"$RUNNER_TEMP/sig\\\"\\n\"\n+    \"\\\"$RUNNER_TEMP/sig/bin/pip\\\" download --quiet --require-hashes --only-binary=:all: --no-deps -d\"\n+    \" \\\"$RUNNER_TEMP/sigw\\\" -r requirements/sign.txt\\n\"\n+    \"python3 -m snowball_bootstrap licenses --root .. --wheels \\\"$RUNNER_TEMP/sigw\\\"\\n\"\n+    \"\\\"$RUNNER_TEMP/sig/bin/pip\\\" install --quiet --no-index --find-links \\\"$RUNNER_TEMP/sigw\\\" --require-hashes\"\n+    \" --only-binary=:all: --no-deps -r requirements/sign.txt\\n\")\n+CLAUDE_RUN = (\n+    \"set -eu\\n\"\n+    \"C=\\\"$RUNNER_TEMP/control/bootstrap/requirements/claude-cli\\\"\\n\"\n+    \"node -e 'process.exit(Number(process.versions.node.split(\\\".\\\")[0]) >= 22 ? 0 : 1)'\\n\"\n+    \"npm ci --prefix \\\"$C\\\" --no-audit --no-fund\\n\"\n+    \"pinned=$(node -p \\\"require('$C/package.json').dependencies['@anthropic-ai/claude-code']\\\")\\n\"\n+    \"test \\\"$(\\\"$C/node_modules/.bin/claude\\\" --version | cut -d' ' -f1)\\\" = \\\"$pinned\\\"\\n\")\n+STEPS = {\"sigstore\": SIGSTORE_RUN, \"claude\": CLAUDE_RUN}  # step name -> run\n+\n+\n+class InputError(Exception):\n+    def __init__(self, reason: str):\n+        self.reason = reason\n+        super().__init__(reason)\n+\n+\n+def _temp(environ: dict[str, str]) -> str:\n+    temp = environ.get(\"RUNNER_TEMP\")\n+    if not temp or not os.path.isabs(temp):\n+        raise InputError(\"runner_temp_unset\")\n+    return temp\n+\n+\n+def _bootstrap(workspace: str) -> dict[str, Any]:\n+    path = os.path.join(workspace, BOOTSTRAP)\n+    try:\n+        if not stat.S_ISREG(os.lstat(path).st_mode):\n+            raise InputError(\"bootstrap_unreadable\")\n+        with open(path, \"rb\") as fh:\n+            data = fh.read(MAX_BOOTSTRAP + 1)\n+        if len(data) > MAX_BOOTSTRAP:\n+            raise InputError(\"bootstrap_unreadable\")\n+        doc = json.loads(data.decode(\"utf-8\"), object_pairs_hook=chain._no_duplicates,\n+                         parse_constant=chain._no_constant)\n+    except (OSError, UnicodeDecodeError, ValueError, RecursionError):\n+        raise InputError(\"bootstrap_unreadable\") from None\n+    if not isinstance(doc, dict):\n+        raise InputError(\"bootstrap_unreadable\")\n+    return doc\n+\n+\n+def brain_repo(workspace: str) -> str:\n+    \"\"\"``bootstrap.json``'s ``brain_repo`` (``owner/name``).\"\"\"\n+    try:\n+        return A.repo_name(_bootstrap(workspace).get(\"brain_repo\"))\n+    except A.StateError:\n+        raise InputError(\"brain_repo_invalid\") from None\n+\n+\n+def rival_model(workspace: str) -> str:\n+    \"\"\"``bootstrap.json``'s ``rival.model``, a non-empty string.\"\"\"\n+    rival = _bootstrap(workspace).get(\"rival\")\n+    model = rival.get(\"model\") if isinstance(rival, dict) else None\n+    if not (isinstance(model, str) and model.strip()):\n+        raise InputError(\"rival_model_invalid\")\n+    return model\n+\n+\n+def sigstore(environ: dict[str, str]) -> tuple[str, ...]:\n+    \"\"\"The Sigstore program's argv prefix, ``(<RUNNER_TEMP>/sig/bin/python, -m, sigstore)``.\"\"\"\n+    python = os.path.join(_temp(environ), *SIGSTORE_PYTHON)\n+    if not os.path.isfile(python):\n+        raise InputError(\"sigstore_missing\")\n+    return (python, \"-m\", \"sigstore\")\n+\n+\n+def claude(environ: dict[str, str]) -> str:\n+    \"\"\"The canary's ``claude`` CLI, as the ``claude`` step installed it.\"\"\"\n+    path = os.path.join(_temp(environ), *CLAUDE_CLI)\n+    if not os.path.isfile(path):\n+        raise InputError(\"claude_missing\")\n+    return path\ndiff --git a/referee/loop/job.py b/referee/loop/job.py\nindex eadacfd..4e6ddb7 100644\n--- a/referee/loop/job.py\n+++ b/referee/loop/job.py\n@@ -28,5 +28,9 @@ that runs both jobs on the handed-over bytes, a stated unread download, or a pro\n-2. the writer App token (``yaz`` only), made inside the job.\n-3. checkout of the run's own commit of the referee repository, ``persist-credentials: false``.\n-4. one download per artifact the job reads, by the producing job's artifact id, ``digest-mismatch: error``.\n-5. ``python3 -m loop.job run <job>``, with the expected artifact digests and the job's secrets in ``env``.\n-6. the upload of the job's artifact, whose id and digest are job outputs.\n+2. the job's install steps (``Job.installs``; tohum/29s, the text in ``loop.inputs.STEPS``): ``sigstore`` in ``cek``\n+   and ``yaz`` (the pinned Sigstore from the control step's clone, through the seed's license gate, into\n+   ``$RUNNER_TEMP/sig``), ``claude`` in ``cagir`` (``npm ci`` of the pinned CLI lock in the control step's clone and\n+   the version check). They carry no secret: a job's secrets are only in its ``run`` step's ``env``.\n+3. the writer App token (``yaz`` only), made inside the job.\n+4. checkout of the run's own commit of the referee repository, ``persist-credentials: false``.\n+5. one download per artifact the job reads, by the producing job's artifact id, ``digest-mismatch: error``.\n+6. ``python3 -m loop.job run <job>``, with the expected artifact digests and the job's secrets in ``env``.\n+7. the upload of the job's artifact, whose id and digest are job outputs.\n@@ -93,2 +97,3 @@ refused tree is ``pulled_invalid``). Then:\n-  ``ratchet_base`` row of a cycle that merges) and D7's end, the signer ``loop.sign.SigstoreSigner`` pinned to\n-  ``loop.yml`` on ``$GITHUB_REPOSITORY``'s ``main`` (``loop.accepted.workflow_identity``, the identity the next cycle's\n+  ``ratchet_base`` row of a cycle that merges) and D7's end, the signer ``loop.sign.SigstoreSigner`` with the\n+  ``sigstore`` step's program (``_signer``; none installed is unusable), pinned to ``loop.yml`` on\n+  ``$GITHUB_REPOSITORY``'s ``main`` (``loop.accepted.workflow_identity``, the identity the next cycle's\n@@ -112,4 +117,4 @@ refused tree is ``pulled_invalid``). Then:\n-  job's ``GITHUB_TOKEN``, ``actions: read``; the artifact verified by ``sigstore`` on PATH), fetches the accepted\n-  brain commit with ``loop.fetch`` from ``loop.accepted.repo_url`` of ``$LOOP_BRAIN_REPO`` (the operator's\n-  repository variable ``BRAIN_REPO``, an assumption: no page this clone has names where the loop finds the brain\n-  repository's name) into ``$RUNNER_TEMP/work/cek-*/brain.git``, and compares its ``referee/`` hash with the last\n+  job's ``GITHUB_TOKEN``, ``actions: read``; the artifact verified by the ``sigstore`` step's program,\n+  ``loop.inputs.sigstore``, which the Rekor entry's check below runs too), fetches the accepted\n+  brain commit with ``loop.fetch`` from ``loop.accepted.repo_url`` of ``bootstrap.json``'s ``brain_repo`` in the\n+  checkout (``loop.inputs.brain_repo``, tohum/29s) into ``$RUNNER_TEMP/work/cek-*/brain.git``, and compares its ``referee/`` hash with the last\n@@ -118 +123,2 @@ refused tree is ``pulled_invalid``). Then:\n-  too: no page says which of ``targets[]`` a run serves): its ``targets[]`` entry in the checkout's\n+  that contradicts tohum/29s \"Hedefler\", which came after it: a run serves every ``targets[]`` entry in order, with\n+  no variable choosing; the next change of this module): its ``targets[]`` entry in the checkout's\n@@ -124 +130,2 @@ refused tree is ``pulled_invalid``). Then:\n-  An unset variable, a bootstrap state that is absent, unreadable or unverified, an unreadable checkout file, a\n+  An unset variable, an unusable ``bootstrap.json`` or ``brain_repo``, no ``sigstore`` step program, a bootstrap\n+  state that is absent, unreadable or unverified, an unreadable checkout file, a\n@@ -161,6 +168,6 @@ refused tree is ``pulled_invalid``). Then:\n-- ``cagir`` runs D4 (``cagir_d4``), and with it the whole job: it needs ``CAGIR_ENV`` set (the provider token, the\n-  operator's repository variables ``CANARY_MODEL`` and ``CLAUDE_CLI_SHA512`` as ``LOOP_CANARY_MODEL`` and\n-  ``LOOP_CLAUDE_SHA512``, assumptions: no page this clone has names the canary's model or where the loop's CLI pin\n-  is read, report seed-042; Actions' own ``GITHUB_RUN_ID`` and ``GITHUB_RUN_ATTEMPT``), reads\n-  ``$RUNNER_TEMP/in/pulled`` with ``loop.pulled.read`` (a refusal is ``pulled_invalid``; no unit or tree is read),\n-  takes ``claude`` from ``PATH`` and runs ``loop.cagir.d4``: MF15's one canary call, budgeted by the artifact's\n+- ``cagir`` runs D4 (``cagir_d4``), and with it the whole job: it needs ``CAGIR_ENV`` set (the provider token;\n+  Actions' own ``GITHUB_WORKSPACE``, ``GITHUB_RUN_ID`` and ``GITHUB_RUN_ATTEMPT``), takes the CLI the ``claude`` step\n+  installed (``loop.inputs.claude``) and the model ``bootstrap.json``'s ``rival.model`` in the checkout\n+  (``loop.inputs.rival_model``; tohum/29s), reads ``$RUNNER_TEMP/in/pulled`` with ``loop.pulled.read`` (a refusal is\n+  ``pulled_invalid``; no unit or tree is read), hashes the CLI file (its sha512 is the pin MF15 checks again\n+  before it starts the process, and is in the line as ``claude_sha512``) and runs ``loop.cagir.d4``: MF15's one canary call, budgeted by the artifact's\n@@ -171,3 +178,3 @@ refused tree is ``pulled_invalid``). Then:\n-  held. An unset variable, no CLI on ``PATH``, a CLI that is not the pinned one, a ``canary_usd`` that is no amount,\n-  a ledger that is not a chain and an existing ``out/response`` are unusable (exit 2), nothing started. The CLI is\n-  not installed by the workflow (seed-042): on a runner without it the job has no verdict.\n+  held. An unset variable, no CLI where the step installs it, an unusable ``bootstrap.json`` or ``rival.model``, a\n+  ``canary_usd`` that is no amount, a ledger that is not a chain and an existing ``out/response`` are unusable (exit\n+  2), nothing started.\n@@ -217,0 +225 @@ from loop import gitobj as G\n+from loop import inputs as IN\n@@ -281,0 +290 @@ class Job(NamedTuple):\n+    installs: tuple[str, ...] = ()  # tohum/29s's install steps (``loop.inputs.STEPS``) the job runs after control\n@@ -286,3 +295,2 @@ JOBS: dict[str, Job] = {\n-               {\"GITHUB_TOKEN\": \"${{ github.token }}\", \"LOOP_BRAIN_REPO\": \"${{ vars.BRAIN_REPO }}\",\n-                \"LOOP_TARGET\": \"${{ vars.LOOP_TARGET }}\"},\n-               (), (), \"pulled\"),\n+               {\"GITHUB_TOKEN\": \"${{ github.token }}\", \"LOOP_TARGET\": \"${{ vars.LOOP_TARGET }}\"},\n+               (), (), \"pulled\", (\"sigstore\",)),\n@@ -292,3 +300,2 @@ JOBS: dict[str, Job] = {\n-                 {\"CLAUDE_CODE_OAUTH_TOKEN\": \"${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}\",\n-                  \"LOOP_CANARY_MODEL\": \"${{ vars.CANARY_MODEL }}\", \"LOOP_CLAUDE_SHA512\": \"${{ vars.CLAUDE_CLI_SHA512 }}\"},\n-                 (\"cek\",), (\"pulled\",), \"response\"),\n+                 {\"CLAUDE_CODE_OAUTH_TOKEN\": \"${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}\"},\n+                 (\"cek\",), (\"pulled\",), \"response\", (\"claude\",)),\n@@ -298 +305 @@ JOBS: dict[str, Job] = {\n-               (\"cek\", \"getir\", \"kos\", \"cagir\"), (\"pulled\", \"deps\", \"results\", \"response\"), None),\n+               (\"cek\", \"getir\", \"kos\", \"cagir\"), (\"pulled\", \"deps\", \"results\", \"response\"), None, (\"sigstore\",)),\n@@ -333,0 +341 @@ def _steps(name: str) -> list[dict[str, Any]]:\n+    steps.extend({\"name\": step, \"if\": GO, \"run\": IN.STEPS[step]} for step in job.installs)\n@@ -671 +679 @@ def yaz_d6(environ: dict[str, str], art: Any, tree: str, d5: dict[str, Any], tra\n-    signer = signer or SG.SigstoreSigner(A.workflow_identity(environ[\"GITHUB_REPOSITORY\"], A.LOOP_WORKFLOW))\n+    signer = signer or _signer(environ)\n@@ -684 +692,11 @@ def yaz_d6(environ: dict[str, str], art: Any, tree: str, d5: dict[str, Any], tra\n-CAGIR_ENV = (\"CLAUDE_CODE_OAUTH_TOKEN\", \"LOOP_CANARY_MODEL\", \"LOOP_CLAUDE_SHA512\", \"GITHUB_RUN_ID\", \"GITHUB_RUN_ATTEMPT\")\n+def _signer(environ: dict[str, str]) -> SG.SigstoreSigner:\n+    \"\"\"``yaz``'s root signer: ``loop.sign.SigstoreSigner`` with the ``sigstore`` step's program, pinned to ``loop.yml``\n+    on ``$GITHUB_REPOSITORY``'s ``main``.\"\"\"\n+    try:\n+        return SG.SigstoreSigner(A.workflow_identity(environ[\"GITHUB_REPOSITORY\"], A.LOOP_WORKFLOW),\n+                                 IN.sigstore(environ))\n+    except (A.StateError, IN.InputError) as exc:\n+        raise Unusable(\"yaz: %s\" % cli.cause(exc)) from None\n+\n+\n+CAGIR_ENV = (\"CLAUDE_CODE_OAUTH_TOKEN\", \"GITHUB_WORKSPACE\", \"GITHUB_RUN_ID\", \"GITHUB_RUN_ATTEMPT\")\n@@ -687,2 +705 @@ CAGIR_ENV = (\"CLAUDE_CODE_OAUTH_TOKEN\", \"LOOP_CANARY_MODEL\", \"LOOP_CLAUDE_SHA512\n-def cagir_d4(environ: dict[str, str], claude: str | None = None,\n-             now: Any = None) -> dict[str, Any]:\n+def cagir_d4(environ: dict[str, str], now: Any = None) -> dict[str, Any]:\n@@ -690,2 +707 @@ def cagir_d4(environ: dict[str, str], claude: str | None = None,\n-    reason ``out/response`` holds the artifact. ``claude`` is the CLI's path (``claude`` on ``PATH`` when ``None``),\n-    ``now`` the clock (``datetime.now(timezone.utc)`` when ``None``).\"\"\"\n+    ``out/response`` holds the artifact. ``now`` is the clock (``datetime.now(timezone.utc)`` when ``None``).\"\"\"\n@@ -695,0 +712,5 @@ def cagir_d4(environ: dict[str, str], claude: str | None = None,\n+    try:\n+        path = IN.claude(environ)\n+        model = IN.rival_model(environ[\"GITHUB_WORKSPACE\"])\n+    except IN.InputError as exc:\n+        raise Unusable(\"cagir: %s\" % cli.cause(exc)) from None\n@@ -700,3 +720,0 @@ def cagir_d4(environ: dict[str, str], claude: str | None = None,\n-    path = claude or shutil.which(\"claude\", path=environ.get(\"PATH\", \"\"))\n-    if not path:\n-        raise Unusable(\"cagir: no claude CLI on PATH\")\n@@ -705,2 +723,3 @@ def cagir_d4(environ: dict[str, str], claude: str | None = None,\n-        got = CG.d4(art, out, claude=path, claude_sha512=environ[\"LOOP_CLAUDE_SHA512\"],\n-                    model=environ[\"LOOP_CANARY_MODEL\"], token=environ[\"CLAUDE_CODE_OAUTH_TOKEN\"],\n+        # the bytes found after the claude step: MF15 hashes the file again before it starts it (loop.inputs)\n+        pin = LL.sha512_file(path)\n+        got = CG.d4(art, out, claude=path, claude_sha512=pin, model=model, token=environ[\"CLAUDE_CODE_OAUTH_TOKEN\"],\n@@ -710 +729 @@ def cagir_d4(environ: dict[str, str], claude: str | None = None,\n-    return {\"call\": got}\n+    return {\"call\": got, \"claude_sha512\": pin}\n@@ -718 +737 @@ def cek_d1(environ: dict[str, str], http: Any = None, verifier: Any = None, git:\n-    for name in (\"GITHUB_REPOSITORY\", \"GITHUB_TOKEN\", \"GITHUB_WORKSPACE\", \"LOOP_BRAIN_REPO\", \"LOOP_TARGET\"):\n+    for name in (\"GITHUB_REPOSITORY\", \"GITHUB_TOKEN\", \"GITHUB_WORKSPACE\", \"LOOP_TARGET\"):\n@@ -721,0 +741,2 @@ def cek_d1(environ: dict[str, str], http: Any = None, verifier: Any = None, git:\n+        sigstore = IN.sigstore(environ)\n+        brain_url = A.repo_url(IN.brain_repo(environ[\"GITHUB_WORKSPACE\"]))\n@@ -723,3 +744,2 @@ def cek_d1(environ: dict[str, str], http: Any = None, verifier: Any = None, git:\n-                             verifier=verifier or A.run_verifier)\n-        brain_url = A.repo_url(environ[\"LOOP_BRAIN_REPO\"])\n-    except A.StateError as exc:\n+                             sigstore, verifier=verifier or A.run_verifier)\n+    except (A.StateError, IN.InputError) as exc:\n@@ -755 +775 @@ def cek_d1(environ: dict[str, str], http: Any = None, verifier: Any = None, git:\n-    entries = RK.entry_reasons((rekor or RK.RekorHttp()).entry, pin, verifier=verifier or A.run_verifier)\n+    entries = RK.entry_reasons((rekor or RK.RekorHttp()).entry, pin, sigstore, verifier=verifier or A.run_verifier)\n@@ -874 +894 @@ def run(name: str, environ: dict[str, str], runner: Any = None, red_control: dic\n-        rekor: Any = None, claude: str | None = None, now: Any = None, transport: Any = None,\n+        rekor: Any = None, now: Any = None, transport: Any = None,\n@@ -900 +920 @@ def run(name: str, environ: dict[str, str], runner: Any = None, red_control: dic\n-        d4 = cagir_d4(environ, claude, now)\n+        d4 = cagir_d4(environ, now)\ndiff --git a/referee/loop/rekor.py b/referee/loop/rekor.py\nindex 0e2a01b..68fbf54 100644\n--- a/referee/loop/rekor.py\n+++ b/referee/loop/rekor.py\n@@ -32,2 +32,3 @@ a real entry, the bundle its signer published and real ``sigstore`` 4.5.1's exit\n-Out of scope, stated: which ``sigstore`` program runs and the trust root it fetches (``loop.accepted``'s\n-paragraph); whether a newer root than the recorded one is in Rekor (a ``brain/state`` reset to an earlier, valid\n+The ``sigstore`` program is the caller's argv prefix (``loop.inputs.sigstore`` in ``cek``, tohum/29s).\n+\n+Out of scope, stated: the trust root the program fetches; whether a newer root than the recorded one is in Rekor (a ``brain/state`` reset to an earlier, valid\n@@ -50 +51 @@ import urllib.request\n-from typing import Any, Callable\n+from typing import Any, Callable, Sequence\n@@ -190 +191 @@ def bundle(entry: dict, body: dict) -> dict:\n-def entry_reasons(read: Callable[[str], dict | None], pin: str, sigstore: str = \"sigstore\",\n+def entry_reasons(read: Callable[[str], dict | None], pin: str, sigstore: Sequence[str],\ndiff --git a/referee/loop/sign.py b/referee/loop/sign.py\nindex ba313ac..978ba81 100644\n--- a/referee/loop/sign.py\n+++ b/referee/loop/sign.py\n@@ -28 +28,5 @@ recorded in ``tests/test_sign.py``.\n-Out of scope, stated: which ``sigstore`` program runs (the caller's, as in ``loop.accepted``); whether the entry is\n+The program is the caller's ``sigstore`` argv prefix: in ``yaz``, the one the ``sigstore`` step installs\n+(``loop.inputs.sigstore``, tohum/29s: ``sigstore==4.5.0``). The recorded exits above are 4.5.1's, the version the\n+fixtures were captured with; no exit of 4.5.0 on them is recorded here.\n+\n+Out of scope, stated: whether the entry is\n@@ -39 +43 @@ import tempfile\n-from typing import Callable\n+from typing import Callable, Sequence\n@@ -49,2 +53,2 @@ BUNDLE = \"root.sigstore.json\"\n-def sign_argv(sigstore: str, bundle: str, payload: str) -> list[str]:\n-    return [sigstore, \"sign\", \"--rekor-version\", \"1\", \"--bundle\", bundle, payload]\n+def sign_argv(sigstore: Sequence[str], bundle: str, payload: str) -> list[str]:\n+    return [*sigstore, \"sign\", \"--rekor-version\", \"1\", \"--bundle\", bundle, payload]\n@@ -77 +81 @@ class SigstoreSigner:\n-    def __init__(self, pin: str, sigstore: str = \"sigstore\", run: Callable[[list[str]], int] = A.run_verifier):\n+    def __init__(self, pin: str, sigstore: Sequence[str], run: Callable[[list[str]], int] = A.run_verifier):\ndiff --git a/referee/tests/capture_rekor_entry.py b/referee/tests/capture_rekor_entry.py\nindex 22ad683..940e5e9 100644\n--- a/referee/tests/capture_rekor_entry.py\n+++ b/referee/tests/capture_rekor_entry.py\n@@ -42 +42 @@ def verdict(sigstore: str, made: dict, identity: str, digest: str) -> int:\n-        return subprocess.run(A.identity_argv(sigstore, path, identity, \"sha256:\" + digest),\n+        return subprocess.run(A.identity_argv((sigstore,), path, identity, \"sha256:\" + digest),\ndiff --git a/referee/tests/fake_claude.py b/referee/tests/fake_claude.py\nindex ff2fbd5..447412b 100644\n--- a/referee/tests/fake_claude.py\n+++ b/referee/tests/fake_claude.py\n@@ -45,0 +46,9 @@ def install(directory: str) -> str:\n+def install_for_loop(runner_temp: str) -> str:\n+    \"\"\"The fake CLI where the loop's ``claude`` step leaves the real one (``loop.inputs.CLAUDE_CLI`` under\n+    ``$RUNNER_TEMP``, tohum/29s); its ``calls.jsonl`` and ``behavior.json`` are beside it (``os.path.dirname``).\"\"\"\n+    from loop import inputs\n+    directory = os.path.join(runner_temp, *inputs.CLAUDE_CLI[:-1])\n+    os.makedirs(directory, exist_ok=True)\n+    return install(directory)\n+\n+\ndiff --git a/referee/tests/loop_inputs_world.py b/referee/tests/loop_inputs_world.py\nnew file mode 100644\nindex 0000000..56566a8\n--- /dev/null\n+++ b/referee/tests/loop_inputs_world.py\n@@ -0,0 +1,34 @@\n+\"\"\"The loop's inputs from the referee repository's own files, as the tests place them (tohum/29s, ``loop.inputs``):\n+the checkout's ``bootstrap.json`` and the program the ``sigstore`` step leaves. The fake ``claude`` the ``claude``\n+step would leave is ``fake_claude.install_for_loop``.\"\"\"\n+\n+from __future__ import annotations\n+\n+import json\n+import os\n+\n+ABSENT = object()\n+BOOTSTRAP = {\"brain_repo\": \"o/brain\", \"rival\": {\"model\": \"claude-test-model\"}, \"other\": [1]}\n+\n+\n+def write_bootstrap(work: str, bootstrap=None) -> None:\n+    \"\"\"The checkout's ``bootstrap.json`` (tohum/29s): ``BOOTSTRAP`` when ``None``, else a dict, raw bytes, or\n+    ``ABSENT`` (no file).\"\"\"\n+    path = os.path.join(work, \"bootstrap.json\")\n+    if os.path.lexists(path):\n+        os.remove(path)\n+    if bootstrap is ABSENT:\n+        return\n+    body = BOOTSTRAP if bootstrap is None else bootstrap\n+    with open(path, \"wb\") as fh:\n+        fh.write(body if isinstance(body, bytes) else json.dumps(body).encode())\n+\n+\n+def install_sigstore(temp: str) -> str:\n+    \"\"\"The file the sigstore step leaves at ``$RUNNER_TEMP/sig/bin/python`` (never run here: the tests' verifier\n+    and signer are fakes).\"\"\"\n+    path = os.path.join(temp, \"sig\", \"bin\", \"python\")\n+    os.makedirs(os.path.dirname(path), exist_ok=True)\n+    with open(path, \"wb\") as fh:\n+        fh.write(b\"\")\n+    return path\ndiff --git a/referee/tests/mutants/loop_inputs.json b/referee/tests/mutants/loop_inputs.json\nnew file mode 100644\nindex 0000000..6ad6a92\n--- /dev/null\n+++ b/referee/tests/mutants/loop_inputs.json\n@@ -0,0 +1,130 @@\n+{\n+ \"mutants\": [\n+  {\n+   \"id\": \"bootstrap_link_followed\",\n+   \"file\": \"loop/inputs.py\",\n+   \"old\": \"        if not stat.S_ISREG(os.lstat(path).st_mode):\\n\",\n+   \"new\": \"        if not stat.S_ISREG(os.stat(path).st_mode):\\n\",\n+   \"tests\": [\n+    \"test_loop_cek.py\"\n+   ]\n+  },\n+  {\n+   \"id\": \"bootstrap_duplicate_key\",\n+   \"file\": \"loop/inputs.py\",\n+   \"old\": \"        doc = json.loads(data.decode(\\\"utf-8\\\"), object_pairs_hook=chain._no_duplicates,\\n\",\n+   \"new\": \"        doc = json.loads(data.decode(\\\"utf-8\\\"),\\n\",\n+   \"tests\": [\n+    \"test_loop_cek.py\"\n+   ]\n+  },\n+  {\n+   \"id\": \"bootstrap_unbounded\",\n+   \"file\": \"loop/inputs.py\",\n+   \"old\": \"        if len(data) > MAX_BOOTSTRAP:\\n\",\n+   \"new\": \"        if len(data) > MAX_BOOTSTRAP + 1:\\n\",\n+   \"tests\": [\n+    \"test_loop_cagir.py\"\n+   ]\n+  },\n+  {\n+   \"id\": \"bootstrap_array\",\n+   \"file\": \"loop/inputs.py\",\n+   \"old\": \"    if not isinstance(doc, dict):\\n        raise InputError(\\\"bootstrap_unreadable\\\")\\n\",\n+   \"new\": \"    if not isinstance(doc, (dict, list)):\\n        raise InputError(\\\"bootstrap_unreadable\\\")\\n\",\n+   \"tests\": [\n+    \"test_loop_cek.py\"\n+   ]\n+  },\n+  {\n+   \"id\": \"brain_repo_unchecked\",\n+   \"file\": \"loop/inputs.py\",\n+   \"old\": \"        return A.repo_name(_bootstrap(workspace).get(\\\"brain_repo\\\"))\\n\",\n+   \"new\": \"        return _bootstrap(workspace).get(\\\"brain_repo\\\")\\n\",\n+   \"tests\": [\n+    \"test_loop_cek.py\"\n+   ]\n+  },\n+  {\n+   \"id\": \"model_blank\",\n+   \"file\": \"loop/inputs.py\",\n+   \"old\": \"    if not (isinstance(model, str) and model.strip()):\\n\",\n+   \"new\": \"    if not (isinstance(model, str) and model):\\n\",\n+   \"tests\": [\n+    \"test_loop_cagir.py\"\n+   ]\n+  },\n+  {\n+   \"id\": \"sigstore_unchecked\",\n+   \"file\": \"loop/inputs.py\",\n+   \"old\": \"    if not os.path.isfile(python):\\n\",\n+   \"new\": \"    if False:\\n\",\n+   \"tests\": [\n+    \"test_loop_cek.py\"\n+   ]\n+  },\n+  {\n+   \"id\": \"claude_unchecked\",\n+   \"file\": \"loop/inputs.py\",\n+   \"old\": \"    if not os.path.isfile(path):\\n        raise InputError(\\\"claude_missing\\\")\\n\",\n+   \"new\": \"    if False:\\n        raise InputError(\\\"claude_missing\\\")\\n\",\n+   \"tests\": [\n+    \"test_loop_cagir.py\"\n+   ]\n+  },\n+  {\n+   \"id\": \"brain_repo_from_env\",\n+   \"file\": \"loop/job.py\",\n+   \"old\": \"        brain_url = A.repo_url(IN.brain_repo(environ[\\\"GITHUB_WORKSPACE\\\"]))\\n\",\n+   \"new\": \"        brain_url = A.repo_url(environ.get(\\\"LOOP_BRAIN_REPO\\\") or \\\"o/brain\\\")\\n\",\n+   \"tests\": [\n+    \"test_loop_cek.py\"\n+   ]\n+  },\n+  {\n+   \"id\": \"model_from_env\",\n+   \"file\": \"loop/job.py\",\n+   \"old\": \"        model = IN.rival_model(environ[\\\"GITHUB_WORKSPACE\\\"])\\n\",\n+   \"new\": \"        model = environ.get(\\\"LOOP_CANARY_MODEL\\\") or IN.rival_model(environ[\\\"GITHUB_WORKSPACE\\\"])\\n\",\n+   \"tests\": [\n+    \"test_loop_cagir.py\"\n+   ]\n+  },\n+  {\n+   \"id\": \"claude_from_path\",\n+   \"file\": \"loop/job.py\",\n+   \"old\": \"        path = IN.claude(environ)\\n\",\n+   \"new\": \"        path = shutil.which(\\\"claude\\\", path=environ.get(\\\"PATH\\\", \\\"\\\")) or IN.claude(environ)\\n\",\n+   \"tests\": [\n+    \"test_loop_cagir.py\"\n+   ]\n+  },\n+  {\n+   \"id\": \"rekor_check_sigstore_on_path\",\n+   \"file\": \"loop/job.py\",\n+   \"old\": \"    entries = RK.entry_reasons((rekor or RK.RekorHttp()).entry, pin, sigstore, verifier=verifier or A.run_verifier)\\n\",\n+   \"new\": \"    entries = RK.entry_reasons((rekor or RK.RekorHttp()).entry, pin, (\\\"sigstore\\\",), verifier=verifier or A.run_verifier)\\n\",\n+   \"tests\": [\n+    \"test_loop_cek.py\"\n+   ]\n+  },\n+  {\n+   \"id\": \"signer_sigstore_on_path\",\n+   \"file\": \"loop/job.py\",\n+   \"old\": \"                                 IN.sigstore(environ))\\n\",\n+   \"new\": \"                                 (\\\"sigstore\\\",))\\n\",\n+   \"tests\": [\n+    \"test_loop_yaz.py\"\n+   ]\n+  },\n+  {\n+   \"id\": \"yaz_without_sigstore_step\",\n+   \"file\": \"loop/job.py\",\n+   \"old\": \"None, (\\\"sigstore\\\",)),\\n\",\n+   \"new\": \"None),\\n\",\n+   \"tests\": [\n+    \"test_loop_workflow.py\"\n+   ]\n+  }\n+ ]\n+}\ndiff --git a/referee/tests/mutants/sign.json b/referee/tests/mutants/sign.json\nindex 1e1a8f8..3e53358 100644\n--- a/referee/tests/mutants/sign.json\n+++ b/referee/tests/mutants/sign.json\n@@ -6,2 +6,2 @@\n-   \"old\": \"    return [sigstore, \\\"sign\\\", \\\"--rekor-version\\\", \\\"1\\\", \\\"--bundle\\\", bundle, payload]\\n\",\n-   \"new\": \"    return [sigstore, \\\"sign\\\", \\\"--bundle\\\", bundle, payload]\\n\",\n+   \"old\": \"    return [*sigstore, \\\"sign\\\", \\\"--rekor-version\\\", \\\"1\\\", \\\"--bundle\\\", bundle, payload]\\n\",\n+   \"new\": \"    return [*sigstore, \\\"sign\\\", \\\"--bundle\\\", bundle, payload]\\n\",\ndiff --git a/referee/tests/test_accepted.py b/referee/tests/test_accepted.py\nindex e95a38e..dab041b 100644\n--- a/referee/tests/test_accepted.py\n+++ b/referee/tests/test_accepted.py\n@@ -153 +153 @@ class Verify(unittest.TestCase):\n-        self.assertEqual(A.verify_argv(\"sigstore\", REPO, \"/d\"), [\n+        self.assertEqual(A.verify_argv((\"sigstore\",), REPO, \"/d\"), [\n@@ -156,0 +157,3 @@ class Verify(unittest.TestCase):\n+        # the program is an argv prefix: the sigstore step's venv runs as ``python -m sigstore`` (tohum/29s)\n+        self.assertEqual(A.verify_argv((\"/t/sig/bin/python\", \"-m\", \"sigstore\"), REPO, \"/d\")[:5],\n+                         [\"/t/sig/bin/python\", \"-m\", \"sigstore\", \"verify\", \"identity\"])\n@@ -162 +165 @@ class Verify(unittest.TestCase):\n-                    A.verify_argv(\"sigstore\", repo, \"/d\")\n+                    A.verify_argv((\"sigstore\",), repo, \"/d\")\n@@ -179 +182 @@ class Verify(unittest.TestCase):\n-        out = A.open_state(GOOD_ZIP[\"result.json\"], b\"B\", REPO, \"sg\", verifier)\n+        out = A.open_state(GOOD_ZIP[\"result.json\"], b\"B\", REPO, (\"sg\",), verifier)\n@@ -190 +193 @@ class Verify(unittest.TestCase):\n-                A.open_state(body, b\"B\", REPO, verifier=lambda argv: 1)\n+                A.open_state(body, b\"B\", REPO, (\"sigstore\",), verifier=lambda argv: 1)\n@@ -198 +201 @@ class Verify(unittest.TestCase):\n-                    A.open_state(body, b\"B\", REPO, verifier=lambda argv: 0)\n+                    A.open_state(body, b\"B\", REPO, (\"sigstore\",), verifier=lambda argv: 0)\n@@ -208 +211 @@ class Verify(unittest.TestCase):\n-            self.assertEqual(A.open_state(result(), b\"B\", REPO, prog)[\"last_accepted_sha\"], SHA)\n+            self.assertEqual(A.open_state(result(), b\"B\", REPO, (prog,))[\"last_accepted_sha\"], SHA)\n@@ -212 +215 @@ class Verify(unittest.TestCase):\n-                A.open_state(result(), b\"B\", REPO, os.path.join(tmp, \"absent\"))\n+                A.open_state(result(), b\"B\", REPO, (os.path.join(tmp, \"absent\"),))\n@@ -243 +246 @@ class ReadState(unittest.TestCase):\n-        out = A.read_state(api, REPO, verifier=lambda argv: 0)\n+        out = A.read_state(api, REPO, (\"sigstore\",), verifier=lambda argv: 0)\n@@ -254 +257 @@ class ReadState(unittest.TestCase):\n-                A.read_state(api, REPO, verifier=lambda argv: 0)\n+                A.read_state(api, REPO, (\"sigstore\",), verifier=lambda argv: 0)\n@@ -261 +264 @@ class ReadState(unittest.TestCase):\n-            A.read_state(Bad([], b\"\"), REPO, verifier=lambda argv: 0)\n+            A.read_state(Bad([], b\"\"), REPO, (\"sigstore\",), verifier=lambda argv: 0)\n@@ -275 +278 @@ class ReadState(unittest.TestCase):\n-            A.read_state(api, REPO, verifier=lambda argv: 1)\n+            A.read_state(api, REPO, (\"sigstore\",), verifier=lambda argv: 1)\n@@ -284 +287 @@ class Http(unittest.TestCase):\n-        out = A.read_state(A.ActionsHttp(\"tok\", handlers=(fake,)), REPO, verifier=lambda argv: 0)\n+        out = A.read_state(A.ActionsHttp(\"tok\", handlers=(fake,)), REPO, (\"sigstore\",), verifier=lambda argv: 0)\ndiff --git a/referee/tests/test_loop_cagir.py b/referee/tests/test_loop_cagir.py\nindex a5667d4..b6e408e 100644\n--- a/referee/tests/test_loop_cagir.py\n+++ b/referee/tests/test_loop_cagir.py\n@@ -4,2 +4,4 @@\n-- the call: one process, the referee's own template with the target's id as typed input (the prompt on stdin, the\n-  id in its RFC 8785 form), the model and pin of the job's environment, ``--max-budget-usd`` the canary's\n+- the call: one process, the CLI the ``claude`` step installs (``loop.inputs.claude``, tohum/29s; the fake placed\n+  there), the referee's own template with the target's id as typed input (the prompt on stdin, the id in its RFC\n+  8785 form), the model ``bootstrap.json``'s ``rival.model`` in the checkout (no variable is read), the pin the\n+  CLI file's sha512 when the job read it (in the line), ``--max-budget-usd`` the canary's\n@@ -13,2 +15,3 @@\n-  absent, ``true``, a string or negative, a ledger in ``pulled`` that is not a chain, a CLI that is not the pinned\n-  one, no CLI on ``PATH``, an unset variable and an existing ``out/response`` (no verdict, exit 2).\n+  absent, ``true``, a string or negative, a ledger in ``pulled`` that is not a chain, no CLI where the step installs\n+  it (one on ``PATH`` is not used), an unusable ``bootstrap.json`` or ``rival.model``, an unset variable and an\n+  existing ``out/response`` (no verdict, exit 2).\n@@ -33,0 +37 @@ from loop import cagir as CG  # noqa: E402\n+from loop import inputs  # noqa: E402\n@@ -36,0 +41 @@ from test_loop_kos import HEADS, Base, state_files  # noqa: E402\n+from loop_inputs_world import ABSENT, BOOTSTRAP, write_bootstrap  # noqa: E402\n@@ -66,3 +71,2 @@ class CagirJob(Base):\n-        self.bin = os.path.join(self.base, \"bin\")\n-        os.makedirs(self.bin)\n-        self.claude = fake_claude.install(self.bin)\n+        self.claude = fake_claude.install_for_loop(self.temp)\n+        self.bin = os.path.dirname(self.claude)\n@@ -70,3 +74,5 @@ class CagirJob(Base):\n-        self.env = {\"RUNNER_TEMP\": self.temp, \"CLAUDE_CODE_OAUTH_TOKEN\": TOKEN, \"LOOP_CANARY_MODEL\": MODEL,\n-                    \"LOOP_CLAUDE_SHA512\": L.sha512_file(self.claude), \"GITHUB_RUN_ID\": \"77\",\n-                    \"GITHUB_RUN_ATTEMPT\": \"2\", \"PATH\": self.bin + os.pathsep + os.environ.get(\"PATH\", \"\")}\n+        self.work = os.path.join(self.base, \"checkout\")\n+        os.makedirs(self.work)\n+        write_bootstrap(self.work, dict(BOOTSTRAP, rival={\"model\": MODEL}))\n+        self.env = {\"RUNNER_TEMP\": self.temp, \"CLAUDE_CODE_OAUTH_TOKEN\": TOKEN, \"GITHUB_WORKSPACE\": self.work,\n+                    \"GITHUB_RUN_ID\": \"77\", \"GITHUB_RUN_ATTEMPT\": \"2\", \"PATH\": os.environ.get(\"PATH\", \"\")}\n@@ -108,0 +115 @@ class CagirJob(Base):\n+        self.assertEqual(out[\"claude_sha512\"], L.sha512_file(self.claude))\n@@ -142 +149,2 @@ class CagirJob(Base):\n-                shutil.rmtree(self.temp, ignore_errors=True)\n+                for d in (\"in\", \"out\"):  # not the claude step's CLI, which is under the same RUNNER_TEMP\n+                    shutil.rmtree(os.path.join(self.temp, d), ignore_errors=True)\n@@ -198 +206,38 @@ class CagirJob(Base):\n-    def test_the_pin_the_path_and_the_environment(self):\n+    def test_the_model_is_bootstrap_json_s_and_no_variable_is_read(self):\n+        write_bootstrap(self.work, {\"rival\": {\"model\": \"claude-other-model\"}})  # cagir needs no brain_repo\n+        fake_claude.behave(self.bin, result(modelUsage={\"claude-other-model\": {\"costUSD\": 0.01}}))\n+        self.write()\n+        out = self.run_cagir(LOOP_CANARY_MODEL=MODEL, CANARY_MODEL=MODEL, LOOP_CLAUDE_SHA512=\"0\" * 128)\n+        self.assertEqual(out[\"call\"][\"outcome\"], \"ok\")\n+        argv = self.calls()[0][\"argv\"]\n+        self.assertEqual(argv[argv.index(\"--model\") + 1], \"claude-other-model\")\n+\n+    def test_an_unusable_bootstrap_starts_nothing(self):\n+        self.write()\n+        for boot in (ABSENT, b\"{\", b'{\"rival\": {\"model\": \"a\"}, \"rival\": {\"model\": \"b\"}}', b\"[]\", {\"rival\": \"m\"},\n+                     {\"rival\": {}}, {\"rival\": {\"model\": \"\"}}, {\"rival\": {\"model\": \" \"}}, {\"rival\": {\"model\": 5}},\n+                     {\"model\": MODEL}, b'{\"rival\": {\"model\": \"m\"}}'.ljust(inputs.MAX_BOOTSTRAP + 1)):\n+            with self.subTest(bootstrap=boot):\n+                write_bootstrap(self.work, boot)\n+                with self.assertRaisesRegex(J.Unusable, \"bootstrap_unreadable|rival_model_invalid\"):\n+                    self.run_cagir()\n+                self.assert_nothing()\n+\n+    def test_a_bootstrap_at_the_size_bound_is_read(self):\n+        self.write()\n+        write_bootstrap(self.work, ('{\"rival\": {\"model\": \"%s\"}}' % MODEL).encode().ljust(inputs.MAX_BOOTSTRAP))\n+        self.assertEqual(self.run_cagir()[\"call\"][\"outcome\"], \"ok\")\n+\n+    def test_the_cli_is_the_step_s_not_one_on_path(self):\n+        self.write()\n+        on_path = os.path.join(self.base, \"path-bin\")\n+        os.makedirs(on_path)\n+        fake_claude.install(on_path)\n+        fake_claude.behave(on_path, result())\n+        os.remove(self.claude)\n+        with self.assertRaisesRegex(J.Unusable, \"claude_missing\"):\n+            self.run_cagir(PATH=on_path + os.pathsep + os.environ.get(\"PATH\", \"\"))\n+        self.assertEqual(fake_claude.calls(on_path), [])\n+        self.assert_nothing()\n+\n+    def test_the_environment(self):\n@@ -200,2 +244,0 @@ class CagirJob(Base):\n-        self.no_verdict(LOOP_CLAUDE_SHA512=\"0\" * 128)\n-        self.no_verdict(PATH=os.path.join(self.base, \"nowhere\"))\ndiff --git a/referee/tests/test_loop_cek.py b/referee/tests/test_loop_cek.py\nindex ab7c603..cf83dbf 100644\n--- a/referee/tests/test_loop_cek.py\n+++ b/referee/tests/test_loop_cek.py\n@@ -53 +53 @@ import yaz_world as YW  # noqa: E402\n-from dispatcher import llm_call as L  # noqa: E402\n+from loop_inputs_world import ABSENT, BOOTSTRAP, install_sigstore, write_bootstrap  # noqa: E402\n@@ -357 +357,3 @@ class CekJob(unittest.TestCase):\n-                target=None, summary=None, rekor=None):\n+                target=None, summary=None, rekor=None, bootstrap=None, sigstore=True):\n+        \"\"\"``bootstrap``: the checkout's ``bootstrap.json`` (a dict, raw bytes, or ``ABSENT``); ``sigstore``: whether\n+        the sigstore step's program is in place (``loop.inputs.sigstore``).\"\"\"\n@@ -371,0 +374,3 @@ class CekJob(unittest.TestCase):\n+        write_bootstrap(self.work, bootstrap)\n+        if sigstore:\n+            install_sigstore(self.temp)\n@@ -375,2 +380 @@ class CekJob(unittest.TestCase):\n-                   \"GITHUB_WORKSPACE\": self.work, \"LOOP_BRAIN_REPO\": \"o/brain\", \"LOOP_TARGET\": \"t1\",\n-                   \"PATH\": os.environ.get(\"PATH\", \"\")}\n+                   \"GITHUB_WORKSPACE\": self.work, \"LOOP_TARGET\": \"t1\", \"PATH\": os.environ.get(\"PATH\", \"\")}\n@@ -412,0 +417,3 @@ class CekJob(unittest.TestCase):\n+        # both checks run the sigstore step's program (tohum/29s), an argv prefix\n+        program = (os.path.join(self.temp, \"sig\", \"bin\", \"python\"), \"-m\", \"sigstore\")\n+        self.assertEqual(self.verified[0][:3], list(program))\n@@ -414 +421 @@ class CekJob(unittest.TestCase):\n-            \"sigstore\", self.verified[1][4], \"https://github.com/o/referee/.github/workflows/loop.yml@refs/heads/main\",\n+            program, self.verified[1][6], \"https://github.com/o/referee/.github/workflows/loop.yml@refs/heads/main\",\n@@ -476,4 +483,2 @@ class CekJob(unittest.TestCase):\n-        claude_dir = os.path.join(self.base, \"claude-bin\")  # not self.bin: the fake git logs its calls there\n-        os.makedirs(claude_dir)\n-        claude = fake_claude.install(claude_dir)\n-        fake_claude.behave(claude_dir, test_loop_cagir.result())\n+        claude_dir = os.path.dirname(fake_claude.install_for_loop(temps[\"cagir\"]))\n+        fake_claude.behave(claude_dir, test_loop_cagir.result(modelUsage={BOOTSTRAP[\"rival\"][\"model\"]: {\"costUSD\": 0.01}}))\n@@ -481,2 +486 @@ class CekJob(unittest.TestCase):\n-                              \"LOOP_CANARY_MODEL\": test_loop_cagir.MODEL, \"LOOP_CLAUDE_SHA512\": L.sha512_file(claude),\n-                              \"GITHUB_RUN_ID\": \"1\", \"GITHUB_RUN_ATTEMPT\": \"1\"}, claude=claude)\n+                              \"GITHUB_WORKSPACE\": self.work, \"GITHUB_RUN_ID\": \"1\", \"GITHUB_RUN_ATTEMPT\": \"1\"})\n@@ -731,0 +736,53 @@ class CekJob(unittest.TestCase):\n+    def test_the_brain_repository_is_bootstrap_json_s(self):\n+        # tohum/29s: bootstrap.json's brain_repo in the checkout; no variable names it (one in env is not read)\n+        boot = dict(BOOTSTRAP, brain_repo=\"o2/brain-2\")\n+        out, commit, _ = self.run_cek(bootstrap=boot, env={\"LOOP_BRAIN_REPO\": \"o/elsewhere\", \"BRAIN_REPO\": \"o/x\"})\n+        self.assertTrue(out[\"ok\"], out)\n+        fetches = [a for a in (c[\"argv\"] for c in S.calls(self.bin)) if \"fetch\" in a]\n+        self.assertEqual((fetches[0][-2], fetches[0][-1]), (\"https://github.com/o2/brain-2\", \"%s:refs/pulled\" % commit))\n+        # a file without the model cek does not read is no reason to stop cek\n+        out, _, _ = self.reset_and_run(bootstrap={\"brain_repo\": \"o/brain\"})\n+        self.assertTrue(out[\"ok\"], out)\n+\n+    def reset_and_run(self, **kw):\n+        shutil.rmtree(self.temp)\n+        os.makedirs(self.temp)\n+        for name in os.listdir(self.bin):  # the fake git's record of the previous run\n+            os.remove(os.path.join(self.bin, name))\n+        return self.run_cek(**kw)\n+\n+    def test_an_unusable_bootstrap_or_no_sigstore_is_no_verdict_before_anything_is_read(self):\n+        bad = {\"absent\": (ABSENT, \"bootstrap_unreadable\"), \"not json\": (b\"{\", \"bootstrap_unreadable\"),\n+               \"not utf-8\": (b'{\"brain_repo\": \"o/\\xff\"}', \"bootstrap_unreadable\"),\n+               \"duplicate key\": (b'{\"brain_repo\": \"o/brain\", \"brain_repo\": \"o/brain\"}', \"bootstrap_unreadable\"),\n+               \"NaN\": (b'{\"brain_repo\": \"o/brain\", \"x\": NaN}', \"bootstrap_unreadable\"),\n+               \"an array\": (b'[{\"brain_repo\": \"o/brain\"}]', \"bootstrap_unreadable\"),\n+               \"no brain_repo\": ({\"rival\": {\"model\": \"m\"}}, \"brain_repo_invalid\"),\n+               \"a URL\": ({\"brain_repo\": \"https://github.com/o/brain\"}, \"brain_repo_invalid\"),\n+               \"three parts\": ({\"brain_repo\": \"o/brain/x\"}, \"brain_repo_invalid\"),\n+               \"a number\": ({\"brain_repo\": 7}, \"brain_repo_invalid\")}\n+        for label, (boot, reason) in bad.items():\n+            with self.subTest(bootstrap=label):\n+                api = self.TA.FakeApi([self.TA.artifact(11, \"2026-11-01T00:00:00Z\")], b\"\")\n+                with self.assertRaisesRegex(J.Unusable, reason):\n+                    self.reset_and_run(bootstrap=boot, http=api)\n+                self.assertFalse(os.path.exists(os.path.join(self.bin, \"calls.jsonl\")))  # no git ran\n+                self.assertEqual(api.calls, [])\n+        with self.subTest(file=\"a link to a valid file\"):\n+            target = os.path.join(self.base, \"elsewhere.json\")\n+            with open(target, \"w\") as fh:\n+                json.dump(BOOTSTRAP, fh)\n+            write_bootstrap(self.work, ABSENT)\n+            os.symlink(target, os.path.join(self.work, \"bootstrap.json\"))\n+            shutil.rmtree(self.temp)\n+            os.makedirs(self.temp)\n+            install_sigstore(self.temp)\n+            with self.assertRaisesRegex(J.Unusable, \"bootstrap_unreadable\"):\n+                J.run(\"cek\", {\"RUNNER_TEMP\": self.temp, \"GITHUB_REPOSITORY\": \"o/r\", \"GITHUB_TOKEN\": \"t\",\n+                              \"GITHUB_WORKSPACE\": self.work, \"LOOP_TARGET\": \"t1\"},\n+                      http=self.TA.FakeApi([], b\"\"), verifier=lambda argv: 0)\n+        with self.subTest(sigstore=\"not installed\"):\n+            with self.assertRaisesRegex(J.Unusable, \"sigstore_missing\"):\n+                self.reset_and_run(sigstore=False)\n+            self.assertFalse(os.path.exists(os.path.join(self.bin, \"calls.jsonl\")))\n+\n@@ -733,2 +790 @@ class CekJob(unittest.TestCase):\n-        for kw in ({\"env\": {\"GITHUB_TOKEN\": None}}, {\"env\": {\"LOOP_BRAIN_REPO\": None}},\n-                   {\"env\": {\"LOOP_TARGET\": None}}, {\"env\": {\"LOOP_BRAIN_REPO\": \"o/brain/x\"}},\n+        for kw in ({\"env\": {\"GITHUB_TOKEN\": None}}, {\"env\": {\"LOOP_TARGET\": None}},\n@@ -752 +808 @@ class CekJob(unittest.TestCase):\n-                                  \"GITHUB_WORKSPACE\": self.work, \"LOOP_BRAIN_REPO\": \"o/b\", \"LOOP_TARGET\": \"t1\"},\n+                                  \"GITHUB_WORKSPACE\": self.work, \"LOOP_TARGET\": \"t1\"},\ndiff --git a/referee/tests/test_loop_workflow.py b/referee/tests/test_loop_workflow.py\nindex 6bb2f72..397805a 100644\n--- a/referee/tests/test_loop_workflow.py\n+++ b/referee/tests/test_loop_workflow.py\n@@ -31 +31,7 @@ in the registry or the emitter shows as a violation of the committed file:\n-  ``control`` and its ``python3 -m loop.job run <job>``; ``unknown_run``: the same for the code jobs.\n+  ``control``, its ``python3 -m loop.job run <job>`` and the install steps ``INSTALLS`` gives it, each exactly\n+  ``install_step(name)``; ``unknown_run``: the same for the code jobs, which have none;\n+- ``install_missing`` (tohum/29s): ``cek`` and ``yaz`` run the ``sigstore`` step (``cek`` verifies, ``yaz`` signs)\n+  and ``cagir`` the ``claude`` step, each once and before the job's ``python3 -m loop.job run`` (``install_order``\n+  otherwise); an install step carries no secret, since its step has no ``env``;\n+- ``operator_variable`` (tohum/29s: no input of a run is an operator variable): every ``vars.<NAME>`` expression\n+  names an entry of ``VARS``, each with why it is still there.\n@@ -35,0 +42,2 @@ brain's root compares it with the block in ``spec/tohum/29p-kontrol-komutu.md``,\n+``install_step`` holds copies of 29s's two steps, bound to that page by ``tests/test_install_steps_spec.py`` the same\n+way.\n@@ -85,0 +94,27 @@ CONTROL_RUN = (\n+# tohum/29s \"Sigstore\" and \"Kanaryanın claude CLI'si\": the two install steps, byte for byte, and the jobs that run them.\n+INSTALL_RUN = {\n+    \"sigstore\": (\n+        'set -eu\\n'\n+        'cd \"$RUNNER_TEMP/control/bootstrap\"\\n'\n+        'python3 -m venv \"$RUNNER_TEMP/sig\"\\n'\n+        '\"$RUNNER_TEMP/sig/bin/pip\" download --quiet --require-hashes --only-binary=:all: --no-deps'\n+        ' -d \"$RUNNER_TEMP/sigw\" -r requirements/sign.txt\\n'\n+        'python3 -m snowball_bootstrap licenses --root .. --wheels \"$RUNNER_TEMP/sigw\"\\n'\n+        '\"$RUNNER_TEMP/sig/bin/pip\" install --quiet --no-index --find-links \"$RUNNER_TEMP/sigw\" --require-hashes'\n+        ' --only-binary=:all: --no-deps -r requirements/sign.txt\\n'),\n+    \"claude\": (\n+        'set -eu\\n'\n+        'C=\"$RUNNER_TEMP/control/bootstrap/requirements/claude-cli\"\\n'\n+        'node -e \\'process.exit(Number(process.versions.node.split(\".\")[0]) >= 22 ? 0 : 1)\\'\\n'\n+        'npm ci --prefix \"$C\" --no-audit --no-fund\\n'\n+        'pinned=$(node -p \"require(\\'$C/package.json\\').dependencies[\\'@anthropic-ai/claude-code\\']\")\\n'\n+        'test \"$(\"$C/node_modules/.bin/claude\" --version | cut -d\\' \\' -f1)\" = \"$pinned\"\\n'),\n+}\n+INSTALLS = {\"cek\": (\"sigstore\",), \"yaz\": (\"sigstore\",), \"cagir\": (\"claude\",)}  # 29s: who verifies, signs, calls\n+# The operator variables still read, and why (29s: none of the run's three inputs is one).\n+VARS = {\n+    \"TARGET_OWNER\": \"the writer App token's owner (tohum/25 item 6); no page names another source\",\n+    \"LOOP_TARGET\": \"which targets[] entry a run serves; 29s 'Hedefler' says every one, in order: to be removed\",\n+}\n+VARS_EXPR = re.compile(r\"\\$\\{\\{[^}]*?\\bvars\\.([A-Za-z0-9_]+)\")\n+\n@@ -96,0 +132,4 @@ def control_step(job: str) -> dict:\n+def install_step(name: str) -> dict:\n+    return {\"name\": name, \"if\": GATE, \"run\": INSTALL_RUN[name]}\n+\n+\n@@ -149,0 +189,2 @@ def violations(doc: dict) -> list[str]:\n+        if {m.group(1) for s in _strings(job) for m in VARS_EXPR.finditer(s)} - set(VARS):\n+            out.append(\"operator_variable\" + where)\n@@ -153,0 +195,7 @@ def violations(doc: dict) -> list[str]:\n+        names = [step.get(\"name\") if isinstance(step, dict) else None for step in steps]\n+        entry = names.index(name) if name in names else len(steps)\n+        for install in INSTALLS.get(name, ()):\n+            if install_step(install) not in steps:\n+                out.append(\"install_missing\" + where)\n+            elif names.count(install) != 1 or steps.index(install_step(install)) > entry:\n+                out.append(\"install_order\" + where)\n@@ -173 +221,2 @@ def violations(doc: dict) -> list[str]:\n-                if run != \"python3 -m loop.job run %s\\n\" % name:\n+                installed = any(step == install_step(i) for i in INSTALLS.get(name, ()))\n+                if run != \"python3 -m loop.job run %s\\n\" % name and not installed:\n@@ -398,0 +448,45 @@ class EachRuleFires(unittest.TestCase):\n+    def _install_block(self, text: str, job: str, name: str) -> str:\n+        start, end = _job(text, job)\n+        block = text[start:end]\n+        i = block.index(\"      - name: %s\\n\" % name)\n+        return block[i:block.index(\"      - name: \", i + 1)]\n+\n+    def test_install_steps(self):\n+        text = committed()\n+        sig, cla = self._install_block(text, \"cek\", \"sigstore\"), self._install_block(text, \"cagir\", \"claude\")\n+        self.assertEqual(self._install_block(text, \"yaz\", \"sigstore\"), sig)\n+        for job, block in ((\"cek\", sig), (\"yaz\", sig), (\"cagir\", cla)):\n+            with self.subTest(removed=job):\n+                self.fires(\"install_missing\", _in_job(text, job, block, \"\"))\n+        # one changed byte, or a secret given to the step: not 29s's step, so neither installed nor allowed\n+        for old, new in ((\"--require-hashes --only-binary\", \"--only-binary\"), (\"        run: |\\n\",\n+                          \"        env:\\n          T: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}\\n        run: |\\n\")):\n+            with self.subTest(changed=new):\n+                found = rules(_in_job(text, \"cek\", sig, sig.replace(old, new, 1)))\n+                self.assertTrue({\"install_missing\", \"secret_job_runs_code\"} <= found, found)\n+        changed = cla.replace(\"--no-audit\", \"--ignore-scripts=false --no-audit\")\n+        self.assertTrue({\"install_missing\", \"secret_job_runs_code\"} <= rules(_in_job(text, \"cagir\", cla, changed)))\n+        # after the job's entry, or twice\n+        start, end = _job(text, \"yaz\")\n+        moved = text[start:end].replace(sig, \"\")\n+        i = moved.index(\"        run: |\\n          python3 -m loop.job run yaz\\n\")\n+        j = i + len(\"        run: |\\n          python3 -m loop.job run yaz\\n\")\n+        self.fires(\"install_order\", text[:start] + moved[:j] + sig + moved[j:] + text[end:])\n+        self.fires(\"install_order\", _in_job(text, \"cek\", sig, sig + sig))\n+        # an install step in a job 29s does not give it\n+        self.fires(\"secret_job_runs_code\", _in_job(text, \"yaz\", sig, sig + cla))\n+        start, end = _job(text, \"kos\")\n+        block = text[start:end]\n+        self.fires(\"unknown_run\", text[:start] + block.replace(\"      - name: checkout\\n\", sig + \"      - name: checkout\\n\", 1)\n+                   + text[end:])\n+\n+    def test_operator_variables(self):\n+        self.assertEqual({m.group(1) for m in VARS_EXPR.finditer(committed())}, set(VARS))\n+        for job, name in ((\"cek\", \"BRAIN_REPO\"), (\"cagir\", \"CANARY_MODEL\"), (\"cagir\", \"CLAUDE_CLI_SHA512\"),\n+                          (\"yaz\", \"LOOP_TARGETS\")):\n+            with self.subTest(var=name):\n+                self.fires(\"operator_variable\", _in_job(committed(), job, \"    timeout-minutes: 60\\n\",\n+                                                        \"    timeout-minutes: 60\\n    env-x: ${{ vars.%s }}\\n\" % name))\n+                self.fires(\"operator_variable\", _in_job(committed(), job, \"        run: |\\n          python3 -m loop.job\",\n+                                                        \"        run: |\\n          echo ${{vars.%s}}\\n          python3 -m loop.job\" % name))\n+\ndiff --git a/referee/tests/test_loop_yaz.py b/referee/tests/test_loop_yaz.py\nindex cad50a3..c944a63 100644\n--- a/referee/tests/test_loop_yaz.py\n+++ b/referee/tests/test_loop_yaz.py\n@@ -13 +13,2 @@\n-  after D5 and D6 (D7 when it ends a sentinel; D8 off without its seed); a ledger ``ledger.serial`` refuses is ``state_refused``, nothing decided; a refused\n+  after D5 and D6 (D7 when it ends a sentinel; D8 off without its seed); its root signer is the ``sigstore`` step's\n+  program (tohum/29s), and without it the job is no verdict before anything is written; a ledger ``ledger.serial`` refuses is ``state_refused``, nothing decided; a refused\n@@ -40,0 +42,2 @@ import yaz_world as YW  # noqa: E402\n+from loop import sign as S  # noqa: E402\n+from loop_inputs_world import install_sigstore  # noqa: E402\n@@ -255,0 +259,19 @@ class YazJob(YazBase):\n+    def test_the_root_signer_is_the_sigstore_step_s(self):\n+        # tohum/29s: yaz signs with the program the sigstore step installs, pinned to loop.yml on the referee's main\n+        environ = YW.env(self.temp, self.workspace)\n+        with self.assertRaisesRegex(J.Unusable, \"sigstore_missing\"):\n+            J._signer(environ)\n+        python = install_sigstore(self.temp)\n+        got = J._signer(environ)\n+        self.assertEqual((type(got), got.sigstore, got.pin),\n+                         (S.SigstoreSigner, (python, \"-m\", \"sigstore\"),\n+                          \"https://github.com/acme/referee/.github/workflows/loop.yml@refs/heads/main\"))\n+        # the job without an injected signer and without the step's program: no verdict, nothing written\n+        os.remove(python)\n+        self.kos({\"good\": candidate(GOOD)})\n+        self.control(OPEN)\n+        self.github()\n+        with self.assertRaisesRegex(J.Unusable, \"sigstore_missing\"):\n+            J.run(\"yaz\", environ, transport=self.gh, now=lambda: YW.NOW)\n+        self.assertEqual([m for m, _, _ in self.gh.requests if m != \"GET\"], [])\n+\ndiff --git a/referee/tests/test_rekor.py b/referee/tests/test_rekor.py\nindex 69b997c..3245931 100644\n--- a/referee/tests/test_rekor.py\n+++ b/referee/tests/test_rekor.py\n@@ -150 +150 @@ class Judging(unittest.TestCase):\n-        return R.entry_reasons(lambda uuid: entry, pin, \"sigstore\", verifier)(\"u\", self.ROOT)\n+        return R.entry_reasons(lambda uuid: entry, pin, (\"sigstore\",), verifier)(\"u\", self.ROOT)\n@@ -207 +207 @@ class Judging(unittest.TestCase):\n-        rekor = R.entry_reasons({uuid: entry}.get, WORKFLOW, \"sigstore\", lambda argv: 0)\n+        rekor = R.entry_reasons({uuid: entry}.get, WORKFLOW, (\"sigstore\",), lambda argv: 0)\n@@ -213 +213 @@ class Judging(unittest.TestCase):\n-        refused = R.entry_reasons({uuid: entry}.get, WORKFLOW, \"sigstore\", lambda argv: 1)\n+        refused = R.entry_reasons({uuid: entry}.get, WORKFLOW, (\"sigstore\",), lambda argv: 1)\ndiff --git a/referee/tests/test_sign.py b/referee/tests/test_sign.py\nindex dc7d613..56d7f3c 100644\n--- a/referee/tests/test_sign.py\n+++ b/referee/tests/test_sign.py\n@@ -77 +77 @@ class Program:\n-        if argv[1] == \"sign\":\n+        if next(a for a in argv if a in (\"sign\", \"verify\")) == \"sign\":\n@@ -90 +90 @@ class RealBundle(unittest.TestCase):\n-        answer = S.SigstoreSigner(PIN, \"/opt/sigstore\", run).sign(SIGNED)\n+        answer = S.SigstoreSigner(PIN, (\"/opt/python\", \"-m\", \"sigstore\"), run).sign(SIGNED)\n@@ -94,3 +94,5 @@ class RealBundle(unittest.TestCase):\n-        bundle, payload = sign[5], sign[6]\n-        self.assertEqual(sign, [\"/opt/sigstore\", \"sign\", \"--rekor-version\", \"1\", \"--bundle\", bundle, payload])\n-        self.assertEqual(verify, A.identity_argv(\"/opt/sigstore\", bundle, PIN, payload))\n+        bundle, payload = sign[7], sign[8]\n+        # the program is an argv prefix: the sigstore step's venv as ``python -m sigstore`` (tohum/29s)\n+        self.assertEqual(sign, [\"/opt/python\", \"-m\", \"sigstore\", \"sign\", \"--rekor-version\", \"1\", \"--bundle\", bundle,\n+                                payload])\n+        self.assertEqual(verify, A.identity_argv((\"/opt/python\", \"-m\", \"sigstore\"), bundle, PIN, payload))\n@@ -104 +106 @@ class RealBundle(unittest.TestCase):\n-                S.SigstoreSigner(bad)\n+                S.SigstoreSigner(bad, (\"sigstore\",))\n@@ -110 +112 @@ class Refusals(unittest.TestCase):\n-            S.SigstoreSigner(PIN, \"sigstore\", run).sign(payload)\n+            S.SigstoreSigner(PIN, (\"sigstore\",), run).sign(payload)\n@@ -122 +124 @@ class Refusals(unittest.TestCase):\n-        S.SigstoreSigner(PIN, \"s\", Program(json.dumps(REAL[\"published\"]).encode().ljust(R.MAX_ANSWER))).sign(SIGNED)\n+        S.SigstoreSigner(PIN, (\"s\",), Program(json.dumps(REAL[\"published\"]).encode().ljust(R.MAX_ANSWER))).sign(SIGNED)\n@@ -151 +153 @@ class RoundTrip(unittest.TestCase):\n-        entry = AN.anchor(root, S.SigstoreSigner(PIN, \"sigstore\", Program(made)))\n+        entry = AN.anchor(root, S.SigstoreSigner(PIN, (\"sigstore\",), Program(made)))\n@@ -155 +157 @@ class RoundTrip(unittest.TestCase):\n-        judge = R.entry_reasons(rekor.get, PIN, \"sigstore\", lambda argv: seen.append(argv) or 0)\n+        judge = R.entry_reasons(rekor.get, PIN, (\"sigstore\",), lambda argv: seen.append(argv) or 0)\n@@ -173 +175 @@ class RealProcess(unittest.TestCase):\n-            self.assertEqual(S.SigstoreSigner(PIN, program).sign(SIGNED)[\"uuid\"], REAL[\"uuid\"][-64:])\n+            self.assertEqual(S.SigstoreSigner(PIN, (program,)).sign(SIGNED)[\"uuid\"], REAL[\"uuid\"][-64:])\n@@ -175 +177 @@ class RealProcess(unittest.TestCase):\n-                S.SigstoreSigner(PIN + \"x\", program).sign(SIGNED)\n+                S.SigstoreSigner(PIN + \"x\", (program,)).sign(SIGNED)\n@@ -177 +179 @@ class RealProcess(unittest.TestCase):\n-                S.SigstoreSigner(PIN, os.path.join(tmp, \"absent\")).sign(SIGNED)\n+                S.SigstoreSigner(PIN, (os.path.join(tmp, \"absent\"),)).sign(SIGNED)\ndiff --git a/snowball-tests.json b/snowball-tests.json\nindex a392058..bf73611 100644\n--- a/snowball-tests.json\n+++ b/snowball-tests.json\n@@ -21 +21 @@\n-    {\"id\": \"T46\", \"cmd\": \"cd referee && python -m unittest discover -s tests -p 'test_loop_workflow.py' && python -m unittest discover -s tests -p 'test_loop_kos.py' && python -m unittest discover -s tests -p 'test_loop_cagir.py' && python -m unittest discover -s tests -p 'test_loop_getir.py' && python -m unittest discover -s tests -p 'test_loop_yaz.py' && python -m unittest discover -s tests -p 'test_loop_write.py' && python -m unittest discover -s tests -p 'test_serial.py' && python -m unittest discover -s tests -p 'test_watch.py' && python -m unittest discover -s tests -p 'test_loop_handover.py' && python -m unittest discover -s tests -p 'test_loop_cek.py' && python -m unittest discover -s tests -p 'test_loop_state.py' && python -m unittest discover -s tests -p 'test_treehash.py' && python -m unittest discover -s tests -p 'test_accepted.py' && python -m unittest discover -s tests -p 'test_gitobj.py' && python -m unittest discover -s tests -p 'test_fetch.py' && cd .. && python -m unittest discover -s tests -p 'test_toy_pulled.py' && python -m unittest discover -s tests -p 'test_control_step_spec.py'\", \"stage\": 0},\n+    {\"id\": \"T46\", \"cmd\": \"cd referee && python -m unittest discover -s tests -p 'test_loop_workflow.py' && python -m unittest discover -s tests -p 'test_loop_kos.py' && python -m unittest discover -s tests -p 'test_loop_cagir.py' && python -m unittest discover -s tests -p 'test_loop_getir.py' && python -m unittest discover -s tests -p 'test_loop_yaz.py' && python -m unittest discover -s tests -p 'test_loop_write.py' && python -m unittest discover -s tests -p 'test_serial.py' && python -m unittest discover -s tests -p 'test_watch.py' && python -m unittest discover -s tests -p 'test_loop_handover.py' && python -m unittest discover -s tests -p 'test_loop_cek.py' && python -m unittest discover -s tests -p 'test_loop_state.py' && python -m unittest discover -s tests -p 'test_treehash.py' && python -m unittest discover -s tests -p 'test_accepted.py' && python -m unittest discover -s tests -p 'test_gitobj.py' && python -m unittest discover -s tests -p 'test_fetch.py' && cd .. && python -m unittest discover -s tests -p 'test_toy_pulled.py' && python -m unittest discover -s tests -p 'test_control_step_spec.py' && python -m unittest discover -s tests -p 'test_install_steps_spec.py'\", \"stage\": 0},\ndiff --git a/tests/test_install_steps_spec.py b/tests/test_install_steps_spec.py\nnew file mode 100644\nindex 0000000..3210c01\n--- /dev/null\n+++ b/tests/test_install_steps_spec.py\n@@ -0,0 +1,92 @@\n+\"\"\"Binds the copies of tohum/29s's two install steps to their source, ``spec/tohum/29s-dongu-girdileri.md``: test 46's\n+(``referee/tests/test_loop_workflow.py`` ``install_step``) and the code's (``referee/loop/inputs.py`` ``STEPS``, which\n+``loop.job`` renders). Each ``yaml`` fence of the page parses to exactly one step; the page must hold exactly the\n+steps named ``sigstore`` and ``claude``, once each, and each copy must equal the page's step. A page with another\n+number of fences or other names fails here rather than being guessed at. Run from the brain's root (the spec is not\n+in ``referee/``).\"\"\"\n+\n+from __future__ import annotations\n+\n+import os\n+import re\n+import sys\n+import tempfile\n+import unittest\n+\n+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))\n+sys.path.insert(0, os.path.join(ROOT, \"referee\"))\n+sys.path.insert(0, os.path.join(ROOT, \"referee\", \"tests\"))\n+\n+from loop import inputs  # noqa: E402\n+from loop import job  # noqa: E402\n+from test_loop_workflow import INSTALLS, install_step  # noqa: E402\n+from workflow_yaml import parse  # noqa: E402\n+\n+PAGE = os.path.join(ROOT, \"spec\", \"tohum\", \"29s-dongu-girdileri.md\")\n+NAMES = (\"sigstore\", \"claude\")\n+\n+\n+def spec_steps(page: str = PAGE) -> dict[str, dict]:\n+    with open(page, encoding=\"utf-8\") as fh:\n+        blocks = re.findall(r\"(?ms)^```yaml\\n(.*?)^```$\", fh.read())\n+    found: dict[str, dict] = {}\n+    for block in blocks:\n+        steps = parse(\"steps:\\n\" + block)[\"steps\"]\n+        if len(steps) != 1:\n+            raise AssertionError(\"a 29s yaml block has %d steps, expected 1\" % len(steps))\n+        name = steps[0].get(\"name\")\n+        if name in found:\n+            raise AssertionError(\"29s names the step %r twice\" % name)\n+        found[name] = steps[0]\n+    if tuple(sorted(found)) != tuple(sorted(NAMES)):\n+        raise AssertionError(\"29s's steps are %r, expected %r\" % (sorted(found), sorted(NAMES)))\n+    return found\n+\n+\n+class InstallStepsAreTheSpecs(unittest.TestCase):\n+    def test_copies_equal_the_page(self):\n+        page = spec_steps()\n+        for name in NAMES:\n+            with self.subTest(step=name):\n+                self.assertEqual(install_step(name), page[name])\n+                self.assertEqual({\"name\": name, \"if\": job.GO, \"run\": inputs.STEPS[name]}, page[name])\n+\n+    def test_the_rendered_jobs_carry_them(self):\n+        page = spec_steps()\n+        doc = parse(job.render())\n+        for name, installs in INSTALLS.items():\n+            with self.subTest(job=name):\n+                self.assertEqual([s for s in doc[\"jobs\"][name][\"steps\"] if s.get(\"name\") in NAMES],\n+                                 [page[i] for i in installs])\n+\n+    def _page(self, text: str) -> str:\n+        fh = tempfile.NamedTemporaryFile(\"w\", suffix=\".md\", delete=False, encoding=\"utf-8\")\n+        self.addCleanup(os.unlink, fh.name)\n+        with fh:\n+            fh.write(text)\n+        return fh.name\n+\n+    def test_a_changed_page_is_seen(self):\n+        with open(PAGE, encoding=\"utf-8\") as fh:\n+            text = fh.read()\n+        for old, new, name in ((\"--require-hashes --only-binary=:all: --no-deps -d\", \"--only-binary=:all: --no-deps -d\",\n+                                \"sigstore\"),\n+                               (\"npm ci --prefix\", \"npm install --prefix\", \"claude\"),\n+                               (\"      - name: claude\\n        if:\", \"      - name: claude\\n        env:\\n          A: b\\n        if:\",\n+                                \"claude\")):\n+            with self.subTest(change=new):\n+                self.assertIn(old, text)\n+                self.assertNotEqual(install_step(name), spec_steps(self._page(text.replace(old, new, 1)))[name])\n+\n+    def test_blocks_not_guessed(self):\n+        with open(PAGE, encoding=\"utf-8\") as fh:\n+            text = fh.read()\n+        first = re.search(r\"(?ms)^```yaml\\n.*?^```$\", text).group(0)\n+        for page in (text.replace(first, \"\"), text + \"\\n\" + first + \"\\n\",\n+                     text.replace(\"- name: claude\", \"- name: cli\", 1)):\n+            with self.assertRaises(AssertionError):\n+                spec_steps(self._page(page))\n+\n+\n+if __name__ == \"__main__\":\n+    unittest.main()\n"
+}
