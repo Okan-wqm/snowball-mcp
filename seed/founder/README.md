@@ -13,41 +13,45 @@ alıntılayabilir; E508). Başka hiçbir araç daraltılmaz (`--tools`, `--allow
 denetler. İmaj yeniden kurulunca geçerli olur; talimat değişmez.
 
 **Kapsülün ağı ve kaydı** (E508). `--egress open` (varsayılan) bugünkü gibidir: kapsül Docker'ın varsayılan
-köprüsündedir. `--egress contained` kapsülü dışarıya yolu olmayan bir iç Docker ağına (`snowball_capsule`, `--internal`)
-koyar; ağın tek öbür üyesi oturumun aktarıcısıdır (`egress.py`, yalnız stdlib; kapsülün sabitli Python tabanında, kendi
-kapsayıcısında, kök salt okunur, yetkiler düşük, kodu ve jetonu salt okunur; yalnız kapsül ağındaki adresini dinler,
-köprüdeki başka bir kapsayıcı ona ulaşamaz). Aktarıcı yalnız iki şey taşır: CLI'ın
-`HTTPS_PROXY`'si için modelin API'sine (`api.anthropic.com:443`) `CONNECT` tüneli, ve `/git/` ile `/api/repos/`
-altında yalnız beyin reposunun git smart-HTTP'si ile REST çağrıları; GitHub jetonunu kendisi ekler, kapsül jeton
-tutmaz (`https://github.com/` adresleri `insteadOf` ile aktarıcıya döner). Yukarı akış ana bilgisayarı istekten değil
-yoldan gelir, yönlendirme izlenmez; ad büyük-küçük harf ayırmadan, adın sonunda `/` ile eşleşir (izinli bir ad başka
-bir reponun önü olamaz); boş, `.` ya da `..` kesimli, kodlanmış `/`, `\`, `.` ya da NUL taşıyan yol reddedilir. Her
-istek, izinli ya da reddedilmiş, oturumun `relay/log/egress.jsonl`'ına bir JSON satırıdır (başlık ve gövde asla);
-reddedilenler okuma algılayıcısıdır, sayıları ve ilkleri döngünün satırına ve `pilot-log.md`'ye girer. Aktarıcı
-kalkmazsa oturum açılmaz (kesinti). Var olan ama dışarıya yolu olan bir `snowball_capsule` ağı reddedilir, kullanılmaz,
-değiştirilmez.
+köprüsündedir. `--egress contained` kapsülü dışarıya yolu olmayan bir iç Docker ağına (`snowball_capsule`: `--internal`,
+IPv6 kapalı, ağ geçidi `gateway_mode_ipv4=isolated`, yani köprüde Docker ana makinesinin adresi yok) koyar; ağın tek
+öbür üyesi oturumun aktarıcısıdır (`egress.py`, yalnız stdlib; kapsülün sabitli Python tabanında, kendi kapsayıcısında,
+kök salt okunur, yetkiler düşük, kodu ve jetonu salt okunur; yalnız kapsül ağındaki adresini dinler, köprüdeki başka bir
+kapsayıcı ona ulaşamaz). Aktarıcı yalnız iki şey taşır: CLI'ın `HTTPS_PROXY`'si için modelin API'sine
+(`api.anthropic.com:443`) `CONNECT` tüneli, ve `/git/` ile `/api/repos/` altında yalnız beyin reposunun git
+smart-HTTP'si ile REST çağrıları; GitHub jetonunu kendisi ekler, kapsül jeton tutmaz (`https://github.com/` adresleri
+`insteadOf` ile aktarıcıya döner). Yukarı akış ana bilgisayarı istekten değil yoldan gelir, yönlendirme izlenmez; ad
+büyük-küçük harf ayırmadan, adın sonunda `/` ile eşleşir (izinli bir ad başka bir reponun önü olamaz); boş, `.` ya da
+`..` kesimli, kodlanmış `/`, `\`, `.` ya da NUL taşıyan yol reddedilir. Her istek, izinli ya da reddedilmiş, oturumun
+`relay/log/egress.jsonl`'ına bir JSON satırıdır (başlık ve gövde asla); reddedilenler okuma algılayıcısıdır, sayıları ve
+ilkleri döngünün satırına ve `pilot-log.md`'ye girer. Aktarıcı kalkmazsa oturum açılmaz (kesinti). Var olan ama bunların
+biri eksik bir `snowball_capsule` ağı (Docker'ın göstermediği alan da eksik sayılır) reddedilir, kullanılmaz,
+değiştirilmez. Ölçüldü (2026-11-02, Docker 28.4): düz bir `--internal` ağdan kapsül, ağ geçidi adresinden Docker ana
+makinesinin kendi ad alanında 0.0.0.0'ı dinleyen bir servise **bağlandı**; `isolated` ağ geçidiyle aynı bağlantı
+reddedildi.
 
 Döküm artık kapsülün dosyası değildir: giriş CLI'ın akışını kapsayıcının stdout'una yazar, başlatıcı onu kapsülün
-bağlamadığı `logs/<damga>/session-<damga>.jsonl`'a yazar ve yanına `sha256sum` biçiminde `.sha256`'sını koyar
-(döngünün satırında `transcript_sha256`). Kapsül `/work/logs` olarak yalnız `logs/<damga>/capsule/`'ı görür: akışın
-kendi kopyası (`tee`), CLI'ın stderr'i, `brain-definitions.json`, `previous-session.json`. Ölçüldü: kapsülün `sed -i`'si
-kaydı değiştiremez; ama kapsülün kullanıcısındaki bir süreç kapsayıcının stdout'una (`/proc/1/fd/N`) yazıp kayda satır
+bağlamadığı `logs/<damga>/session-<damga>.jsonl`'a yazar ve yanına `sha256sum` biçiminde `.sha256`'sını koyar (döngünün
+satırında `transcript_sha256`). Kapsül `/work/logs` olarak yalnız `logs/<damga>/capsule/`'ı görür: akışın kendi kopyası
+(`tee`), CLI'ın stderr'i, `brain-definitions.json`, `previous-session.json`. Ölçüldü: kapsülün `sed -i`'si kaydı
+değiştiremez; ama kapsülün kullanıcısındaki bir süreç kapsayıcının stdout'una (`/proc/1/fd/N`) yazıp kayda satır
 **ekleyebilir** (silemez, değiştiremez). CLI tek bir kapanış `result` olayı yazar; başka bir sayı (`transcript_results`)
 raporda adıyla yazılır. Girişin değişmesi imajın yeniden kurulmasını gerektirir: kurulum girişin sha256'sını etikete
 yazar (`snowball.entrypoint_sha256`) ve her başlangıç onu çalışma kopyasınınkiyle karşılaştırır; tutmazsa (`--no-build`
 ile eski imaj) başlatıcı `RUNNING`'i silip durur.
 
 `contained`'a geçiş operatörün (gizli değerler bu betikçe okunmaz): (1) `snowball-capsule.env`'e yalnız
-`CLAUDE_CODE_OAUTH_TOKEN=...`, `snowball-relay.env`'e yalnız `GITHUB_TOKEN=...` (bugünkü beyin-yalnız jeton) yaz;
-kapsül dosyasında `GITHUB_TOKEN` varsa giriş 64 ile durur; (2) başlatıcıyı `--egress contained` ile yeniden başlat
-(imaj yeniden kurulur; ağ yoksa `--internal` olarak açılır). `test_founder_capsule` `ContainmentProbeTest`'i
-(`SNOWBALL_EGRESS_PROBE=<ad öneki>`) başlatıcının kendi argv'siyle gerçek Docker'da ölçer: 2026-11-02'de Docker 28.4'te
-67 denemenin 65'i engellendi (DNS 7, TCP 7, UDP 1 ağ katmanında; aktarıcıda 50 yasak hedef, hepsi kayıtta `deny`),
-ikisi geçti: modelin API'sine TLS el sıkışması ve beynin git ucu (uydurma jetona GitHub 401); köprüdeki bir
-kapsayıcıdan aktarıcının iki adresi de yanıt vermedi. Sabitli CLI 2.1.293
-uydurma bir jetonla aktarıcının arkasında yalnız `api.anthropic.com:443`'ü istedi. Bilinen sınırlar: ağ katmanında
-düşen istekler (DNS, doğrudan adres) yol olmadığından kayda girmez; kapsülün kendi OAuth jetonuyla API'nin sunucu
-tarafı araçları (web arama ve getirme) aktarıcının okuyamadığı tünelden çağrılabilir (TLS'i açmadan kapanmaz,
+`CLAUDE_CODE_OAUTH_TOKEN=...`, `snowball-relay.env`'e yalnız `GITHUB_TOKEN=...` (bugünkü beyin-yalnız jeton) yaz; kapsül
+dosyasında `GITHUB_TOKEN` varsa giriş 64 ile durur; (2) başlatıcıyı `--egress contained` ile yeniden başlat (imaj
+yeniden kurulur; ağ yoksa yukarıdaki gibi açılır; Docker 28'den eskisi `isolated`'ı bilmez ve ağ reddedilir).
+`test_founder_capsule` `ContainmentProbeTest`'i (`SNOWBALL_EGRESS_PROBE=<ad öneki>`) başlatıcının kendi argv'siyle
+gerçek Docker'da ölçer: 2026-11-02'de Docker 28.4'te 71 denemenin 69'u engellendi (DNS 7, TCP 11, UDP 1 ağ katmanında,
+ana makinenin kendi servisi dahil; aktarıcıda 50 yasak hedef, hepsi kayıtta `deny`), ikisi geçti: modelin API'sine TLS
+el sıkışması ve beynin git ucu (uydurma jetona GitHub 401); köprüdeki bir kapsayıcıdan aktarıcının iki adresi de yanıt
+vermedi, ana makinenin servisi verdi (deneme kör değil). Aynı ölçüm düz `--internal` ağla kırmızıdır (servise bağlanır).
+Sabitli CLI 2.1.293 uydurma bir jetonla aktarıcının arkasında yalnız `api.anthropic.com:443`'ü istedi. Bilinen sınırlar:
+ağ katmanında düşen istekler (DNS, doğrudan adres) yol olmadığından kayda girmez; kapsülün kendi OAuth jetonuyla API'nin
+sunucu tarafı araçları (web arama ve getirme) aktarıcının okuyamadığı tünelden çağrılabilir (TLS'i açmadan kapanmaz,
 ölçülmedi); beyin reposunun fork ağındaki nesneler beyin yolundan okunabilir; paket kayıtları kapalıdır (kapsülde
 `pip`/`npm install` çalışmaz).
 

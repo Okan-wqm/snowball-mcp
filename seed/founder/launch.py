@@ -107,6 +107,11 @@ TASK_EVERY = "PT15M"
 # no route out, whose one other member, the relay (egress.py), carries the model's API and the brain repository alone.
 EGRESS_MODES = ("open", "contained")
 CAPSULE_NETWORK = "snowball_capsule"
+# What the capsule network must be, as `docker network inspect` shows it: internal (no route out), no IPv6 (an IPv6
+# gateway would be another way to the host), and its IPv4 gateway isolated (docker 28: no address of the docker host's
+# on the bridge). Anything else, a field missing included, is refused.
+GATEWAY_MODE = "com.docker.network.bridge.gateway_mode_ipv4"
+NETWORK_CREATE = ("--internal", "--ipv6=false", "-o", f"{GATEWAY_MODE}=isolated")
 RELAY_ALIAS, RELAY_PORT = "relay", 3128
 RELAY_URL = f"http://{RELAY_ALIAS}:{RELAY_PORT}"
 CAPSULE_ENV, RELAY_ENV = "snowball-capsule.env", "snowball-relay.env"
@@ -474,20 +479,32 @@ class Pilot:
         self.result_dir.mkdir(exist_ok=True)
         self.logs.mkdir(exist_ok=True)
 
-    def network_internal(self) -> str:
-        proc = run("docker", "network", "inspect", "--format", "{{.Internal}}", self.network, check=False, timeout=60)
-        return proc.stdout.decode(errors="replace").strip() if proc.returncode == 0 else ""
+    def network_state(self) -> dict | None:
+        """The capsule network as docker inspects it; None when it is missing or docker cannot say."""
+        proc = run("docker", "network", "inspect", "--format", "{{json .}}", self.network, check=False, timeout=60)
+        state = _json_or_none(proc.stdout.decode(errors="replace")) if proc.returncode == 0 else None
+        return state if isinstance(state, dict) else None
 
     def network_problems(self) -> list[str]:
-        """The capsule's network, made internal when it is missing (E508). One that exists with a route out is refused,
-        never used and never changed: the capsule would reach everything, and the deny log would see nothing."""
-        state = self.network_internal()
-        if not state:
-            run("docker", "network", "create", "--internal", self.network, check=False, timeout=60)
-            state = self.network_internal()
-        if state != "true":
-            return [f"docker network {self.network} is not internal ({state or 'missing'}): the capsule needs no "
-                    "route out"]
+        """The capsule's network, made when it is missing (E508): internal, so no route out, and with its gateway
+        isolated, so the bridge has no address on the docker host and no service listening there is reached (measured:
+        a plain internal network connects to the host's 0.0.0.0 listeners through its gateway). One that exists but is
+        not all of it, IPv6 off too, is refused, never used and never changed: the deny log would not see what it lets
+        through. A field docker does not show counts as not so."""
+        state = self.network_state()
+        if state is None:
+            run("docker", "network", "create", *NETWORK_CREATE, self.network, check=False, timeout=60)
+            state = self.network_state()
+        state = state or {}
+        options = state.get("Options") if isinstance(state.get("Options"), dict) else {}
+        internal = state.get("Internal") is True
+        ipv6_off = state.get("EnableIPv6") is False
+        isolated = options.get(GATEWAY_MODE) == "isolated"
+        if not (internal and ipv6_off and isolated):
+            found = {"Internal": state.get("Internal"), "EnableIPv6": state.get("EnableIPv6"),
+                     GATEWAY_MODE: options.get(GATEWAY_MODE)}
+            return [f"docker network {self.network} is not internal with an isolated gateway and no IPv6 "
+                    f"({json.dumps(found) if state else 'missing'}): the capsule needs no route out"]
         return []
 
     def summary(self) -> dict:

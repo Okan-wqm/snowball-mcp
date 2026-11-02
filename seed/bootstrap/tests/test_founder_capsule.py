@@ -11,6 +11,7 @@ import hashlib
 import http.server
 import importlib.util
 import io
+import ipaddress
 import json
 import os
 import re
@@ -2378,7 +2379,8 @@ class RelayLiveTest(unittest.TestCase):
     def rows(self) -> list[dict]:
         return [json.loads(line) for line in self.log.read_text(encoding="utf-8").splitlines()]
 
-    def test_nothing_forbidden_goes_out_each_logged(self):  # relay_deny_not_logged relay_allows_any_repo
+    def test_nothing_forbidden_goes_out_each_logged(self):
+        # relay_deny_not_logged relay_allows_any_repo relay_denied_still_forwarded relay_git_endpoints_any
         for method, target, _ in FORBIDDEN:
             self.assertTrue(self.ask(method, target).startswith(b"HTTP/1.1 403 "), f"{method} {target}")
         self.assertEqual(self.github.seen, [])  # not one byte went upstream
@@ -2398,7 +2400,7 @@ class RelayLiveTest(unittest.TestCase):
         self.assertIn(b"Error code: 400", answer)  # read as HTTP/0.9: the error page without a status line
         self.assertEqual([(r["decision"], r["reason"]) for r in self.rows()], [("deny", "malformed")])
 
-    def test_the_relays_token_replaces_the_clients_and_no_cookie_passes(self):
+    def test_the_relays_token_replaces_the_clients_and_no_cookie_passes(self):  # relay_forwards_client_auth
         answer = self.ask("GET", "/api/repos/O/brain/contents/a.md?ref=main",
                           "Authorization: Bearer capsule-made-up\r\nCookie: s=1\r\n")
         self.assertTrue(answer.startswith(b"HTTP/1.1 200 "), answer[:60])
@@ -2494,7 +2496,7 @@ class ContainedCapsuleTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.launch.Pilot(self.work, "o/brain", "o/referee", "target", "half")
 
-    def test_the_github_token_is_the_relays_alone(self):  # token_in_capsule_env
+    def test_the_github_token_is_the_relays_alone(self):  # token_in_capsule_env relay_token_check_removed
         capsule, relay = self.mounts(self.argv), self.mounts(self.pilot.relay_argv(self.STAMP))
         self.assertEqual(capsule["/run/secrets/founder.env"], (self.work / "snowball-capsule.env", "readonly"))
         self.assertEqual(relay["/run/secrets/relay.env"], (self.work / "snowball-relay.env", "readonly"))
@@ -2532,24 +2534,51 @@ class ContainedCapsuleTest(unittest.TestCase):
                     src = re.search(r"src=([^,]+)", argv[i + 1]).group(1)
                     self.assertTrue(Path(src).is_relative_to(self.work), src)
 
-    def test_a_network_with_a_route_out_is_refused_never_used(self):  # capsule_network_not_internal
+    @staticmethod
+    def network(internal=True, ipv6=False, **options) -> bytes:
+        """What `docker network inspect --format {{json .}}` prints for the capsule network (docker 28.4's fields, as
+        the launcher's own create made it: `--ipv6=false` leaves no enable_ipv6 option, EnableIPv6 says it)."""
+        opts = {"com.docker.network.bridge.gateway_mode_ipv4": "isolated", "com.docker.network.enable_ipv4": "true"}
+        opts.update(options)
+        state = {"Name": "snowball_capsule", "Driver": "bridge", "Internal": internal, "EnableIPv6": ipv6,
+                 "Options": {k: v for k, v in opts.items() if v is not None}}
+        return json.dumps({k: v for k, v in state.items() if v is not None}).encode() + b"\n"
+
+    def network_problems(self, states):
+        """network_problems against a fake docker whose `network inspect` prints states in turn (None: missing)."""
         calls = []
 
-        def fake(states):
-            def run(*argv, **kw):
-                calls.append(argv)
-                out = states.pop(0) if argv[:3] == ("docker", "network", "inspect") else b""
-                return subprocess.CompletedProcess(argv, 0 if out is not None else 1, out or b"", b"")
-            return run
-        for states, problems, created in (([b"true\n"], [], False), ([None, b"true\n"], [], True),
-                                          ([b"false\n"], 1, False), ([None, None], 1, True)):
-            calls.clear()
-            with mock.patch.object(self.launch, "run", fake(list(states))):
-                found = self.pilot.network_problems()
-            self.assertEqual(len(found), problems if isinstance(problems, int) else 0, states)
-            made = [c for c in calls if c[:3] == ("docker", "network", "create")]
-            self.assertEqual(made, [("docker", "network", "create", "--internal", "snowball_capsule")] if created
-                             else [], states)
+        def run(*argv, **kw):
+            calls.append(argv)
+            out = states.pop(0) if argv[:3] == ("docker", "network", "inspect") else b""
+            return subprocess.CompletedProcess(argv, 0 if out is not None else 1, out or b"", b"")
+        with mock.patch.object(self.launch, "run", run):
+            found = self.pilot.network_problems()
+        return found, [c for c in calls if c[:3] == ("docker", "network", "create")]
+
+    def test_a_network_with_a_route_out_is_refused_never_used(self):  # capsule_network_not_internal
+        made_one = [("docker", "network", "create", "--internal", "--ipv6=false", "-o",
+                     "com.docker.network.bridge.gateway_mode_ipv4=isolated", "snowball_capsule")]
+        for states, problems, made in (([self.network()], 0, []), ([None, self.network()], 0, made_one),
+                                       ([self.network(internal=False)], 1, []), ([None, None], 1, made_one),
+                                       ([b"not json\n", b"not json\n"], 1, made_one)):  # create fails: it exists
+            found, created = self.network_problems(list(states))
+            self.assertEqual(len(found), problems, (states, found))
+            self.assertEqual(created, made, states)
+
+    def test_an_internal_network_whose_gateway_reaches_the_host_is_refused(self):
+        # capsule_gateway_not_isolated capsule_ipv6_allowed
+        """E508, measured on docker 28.4 (2026-11-02): from a plain `--internal` network a container connected to a
+        service listening on 0.0.0.0 in the docker host's own namespace, through the network's gateway address; with
+        `gateway_mode_ipv4=isolated` the bridge has no host address and the same connect was refused. An internal
+        network without it, or with IPv6 (or not saying), is refused like one with a route out, and never changed."""
+        for kw in ({"com.docker.network.bridge.gateway_mode_ipv4": None},
+                   {"com.docker.network.bridge.gateway_mode_ipv4": "nat"},
+                   {"com.docker.network.bridge.gateway_mode_ipv4": "routed"}, {"ipv6": True}, {"ipv6": None}):
+            found, created = self.network_problems([self.network(**kw)])
+            self.assertEqual(len(found), 1, kw)
+            self.assertIn("isolated gateway and no IPv6", found[0])
+            self.assertEqual(created, [], kw)
 
     def test_contained_preflight_wants_both_secret_files_and_not_the_open_one(self):
         def problems(pilot):
@@ -2588,7 +2617,8 @@ class ContainedCapsuleTest(unittest.TestCase):
               + json.dumps({"type": "result", "subtype": "success", "num_turns": 3, "total_cost_usd": 0.5,
                             "result": "done"}) + "\n").encode()
 
-    def test_the_transcript_is_the_capsules_stdout_on_the_host_and_its_hash_holds(self):  # transcript_in_logs_mount
+    def test_the_transcript_is_the_capsules_stdout_on_the_host_and_its_hash_holds(self):
+        # transcript_in_logs_mount transcript_hash_not_recorded
         pilot = self.launch.Pilot(self.work, "o/brain", "o/referee", "target")  # open egress: the record is the same
         pilot.seed = "a" * 40
         forged = json.dumps({"type": "result", "num_turns": 99, "total_cost_usd": 0.0, "subtype": "success"}).encode()
@@ -2615,7 +2645,7 @@ class ContainedCapsuleTest(unittest.TestCase):
         self.assertTrue(record.read_bytes().startswith(self.STREAM))
         self.assertEqual(out["transcript_results"], 2)
 
-    def test_a_contained_session_runs_between_its_relays_start_and_stop(self):
+    def test_a_contained_session_runs_between_its_relays_start_and_stop(self):  # relay_left_running
         order = []
         log = self.pilot.session_logs(self.STAMP) / "relay" / "log" / "egress.jsonl"
 
@@ -2720,7 +2750,7 @@ class ContainedCapsuleTest(unittest.TestCase):
         self.assertIn('| tee "/work/logs/session-$stamp.jsonl" >&3 4>&-; } 4>&1 ) || true', call)
         self.assertIn('echo "$code" >&4', call)
 
-    def test_a_start_refuses_an_image_whose_entrypoint_is_not_the_checkouts(self):
+    def test_a_start_refuses_an_image_whose_entrypoint_is_not_the_checkouts(self):  # image_entrypoint_unchecked
         work = Path(tempfile.mkdtemp())
         seen = {"calls": []}
         launch = self.launch
@@ -2792,8 +2822,12 @@ for host in ("github.com", "raw.githubusercontent.com", "codeload.github.com", "
         note("dns", host, True, socket.getaddrinfo(host, 443)[0][4])
     except OSError as exc:
         note("dns", host, False, exc)
+# The capsule subnet's first address, where a plain internal network puts the docker host (its gateway); isolated, it is
+# a container's or no one's. And a port a service of the docker host's own listens on.
+first, listener = sys.argv[3], int(sys.argv[4])
 for host, port in (("140.82.121.3", 443), ("1.1.1.1", 443), ("8.8.8.8", 53), ("172.17.0.1", 80),
-                   ("169.254.169.254", 80), ("host.docker.internal", 80), ("host.docker.internal", 2375)):
+                   ("169.254.169.254", 80), ("host.docker.internal", 80), ("host.docker.internal", 2375),
+                   (first, listener), ("172.17.0.1", listener), (first, 22), (first, 2375)):
     try:
         socket.create_connection((host, port), timeout=5).close()
         note("tcp", f"{host}:{port}", True, "connected")
@@ -2858,34 +2892,48 @@ class ContainmentProbeTest(unittest.TestCase):
             ("GET", "/git/Okan-wqm/snowball-rehearsal-referee.git/info/refs?service=git-upload-pack"),
             ("GET", "/api/repos/Okan-wqm/snowball-rehearsal-referee/contents/vectors"),
             ("GET", "/api/repos/Okan-wqm/snowball-mcp/contents/seed")]
+        # A service of the docker host's own (its network namespace, 0.0.0.0): a plain internal network reaches it
+        # through its gateway address (measured 2026-11-02); the capsule's must not. Both are removed whatever happens.
+        listener, hostsvc = 18508, f"{prefix}_hostsvc_{stamp.lower()}"
+        self.addCleanup(subprocess.run, ["docker", "network", "rm", pilot.network], capture_output=True)
+        self.addCleanup(subprocess.run, ["docker", "stop", "--time", "1", hostsvc], capture_output=True)
         self.assertEqual(pilot.network_problems(), [])
+        subprocess.run(["docker", "run", "--detach", "--rm", "--name", hostsvc, "--network", "host", "--entrypoint",
+                        "python3", launch.relay_image(), "-m", "http.server", str(listener), "--bind", "0.0.0.0"],
+                       capture_output=True, check=True, timeout=120)
+        relay = pilot.start_relay(stamp)
         try:
-            relay = pilot.start_relay(stamp)
-            try:
-                pilot.capsule_logs(stamp).mkdir(parents=True, exist_ok=True)
-                argv = pilot.capsule_argv(stamp, "m", 1, 1)
-                argv = [*argv[:-1], "--user", "10001:10001", "--entrypoint", "python3", launch.relay_image(),
-                        "-c", PROBE, json.dumps(relay_targets), self.BRAIN]
-                proc = subprocess.run(argv, capture_output=True, timeout=600)
-                self.assertEqual(proc.returncode, 0, proc.stderr.decode(errors="replace")[-2000:])
-                results = json.loads(proc.stdout)
-                # From the default bridge, where the relay has its route out, neither of its addresses answers.
-                nets = json.loads(subprocess.run(["docker", "inspect", "--format", "{{json .NetworkSettings.Networks}}",
-                                                  relay], capture_output=True, check=True).stdout)
-                code = ("import socket, sys\nfor ip in sys.argv[1:]:\n    try:\n"
-                        "        socket.create_connection((ip, 3128), timeout=5).close(); print('reached', ip)\n"
-                        "    except OSError as exc:\n        print('blocked', ip, exc)\n")
-                bridge = subprocess.run(["docker", "run", "--rm", "--name", f"{prefix}_bridge_{stamp.lower()}",
-                                         "--network", "bridge", "--entrypoint", "python3", launch.relay_image(), "-c",
-                                         code, *[n["IPAddress"] for n in nets.values()]],
-                                        capture_output=True, timeout=120, text=True)
-                print(bridge.stdout)
-                self.assertNotIn("reached", bridge.stdout)
-                self.assertEqual(bridge.stdout.count("blocked"), 2)
-            finally:
-                pilot.stop_relay(relay)
+            pilot.capsule_logs(stamp).mkdir(parents=True, exist_ok=True)
+            argv = pilot.capsule_argv(stamp, "m", 1, 1)
+            subnet = subprocess.run(["docker", "network", "inspect", "--format",
+                                     "{{range .IPAM.Config}}{{.Subnet}}{{end}}", pilot.network],
+                                    capture_output=True, check=True, text=True).stdout.strip()
+            first = str(next(ipaddress.ip_network(subnet).hosts()))  # where a plain internal network's gateway is
+            argv = [*argv[:-1], "--user", "10001:10001", "--entrypoint", "python3", launch.relay_image(),
+                    "-c", PROBE, json.dumps(relay_targets), self.BRAIN, first, str(listener)]
+            proc = subprocess.run(argv, capture_output=True, timeout=600)
+            self.assertEqual(proc.returncode, 0, proc.stderr.decode(errors="replace")[-2000:])
+            results = json.loads(proc.stdout)
+            # From the default bridge, where the relay has its route out, neither of its addresses answers; the
+            # host's service does (the control: the probe above is not blind to it).
+            nets = json.loads(subprocess.run(["docker", "inspect", "--format", "{{json .NetworkSettings.Networks}}",
+                                              relay], capture_output=True, check=True).stdout)
+            code = ("import socket, sys\nfor ip, port in (a.split(',') for a in sys.argv[1:]):\n    try:\n"
+                    "        socket.create_connection((ip, int(port)), timeout=5).close(); print('reached', ip)\n"
+                    "    except OSError as exc:\n        print('blocked', ip, exc)\n")
+            bridge = subprocess.run(["docker", "run", "--rm", "--name", f"{prefix}_bridge_{stamp.lower()}",
+                                     "--network", "bridge", "--entrypoint", "python3", launch.relay_image(), "-c",
+                                     code, *[f"{n['IPAddress']},3128" for n in nets.values()]],
+                                    capture_output=True, timeout=120, text=True)
+            control = subprocess.run(["docker", "run", "--rm", "--name", f"{prefix}_control_{stamp.lower()}",
+                                      "--network", "bridge", "--entrypoint", "python3", launch.relay_image(), "-c",
+                                      code, f"172.17.0.1,{listener}"], capture_output=True, timeout=120, text=True)
+            print(bridge.stdout, control.stdout)
+            self.assertNotIn("reached", bridge.stdout)
+            self.assertEqual(bridge.stdout.count("blocked"), 2)
+            self.assertIn("reached", control.stdout)
         finally:
-            subprocess.run(["docker", "network", "rm", pilot.network], capture_output=True)
+            pilot.stop_relay(relay)
         print("\n" + json.dumps(results, indent=1))
         reached = [r for r in results if r["reached"] and r["kind"] not in ("model", "brain")]
         self.assertEqual(reached, [])

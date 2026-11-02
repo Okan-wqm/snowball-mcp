@@ -218,7 +218,7 @@ class CapsuleToolSurfaceTest(unittest.TestCase):  # E380
             env = cli_env(**rival.PINNED_ENV, CLAUDE_CODE_OAUTH_TOKEN="not-a-real-token", CLAUDE_CONFIG_DIR=str(cfg))
             return init_tools(entrypoint_argv(CLAUDE, cfg, deny), env, cwd)
 
-    def test_the_four_are_gone_and_the_founders_tools_stay(self):
+    def test_the_six_are_gone_and_the_founders_tools_stay(self):
         tools = set(self.tools(deny=True))
         self.assertEqual(tools & DENIED, set(), sorted(tools))
         self.assertEqual(KEPT - tools, set(), sorted(tools))
@@ -305,7 +305,7 @@ class CapsuleBrainDefinitionsTest(unittest.TestCase):  # E450, owner 2026-11-01
         self.assertNotIn("brain:scheduler", text)
         self.assertNotIn(NEVER_SHOWN, text)  # the clone's CLAUDE.md: setting sources stay off
 
-    def test_a_brain_agent_gets_only_its_own_tools_and_never_the_denied_four(self):
+    def test_a_brain_agent_gets_only_its_own_tools_and_never_the_denied_six(self):
         """The first request is answered with two `Agent` calls; each subagent's own first request names its tools."""
         def answer(n, body):
             if n == 0:
