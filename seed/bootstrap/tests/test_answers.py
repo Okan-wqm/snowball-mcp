@@ -85,7 +85,7 @@ class ProjectionTest(unittest.TestCase):
         self.assertTrue(all(len(case) == 2 for g in ("cp_lower", "mcnemar") for case in inputs[g]["cases"]))
         self.assertEqual(answers.split(inputs), (inputs, {}))
 
-    def test_a_field_the_projection_cannot_tell_from_an_answer_is_refused(self):
+    def test_a_field_the_projection_cannot_tell_from_an_answer_is_refused(self):  # split_keeps_unknown_field
         """E509: a case field no judge reads might be an answer under a new name; the projection refuses it rather
         than publish it. An entry no judge knows is refused where the seed is published and left unjudged where the
         referee reads it (`29d`: a group without a judge runs nothing)."""
@@ -113,7 +113,7 @@ class ProjectionTest(unittest.TestCase):
 
 
 class StoreTest(StoreTestCase):
-    def test_the_store_opens_on_its_pin_and_on_nothing_else(self):  # pin_compare_skipped
+    def test_the_store_opens_on_its_pin_and_on_nothing_else(self):  # pin_compare_skipped file_hash_compare_skipped
         """E509 (D3): the pin is the manifest's sha256 and the manifest lists every file's sha256 under a 256-bit salt.
         The pinned store opens; another pin, no pin, one flipped byte in the manifest or in the answers do not."""
         exam = answers.open_store(self.store, self.pin)
@@ -132,7 +132,7 @@ class StoreTest(StoreTestCase):
                 (self.base / rel).write_bytes(original[rel])
         self.assertEqual(answers.open_store(self.store, self.pin).answers, exam.answers)
 
-    def test_a_file_the_manifest_does_not_list_is_refused(self):
+    def test_a_file_the_manifest_does_not_list_is_refused(self):  # manifest_unlisted_file_accepted
         """E509: a job holds only the files it needs, each as the manifest lists it; a file the manifest does not name
         (another version's, or one added after the pin) is not part of the pinned exam."""
         manifest, files = answers.read_store(self.store, self.pin)
@@ -175,7 +175,7 @@ class JoinTest(StoreTestCase):
             with self.assertRaisesRegex(AnswersError, "not the inputs"):
                 answers.join(changed, exam)
 
-    def test_every_slot_takes_exactly_one_answer(self):
+    def test_every_slot_takes_exactly_one_answer(self):  # answer_slot_left_blank
         """E509: a store short of one answer, or answering a slot these inputs do not have, judges nothing."""
         short = dict(self.own)
         short.pop("/secrets/cases/0/expect")
@@ -186,7 +186,7 @@ class JoinTest(StoreTestCase):
         with self.assertRaisesRegex(AnswersError, "hold an answer"):
             answers.fill(SEED, self.own)
 
-    def test_nothing_is_judged_on_the_inputs_alone(self):  # missing_answers_empty_green
+    def test_nothing_is_judged_on_the_inputs_alone(self):  # missing_answers_empty_green public_answers_mixed_with_store
         """E509: the public vectors give the judges a plan of their calls and nothing to judge on. Judging them without
         the exam, in one job or in the join, is the store's outage passed off as a verdict: refused, never green."""
         done = tuple(range(1, TABLE.count + 1))
@@ -217,7 +217,7 @@ class PartsWithTheStoreTest(StoreTestCase):
                                   lambda own: []) for k in range(count)]
         return parts.join(push(groups_judge), records)
 
-    def test_parts_on_the_inputs_alone_joined_with_the_store_give_the_seed_run(self):
+    def test_parts_on_the_inputs_alone_joined_with_the_store_give_the_seed_run(self):  # part_judges_blank_answers
         """E509 with E440: the parts hold no answer, so they know no verdict and run their module-less share; the join
         judges their tapes with the pinned answers. The run is the one the seed's own vectors give, honest or not."""
         done = tuple(range(1, TABLE.count + 1))
@@ -399,7 +399,7 @@ class AdmitTest(unittest.TestCase):
         with self.assertRaisesRegex(self.tool.AdmitError, "not empty"):
             self.tool.migrate(VECTORS, self.tmp / "s2", self.tmp / "public")
 
-    def test_admission_refuses_what_would_publish_or_misplace_an_answer(self):
+    def test_admission_refuses_what_would_publish_or_misplace_an_answer(self):  # admit_ignores_canary_hits
         """E509: an exam version is refused when its canary is in a public path, when the public vectors hold
         answers, when a fixture carries an answer its case must compute, or when an unburned version's answer is
         already public."""

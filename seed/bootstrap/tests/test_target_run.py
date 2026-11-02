@@ -490,7 +490,7 @@ class RivalTargetImageTest(unittest.TestCase):
         self.assertEqual(reproduce.reproducer_key(dict(rep, image=None)), old.hexdigest()[:16])
         self.assertNotEqual(reproduce.reproducer_key(_rep(image="target")), old.hexdigest()[:16])
 
-    def test_a_target_reproducer_runs_on_the_target_runners(self):
+    def test_a_target_reproducer_runs_on_the_target_runners(self):  # target_repro_runs_in_python
         shown = RunResult(1, b"test x ... FAILED\n", b"", 1)
         python, target, control = FakeRunner(shown), FakeRunner(shown), FakeRunner(RunResult(1, b"", b"", 1))
         res = reproduce.run_one(python, python, _rep(image="target"), 9, target=(target, control))
@@ -505,7 +505,7 @@ class RivalTargetImageTest(unittest.TestCase):
         self.assertEqual((res[0]["reproduced"], res[0]["runner_fault"], python.calls), (False, False, []))
         self.assertIn("no target image", res[0]["stderr_tail"])
 
-    def test_without_a_target_image_a_kept_reproducer_is_a_runner_fault(self):
+    def test_without_a_target_image_a_kept_reproducer_is_a_runner_fault(self):  # missing_target_kept_not_fault
         python = FakeRunner(RunResult(0, b"ok.", b"", 1))
         res = reproduce.run_state_reproducers(python, [{"key": "k", "source": "refutation",
                                                         "reproducer": _rep(image="target")}], 9, control=python)

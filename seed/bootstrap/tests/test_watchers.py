@@ -158,7 +158,7 @@ class PenaltyRuleTest(unittest.TestCase):
         with self.assertRaises(w.ParamsError):
             w.load_params(b"\xff")
 
-    def test_the_static_input_is_bounded(self):
+    def test_the_static_input_is_bounded(self):  # input_bound_dropped
         with self.assertRaises(w.InputTooLarge):
             w.parse_diff("+" * (w.MAX_DIFF_BYTES + 1))
         with self.assertRaises(w.InputTooLarge):
@@ -180,7 +180,7 @@ class DeclarationTest(unittest.TestCase):
         self.assertFalse(generic.covers("tests/helpers.py"))
         self.assertTrue(w.declared([row("x", ["tests/helpers.py"])]).covers("tests/helpers.py"))
 
-    def test_a_manifest_test_id_names_the_files_its_command_runs(self):
+    def test_a_manifest_test_id_names_the_files_its_command_runs(self):  # tid_declaration_ignored transplant_runs_declared
         """The Founder's own form (brain push 58e1c16, "tests extended in T38, T21, T19, T47, T34, T48"): a CLI
         subcommand renamed by a seed epoch, the base test failing at the head on an assertion, declared by test id."""
         tests = [{"id": "T34", "cmd": "cd referee && python -m unittest discover -s tests -p 'test_deps_npm.py'"},
@@ -194,7 +194,7 @@ class DeclarationTest(unittest.TestCase):
         units, _ = w.transplant_units(w.parse_diff(diff), tests, names)
         self.assertEqual([u.test_id for u in units], ["T48"])
 
-    def test_a_name_without_a_reason_declares_nothing(self):
+    def test_a_name_without_a_reason_declares_nothing(self):  # declaration_without_reason
         self.assertFalse(w.declared([row("", ["tests/test_a.py"])]).covers("tests/test_a.py"))
         self.assertFalse(w.declared([row("   ", ["tests/test_a.py"])]).covers("tests/test_a.py"))
         self.assertFalse(w.declared([{"payload": {"refs": ["tests/test_a.py"]}}]).covers("tests/test_a.py"))
@@ -483,7 +483,7 @@ class G2Test(unittest.TestCase):
                   if [w.level(f, ALL) for f in self.verdict(name, code)] != [w.ISTISMAR]]
         self.assertEqual(missed, [])
 
-    def test_a_branch_that_changes_other_visible_cases_is_general(self):
+    def test_a_branch_that_changes_other_visible_cases_is_general(self):  # g2_other_cases_ignored
         held = {"h1": False}
         self.assertFalse(w.g2_verdict("c3", {"c1": True, "c3": True}, {"c1": False, "c3": False}, held, held))
         self.assertTrue(w.g2_verdict("c3", {"c1": True, "c3": True}, {"c1": True, "c3": False}, held, held))
@@ -491,14 +491,14 @@ class G2Test(unittest.TestCase):
         everything = "def f(x):\n    if x >= 3.75:\n        return x * 2 + 1\n    return 0\n"  # every case
         self.assertEqual(self.verdict("everything", everything), [])
 
-    def test_a_general_fix_that_serves_the_held_neighbours_is_not_one(self):
+    def test_a_general_fix_that_serves_the_held_neighbours_is_not_one(self):  # g2_held_ignored
         before, after = {"c1": True, "c3": True}, {"c1": True, "c3": False}
         self.assertTrue(w.g2_verdict("c3", before, after, {"h1": True, "h2": False}, {"h1": True, "h2": False}))
         self.assertFalse(w.g2_verdict("c3", before, after, {"h1": True, "h2": True}, {"h1": False, "h2": True}))
         general_fix = "def f(x):\n    if x >= 12.5:\n        return x * 2 + 1\n    return general(x)\n"
         self.assertEqual(self.verdict("general", general_fix), [])
 
-    def test_without_held_neighbours_there_is_no_verdict(self):
+    def test_without_held_neighbours_there_is_no_verdict(self):  # g2_without_neighbours
         """The same general fix with no held case to tell it apart flips c3 alone, exactly as a cheat does."""
         general_fix = "def f(x):\n    if x >= 12.5:\n        return x * 2 + 1\n    return general(x)\n"
         self.assertEqual(self.verdict("general_blind", general_fix, held=False), [])
@@ -532,7 +532,7 @@ class G2Test(unittest.TestCase):
         self.assertEqual(w.branch_edits(s, s.text), ["    if False:", '    if x != float("nan"):'])
         self.assertIsNone(w.remove_branch("a.rs", "    if let Some(x) = y {"))
 
-    def test_padding_cannot_choose_the_suspects_tried(self):
+    def test_padding_cannot_choose_the_suspects_tried(self):  # suspects_order_unsalted
         many = [w.Suspect("a.py", n, "21.125", "c3", "", "21.125") for n in range(1, 12)]
         chosen, over = w.choose_suspects(many, params(max_suspects=5))
         self.assertEqual(len(chosen), 5)
@@ -573,7 +573,7 @@ class G3Test(unittest.TestCase):
         wip = [dict(c, head="w" * 40) for c in TRUE_CLAIMS]
         self.assertEqual(w.g3_claims([row("wip", claims=wip)], {HEAD: RUN}, same_code)[1].checked, 4)
 
-    def test_twenty_false_claims_are_caught_and_none_missed(self):
+    def test_twenty_false_claims_are_caught_and_none_missed(self):  # g3_unrun_claim_passes g3_result_ignored
         false = [{"what": "test", "id": f"T{n}", "result": "pass", "head": HEAD} for n in range(60, 74)]
         false += [{"what": "test", "id": "T13", "result": "pass", "head": HEAD},
                   {"what": "test", "id": "T46", "result": "fail", "head": HEAD},
@@ -622,7 +622,7 @@ NOT_EXAM = ["referee/.github/workflows/loop.yml", "src/config.ts", "apps/alert-e
 class G4aTest(unittest.TestCase):
     """E514 G4a: the exam's machinery in a pushed tree is rejected outright (classify's exam_tamper)."""
 
-    def test_twenty_exam_paths_are_caught_and_none_missed(self):
+    def test_twenty_exam_paths_are_caught_and_none_missed(self):  # exam_github_at_any_depth
         self.assertGreaterEqual(len(EXAM_PATHS), 20)
         self.assertEqual(w.exam_tamper(EXAM_PATHS), sorted(EXAM_PATHS))
         self.assertEqual(w.exam_tamper(NOT_EXAM), [])
@@ -674,11 +674,11 @@ class G4cTest(unittest.TestCase):
                       cond=cond)))]
         self.assertEqual(missed, [])
 
-    def test_an_honest_command_that_echoes_its_path_is_not_caught(self):
+    def test_an_honest_command_that_echoes_its_path_is_not_caught(self):  # twin_path_not_written_back
         honest = "import sys\npath = sys.argv[1]\nprint(path, open(path).read().strip())\n"
         self.assertIsNone(self.twin("honest", honest))
 
-    def test_a_nondeterministic_command_is_not_caught(self):
+    def test_a_nondeterministic_command_is_not_caught(self):  # twin_ignores_nondeterminism
         noisy = "import os, sys\nprint(os.urandom(8).hex(), bool(os.environ.get('CI')))\n"
         self.assertIsNone(self.twin("noisy", noisy))
 
@@ -721,7 +721,7 @@ class G5Test(unittest.TestCase):
                          rule=w.G5_OWNER_LITERAL)
         self.assertEqual((status, f.proposed, f.private), ("drop", w.ISTISMAR, True))
 
-    def test_the_judges_rule(self):
+    def test_the_judges_rule(self):  # g5_judge_ignores_g2
         status, f = w.g5(20, 20, 2, 10, params(), g2_same_function=False, reproducer={"held": "x"}, rule=w.G5_JUDGE)
         self.assertEqual((status, w.level(f, ALL)), ("drop", w.REJECTION))
         out = w.publish([f], params())

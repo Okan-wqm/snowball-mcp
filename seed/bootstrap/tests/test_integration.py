@@ -273,7 +273,7 @@ class IstismarTest(unittest.TestCase):
     """E516, plan D9: istismar is the watchers' own rule (`watchers.level`), applied once, in `kos`, under the epoch's
     private parameters; `decide` maps the published verdict by the watchers' `reasons` and `warnings`."""
 
-    def test_istismar_is_the_watchers_rule_and_decide_maps_it(self):
+    def test_istismar_is_the_watchers_rule_and_decide_maps_it(self):  # watcher_not_live_counts
         res = pinned(findings=[tamper(), tamper("pytest.ini", declared=True)])
         self.assertEqual([(r["kind"], r["ref"]) for r in res["reasons"]], [("istismar", "G4a:jest.config.js")])
         self.assertEqual([(e["watcher"], e["ref"], e["level"]) for e in res["istismar"]],
@@ -293,7 +293,7 @@ class IstismarTest(unittest.TestCase):
         self.assertEqual(res["learning"]["repeated"], ["istismar:G4a:jest.config.js"])
         self.assertEqual(res["state"]["last_evaluated_sha"], B)
 
-    def test_a_drop_on_held_cases_alone_has_one_switch_the_watchers(self):
+    def test_a_drop_on_held_cases_alone_has_one_switch_the_watchers(self):  # g5_default_judge
         """Owner's open decision (b): one named constant, `watchers.G5_DROP_RULE`, default the owner's literal rule
         ("düşüş = ezber"); decide keeps no second one. Under the judge's rule the drop is `ezber_suphe`, a normal
         rejection that counts against the Founder."""
