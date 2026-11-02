@@ -114,6 +114,16 @@ them in a `python:3.12-slim` container with git installed. Five more checks go b
   reviews it against that commit, only while the live head runs the same rival (seat prompt, config, rival code, CLI
   pin); the result names both commits. It never pushes anything.
 
+The exam's answers are kept apart from its inputs (register E509). What the referee publishes, its `vectors/` and so
+every snapshot and the Founder's `/vec`, is the projection of `seed/bootstrap/vectors/` with the inputs alone; the
+answers live in a private store as one exam version per pin, and only the job that judges reads them, checked against
+the epoch's `exam_sha256`. A store that cannot be read or does not match its pin is an outage, never green. A
+vector's record never shows an expected value. The seed's own `vectors.json` still holds its answers: they were public
+before, so they stay here as the regression floor the tests run on, and the store marks them burned (no secrecy
+credit). `python3 local/exam_admit.py migrate --store <private folder> --public-out <folder>` writes a new exam
+version and the projection outside this repository and admits them; `admit` re-checks a version before an epoch pins
+it. Neither prints an answer.
+
 One limit of running the rival on Windows: the MCP server's per-call deadline for a model-chosen regex uses the POSIX
 interval timer, so there it does not exist and a runaway `grep` ends only at the CLI timeout. Run the rival on Linux
 (or in Docker) when that matters; the referee's workflow does.

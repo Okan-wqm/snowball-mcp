@@ -11,6 +11,12 @@ and a changed input must not.
 The judges only judge; who runs a call is the run's (E440). `VectorRun` runs every call itself, `PartRun` only the
 inputs one part of `kos` owns, `Replay` none: it hands each call the answer a part recorded for it, so the join judges
 every vector over the parts' answers exactly as the single job judges over its own.
+
+The expected answers are the exam's, not the public's (E509). The vectors the referee publishes hold the inputs alone
+(`public_vectors`); the answers come from the private store, checked against the epoch's pin (`answers`), and only the
+job that judges reads them. On the inputs alone the judges still ask every call in order, so `kos`'s parts run their
+share without an answer at hand; nothing is judged on them. A record never shows an expected value: a pass shows
+nothing, a fail shows only the parts of the Founder's answer that differ from the expected one.
 """
 
 from __future__ import annotations
@@ -26,11 +32,11 @@ from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Callable
 
-from . import stages
+from . import answers, stages
 from .container import Runner
 
 CWD = "referee"
-SEED_FILE = "vectors.json"  # every case's command and expected answer; the fixtures sit beside it
+SEED_FILE = "vectors.json"  # every case's command (and, in the seed, its expected answer); the fixtures beside it
 CASES_FILE = "cases.json"  # what the Founder's capsule reads of the data cases: their inputs, no answer (E244)
 _HASH = re.compile("[0-9a-f]{40}|[0-9a-f]{64}")
 # `docker run` exits with this when docker itself failed. Since E01 the container turns a command's own 125 into 1,
@@ -59,18 +65,36 @@ def founder_inputs(vectors_dir: Path, dest: Path) -> Path:
     """What the Founder's capsule mounts at `/vec` (E244, Founder report f97): the files `fixtures` gives the referee's
     containers, so each case's command runs there verbatim, and `cases.json`, every data case's inputs with no expected
     value: inputs yes, answers never. A seed with a fixture that carries an answer its case must compute is refused
-    before anything is written, since the Founder would read the answer there. The referee's containers keep
+    before anything is written, since the Founder would read the answer there; on the public vectors, which hold no
+    answer, that check is the exam's admission's (`local/exam_admit.py`, E509). The referee's containers keep
     `fixtures`."""
     spec = _seed(vectors_dir)
-    lookups = _lookups(vectors_dir, spec)
+    inputs, own = answers.split(spec, strict=False)
+    lookups = _lookups(vectors_dir, spec) if own else []  # on the public inputs the admission checked it (E509)
     if lookups:
         raise ValueError("a fixture carries an answer its case must compute: " + "; ".join(lookups))
     if (vectors_dir / CASES_FILE).exists():
         raise ValueError(f"the seed has a fixture named {CASES_FILE}; the inputs would overwrite it")
-    cases = [_inputs(case) for case in _data_cases(spec)]
+    cases = [_inputs(case) for case in _data_cases(inputs)]
     fixtures(vectors_dir, dest)
     (dest / CASES_FILE).write_text(json.dumps(cases, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return dest
+
+
+def public_vectors(vectors_dir: Path, dest: Path) -> Path:
+    """The vectors as the referee publishes them (E509): every fixture, and ``vectors.json`` with the inputs alone
+    (`answers.split`). What the operator installs as the referee's `vectors/`, so no snapshot, artifact or `/vec`
+    holds an expected value. Returns ``dest``."""
+    inputs, _answers = answers.split(_seed(vectors_dir))
+    fixtures(vectors_dir, dest)
+    (dest / SEED_FILE).write_text(json.dumps(inputs, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return dest
+
+
+def fixture_lookups(vectors_dir: Path, exam: answers.Exam) -> list[str]:
+    """`case: file` for each public fixture that carries an answer its case must compute, the answers being the exam's
+    (E244's check, made where the answers are: the admission and the judging job)."""
+    return _lookups(vectors_dir, answers.join(answers.split(_seed(vectors_dir), strict=False)[0], exam))
 
 
 def _inputs(case: dict[str, Any]) -> dict[str, Any]:
@@ -271,21 +295,49 @@ class _Plan(VectorRun):
         return None
 
 
+# What a record shows of the Founder's answer (E509). The signed result is public: a value shown on a pass, or a field
+# shown that matched, is the expected value itself, for every reader. So a pass shows nothing, and a fail shows the
+# Founder's value only where it differs from the expected one; an answer that is the one a changed input must not
+# give is named, not shown. A wrong answer's detail still begins with "got ".
+GAVE_THE_ORIGINAL = "got the answer a changed input must not give"
+
+
+def _got(ok: bool, got: Any, *avoid: Any) -> str:
+    if ok:
+        return ""
+    if any(_same(got, a) for a in avoid):
+        return GAVE_THE_ORIGINAL
+    return f"got {got}"
+
+
+def _differing(out: dict[str, Any] | None, fields: dict[str, Any]) -> str:
+    """Of the fields ``fields`` names, those ``out`` gives with another value, and those it leaves out."""
+    if out is None:
+        return "no JSON object"
+    shown = {k: out[k] for k in fields if k in out and not _same(out[k], fields[k])}
+    absent = [k for k in fields if k not in out]
+    if not shown and not absent:
+        return GAVE_THE_ORIGINAL
+    return "got " + json.dumps(shown) + (f", without {', '.join(absent)}" if absent else "")
+
+
 def _chain(run: VectorRun, spec: dict[str, Any]) -> None:
     for i, item in enumerate(spec["rows"], start=1):
         row, expected = item["row"], item["row_hash"]
         out = run.call("python -m ledger.chain hash", json.dumps(row).encode())
         got = out.get("row_hash") if out else None
-        run.record(f"chain.V{i}.hash", got == expected, f"got {got}")
+        run.record(f"chain.V{i}.hash", got == expected, _got(got == expected, got))
         changed = dict(row, row_id=row["row_id"] + "x")
         out = run.call("python -m ledger.chain hash", json.dumps(changed).encode())
         got = out.get("row_hash") if out else None
-        run.record(f"chain.V{i}.hash_changed_input", isinstance(got, str) and got != expected, f"got {got}")
+        ok = isinstance(got, str) and got != expected
+        run.record(f"chain.V{i}.hash_changed_input", ok, _got(ok, got, expected))
     out = run.call(f"python -m ledger.chain verify {shlex.quote('/vec/' + spec['verify_good'])}")
-    run.record("chain.verify_good", bool(out) and out.get("valid") is True, json.dumps(out)[:120])
+    ok = bool(out) and out.get("valid") is True
+    run.record("chain.verify_good", ok, "" if ok else json.dumps(out)[:120])
     out = run.call(f"python -m ledger.chain verify {shlex.quote('/vec/' + spec['verify_v3'])}")
-    run.record("chain.V3", bool(out) and out.get("valid") is False
-               and out.get("broken_row") == spec["v3_broken_row"], json.dumps(out)[:120])
+    ok = bool(out) and out.get("valid") is False and out.get("broken_row") == spec["v3_broken_row"]
+    run.record("chain.V3", ok, "" if ok else _differing(out, {"valid": False, "broken_row": spec["v3_broken_row"]}))
 
 
 def _cp(run: VectorRun, spec: dict[str, Any]) -> None:
@@ -293,21 +345,23 @@ def _cp(run: VectorRun, spec: dict[str, Any]) -> None:
     for x, n, expected in spec["cases"]:
         out = run.call(f"python -m harness.stats cp_lower {x} {n} {alpha}")
         got = _rounded(out.get("lb") if out else None, expected)
-        run.record(f"cp_lower.{x}/{n}", got == expected, f"got {got}")
+        run.record(f"cp_lower.{x}/{n}", got == expected, _got(got == expected, got))
         lower_x = str(Decimal(x) - 1)
         out = run.call(f"python -m harness.stats cp_lower {lower_x} {n} {alpha}")
         got = _rounded(out.get("lb") if out else None, expected)
-        run.record(f"cp_lower.{x}/{n}.changed_input", got is not None and got != expected, f"got {got}")
+        ok = got is not None and got != expected
+        run.record(f"cp_lower.{x}/{n}.changed_input", ok, _got(ok, got, expected))
 
 
 def _mcnemar(run: VectorRun, spec: dict[str, Any]) -> None:
     for b, c, expected in spec["cases"]:
         out = run.call(f"python -m harness.stats mcnemar {b} {c}")
         got = _rounded(out.get("p") if out else None, expected)
-        run.record(f"mcnemar.{b},{c}", got == expected, f"got {got}")
+        run.record(f"mcnemar.{b},{c}", got == expected, _got(got == expected, got))
         out = run.call(f"python -m harness.stats mcnemar {b + 1} {c}")
         got = _rounded(out.get("p") if out else None, expected)
-        run.record(f"mcnemar.{b},{c}.changed_input", got is not None and got != expected, f"got {got}")
+        ok = got is not None and got != expected
+        run.record(f"mcnemar.{b},{c}.changed_input", ok, _got(ok, got, expected))
 
 
 def _match(run: VectorRun, spec: dict[str, Any]) -> None:
@@ -316,8 +370,8 @@ def _match(run: VectorRun, spec: dict[str, Any]) -> None:
                f"{shlex.quote('/vec/' + item['findings'])} {shlex.quote('/vec/' + item['cases'])}")
         out = run.call(cmd)
         got = out.get("hits") if out else None
-        run.record(f"match.{i}", isinstance(got, int) and not isinstance(got, bool) and got == item["hits"],
-                   f"got {got}")
+        ok = isinstance(got, int) and not isinstance(got, bool) and got == item["hits"]
+        run.record(f"match.{i}", ok, _got(ok, got))
 
 
 def _drill(run: VectorRun, spec: dict[str, Any]) -> None:
@@ -327,7 +381,9 @@ def _drill(run: VectorRun, spec: dict[str, Any]) -> None:
     for item in spec["cases"]:
         out = run.call(f"python -m harness.drill judge {shlex.quote('/vec/' + item['file'])}")
         got = (out.get("drill"), out.get("verdicts")) if out else (None, None)
-        run.record(f"drill.{item['name']}", got == (item["drill"], item["verdicts"]), json.dumps(got)[:200])
+        ok = got == (item["drill"], item["verdicts"])
+        run.record(f"drill.{item['name']}", ok,
+                   "" if ok else _differing(out, {"drill": item["drill"], "verdicts": item["verdicts"]}))
 
 
 def _same(a: Any, b: Any) -> bool:
@@ -340,7 +396,16 @@ def _gives(out: dict[str, Any] | None, fields: dict[str, Any]) -> bool:
 
 
 def _shown(out: dict[str, Any] | None, fields: dict[str, Any]) -> str:
-    return "no JSON object" if out is None else "got " + json.dumps({k: out[k] for k in fields if k in out})
+    """A data case's detail: nothing when ``out`` gives ``fields``, else what differs (E509)."""
+    return "" if _gives(out, fields) else _differing(out, fields)
+
+
+def _shown_not(out: dict[str, Any] | None, avoid: dict[str, Any]) -> str:
+    """A changed input's detail: nothing when ``out`` answers every field of ``avoid`` and not with it, else what
+    differs from it (nothing of it, when it is ``avoid``: that answer is the original input's, E509)."""
+    if out is not None and all(name in out for name in avoid) and not _gives(out, avoid):
+        return ""
+    return _differing(out, avoid)
 
 
 def _data(run: VectorRun, spec: dict[str, Any]) -> None:
@@ -356,7 +421,7 @@ def _data(run: VectorRun, spec: dict[str, Any]) -> None:
         out = run.call(changed["cmd"], changed.get("stdin", "").encode("utf-8"))
         run.record(f"{case['id']}.changed_input",
                    out is not None and all(name in out for name in avoid) and not _gives(out, avoid),
-                   _shown(out, avoid))
+                   _shown_not(out, avoid))
 
 
 GROUPS = (("chain", _chain), ("cp_lower", _cp), ("mcnemar", _mcnemar), ("match", _match), ("drill", _drill))
@@ -393,23 +458,46 @@ def missing_groups(vectors_dir: Path, done_mf: tuple[int, ...], table: stages.St
     """Groups a finished micro-feature owns that the seed has no vectors (or no runner) for yet, or whose interface
     page is not yet in the Founder's seed (``tree``).
 
-    Their expected values come with the seed, computed twice independently (`29a`); the referee never makes them
-    up. `decide` warns on a code push and refuses the exit while any is missing.
+    Their expected values come with the seed, computed twice independently (`29a`), and since E509 from the exam's
+    store; the referee never makes them up. `decide` warns on a code push and refuses the exit while any is missing.
     """
     judges = _judges(_seed(vectors_dir), tree)
     return [g for g in table.groups_of(done_mf) if g not in judges]
 
 
-Applied = list[tuple[Callable[[VectorRun, dict[str, Any]], None], dict[str, Any]]]
+class Applied(list):
+    """The groups one push runs, in the seed's order, each ``(judge, vectors)``. ``answered`` is False for groups read
+    from the public inputs alone (E509): every call is asked in order on them, and nothing is judged on them."""
+
+    def __init__(self, items: Any = (), *, answered: bool = True):
+        super().__init__(items)
+        self.answered = answered
+
+
+def exam_seed(vectors_dir: Path, exam: answers.Exam | None = None) -> tuple[dict[str, Any], bool]:
+    """The vectors the judges run, and whether they hold the answers (E509). With ``exam``, the public inputs filled
+    with its answers: inputs that hold an answer of their own are refused, never mixed with the store's. Without it,
+    a seed that holds every answer is itself (the seed's own vectors, before an exam was pinned); one that holds the
+    inputs alone is the plan of the calls, ``answered`` False."""
+    spec = _seed(vectors_dir)
+    inputs, own = answers.split(spec, strict=False)
+    if exam is not None:
+        if own:
+            raise answers.AnswersError("the public vectors hold answers: install the projection, not the seed")
+        return answers.join(inputs, exam), True
+    if own or not answers.slot_pointers(inputs):
+        return spec, True
+    return answers.blank(inputs), False
 
 
 def applied(vectors_dir: Path, done_mf: tuple[int, ...], *, table: stages.StageTable | None = None,
-            tree: Path | None = None) -> Applied:
+            tree: Path | None = None, exam: answers.Exam | None = None) -> Applied:
     """The groups one push runs, in the seed's order, each with its judge and its vectors: those a finished
-    micro-feature owns and the seed has a judge for (E151, E199). The single job, every part and the join run these."""
+    micro-feature owns and the seed has a judge for (E151, E199). The single job, every part and the join run these;
+    the join with the exam's answers (``exam``), the parts on the inputs alone (E509)."""
     owned = set((table or stages.load(0)).groups_of(done_mf))
-    spec = _seed(vectors_dir)
-    found: Applied = []
+    spec, answered = exam_seed(vectors_dir, exam)
+    found = Applied(answered=answered)
     for name, judge in _judges(spec, tree).items():
         if name in owned:
             found.append((judge, spec[name]))
@@ -422,9 +510,19 @@ def _judge(run: VectorRun, groups: Applied) -> list[dict]:
     return run.results
 
 
+def _answered(groups: Applied) -> Applied:
+    """Groups that may be judged: built with every answer at hand. A verdict on the inputs alone would be the store's
+    outage passed off as the Founder's work, green or red (E509)."""
+    if not isinstance(groups, Applied) or not groups.answered:
+        raise answers.AnswersError("these vectors hold the inputs alone: nothing is judged without the exam's answers")
+    return groups
+
+
 def run_vectors(runner: Runner, vectors_dir: Path, done_mf: tuple[int, ...], timeout_s: int = 120, *,
-                table: stages.StageTable | None = None, tree: Path | None = None) -> list[dict]:
-    return _judge(VectorRun(runner, timeout_s), applied(vectors_dir, done_mf, table=table, tree=tree))
+                table: stages.StageTable | None = None, tree: Path | None = None,
+                exam: answers.Exam | None = None) -> list[dict]:
+    groups = _answered(applied(vectors_dir, done_mf, table=table, tree=tree, exam=exam))
+    return _judge(VectorRun(runner, timeout_s), groups)
 
 
 def call_inputs(groups: Applied) -> list[str]:
@@ -435,16 +533,17 @@ def call_inputs(groups: Applied) -> list[str]:
 
 
 def run_part(runner: Runner, groups: Applied, mine: set[str], timeout_s: int = 120) -> tuple[list[dict], list[dict]]:
-    """One part's calls (E440): its tape, and the records it could write from its own answers alone."""
+    """One part's calls (E440): its tape, and the records it could write from its own answers alone. On the inputs
+    alone (E509) it knows no record: none of its vectors counts as red, and it runs its share of module-less red."""
     run = PartRun(runner, timeout_s, mine)
     known = _judge(run, groups)
-    return run.tape, known
+    return run.tape, known if groups.answered else []
 
 
 def replay(tape: list[dict[str, Any]], groups: Applied) -> list[dict]:
     """Every record of a push, judged over ``tape``: the parts' answers merged in the judges' call order (E440)."""
     run = Replay(tape)
-    records = _judge(run, groups)
+    records = _judge(run, _answered(groups))
     if run.next != len(tape):
         raise TapeError(f"the parts answered {len(tape) - run.next} calls the judges never make")
     return records
