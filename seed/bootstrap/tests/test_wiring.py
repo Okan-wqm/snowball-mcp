@@ -1293,6 +1293,16 @@ class MutationShardTest(unittest.TestCase):
         self.assertLessEqual(-(-len(mutate.MUTANTS) // count), self.PER_SHARD,
                              f"{len(mutate.MUTANTS)} mutants in {count} shards: add shards to ci.yml")
 
+    def test_the_shards_leave_the_referee_room_on_the_account(self):  # mutation_shards_fill_the_account
+        """E525: the account runs at most 20 jobs at once, and a push to main started every mutation shard together, so on
+        2026-11-02 the referee's runs for the Founder's pushes queued behind them. The shards run at most 16 at a time:
+        the referee's jobs (cek, getir, the four kos parts, cagir, yaz; at most 4 run together) always find a slot."""
+        ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+        job = re.search(r"(?ms)^  mutation:\n(.*?)(?=^  \S|\Z)", ci).group(1)
+        found = re.search(r"(?m)^      max-parallel: ([0-9]+)$", job)
+        self.assertIsNotNone(found, "the mutation job has no max-parallel")
+        self.assertLessEqual(int(found.group(1)), 16)
+
     def test_each_mutant_a_test_names_is_one(self):
         """E486 (the eighth skeptic: three tests named mutants that no longer were, sixteen more were found): the
         trailing comment on a test names the mutants it kills (`local/mutate.py`); a name there that is no mutant's

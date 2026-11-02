@@ -2377,6 +2377,10 @@ MUTANTS = [
     ("stages_stdlib_kept_everywhere", "seed/bootstrap/snowball_bootstrap/stages.py",
      "STDLIB_KEPT.get(stage, frozenset())", "STDLIB_KEPT.get(0, frozenset())",
      "E507: Stage 0's kept `profile` is allowed in every stage's table"),
+    # E525: the mutation shards leave the referee room on the account
+    ("mutation_shards_fill_the_account", ".github/workflows/ci.yml",
+     "      max-parallel: 16" + chr(10), "",
+     "E525: every shard starts at once and the referee's runs queue behind them"),
     ("mutation_shards_back_to_eight", ".github/workflows/ci.yml",
      "        shard: [" + ", ".join(str(k) for k in range(66)) + "]\n",
      "        shard: [0, 1, 2, 3, 4, 5, 6, 7]\n",
