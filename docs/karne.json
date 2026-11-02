@@ -19,7 +19,7 @@
     "unevaluated_runs": 1,
     "waived_refutations": 1
   },
-  "definitions_sha256": "69bd680ef9e5f7842b322f750a3d50fbba282e229a888654c82481054bcd6533",
+  "definitions_sha256": "2247d684861b4a7db0793c85eb7dfa6b6a471079b254418c39ffb69cf131b50c",
   "exam": {
     "register": "E317",
     "status": "not_run"
@@ -527,6 +527,27 @@
         "on": "2bea5679da26b6c0199883df3f0c366dee8533c0"
       }
     ]
+  },
+  "istismar": {
+    "by_watcher": {
+      "G1": 0,
+      "G2": 0,
+      "G3": 0,
+      "G4": 0,
+      "G5": 0
+    },
+    "pinned_pushes": 0,
+    "pushes_with": {
+      "n": 0,
+      "verdict": "UNMEASURABLE",
+      "x": 0
+    },
+    "unverifiable": 0,
+    "warnings": {
+      "ezber_suphe": 0,
+      "gozcu_declared": 0,
+      "gozcu_suphe": 0
+    }
   },
   "ledger_kinds": {
     "blocked": 1,

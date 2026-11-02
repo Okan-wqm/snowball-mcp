@@ -681,6 +681,10 @@ class CommandWiring(unittest.TestCase):
         root = self.root / "operator"
         root.mkdir(exist_ok=True)
         self.policy_file(root)
+        # `decide` reads the snapshot's last epoch for the exam pin (E516); a summary with no epoch pins none
+        (root / "setup").mkdir(exist_ok=True)
+        summary = {"seed_commit": "a" * 40, "seed_tree_sha256": "b" * 64}
+        (root / "setup" / "summary.json").write_text(json.dumps(summary))
         pulled = self.root / "pulled"
         pulled.mkdir(exist_ok=True)
         (pulled / "meta.json").write_text(json.dumps(meta))

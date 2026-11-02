@@ -7,9 +7,14 @@
 #   seats/                  <- spec/tohum/29-tohum-koltuklari.md
 #   bootstrap.json, control.json, policy.json, setup/summary.json
 # Repository settings: default workflow permissions read-only; no App with write access.
-# Secrets: secrets.CLAUDE_CODE_OAUTH_TOKEN (the operator's `claude setup-token`), nothing else. No API key
-# is held anywhere while this system is for internal use. The brain repository is public while the system
+# Secrets: secrets.CLAUDE_CODE_OAUTH_TOKEN (the operator's `claude setup-token`), in the Environment `rival`. No API
+# key is held anywhere while this system is for internal use. The brain repository is public while the system
 # is for internal use, so it is read without any identity (tohum/25, 01a).
+# From the seed epoch that pins the private exam (setup/summary.json seed_epochs[-1].exam_sha256, E516): the
+# Environment `answers` (deployment branches: main only) holds secrets.ANSWERS_KEY, a read-only deploy key of the
+# exam store, and secrets.EXAM_REPO, its owner/name (seed/founder/README.md "Özel sınav"). Before that epoch the
+# jobs and steps that need them are skipped and the result is the one this workflow always signed.
+# An Environment job never runs brain or target code: no docker in it (test_integration T8 lint).
 #
 # Schedule: hourly at a fixed odd minute. An idle poll is one job of under a minute (it installs
 # and verifies nothing). Standard runners are free in a public repository; in a private one the same
@@ -24,8 +29,11 @@
 #   cek     GITHUB_TOKEN (contents, actions: read); the brain is read anonymously - runs no brain code
 #   getir   nothing; network for wheels only                         - runs no brain code
 #   kos_parca  nothing; brain code only inside --network none containers (one job per part, E440)
-#   kos     nothing; joins the parts' records, judging the vectors on their answers - runs no brain code
-#   cagir   operator's Claude login (CLAUDE_CODE_OAUTH_TOKEN)        - runs no brain code
+#   gozcu   nothing; the static watchers on the pulled push (pinned exam only) - runs no brain code
+#   kos_hedef  nothing; the copy target at its base inside --network none containers (pinned exam only)
+#   kos     Environment answers: the exam store's read key, in its fetch step only (pinned exam only); joins the
+#           parts' records, judging the vectors on their answers - runs no brain code
+#   cagir   Environment rival: operator's Claude login (CLAUDE_CODE_OAUTH_TOKEN) - runs no brain code
 #   yeniden nothing; reproducers only inside --network none containers
 #   yaz     OIDC (Sigstore) and contents: read                         - runs no brain code
 
@@ -61,6 +69,8 @@ jobs:
       run_rival: ${{ steps.pull.outputs.run_rival }}
       repro: ${{ steps.pull.outputs.repro }}
       image: ${{ steps.cfg.outputs.image }}
+      target_image: ${{ steps.cfg.outputs.target_image }}
+      exam_pinned: ${{ steps.pull.outputs.exam_pinned }}
       snap_sha: ${{ steps.pack.outputs.snap_sha }}
       pulled_sha: ${{ steps.pack.outputs.pulled_sha }}
     steps:
@@ -108,7 +118,9 @@ jobs:
       - id: pull
         name: Pull and classify the brain commit
         if: steps.poll.outputs.skip == 'false'
-        run: python3 -m snowball_bootstrap pull --root snap --state state/state.json --work work --out pulled
+        run: >
+          python3 -m snowball_bootstrap pull --root snap --state state/state.json --work work --out pulled
+          --prev-result state/prev/result.json
       - id: pack
         if: steps.pull.outputs.skip == 'false'
         run: |
@@ -225,15 +237,86 @@ jobs:
           retention-days: 7
           if-no-files-found: error
 
+  gozcu:
+    # The static watchers (E516, plan D9): keyless, no brain code; their findings reach `decide` by the hash this job
+    # names. Only once an epoch pins the private exam; before that this job never runs.
+    needs: cek
+    if: needs.cek.outputs.exam_pinned == 'true' && needs.cek.outputs.run_tests == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions: {}
+    outputs:
+      gozcu_sha: ${{ steps.pack.outputs.gozcu_sha }}
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with: { name: snapshot }
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with: { name: pulled }
+      - name: Verify and unpack
+        run: |
+          echo "${{ needs.cek.outputs.snap_sha }}  snapshot.tar" | sha256sum -c -
+          echo "${{ needs.cek.outputs.pulled_sha }}  pulled.tar" | sha256sum -c -
+          mkdir snap pulled && tar -xf snapshot.tar -C snap && tar -xf pulled.tar -C pulled
+      - name: Kill switch (snapshot of this run)
+        run: python3 -m snowball_bootstrap control --root snap
+      - name: The watchers (static; no brain code runs)
+        run: python3 -m snowball_bootstrap watch --root snap --pulled pulled --out gozcu
+      - id: pack
+        run: python3 -m snowball_bootstrap pack --dir gozcu --out gozcu.tar | sed -n 's/^sha256=/gozcu_sha=/p' >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: gozcu
+          path: gozcu.tar
+          retention-days: 7
+          if-no-files-found: error
+
+  kos_hedef:
+    # The copy target's own code (E516, plan D8): fetched without install scripts and run in the pinned target image
+    # inside --network none containers; it holds no secret and reads no answer. Only once an epoch pins the exam.
+    needs: cek
+    if: needs.cek.outputs.exam_pinned == 'true' && needs.cek.outputs.run_tests == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions: {}
+    outputs:
+      hedef_sha: ${{ steps.pack.outputs.hedef_sha }}
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with: { name: snapshot }
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with: { name: pulled }
+      - name: Verify and unpack
+        run: |
+          echo "${{ needs.cek.outputs.snap_sha }}  snapshot.tar" | sha256sum -c -
+          echo "${{ needs.cek.outputs.pulled_sha }}  pulled.tar" | sha256sum -c -
+          mkdir snap pulled && tar -xf snapshot.tar -C snap && tar -xf pulled.tar -C pulled
+      - name: Kill switch (snapshot of this run)
+        run: python3 -m snowball_bootstrap control --root snap
+      - name: Pull the pinned target image
+        run: docker pull "${{ needs.cek.outputs.target_image }}"
+      - name: The copy target at its base, sandboxed
+        run: python3 -m snowball_bootstrap run-target --root snap --pulled pulled --work work --out hedef
+      - id: pack
+        run: python3 -m snowball_bootstrap pack --dir hedef --out hedef.tar | sed -n 's/^sha256=/hedef_sha=/p' >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: hedef
+          path: hedef.tar
+          retention-days: 7
+          if-no-files-found: error
+
   kos:
     # Joins the parts (E440): each part's artifact only by the hash its job named, each part checked to be the part it
     # says (place, count, head, plan) and to hold exactly its own share; then every vector is judged on the parts'
     # answers in the single job's order. A part that failed, is missing or does not add up fails this job (`kos:failure`).
-    needs: [cek, getir, kos_parca]
+    # Under a pinned exam (E516) the vectors are judged on the private exam store's answers: the read key is in the
+    # fetch step's env alone, and the store is shredded before the job ends. No container runs in this job (T8).
+    needs: [cek, getir, kos_parca, kos_hedef]
     if: >-
       !cancelled() && needs.cek.outputs.run_tests == 'true' && needs.getir.result == 'success'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    environment: answers
     permissions: {}
     outputs:
       run_sha: ${{ steps.pack.outputs.run_sha }}
@@ -251,14 +334,36 @@ jobs:
         with: { name: deps }
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with: { pattern: "run-part-*", path: parts, merge-multiple: true }
+      - if: needs.kos_hedef.result == 'success'
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with: { name: hedef }
       - name: Verify and unpack
         run: |
           echo "${{ needs.cek.outputs.snap_sha }}  snapshot.tar" | sha256sum -c -
           echo "${{ needs.cek.outputs.pulled_sha }}  pulled.tar" | sha256sum -c -
           echo "${{ needs.getir.outputs.deps_sha }}  deps.tar" | sha256sum -c -
           mkdir snap pulled deps && tar -xf snapshot.tar -C snap && tar -xf pulled.tar -C pulled && tar -xf deps.tar -C deps
+          if [ -f hedef.tar ]; then
+            echo "${{ needs.kos_hedef.outputs.hedef_sha }}  hedef.tar" | sha256sum -c -
+            mkdir hedef && tar -xf hedef.tar -C hedef
+          fi
       - name: Kill switch (snapshot of this run)
         run: python3 -m snowball_bootstrap control --root snap
+      - name: The exam store at the epoch's pin (the read key in this step only)
+        if: needs.cek.outputs.exam_pinned == 'true'
+        continue-on-error: true  # a store not read is `answers_unavailable` in the result, retried (E516)
+        env:
+          ANSWERS_KEY: ${{ secrets.ANSWERS_KEY }}
+          EXAM_REPO: ${{ secrets.EXAM_REPO }}
+        run: |
+          set -eu
+          key="$RUNNER_TEMP/exam-key"
+          trap 'shred -u "$key" 2>/dev/null || rm -f "$key"' EXIT
+          umask 077
+          printf '%s\n' "$ANSWERS_KEY" > "$key"
+          printf '%s\n' "github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl" > "$RUNNER_TEMP/exam-hosts"
+          export GIT_SSH_COMMAND="ssh -i $key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$RUNNER_TEMP/exam-hosts"
+          git clone --quiet --depth 1 --no-tags "git@github.com:$EXAM_REPO.git" exam > /dev/null 2>&1
       - id: run
         name: Join the parts and judge the vectors on their answers (no container)
         run: >
@@ -267,6 +372,10 @@ jobs:
           --part parts/part-1.tar=${{ needs.kos_parca.outputs.part_sha_1 }}
           --part parts/part-2.tar=${{ needs.kos_parca.outputs.part_sha_2 }}
           --part parts/part-3.tar=${{ needs.kos_parca.outputs.part_sha_3 }}
+          --exam exam --target hedef
+      - name: Shred the exam store
+        if: always()
+        run: if [ -d exam ]; then find exam -type f -exec shred -u {} + ; rm -rf exam; fi
       - id: pack
         run: python3 -m snowball_bootstrap pack --dir run --out run.tar | sed -n 's/^sha256=/run_sha=/p' >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -283,6 +392,7 @@ jobs:
       (needs.cek.outputs.kind == 'spec' || needs.kos.outputs.green == 'true')
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    environment: rival
     permissions: {}
     outputs:
       rival_sha: ${{ steps.pack.outputs.rival_sha }}
@@ -379,7 +489,7 @@ jobs:
           if-no-files-found: error
 
   yaz:
-    needs: [cek, getir, kos, cagir, yeniden]
+    needs: [cek, getir, kos, cagir, yeniden, gozcu]
     if: always() && github.ref == 'refs/heads/main' && needs.cek.result == 'success' && needs.cek.outputs.skip != 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -406,6 +516,9 @@ jobs:
       - if: needs.yeniden.result == 'success'
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with: { name: repro }
+      - if: needs.gozcu.result == 'success'
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with: { name: gozcu }
       - name: Verify and unpack
         run: |
           set -eu
@@ -416,12 +529,14 @@ jobs:
           if [ -f run.tar ]; then check run.tar "${{ needs.kos.outputs.run_sha }}"; fi
           if [ -f rival.tar ]; then check rival.tar "${{ needs.cagir.outputs.rival_sha }}"; fi
           if [ -f repro.tar ]; then check repro.tar "${{ needs.yeniden.outputs.repro_sha }}"; fi
+          if [ -f gozcu.tar ]; then check gozcu.tar "${{ needs.gozcu.outputs.gozcu_sha }}"; fi
       - name: Decide
         run: >
           python3 -m snowball_bootstrap decide --root snap --pulled pulled
-          --run run --rival rival --repro repro --out out
+          --run run --rival rival --repro repro --gozcu gozcu --out out
           --job getir=${{ needs.getir.result }} --job kos=${{ needs.kos.result }}
           --job cagir=${{ needs.cagir.result }} --job yeniden=${{ needs.yeniden.result }}
+          --job gozcu=${{ needs.gozcu.result }}
       - name: Sign the result into Rekor (Sigstore, keyless)
         run: |
           python3 -m venv /tmp/sig

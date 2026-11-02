@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import re
 
+from .treehash import RESERVED_TOP
+
 SPEC_STAGE_RE = re.compile(r"^spec/asama-\d+/")
 SPEC_INDEX = "spec/INDEX.md"
 LEDGER_FILE = "founder-ledger.jsonl"
@@ -13,6 +15,7 @@ REPORTS_DIR = "reports/"
 SEED_MODIFIED = "seed_modified"
 ROOT_WORKFLOW_MODIFIED = "root_workflow_modified"
 MIXED = "mixed_spec_and_code"
+EXAM_TAMPER = "exam_tamper"  # `exam_tamper:<path>`, one per path (E516, plan D9 G4a)
 
 
 def is_spec_path(path: str) -> bool:
@@ -43,10 +46,26 @@ def is_agent_config(path: str) -> bool:
     return any(part in AGENT_DIRS for part in parts) or (bool(parts) and parts[-1] in AGENT_FILES)
 
 
-def classify(changed: list[str]) -> tuple[str, list[str]]:
-    """Return (kind, reasons). kind is one of none, spec, code, rejected."""
+# The exam's own slots in the tree the import makes the referee (E516, plan D9 G4a): `referee/` becomes the referee
+# repository's root, and these names there are the operator's files, the exam's vectors and seats and the bootstrap
+# referee, which the import keeps and never takes from the brain (`treehash.RESERVED_TOP`, the same names, case-folded).
+# Under a pinned exam a push that writes there touches the exam or the referee: rejected outright, no judgement needed.
+PROTECTED_EXAM = tuple(sorted(f"referee/{name}" for name in RESERVED_TOP))
+EXAM_TAMPER_LIMIT = 20  # paths named, like `changed_after_exit`
+
+
+def is_exam_path(path: str) -> bool:
+    folded = "/".join(part.casefold() for part in path.split("/") if part)
+    return any(folded == p or folded.startswith(p + "/") for p in PROTECTED_EXAM)
+
+
+def classify(changed: list[str], exam_pinned: bool = False) -> tuple[str, list[str]]:
+    """Return (kind, reasons). kind is one of none, spec, code, rejected. Under a pinned exam (``exam_pinned``, E516)
+    a path in the exam's slots is also `exam_tamper:<path>`; with no pin nothing here changed."""
     reasons: set[str] = set()
     spec = code = False
+    tamper = sorted(p for p in changed if exam_pinned and is_exam_path(p))[:EXAM_TAMPER_LIMIT]
+    reasons.update(f"{EXAM_TAMPER}:{p}" for p in tamper)
     for path in changed:
         if is_founder_record(path):
             continue
