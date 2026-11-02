@@ -13,8 +13,10 @@ import json
 import os
 import re
 import subprocess
+import sys
 import tarfile
 import tempfile
+import time
 import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -1811,6 +1813,327 @@ class BrainDefinitionsTest(unittest.TestCase):  # E450, owner 2026-11-01: the br
             self.assertFalse(rival.hidden(path), path)  # the rival reads them like the rest of the push
         self.assertEqual(self.defs.AGENT_CONFIG_DIRS, classify.AGENT_DIRS)  # one rule for both
         self.assertEqual(self.defs.AGENT_CONFIG_FILES, classify.AGENT_FILES)
+
+
+class LauncherResumeTest(unittest.TestCase):
+    """E505 (owner-approved gap C): the launcher survives a crash or a reboot and resumes by itself, and never
+    overrides a deliberate stop. One launcher per work folder (an OS lock the OS frees with its process); <work>/RUNNING
+    holds the run in progress; `--resume`, which the Scheduled Task runs, continues it. No task is registered here."""
+
+    def setUp(self):
+        self.launch = load_launch()
+        self.work = Path(tempfile.mkdtemp())
+
+    def running(self):
+        path = self.work / "RUNNING"
+        return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else None
+
+    def store(self, **fields):
+        state = {"argv": [], "cycles_left": 3, "idle": 0, "started": "2026-11-02T01:00:00Z",
+                 "updated": "2026-11-02T02:00:00Z", **fields}
+        (self.work / "RUNNING").write_text(json.dumps(state), encoding="utf-8")
+        return state
+
+    def pilot_class(self, outcomes, seen):
+        test = self
+
+        class FakePilot:  # the launcher's Pilot as start() and run_cycles() see it; the cycle has its own tests
+            idle = 0
+
+            def __init__(self, work, brain, referee, target):
+                self.work, self.report = work, work / "pilot-log.md"
+                seen["target"] = target
+
+            def preflight(self):
+                seen["calls"].append("preflight")
+                if seen.get("preflight_fails"):
+                    sys.exit("preflight failed")
+
+            def build(self):
+                seen["calls"].append("build")
+
+            def intervention(self, args):
+                seen["args"] = args
+
+            def write(self, text):
+                with self.report.open("a", encoding="utf-8") as fh:
+                    fh.write(text)
+
+            def stopped(self):
+                return (self.work / "STOP").exists()
+
+            def wait(self, seconds):
+                if seen.get("stop_while_waiting"):
+                    (self.work / "STOP").touch()
+
+            def cycle(self, n, args):
+                seen["running"].append(test.running())
+                seen["idle"].append(self.idle)
+                outcome = outcomes.pop(0)
+                if isinstance(outcome, BaseException):
+                    raise outcome
+                self.idle += 1  # no push
+                return outcome
+        return FakePilot
+
+    def main(self, argv, outcomes=(), ready=True, **flags):
+        seen = {"calls": [], "running": [], "idle": [], **flags}
+        with mock.patch.object(self.launch, "Pilot", self.pilot_class(list(outcomes), seen)), \
+                mock.patch.object(self.launch.shutil, "which", return_value="/usr/bin/tool"), \
+                mock.patch.object(self.launch, "wait_ready", side_effect=ready if callable(ready) else None,
+                                  return_value=ready) as wait, \
+                mock.patch.object(self.launch, "say"):
+            seen["code"] = self.launch.main([*argv, "--work", str(self.work)])
+        seen["waited"] = wait.called
+        return seen
+
+    def test_one_launcher_holds_the_work_folder_and_the_os_frees_a_dead_ones_lock(self):  # launcher_lock_shared
+        path = self.work / "launcher.lock"
+        first, second = self.launch.LauncherLock(path), self.launch.LauncherLock(path)
+        self.assertTrue(first.acquire())
+        self.assertFalse(second.acquire())
+        first.release()
+        self.assertTrue(second.acquire())
+        second.release()
+        # Another process holds it, then dies without releasing (a crash, a kill): the lock goes with it.
+        code = ("import importlib.util, sys, time; from pathlib import Path; "
+                "spec = importlib.util.spec_from_file_location('launch', sys.argv[1]); "
+                "m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m); "
+                "lock = m.LauncherLock(Path(sys.argv[2])); print(lock.acquire(), flush=True); time.sleep(600)")
+        proc = subprocess.Popen([sys.executable, "-c", code, str(FOUNDER / "launch.py"), str(path)],
+                                stdout=subprocess.PIPE, text=True)
+        try:
+            self.assertEqual(proc.stdout.readline().strip(), "True")
+            self.assertFalse(first.acquire())
+        finally:
+            proc.kill()
+            proc.wait(timeout=60)
+            proc.stdout.close()
+        for _ in range(100):  # the OS frees it as the process ends; give it a moment
+            if first.acquire():
+                break
+            time.sleep(0.1)
+        else:
+            self.fail("the dead process's lock was never freed")
+        first.release()
+
+    def test_a_second_launcher_does_nothing_while_one_lives(self):  # launcher_runs_beside_a_live_one
+        holder = self.launch.LauncherLock(self.work / "launcher.lock")
+        self.assertTrue(holder.acquire())
+        try:
+            stored = self.store(argv=["--model", "m"])
+            for argv in (["--cycles", "3"], ["--resume"]):
+                seen = self.main(argv, outcomes=[True] * 3)
+                self.assertEqual((seen["code"], seen["calls"], seen["running"], seen["waited"]), (0, [], [], False))
+            self.assertEqual(self.running(), stored)  # the live launcher's run is not touched
+        finally:
+            holder.release()
+
+    def fresh_run(self):
+        """A fresh start of four cycles whose third says stop (two idle sessions, a timeout, no inputs)."""
+        self.env_line = "zq-x9-env-line-never-copied"
+        (self.work / "snowball-founder.env").write_text(f"GITHUB_TOKEN={self.env_line}\n", encoding="utf-8")
+        seen = self.main(["--cycles", "4", "--model", "m1", "--no-build", "--target", "target-x"],
+                         outcomes=[True, True, False])
+        self.assertEqual((seen["code"], seen["calls"]), (0, ["preflight"]))
+        self.assertIsNone(self.running())  # the cycle said stop
+        return seen
+
+    def test_running_counts_down(self):  # running_not_counted_down running_forgets_the_idle_count
+        first, _, third = running = self.fresh_run()["running"]
+        self.assertEqual(set(first), {"argv", "cycles_left", "idle", "started", "updated"})
+        self.assertEqual([r["cycles_left"] for r in running], [4, 3, 2])  # after each cycle, what is left
+        self.assertEqual([r["idle"] for r in running], [0, 1, 2])  # two sessions without a push stay two
+        self.assertEqual(third["started"], first["started"])
+
+    def test_running_holds_the_options_and_no_secret(self):  # running_drops_a_flag
+        seen = self.fresh_run()
+        argv = seen["running"][0]["argv"]
+        self.assertIn("--no-build", argv)
+        for option in ("--resume", "--cycles", "--work", "--install-service", "--uninstall-service"):
+            self.assertNotIn(option, argv)
+        self.assertNotIn(self.env_line, json.dumps(seen["running"]))
+        again = self.launch.build_parser().parse_args([*argv, "--cycles", "4", "--work", str(self.work)])
+        self.assertEqual(vars(again), vars(seen["args"]))  # the stored options run the same launcher
+
+    def test_a_start_by_hand_replaces_a_cut_run(self):  # fresh_start_keeps_a_cut_run
+        self.store(argv=["--model", "old"])
+        with self.assertRaises(SystemExit):  # the operator sees the failure; the old run is not resumed behind it
+            self.main(["--cycles", "2"], outcomes=[True, True], preflight_fails=True)
+        self.assertIsNone(self.running())
+        self.store(argv=["--model", "old"], cycles_left=9)
+        seen = self.main(["--cycles", "2", "--model", "new"], outcomes=[True, True])
+        self.assertEqual([(r["cycles_left"], r["argv"][r["argv"].index("--model") + 1]) for r in seen["running"]],
+                         [(2, "new"), (1, "new")])
+
+    def test_each_deliberate_end_removes_running(self):  # running_kept_after_a_deliberate_stop
+        ends = {"STOP before a cycle": ([], {}, True), "the cycle says stop": ([False], {}, False),
+                "STOP while an outage is waited out": ([self.launch.GitHubUnavailable("down")],
+                                                       {"stop_while_waiting": True}, False),
+                "every cycle ran": ([True, True], {}, False)}
+        for end, (outcomes, flags, stop) in ends.items():
+            with self.subTest(end=end):
+                (self.work / "STOP").unlink(missing_ok=True)
+                intent = self.launch.Intent(self.work)
+                intent.write(["--model", "m"], 2)
+                if stop:
+                    (self.work / "STOP").touch()
+                seen = {"calls": [], "running": [], "idle": [], **flags}
+                pilot = self.pilot_class(list(outcomes), seen)(self.work, "b", "r", "t")
+                with mock.patch.object(self.launch, "say"):
+                    self.launch.run_cycles(pilot, argparse.Namespace(cycles=2), intent)
+                self.assertIsNone(self.running())
+
+    def test_a_crash_leaves_running_and_ctrl_c_does_not(self):  # running_cleared_on_a_crash running_kept_after_ctrl_c
+        with self.assertRaises(RuntimeError):
+            self.main(["--cycles", "4", "--no-build"], outcomes=[True, RuntimeError("a bug escapes")])
+        left = self.running()
+        self.assertEqual((left["cycles_left"], left["idle"]), (3, 1))  # what --resume continues
+        with self.assertRaises(KeyboardInterrupt):  # the operator's own stop, in the console
+            self.main(["--cycles", "4", "--no-build"], outcomes=[True, KeyboardInterrupt()])
+        self.assertIsNone(self.running())
+
+    def test_resume_never_overrides_a_stop(self):  # resume_overrides_a_stop
+        seen = self.main(["--resume"], outcomes=[True])  # nothing was running
+        self.assertEqual((seen["code"], seen["calls"], seen["waited"]), (0, [], False))
+        self.store()
+        (self.work / "STOP").touch()  # stopped on purpose, then the machine went down: the stop stands
+        seen = self.main(["--resume"], outcomes=[True] * 3)
+        self.assertEqual((seen["code"], seen["calls"], seen["waited"], self.running()), (0, [], False, None))
+        (self.work / "STOP").unlink()
+        self.store(cycles_left=0)
+        seen = self.main(["--resume"], outcomes=[True])
+        self.assertEqual((seen["calls"], self.running()), ([], None))
+        (self.work / "RUNNING").write_text('{"argv": ["--model"', encoding="utf-8")  # not a run
+        seen = self.main(["--resume"], outcomes=[True])
+        self.assertEqual(seen["calls"], [])
+        self.assertTrue((self.work / "RUNNING").exists())  # left for the operator to read
+
+    def resume_cut_run(self):
+        """A run cut after one session without a push, three cycles left, resumed by the task."""
+        self.stored = self.store(argv=["--model", "m9", "--no-build", "--target", "target-z"], cycles_left=3, idle=1)
+        return self.main(["--resume", "--cycles", "50"], outcomes=[True, True, True])  # the stored run, not these
+
+    def test_resume_keeps_the_idle_count(self):  # resume_restarts_the_idle_count
+        self.assertEqual(self.resume_cut_run()["idle"][0], 1)  # one session without a push before the crash counts
+
+    def test_resume_runs_the_stored_run(self):  # resume_forgets_the_cycles_left resume_drops_the_stored_options
+        seen, stored = self.resume_cut_run(), self.stored
+        args = seen["args"]
+        self.assertEqual((seen["code"], seen["calls"], seen["waited"]), (0, ["preflight"], True))
+        self.assertEqual((args.model, args.target, args.no_build, args.cycles, args.resume, args.work),
+                         ("m9", "target-z", True, 3, True, self.work))
+        self.assertEqual(len(seen["running"]), 3)
+        self.assertEqual(seen["running"][0]["started"], stored["started"])
+        self.assertIsNone(self.running())
+        log = (self.work / "pilot-log.md").read_text(encoding="utf-8")
+        self.assertIn("başlatıcı yeniden başladı (çökme/yeniden açılış sonrası): kalan 3 döngü", log)
+        self.assertIn(stored["started"], log)
+
+    def test_resume_waits_for_docker_and_github_and_a_stop_still_stands(self):
+        stored = self.store(argv=["--no-build"])
+        with self.assertRaises(SystemExit):  # docker never answered: the task's next trigger tries again
+            self.main(["--resume"], outcomes=[True], ready=False)
+        self.assertEqual(self.running(), stored)
+
+        def stop_while_waiting(work):
+            (work / "STOP").touch()
+            return False
+        seen = self.main(["--resume"], outcomes=[True], ready=stop_while_waiting)
+        self.assertEqual((seen["code"], seen["calls"], self.running()), (0, [], None))
+
+    def test_the_ready_wait_is_bounded(self):  # resume_wait_ignores_stop resume_wait_unbounded
+        launch, clock, asked = self.launch, [0.0], []
+
+        def sleep(seconds):
+            clock[0] += seconds
+            if clock[0] > 100 * launch.READY_WAIT_S:
+                raise AssertionError("the wait has no end")
+
+        def check(answers):
+            def fake(*cmd, **kw):
+                asked.append(cmd[:2])
+                if isinstance(answers.get(cmd[0]), BaseException):
+                    raise answers[cmd[0]]
+                return subprocess.CompletedProcess(cmd, 0 if answers.get(cmd[0], 0) <= clock[0] else 1, b"", b"")
+            return fake
+
+        def wait(answers):
+            clock[0], asked[:] = 0.0, []
+            with mock.patch.object(launch, "run", check(answers)), mock.patch.object(launch.time, "sleep", sleep), \
+                    mock.patch.object(launch.time, "monotonic", lambda: clock[0]):
+                return launch.wait_ready(self.work)
+
+        self.assertTrue(wait({"docker": 0, "gh": 0}))
+        self.assertEqual(asked, [("docker", "info"), ("gh", "auth")])
+        self.assertTrue(wait({"docker": 120, "gh": 0}))  # docker came up two minutes after the logon
+        self.assertGreaterEqual(clock[0], 120)
+        self.assertFalse(wait({"docker": 10 ** 9, "gh": 0}))  # it never does
+        self.assertLessEqual(clock[0], launch.READY_WAIT_S + launch.READY_RETRY_S)
+        self.assertFalse(wait({"docker": FileNotFoundError("docker"), "gh": 0}))  # not on PATH yet is not ready
+        (self.work / "STOP").touch()
+        self.assertFalse(wait({"docker": 0, "gh": 0}))
+        self.assertEqual(asked, [])
+
+    TASK_NS = {"t": "http://schemas.microsoft.com/windows/2004/02/mit/task"}
+
+    def task(self):
+        """The Scheduled Task's XML, read as schtasks reads the file (UTF-16)."""
+        import xml.etree.ElementTree as ET
+        text = self.launch.task_xml(r"C:\Python312\python.exe", r"J:\İCLOUD\a b\seed\founder\launch.py",
+                                    r"F:\snowball-work", r"J:\İCLOUD\a b", r"PC\op & co", "2026-11-02T10:00:00")
+        return ET.fromstring(text.encode("utf-16"))
+
+    def test_the_task_runs_the_resume(self):  # service_task_without_resume service_task_only_at_logon
+        launch, task, ns = self.launch, self.task(), self.TASK_NS
+        get = lambda path: task.find(path, ns).text  # noqa: E731
+        self.assertEqual(get("t:Actions/t:Exec/t:Command"), r"C:\Python312\python.exe")
+        self.assertEqual(get("t:Actions/t:Exec/t:Arguments"),
+                         r'-u "J:\İCLOUD\a b\seed\founder\launch.py" --resume --work F:\snowball-work')
+        self.assertEqual(get("t:Actions/t:Exec/t:WorkingDirectory"), r"J:\İCLOUD\a b")
+        triggers = task.find("t:Triggers", ns)
+        self.assertEqual(sorted(t.tag.split("}")[1] for t in triggers), ["LogonTrigger", "TimeTrigger"])
+        for trigger in triggers:
+            self.assertEqual(trigger.find("t:Repetition/t:Interval", ns).text, "PT15M")
+            self.assertIsNone(trigger.find("t:Repetition/t:Duration", ns))  # indefinitely
+        self.assertEqual(get("t:Triggers/t:LogonTrigger/t:UserId"), r"PC\op & co")
+        self.assertEqual(get("t:Triggers/t:TimeTrigger/t:StartBoundary"), "2026-11-02T10:00:00")
+        self.assertEqual((get("t:Principals/t:Principal/t:LogonType"), get("t:Principals/t:Principal/t:RunLevel")),
+                         ("InteractiveToken", "LeastPrivilege"))  # the user's own session: no admin, no password
+        self.assertEqual(launch.schtasks_argv(r"C:\t\task.xml"),
+                         ["schtasks", "/Create", "/TN", launch.TASK_NAME, "/XML", r"C:\t\task.xml", "/F"])
+        self.assertEqual(launch.schtasks_argv(None), ["schtasks", "/Delete", "/TN", launch.TASK_NAME, "/F"])
+
+    def test_the_task_never_times_out_or_doubles(self):  # service_task_time_limited service_task_parallel_instances
+        settings = {s.tag.split("}")[1]: s.text for s in self.task().find("t:Settings", self.TASK_NS)}
+        self.assertEqual(settings["ExecutionTimeLimit"], "PT0S")  # the scheduler's 72 h default would kill a long run
+        self.assertEqual(settings["MultipleInstancesPolicy"], "IgnoreNew")  # a trigger while it runs starts nothing
+        self.assertEqual((settings["DisallowStartIfOnBatteries"], settings["StopIfGoingOnBatteries"]),
+                         ("false", "false"))
+
+    def test_install_and_uninstall_call_schtasks_and_nothing_else(self):
+        launch, calls = self.launch, []
+
+        def fake_run(*argv, **kw):
+            sent = Path(argv[argv.index("/XML") + 1]).read_bytes() if "/XML" in argv else b""
+            calls.append((list(argv), sent))
+            return subprocess.CompletedProcess(argv, 0, b"SUCCESS", b"")
+        with mock.patch.object(launch, "run", fake_run), mock.patch.object(launch, "say"), \
+                mock.patch.object(launch.shutil, "which", return_value=r"C:\Windows\System32\schtasks.exe"):
+            self.assertEqual(launch.main(["--install-service", "--work", str(self.work)]), 0)
+            self.assertEqual(launch.main(["--uninstall-service"]), 0)
+        (install, sent), (uninstall, _) = calls
+        self.assertEqual(install[:5], ["schtasks", "/Create", "/TN", launch.TASK_NAME, "/XML"])
+        self.assertTrue(sent.startswith(b"\xff\xfe"))  # UTF-16, as its declaration says
+        task = sent.decode("utf-16")
+        self.assertIn(f"<Command>{sys.executable}</Command>", task)
+        self.assertIn("--resume --work", task)
+        self.assertEqual(uninstall, launch.schtasks_argv(None))
+        self.assertFalse((self.work / "launcher.lock").exists())  # no launcher ran
+        with mock.patch.object(launch, "run", fake_run), mock.patch.object(launch.shutil, "which", return_value=None):
+            with self.assertRaises(SystemExit):  # not Windows: no task, nothing run
+                launch.main(["--install-service"])
+        self.assertEqual(len(calls), 2)
 
 
 if __name__ == "__main__":

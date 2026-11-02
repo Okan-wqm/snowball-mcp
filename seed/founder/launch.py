@@ -22,9 +22,23 @@ Everything lives in one folder, <work> (the operator deletes it to remove the pi
   <work>/STOP                   create this file to stop after the current step
   <work>/cost-pending.jsonl     cost rows not written yet: the brain held work the referee had not accepted
   <work>/reports-seen.json      when the launcher first saw each brain report (a report's age)
+  <work>/launcher.lock          the running launcher's exclusive OS lock: one launcher at a time; the OS frees it when
+                                the process ends, a crash or a reboot too (E505)
+  <work>/RUNNING                the run in progress (JSON): its options, the cycles left, when it started and was last
+                                updated; written after the preflight, removed when the run ends by STOP, two sessions
+                                without a push, a timed-out session, no vector inputs, Ctrl+C or its last cycle. A
+                                crash, a kill or a reboot leaves it, and `--resume` continues that run (E505). No
+                                secret is in it
 
 The operator's own `gh` login dispatches the referee and reads results; it never enters the capsule. It writes to the
 brain only the cost rows, as the launcher's own identity, through git's `gh` credential helper.
+
+Resume (E505): `--install-service` registers a Windows Scheduled Task for the current user (no admin) that runs
+`launch.py --resume --work <work>` at logon and every 15 minutes; `--uninstall-service` removes it. `--resume` does
+nothing while another launcher holds the lock, when there is no RUNNING, or when STOP exists (a deliberate stop is
+never overridden: the run's RUNNING is then removed); else it waits for docker and gh to answer and runs the stored
+options for the cycles left. An unjudged push is judged first, as at every start (E168). A start by hand replaces a
+cut run.
 """
 
 from __future__ import annotations
@@ -33,6 +47,7 @@ import argparse
 import hashlib
 import io
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -40,6 +55,7 @@ import sys
 import tarfile
 import tempfile
 import time
+import xml.sax.saxutils
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -72,6 +88,14 @@ PROMPT_LABEL = "snowball.prompt_sha256"  # the image's own record of the prompt 
 # The Founder's report rows the cycle log shows: kinds of the closed set (`26`). A missing capability is a seed_issue
 # whose text starts missing_capability: (prompt.md), never a kind of its own (E158).
 REPORT_KINDS = ("seed_issue", "blocked")
+LOCK_FILE = "launcher.lock"  # E505: one launcher per work folder
+RUNNING_FILE = "RUNNING"  # E505: the run in progress, for --resume
+NOT_RERUN = ("help", "work", "cycles", "resume", "install_service", "uninstall_service")  # not stored in RUNNING
+READY_CHECKS = (("docker", "info"), ("gh", "auth", "status"))  # what a resumed run needs before its preflight
+READY_WAIT_S = 10 * 60  # past it the resume gives up; the task's next trigger tries again
+READY_RETRY_S = 30
+TASK_NAME = "Snowball Founder launcher"
+TASK_EVERY = "PT15M"
 
 
 def now() -> str:
@@ -910,7 +934,7 @@ class Pilot:
             time.sleep(min(60, max(0.0, deadline - time.monotonic())))
 
 
-def main(argv: list[str] | None = None) -> int:
+def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--work", type=Path, default=Path(r"F:\snowball-work"))
     p.add_argument("--brain", default="Okan-wqm/snowball-rehearsal-brain")
@@ -923,22 +947,66 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--session-timeout", type=int, default=3 * 3600)
     p.add_argument("--referee-timeout", type=int, default=90 * 60)
     p.add_argument("--no-build", action="store_true")
-    args = p.parse_args(argv)
-    if shutil.which("gh") is None or shutil.which("docker") is None:
-        sys.exit("gh and docker must be on PATH")
-    pilot = Pilot(args.work, args.brain, args.referee, args.target)
-    pilot.idle = 0
-    pilot.preflight()
-    if not args.no_build:
-        pilot.build()
-    pilot.intervention(args)
-    if not pilot.report.exists():
-        pilot.write("# Snowball pilot günlüğü\n\nHer döngü: Kurucu oturumu → push → hakem → karar.\n")
-    run_cycles(pilot, args)
+    p.add_argument("--resume", action="store_true",
+                   help="continue the run <work>/RUNNING names, after a crash or a reboot (E505)")
+    p.add_argument("--install-service", action="store_true",
+                   help="register the Scheduled Task that runs --resume at logon and every 15 minutes (E505)")
+    p.add_argument("--uninstall-service", action="store_true", help="remove that Scheduled Task")
+    return p
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    if args.install_service or args.uninstall_service:
+        return service(args)
+    if not args.work.is_dir():
+        sys.exit(f"{args.work} is not a folder")
+    lock = LauncherLock(args.work / LOCK_FILE)
+    if not lock.acquire():  # another launcher lives: it runs, this one does nothing (E505)
+        say(f"another launcher holds {lock.path}; this one does nothing")
+        return 0
+    try:
+        return start(parser, args)
+    finally:
+        lock.release()
+
+
+def start(parser: argparse.ArgumentParser, args) -> int:
+    """One launcher run, under the lock. The run's RUNNING is written once the preflight passed and goes when the run
+    ends deliberately (`run_cycles`) or by the operator's Ctrl+C; any other end leaves it for `--resume` (E505)."""
+    intent = Intent(args.work)
+    try:
+        if args.resume:
+            args = resumed(parser, args.work, intent)
+            if args is None:
+                return 0
+        else:
+            intent.clear()  # a start by hand replaces a cut run, also when its preflight then fails
+        if shutil.which("gh") is None or shutil.which("docker") is None:
+            sys.exit("gh and docker must be on PATH")
+        pilot = Pilot(args.work, args.brain, args.referee, args.target)
+        pilot.idle = int(intent.state.get("idle") or 0) if args.resume else 0
+        pilot.preflight()
+        if not args.resume:
+            intent.write(rerun_argv(parser, args), args.cycles)
+        if not args.no_build:
+            pilot.build()
+        pilot.intervention(args)
+        if not pilot.report.exists():
+            pilot.write("# Snowball pilot günlüğü\n\nHer döngü: Kurucu oturumu → push → hakem → karar.\n")
+        if args.resume:
+            pilot.write(f"\n- {now()} başlatıcı yeniden başladı (çökme/yeniden açılış sonrası): kalan {args.cycles} "
+                        f"döngü (`RUNNING`: başlangıç {intent.state.get('started')}, son güncelleme "
+                        f"{intent.state.get('updated')})\n")
+        run_cycles(pilot, args, intent)
+    except KeyboardInterrupt:  # the operator's Ctrl+C is a deliberate stop; a crash, a kill or a reboot is not
+        intent.clear()
+        raise
     return 0
 
 
-def run_cycles(pilot: Pilot, args) -> None:
+def run_cycles(pilot: Pilot, args, intent: Intent | None = None) -> None:
     for n in range(1, args.cycles + 1):
         if pilot.stopped():
             say("STOP file found; stopping")
@@ -950,9 +1018,217 @@ def run_cycles(pilot: Pilot, args) -> None:
                 "push first (E168)")
             pilot.wait(GH_OUTAGE_WAIT_S)
             go_on = not pilot.stopped()
+        if intent is not None:
+            intent.update(args.cycles - n, pilot.idle)
         if not go_on:
             say("stopping (STOP file, two sessions without a push, a timed-out session, or no vector inputs)")
             break
+    if intent is not None:  # every end that reaches here is deliberate, or the last cycle ran: nothing to resume
+        intent.clear()
+
+
+# ---- resume after a crash or a reboot (E505) -------------------------------------------------------------------
+class LauncherLock:
+    """An exclusive OS lock on <work>/launcher.lock, held for the launcher's lifetime: the OS frees it when the process
+    ends, however it ends (a crash, a kill, a reboot), so no stale lock ever needs clearing by hand."""
+
+    def __init__(self, path: Path) -> None:
+        self.path = path
+        self.fh = None
+
+    def acquire(self) -> bool:
+        """True when this process now holds the lock; False when another holder has it."""
+        fh = open(self.path, "a+b")  # not inherited by the children (PEP 446): a docker CLI cannot keep it alive
+        try:
+            if os.name == "nt":
+                import msvcrt
+                fh.seek(0)
+                msvcrt.locking(fh.fileno(), msvcrt.LK_NBLCK, 1)
+            else:
+                import fcntl
+                fcntl.flock(fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            fh.close()
+            return False
+        self.fh = fh
+        return True
+
+    def release(self) -> None:
+        if self.fh is None:
+            return
+        try:
+            if os.name == "nt":
+                import msvcrt
+                self.fh.seek(0)
+                msvcrt.locking(self.fh.fileno(), msvcrt.LK_UNLCK, 1)
+        finally:
+            self.fh.close()  # closing frees an flock
+            self.fh = None
+
+
+class Intent:
+    """<work>/RUNNING: the run in progress, what `--resume` continues. Only the launcher's own options and counts are
+    in it, never a secret (the env file is not read here)."""
+
+    def __init__(self, work: Path) -> None:
+        self.path = work / RUNNING_FILE
+        self.state: dict = {}
+
+    def read(self) -> dict | None:
+        """The stored run, or None when there is none or it cannot be read as one."""
+        try:
+            state = json.loads(self.path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return None
+        argv, left = (state.get("argv"), state.get("cycles_left")) if isinstance(state, dict) else (None, None)
+        if (not isinstance(argv, list) or not all(isinstance(a, str) for a in argv)
+                or not isinstance(left, int) or isinstance(left, bool)):
+            return None
+        self.state = state
+        return state
+
+    def write(self, argv: list[str], left: int) -> None:
+        ts = now()
+        self.state = {"argv": argv, "cycles_left": left, "idle": 0, "started": ts, "updated": ts}
+        self.save()
+
+    def update(self, left: int, idle: int) -> None:
+        self.state.update(cycles_left=left, idle=idle, updated=now())
+        self.save()
+
+    def save(self) -> None:
+        """Whole or not at all: a power loss in the middle leaves the previous file."""
+        tmp = self.path.with_name(RUNNING_FILE + ".tmp")
+        tmp.write_text(json.dumps(self.state, ensure_ascii=False, sort_keys=True) + "\n", encoding="utf-8")
+        os.replace(tmp, self.path)
+
+    def clear(self) -> None:
+        self.path.unlink(missing_ok=True)
+
+
+def rerun_argv(parser: argparse.ArgumentParser, args) -> list[str]:
+    """The options that run this launcher again, each spelled out: not the work folder (RUNNING lives in it), not the
+    cycles (RUNNING counts what is left), never `--resume` or the service options."""
+    out = []
+    for action in parser._actions:
+        if not action.option_strings or action.dest in NOT_RERUN:
+            continue
+        value = getattr(args, action.dest)
+        if isinstance(action, argparse._StoreTrueAction):
+            out += [action.option_strings[0]] if value else []
+        else:
+            out += [action.option_strings[0], str(value)]
+    return out
+
+
+def resumed(parser: argparse.ArgumentParser, work: Path, intent: Intent):
+    """The options of the run RUNNING names, with its cycles left, or None when there is nothing to resume: no RUNNING,
+    STOP (a deliberate stop is never overridden: its RUNNING goes), or no cycle left. Exits while docker or gh do not
+    answer: RUNNING stays, and the task's next trigger tries again."""
+    plan = intent.read()
+    if plan is None:
+        if intent.path.exists():
+            say(f"{intent.path} cannot be read as a run; nothing resumed")
+        return None
+    if (work / "STOP").exists() or plan["cycles_left"] <= 0:
+        intent.clear()
+        return None
+    if not wait_ready(work):
+        if (work / "STOP").exists():
+            intent.clear()
+            return None
+        sys.exit(f"docker or gh did not answer within {READY_WAIT_S // 60} min; {intent.path} stays for the next try")
+    args = parser.parse_args([*plan["argv"], "--work", str(work), "--cycles", str(plan["cycles_left"])])
+    args.resume = True  # the start's intervention row names it a resume
+    say(f"resuming the run of {plan.get('started')}: {plan['cycles_left']} cycle(s) left")
+    return args
+
+
+def wait_ready(work: Path, limit_s: float = READY_WAIT_S) -> bool:
+    """Whether docker and gh answer within limit_s (after a reboot docker can take minutes); False past it or on
+    STOP."""
+    deadline = time.monotonic() + limit_s
+    while not (work / "STOP").exists():
+        if all(ready(*cmd) for cmd in READY_CHECKS):
+            return True
+        if time.monotonic() >= deadline:
+            return False
+        time.sleep(READY_RETRY_S)
+    return False
+
+
+def ready(*cmd: str) -> bool:
+    try:
+        return run(*cmd, check=False, timeout=60).returncode == 0
+    except (OSError, subprocess.SubprocessError):  # not on PATH yet, or hung
+        return False
+
+
+def task_xml(python: str, script: str, work: str, cwd: str, user: str, start: str) -> str:
+    """The Scheduled Task that resumes the launcher: as the current user while logged on (no admin, the user's docker
+    and gh login), at logon and every 15 minutes from `start` (local time), one instance at a time, no time limit (the
+    scheduler's default of three days would kill a long run), on battery too."""
+    esc = xml.sax.saxutils.escape
+    every = f"<Repetition><Interval>{TASK_EVERY}</Interval><StopAtDurationEnd>false</StopAtDurationEnd></Repetition>"
+    arguments = subprocess.list2cmdline(["-u", script, "--resume", "--work", work])
+    return f"""<?xml version="1.0" encoding="UTF-16"?>
+<Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+  <RegistrationInfo>
+    <Description>Snowball: resume the Founder launcher after a crash or a reboot (E505)</Description>
+  </RegistrationInfo>
+  <Triggers>
+    <LogonTrigger>{every}<Enabled>true</Enabled><UserId>{esc(user)}</UserId></LogonTrigger>
+    <TimeTrigger>{every}<StartBoundary>{esc(start)}</StartBoundary><Enabled>true</Enabled></TimeTrigger>
+  </Triggers>
+  <Principals>
+    <Principal id="Author">
+      <UserId>{esc(user)}</UserId>
+      <LogonType>InteractiveToken</LogonType>
+      <RunLevel>LeastPrivilege</RunLevel>
+    </Principal>
+  </Principals>
+  <Settings>
+    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
+    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
+    <StartWhenAvailable>true</StartWhenAvailable>
+    <Enabled>true</Enabled>
+    <ExecutionTimeLimit>PT0S</ExecutionTimeLimit>
+  </Settings>
+  <Actions Context="Author">
+    <Exec>
+      <Command>{esc(python)}</Command>
+      <Arguments>{esc(arguments)}</Arguments>
+      <WorkingDirectory>{esc(cwd)}</WorkingDirectory>
+    </Exec>
+  </Actions>
+</Task>
+"""
+
+
+def schtasks_argv(xml_path: str | None) -> list[str]:
+    """Register the task from its XML (replacing an older one), or remove it when there is no XML."""
+    if xml_path is None:
+        return ["schtasks", "/Delete", "/TN", TASK_NAME, "/F"]
+    return ["schtasks", "/Create", "/TN", TASK_NAME, "/XML", xml_path, "/F"]
+
+
+def service(args) -> int:
+    """--install-service / --uninstall-service: the Scheduled Task that runs `--resume` (E505)."""
+    if shutil.which("schtasks") is None:
+        sys.exit("the service is a Windows Scheduled Task: schtasks is not on PATH")
+    if args.uninstall_service:
+        proc = run(*schtasks_argv(None), check=False, timeout=120)
+    else:
+        user = f"{os.environ.get('USERDOMAIN', '')}\\{os.environ.get('USERNAME', '')}".lstrip("\\")
+        text = task_xml(sys.executable, str(HERE / "launch.py"), str(args.work.resolve()), str(SEED.parent), user,
+                        datetime.now().strftime("%Y-%m-%dT%H:%M:%S"))
+        with tempfile.TemporaryDirectory(prefix="snowball-task-") as tmp:
+            path = Path(tmp) / "task.xml"
+            path.write_bytes(text.encode("utf-16"))  # schtasks reads the XML as its declaration says
+            proc = run(*schtasks_argv(str(path)), check=False, timeout=120)
+    say((proc.stdout + proc.stderr).decode(errors="replace").strip())
+    return proc.returncode
 
 
 if __name__ == "__main__":
