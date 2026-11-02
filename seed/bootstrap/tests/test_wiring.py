@@ -1246,9 +1246,11 @@ class MutationShardTest(unittest.TestCase):
     """E410: the referee's mutants run in CI shards under one timeout. On 2026-11-01 (run 41267568917, 560 mutants in
     8 shards, 70 a shard) a mutant took 41 to more than 51 seconds on a standard runner; three shards ended in 46 to
     50 minutes and five hit the 60-minute timeout, so the run was cancelled and no commit of that day was green. A
-    mutant added without more shards drifts into that again; this turns it red here first."""
+    mutant added without more shards drifts into that again; this turns it red here first. E502: on 2026-11-02 (run
+    41366571302, 931 mutants in 24 shards, 39 a shard) the suite had grown and a mutant took up to 177 seconds; eight
+    shards hit the timeout. The bound is now set by the worst mutant seen, three minutes."""
 
-    PER_SHARD = 40  # at a minute a mutant, the worst seen, a shard ends in 40 of its 60 minutes
+    PER_SHARD = 15  # at three minutes a mutant, the worst seen (E502), a shard ends in 45 of its 60 minutes
 
     def test_the_shards_hold_every_mutant_inside_the_timeout(self):
         import importlib.util
