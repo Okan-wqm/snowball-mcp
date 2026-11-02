@@ -26,7 +26,7 @@ from typing import Any
 
 from . import canon, secretscan
 from .container import Runner, RunResult
-from .rival import MAX_REPRODUCERS, SYMPTOM, side_holds
+from .rival import MAX_REPRODUCERS, SYMPTOM, TARGET_IMAGE, side_holds
 
 DOCKER_ERROR = 125  # `docker run` exits with this when docker itself failed, before the command ran
 TAIL_CHARS = 2000
@@ -37,6 +37,8 @@ def reproducer_key(rep: dict[str, Any]) -> str:
     """What makes two reproducers the same defect: the command and its symptom, not the claim's wording (E08), nor
     how the rival words what correct code prints (E260), so every key signed before E260 is still the key."""
     doc = {"cmd": rep["cmd"], **{k: rep.get(k) for k in SYMPTOM}}
+    if rep.get("image") == TARGET_IMAGE:  # the same command in another image is another defect; the key of every
+        doc["image"] = TARGET_IMAGE  # Python reproducer stays what it was (E513)
     return hashlib.sha256(canon.canonical(doc)).hexdigest()[:16]
 
 
@@ -54,7 +56,24 @@ def _holds(rep: dict[str, Any], side: str, res: RunResult) -> bool:
                                   "stderr_contains": res.stderr.decode("utf-8", "replace")})
 
 
-def run_one(runner: Runner, control: Runner, rep: dict[str, Any], timeout_s: int) -> dict[str, Any]:
+def _not_run(rep: dict[str, Any], fault: bool) -> dict[str, Any]:
+    """A target reproducer where no target image is set (E513): it shows nothing. For the rival's own reproducer that
+    is all (the protocol told it which images the review offers); for one the signed state keeps it is a runner
+    fault, so a proven defect is never read as fixed because its image went missing."""
+    empty = hashlib.sha256(b"").hexdigest()
+    return {"key": reproducer_key(rep), "reproduced": False, "shown": False, "contradicted": False,
+            "tautological": None, "runner_fault": fault, "exit": DOCKER_ERROR if fault else None, "timed_out": False,
+            "stdout_sha256": empty, "stderr_sha256": empty, "stdout_tail": "",
+            "stderr_tail": "not run: this review offers no target image"}
+
+
+def run_one(runner: Runner, control: Runner, rep: dict[str, Any], timeout_s: int, *,
+            target: tuple[Runner, Runner] | None = None, missing_is_fault: bool = False) -> dict[str, Any]:
+    """``target``: the (head, control) runners of the target image, where the referee has one (E513)."""
+    if rep.get("image") == TARGET_IMAGE:
+        if target is None:
+            return _not_run(rep, missing_is_fault)
+        runner, control = target
     res = runner.run(rep["cmd"], timeout_s=timeout_s)
     shown = _holds(rep, "expect", res)
     fault = res.exit_code == DOCKER_ERROR  # the sandbox failed: nothing was shown either way
@@ -79,14 +98,17 @@ def run_one(runner: Runner, control: Runner, rep: dict[str, Any], timeout_s: int
     }
 
 
-def run_reproducers(runner: Runner, attempts: list[dict], timeout_s: int, *, control: Runner) -> list[dict]:
+def run_reproducers(runner: Runner, attempts: list[dict], timeout_s: int, *, control: Runner,
+                    target: tuple[Runner, Runner] | None = None) -> list[dict]:
     """The rival's reproducers of this run (at most five, E05)."""
     with_repro = [(i, a) for i, a in enumerate(attempts) if "reproducer" in a][:MAX_REPRODUCERS]
-    return [dict(run_one(runner, control, attempt["reproducer"], timeout_s), attempt_index=index)
+    return [dict(run_one(runner, control, attempt["reproducer"], timeout_s, target=target), attempt_index=index)
             for index, attempt in with_repro]
 
 
-def run_state_reproducers(runner: Runner, entries: list[dict], timeout_s: int, *, control: Runner) -> list[dict]:
+def run_state_reproducers(runner: Runner, entries: list[dict], timeout_s: int, *, control: Runner,
+                          target: tuple[Runner, Runner] | None = None) -> list[dict]:
     """The signed state's reproducers: ``{key, source, reproducer}``, source ``refutation`` or ``claim``."""
-    return [dict(run_one(runner, control, entry["reproducer"], timeout_s), key=entry["key"], source=entry["source"])
+    return [dict(run_one(runner, control, entry["reproducer"], timeout_s, target=target, missing_is_fault=True),
+                 key=entry["key"], source=entry["source"])
             for entry in entries]
