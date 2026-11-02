@@ -2369,6 +2369,13 @@ MUTANTS = [
      "        if texts[rel].count(old) != 1:\n            stale.append(",
      "        if texts[rel].count(old) > 1:\n            stale.append(",
      "E504: an anchor a change left behind survives in its one shard and is seen only after the whole run"),
+    # E507: a stage table module that hides a standard library module (report spec-011)
+    ("stages_stdlib_shadow_unchecked", "seed/bootstrap/snowball_bootstrap/stages.py",
+     "        if hidden and hidden not in STDLIB_KEPT", "        if False and hidden not in STDLIB_KEPT",
+     "E507: a table whose module hides a standard library module loads, and `import cProfile` breaks"),
+    ("stages_stdlib_kept_everywhere", "seed/bootstrap/snowball_bootstrap/stages.py",
+     "STDLIB_KEPT.get(stage, frozenset())", "STDLIB_KEPT.get(0, frozenset())",
+     "E507: Stage 0's kept `profile` is allowed in every stage's table"),
     # E508: the capsule's containment (egress.py, the launcher's contained egress, the host's transcript).
     ("relay_prefix_match_loose", "seed/founder/egress.py",
      '        if low.startswith(f"{root}{repo}/") or low == f"{root}{repo}":',
@@ -2559,7 +2566,7 @@ MUTANTS = [
      "E231: 29j promises a producer the seed will never name, and the Founder waits"),
     ("e260_label_back", "spec/tohum/CHANGELOG-2.md", "(2026-10-30, E260; E07 (c)'yi değiştirir; 3a'dan beri yürürlükte)",
      "(2026-10-30, E260, karar bekliyor: E07 (c)'yi değiştirir)", "E260: the changelog says a rule in force waits"),
-    ("changelog_drops_a_report", "spec/tohum/CHANGELOG.md", "`seed-001-seed-dir-missing` →", "seed-001 →",
+    ("changelog_drops_a_report", "spec/tohum/CHANGELOG-4.md", "`seed-001-seed-dir-missing` →", "seed-001 →",
      "E342: this epoch's entry no longer names a report it answers"),
     ("exam_fault_page_drops_the_lapse", "spec/tohum/29e-onyukleme-hakemi-devam.md",
      "sonraki tohum dönemi onu" + chr(10) + "kendiliğinden kapatır.", "operatör onu" + chr(10) + "siler.",
