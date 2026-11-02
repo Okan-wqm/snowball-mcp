@@ -80,7 +80,7 @@ flowchart LR
 
 ## 2. Referee package: `seed/bootstrap/snowball_bootstrap`
 
-34 modules, 98 imports inside the package, 1 started as a separate process. Areas are roles. The overview has 6 areas and 17 edges; an arrow's number is how many imports cross from one area to the other.
+35 modules, 102 imports inside the package, 1 started as a separate process. Areas are roles. The overview has 6 areas and 17 edges; an arrow's number is how many imports cross from one area to the other.
 
 ```mermaid
 flowchart LR
@@ -89,7 +89,7 @@ flowchart LR
   a_Sandbox["Sandbox<br/>7 modules"]
   a_Rival["Rival<br/>4 modules"]
   a_Judgement["Judgement<br/>6 modules"]
-  a_Unplaced["Unplaced<br/>5 modules"]
+  a_Unplaced["Unplaced<br/>6 modules"]
   a_Entry -->|9| a_Intake
   a_Entry -->|6| a_Judgement
   a_Entry -->|2| a_Rival
@@ -104,9 +104,9 @@ flowchart LR
   a_Sandbox -->|1| a_Rival
   a_Sandbox -->|1| a_Unplaced
   a_Unplaced -->|1| a_Entry
-  a_Unplaced -->|15| a_Intake
-  a_Unplaced -->|3| a_Judgement
-  a_Unplaced -->|4| a_Sandbox
+  a_Unplaced -->|16| a_Intake
+  a_Unplaced -->|4| a_Judgement
+  a_Unplaced -->|6| a_Sandbox
 ```
 
 ### Entry
@@ -225,7 +225,7 @@ flowchart LR
 | `importer` | Operator import at the Stage 0 exit and at each batch exit after it (`tohum/25a` 1-2, `asama-0/10a` #aktarim and #oyuncak, `asama-1/13` 3: "aynı komut"). | `cli`, `fence`, `heldrun`, `stagelock` |
 | `licenses` | License gate for downloaded wheels (`tohum/24`, "Lisans"). | `cli` |
 | `stagelock` | The stage lock and the counter it is bound to (`tohum/02` 5, `asama-0/10a` "Kilidin açılışı", `tohum/25a` 9, `26c`). | `cli`, `heldrun`, `importer` |
-| `treehash` | Tree hashes over git-archive tarballs, and safe extraction of regular files only. | `cli`, `exitchecks`, `fence`, `gitio`, `heldrun`, `importer`, `moduleless`, `stages`, `watchers` |
+| `treehash` | Tree hashes over git-archive tarballs, and safe extraction of regular files only. | `cli`, `exitchecks`, `fence`, `gitio`, `heldrun`, `importer`, `moduleless`, `mutation`, `stages`, `watchers` |
 
 ### Sandbox
 
@@ -276,10 +276,10 @@ flowchart LR
 
 | Module | What it is (first sentence of its docstring) | Imported by |
 |---|---|---|
-| `container` | Run untrusted code in a nested, network-less, unprivileged container (`tohum/08` 2). | `cli`, `controls`, `moduleless`, `parts`, `reproduce`, `target_run`, `vectors`, `watchers` |
+| `container` | Run untrusted code in a nested, network-less, unprivileged container (`tohum/08` 2). | `cli`, `controls`, `moduleless`, `mutation`, `parts`, `reproduce`, `target_run`, `vectors`, `watchers` |
 | `controls` | Red controls: known answers about the runner itself (`tohum/08` 3). | `parts` |
 | `manifest` | The founder's test manifest (`snowball-tests.json`, `tohum/26c`) and its lock files. | `cli`, `heldrun`, `watchers` |
-| `moduleless` | Module-less red (`asama-0/14`; `tohum/04` 1, "Kasıtlı bozma"): a micro-feature's tests fail without it. | `cli` |
+| `moduleless` | Module-less red (`asama-0/14`; `tohum/04` 1, "Kasıtlı bozma"): a micro-feature's tests fail without it. | `cli`, `mutation` |
 | `parts` | `kos` in parts (E440): one push's run shared out among N parallel jobs and joined into the single job's `run.json`. | `cli` |
 | `target_run` | The target's toolchain in the referee (plan D8, register E513): the target's own tests and the rival's reproducers of a defect in target code run with node, npm and cargo, with ... | - |
 | `vectors` | Apply the seed vectors (`tohum/29a`, `29d`) to the founder's code through the fixed interface. | `cli`, `heldrun`, `parts` |
@@ -374,13 +374,13 @@ flowchart LR
 | `decide` | The acceptance decision (`tohum/29b`, "Kabul" and "Aşama 0 çıkışının (A) parçası"). | `cli`, `heldrun` |
 | `exitchecks` | The (A) conditions of `asama-0/10` that `pull` checks on the brain archive it already holds (`29b`; the narrowing note's draft `29e` "Tohum denetimleri": in `çek`, read from ... | `cli`, `decide` |
 | `ledgercheck` | The Founder's ledger (`asama-0/10` #kurucu-defteri, `asama-0/09` test 30, `tohum/26`, `00a`; E107, E280). | `cli`, `decide`, `exitchecks`, `watchers` |
-| `stages` | The stage tables (`asama-0/14`, `tohum/26c` "Aşama tablosu"): the machine copy of a stage's micro-features. | `cli`, `decide`, `heldrun`, `manifest`, `moduleless`, `stagelock`, `vectors`, `wiring` |
+| `stages` | The stage tables (`asama-0/14`, `tohum/26c` "Aşama tablosu"): the machine copy of a stage's micro-features. | `cli`, `decide`, `heldrun`, `manifest`, `moduleless`, `mutation`, `stagelock`, `vectors`, `wiring` |
 | `state` | The bootstrap's memory between runs: the last signed result's ``state`` block. | `cli`, `decide` |
 | `wiring` | The loop workflow's wiring rules (`asama-0/10` #is-akisi, `asama-0/09` test 46, `asama-0/14` MF17; `tohum/08`, `01a`, `29p`; E100, E162, E281-E283). | `cli`, `exitchecks` |
 
 ### Unplaced
 
-5 modules, 23 edges out of them.
+6 modules, 27 edges out of them.
 
 ```mermaid
 flowchart LR
@@ -389,6 +389,7 @@ flowchart LR
     m_fence["fence"]
     m_heldrun["heldrun"]
     m_k6["k6"]
+    m_mutation["mutation"]
     m_watchers["watchers"]
   end
   subgraph a_Entry["Entry"]
@@ -411,6 +412,7 @@ flowchart LR
   subgraph a_Sandbox["Sandbox"]
     m_container["container"]:::outside
     m_manifest["manifest"]:::outside
+    m_moduleless["moduleless"]:::outside
     m_vectors["vectors"]:::outside
   end
   m_answers --> m_canon
@@ -431,6 +433,10 @@ flowchart LR
   m_heldrun --> m_vectors
   m_k6 --> m_canon
   m_k6 --> m_config
+  m_mutation --> m_container
+  m_mutation --> m_moduleless
+  m_mutation --> m_stages
+  m_mutation --> m_treehash
   m_watchers --> m_canon
   m_watchers --> m_container
   m_watchers --> m_ledgercheck
@@ -445,6 +451,7 @@ flowchart LR
 | `fence` | The K6 fence, kept by the referee (E511; `tohum/05` "Fiziksel güvenlik", `tohum/03` `class_requires`). | - |
 | `heldrun` | Held cases: run only inside the private exam repository, published only as a salted commitment (plan D5, E510). | - |
 | `k6` | The K6 exam's state and strength (E512): when the physical-safety fence (`tohum/05`) may open, decided by numbers. | - |
+| `mutation` | Mutation-kill ratchet on the Founder's code (E515; the A/F/G plan's WP7, watcher G1, red team T3). | - |
 | `watchers` | Watchers (E514; owner 2026-11-01: "kandırmaya karşı gözcüler olmalı ki kandıramasın"; plan D9): mechanical checks that a push earned its green honestly, and the one rule that ... | - |
 
 ### Commands
