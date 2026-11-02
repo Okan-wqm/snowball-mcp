@@ -75,10 +75,17 @@ def founder_inputs(vectors_dir: Path, dest: Path) -> Path:
         raise ValueError("a fixture carries an answer its case must compute: " + "; ".join(lookups))
     if (vectors_dir / CASES_FILE).exists():
         raise ValueError(f"the seed has a fixture named {CASES_FILE}; the inputs would overwrite it")
-    cases = [_inputs(case) for case in _data_cases(inputs)]
+    cases = visible_cases(vectors_dir)
     fixtures(vectors_dir, dest)
     (dest / CASES_FILE).write_text(json.dumps(cases, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return dest
+
+
+def visible_cases(vectors_dir: Path) -> list[dict[str, Any]]:
+    """Every data case's inputs, no answer: what the Founder's `/vec/cases.json` holds (E244), and the visible cases
+    the watchers' G2 reads (`watchers.distinctive_literals`, E516)."""
+    inputs, _own = answers.split(_seed(vectors_dir), strict=False)
+    return [_inputs(case) for case in _data_cases(inputs)]
 
 
 def public_vectors(vectors_dir: Path, dest: Path) -> Path:

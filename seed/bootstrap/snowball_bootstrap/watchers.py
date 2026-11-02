@@ -67,7 +67,7 @@ from typing import Any, Callable, Iterable, Mapping, Sequence
 from . import canon, ledgercheck
 from .container import Runner, RunResult
 from .manifest import TEST_ID_RE
-from .treehash import extract
+from .treehash import RESERVED_TOP, extract
 
 WATCHERS = ("G1", "G2", "G3", "G4a", "G4c", "G5")
 ISTISMAR = "istismar"
@@ -267,10 +267,19 @@ RUNNER_CONFIG_RE = re.compile(
     r"(?:jest|vitest|vite|karma|playwright|cypress|ava|nyc)\.config\.[cm]?[jt]s(?:on)?|jest\.preset\.[cm]?js|"
     r"\.mocharc(?:\.[a-z]+)?|\.nycrc(?:\.[a-z]+)?|pytest\.ini|tox\.ini|\.coveragerc|nextest\.toml|\.?babel\.config\.js")
 RUNNER_CONFIG_DIRS = (".cargo/config", ".cargo/config.toml", ".config/nextest.toml")
-PROTECTED_EXAM = ("<root>/.github/", RUNNER_CONFIG_RE.pattern, *RUNNER_CONFIG_DIRS)
+# And the exam's own slots in a brain push (E516): `referee/` becomes the referee repository's root, and these names
+# there are the operator's files, the exam's vectors and seats and the bootstrap referee, which the import keeps and
+# never takes from the brain (`treehash.RESERVED_TOP`, the same names, case-folded as the import folds them).
+EXAM_SLOTS = tuple(sorted(f"referee/{name}" for name in RESERVED_TOP))
+PROTECTED_EXAM = ("<root>/.github/", RUNNER_CONFIG_RE.pattern, *RUNNER_CONFIG_DIRS, *EXAM_SLOTS)
 
 
 def is_exam_path(path: str) -> bool:
+    """Whether ``path`` is the exam's machinery (``PROTECTED_EXAM``): the one list, which classify's ``exam_tamper``
+    reads too (E516)."""
+    folded = "/".join(part.casefold() for part in path.split("/") if part)
+    if any(folded == p or folded.startswith(p + "/") for p in EXAM_SLOTS):
+        return True
     if path.startswith(".github/"):
         return True
     name = PurePosixPath(path).name

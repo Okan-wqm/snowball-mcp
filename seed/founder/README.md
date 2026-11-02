@@ -253,41 +253,59 @@ değiştiriyorsa önceki şemayı taşıyabilmelidir (`state.migrate`); taşıya
 
 ### Özel sınav (E516)
 
-**Anahtar tektir: dönem satırının `exam_sha256`'sı.** Özel sınav deposunun kökündeki `manifest.json`'un sha256'sıdır
-(manifest depodaki her dosyayı hash'iyle ve tuzla listeler). Satır `seed-epoch ... --exam-sha256 <64 hex>` ile basılır.
-Önceki satırlar alanı taşımaz ve `null` okunur; bir satır sabitledikten sonra her yeni satır sabitler, sabitlemeyen
-satır koşuyu durdurur. Son satır sabitlemedikçe hakem eskisi gibi yargılar ve imzalar: sonuç
-`snowball-bootstrap-result/1`, `gozcu` ve `kos_hedef` işleri koşmaz, aşağıdakilerin hiçbiri okunmaz.
+**Anahtar tektir: dönem satırının `exam_sha256`'sı.** Özel sınav deposundaki o sınav sürümünün manifest'inin
+baytlarının sha256'sıdır (manifest sürümün her dosyasını hash'iyle ve 256 bitlik tuzla listeler; okuyan ve denetleyen
+yalnız `answers`'tır, E509). Satır `seed-epoch ... --exam-sha256 <64 hex>` ile basılır. Önceki satırlar alanı taşımaz
+ve `null` okunur; bir satır sabitledikten sonra her yeni satır sabitler, sabitlemeyen satır koşuyu durdurur. Son satır
+sabitlemedikçe hakem eskisi gibi yargılar ve imzalar: sonuç `snowball-bootstrap-result/1`, `gozcu` ve `kos_hedef`
+işleri ve sınav çekme adımı koşmaz, `check-snapshot` hiçbir şey okumaz, aşağıdakilerin hiçbiri okunmaz.
 
 **Sabitleyen dönemden önce operatörün kurduğu:**
 - Hakem reposunda Environment `answers` (dağıtım dalı yalnız `main`): `ANSWERS_KEY` sınav deposunun salt okunur dağıtım
   anahtarının özel yarısı, `EXAM_REPO` deponun `sahip/ad`'ı. İkisi de yalnız `kos`'un çekme adımının ortamındadır;
   depo adı ve düzeni hiçbir `spec/tohum` sayfasına, isteme, beyne ya da hafızaya yazılmaz.
+- Sınav sürümünde görünen vakaların cevapları ve gözcülerin parametreleri (`watchers.load_params`: tuz, canlı gözcüler,
+  eşikler; varsayılanı yoktur, eksikse sınav okunmamış sayılır); K6 belgeleri isteğe bağlıdır, yokken K6 dürüstçe
+  `not_live`'dır.
+- Hakemin `vectors/`'u yalnız girdilerdir (`vectors.public_vectors`); cevap taşıyan bir `vectors/` sabitli koşuyu
+  `cek`'te, anlık görüntü paketlenmeden durdurur (`check-snapshot`).
 - Environment `rival`: `CLAUDE_CODE_OAUTH_TOKEN` oraya taşınır (`cagir` yalnız onu okur).
-- `bootstrap.json` `target_image`: node ve cargo taşıyan, digest'le sabitlenmiş hedef imajı (`kos_hedef`).
-- `setup/summary.json`'da her `kind: copy` hedefinde boş olmayan `safety_paths`: sabitli dönemde zorunludur, yoksa koşu
-  durur; beynin türettiği liste onu yalnız genişletebilir.
-- `bootstrap/` içinde paket modülleri: `answers` (E509), `fence` (E511), `k6` (E512), `target_run` (E513), `watchers`
-  (E514). Sabitli bir koşu eksik modülde durur; modül yok diye "bulgu yok" okunmaz.
+- `bootstrap.json` `target_image` ve `target_suites` birlikte: node ve cargo taşıyan, digest'le sabitlenmiş hedef imajı
+  ve kopyanın kendi test takımları (`target_run.load_suites`, E513; `kos_hedef`).
+- `setup/summary.json`'da her `kind: copy` hedefinde `safety_paths`: sabitli dönemde çitin kendi kuralıyla okunur
+  (`fence.owner_paths`, E511: zorunlu, boş olmayan, her biri yol kalıbı), yoksa koşu durur; beynin türettiği liste onu
+  yalnız genişletebilir.
+
+**Kim ne yapar (sabitli koşu).** `gozcu` (anahtarsız) gözcülerin durağan geçişini (`watchers.static_pass`, E514)
+çekilen push'un kendi çıktıları üzerinde koşar ve bulguları yazar. `kos` sınavı pinde okur (`answers`), vektörleri
+görünen cevaplarla yargılar, `gozcu`'nun bulgularını o dönemin gizli parametreleriyle yayımlar (`watchers.publish`:
+istismar kuralı tektir, `watchers.level`; kanıt hash'leri tuzludur) ve K6 durumunu deponun K6 belgelerinden ölçer
+(`k6.evaluate`, E512; çitin geri çağırması çitin kendi eşleyicisiyle). Kanaryayı taşıyan bir `run.json` hiç yazılmaz.
+`yaz` gözcülerin hükmünü `run.json`'dan okur; `decide` onu gözcülerin kendi `reasons` ve `warnings`'iyle eşler, ikinci
+bir kural tutmaz.
 
 **Sabitli sonuç** `snowball-bootstrap-result/2`'dir ve üç alan ekler: `exam` (`exam_sha256`, görünen vakaların `n`
 ve `pass`'ı; gizli vakalar yalnız özel depoda koşar, burada sayıları yoktur), `k6` (`status`: `not_live`,
 `exam_built`, `exam_strong`, `live`; bu koşuda ölçülmediyse son imzalı alan taşınır, hiç yoksa `not_live`) ve
-`istismar` (gözcünün yeniden üretimli bulgusu ya da sınavın yerine dokunma; her biri `watcher`, `ref`,
+`istismar` (gözcülerin yayımladığı istismar düzeyindeki bulgular: `watcher`, `signal`, `ref`, `level`, `declared`,
 `evidence_sha256`, `reproducer`). Yeni gerekçeler:
 
 | Gerekçe | Kimin | Ne olur |
 |---|---|---|
-| `answers_unavailable` | Kurucu'nun değil | Sınav okunamadı ya da manifest'in hash'i satırınki değil: hiçbir vektör yargılanmaz, baş yeniden denenir. `control.json` `exam_faults` onu adlandıramaz |
-| `exam_tamper:<yol>` | Kurucu'nun | `referee/` altında hakemin kendi yerleri (`vectors`, `seats`, `setup`, `bootstrap`, operatör dosyaları): doğrudan ret ve G4 istismar kaydı |
-| `istismar` | Kurucu'nun | Yeniden üretimli, bildirilmemiş değişiklik; `exam_faults` onu adlandıramaz, yanlış pozitifi yalnız kayıt satırlı bir tohum dönemi geri alır |
-| `held_drop` | Kurucu'nun | Yalnız hakemin önerisi seçiliyse: gizli vakalarda tek başına düşüş, normal ret |
-| `safety_path_closed`, `safety_list_narrowed` | Kurucu'nun | Kopya diff'i güvenlik yoluna dokunur ve son imzalı `k6.status` `live` değil; ya da türetilmiş liste sahibinkini kapsamaz (`fence` komutu) |
+| `answers_unavailable` | Kurucu'nun değil | Sınav pinde okunamadı ya da gözcü parametreleri yok: hiçbir vektör yargılanmaz, baş yeniden denenir. `control.json` `exam_faults` onu adlandıramaz |
+| `exam_tamper:<yol>` | Kurucu'nun | Sınavın düzeneği (`watchers.PROTECTED_EXAM`: `referee/` altında hakemin kendi yerleri, kökteki `.github/`, test koşucularının yapılandırmaları): doğrudan ret |
+| `istismar` | Kurucu'nun | Gözcünün mekanik, yeniden üretimli, bildirilmemiş bulgusu ve gözcü canlı; `exam_faults` onu adlandıramaz, yanlış pozitifi yalnız kayıt satırlı bir tohum dönemi geri alır |
+| `ezber_suphe` | Kurucu'nun | Yalnız yargıcın G5 önerisi seçiliyse: gizli vakalarda tek başına düşüş, normal ret |
+| `gozcu_input_too_large` | Kurucu'nun | Durağan geçişin sınırını aşan push |
+| `safety_path_closed:<yol>`, `safety_list_narrowed:<giriş>` | Kurucu'nun | Kopya diff'i güvenlik yoluna dokunur ve son imzalı `k6.status` `live` değil; ya da türetilmiş liste sahibinkini kapsamaz (`fence` komutu, `fence.closed_reasons` ve `fence.narrowed_reasons`) |
 
-Gizli vakalarda tek başına düşüşün ne olduğu sahibin açık kararıdır (b): anahtar `decide.HELD_DROP_RULE`; varsayılanı
-sahibin kuralı ("düşüş = ezber": istismar), öteki hakemin önerisi (`held_drop` ve uyarı, aynı konuda G2 bulgusuyla
-istismar). Kopya PR başlarını yargılayan ve `snowball-gate`'i hakem App'iyle gönderen iş henüz yok: `fence` komutu ve
-`decide --fence` hazırdır, Environment `gate` onu yazan iş gelince eklenir.
+Gizli vakalarda tek başına düşüşün ne olduğu sahibin açık kararıdır (b): anahtar tektir, `watchers.G5_DROP_RULE`;
+varsayılanı sahibin kuralı ("düşüş = ezber": istismar), öteki yargıcın önerisi (`ezber_suphe`; aynı fonksiyonda G2
+bulgusuyla istismar). G5'in sayıları gizli koşucunun defterindedir (`heldrun`, E510) ve hakeme henüz bir yoldan gelmez.
+Pull'un reddettiği bir push'ta gözcü koşmaz: onun `exam_tamper`'ı Kurucu'nun reddidir, istismar kaydı olmaz (gözcünün
+canlı anahtarı yalnız `kos`'tadır). Kopya PR başlarını yargılayan ve `snowball-fence`'i hakem App'iyle gönderen iş henüz
+yok: `fence` komutu ve `decide --fence` hazırdır. Özel karnenin gizli farkı `heldrun reveal`'in çıktısını
+(`<work>/scorecard/held-reveals.json`) imzalı sonuçların görünen sayılarıyla birleştirir.
 
 ## Etkinleştirme (Aşama 0 → Aşama 1)
 

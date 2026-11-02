@@ -23,8 +23,7 @@ from . import canon, config, exitchecks, ghapi, gitio, ledgercheck, licenses, pa
 from .classify import (LEDGER_FILE, REPORTS_DIR, SEED_DIRS, classify, is_founder_record, is_seed_path,
                        spec_stage_dirs)
 from .container import DockerRunner
-from .decide import (OUTAGE_GIVE_UP_DAYS, OUTAGE_RETRY_LIMIT, REPORT_FIELDS, SAFETY_LIST_NARROWED, SAFETY_PATH_CLOSED,
-                     decide, utc_now)
+from .decide import OUTAGE_GIVE_UP_DAYS, OUTAGE_RETRY_LIMIT, REPORT_FIELDS, decide, utc_now
 from .importer import ImportErrorStop, run_import, verify_signature
 from .manifest import ManifestError, check_stage, declares, parse_lockfile, parse_manifest
 from .moduleless import run_module_less, units
@@ -33,7 +32,7 @@ from .reproduce import run_reproducers, run_state_reproducers
 from .rival import (HIDDEN_DIRS, HIDDEN_NAMES, RivalOutcome, build_context, extract_seat_prompt, hidden, resolve_claude,
                     run_rival)
 from .treehash import path_problem, TreeError, extract, is_utf8_name, iter_files, shown, tree_hash
-from .vectors import applied, call_inputs, fixtures, missing_groups
+from .vectors import applied, call_inputs, fixture_lookups, fixtures, missing_groups, visible_cases
 
 EXIT_FILE = "exit-request.json"
 MANIFEST_FILE = "snowball-tests.json"
@@ -126,15 +125,26 @@ def pinned_module(name: str, register: str) -> Any:
                                  "bootstrap does not have") from None
 
 
-def signed_k6(path: str | None) -> Any:
-    """The `k6` field of the last signed result (E516): what the fence and the next result carry. ``path`` is the
-    result `fetch-state` verified in this job; none yet (the first run) is no K6 field."""
+def _signed_bytes(path: str | None) -> tuple[bytes | None, bytes | None]:
+    """The last signed result's bytes and its Sigstore bundle's (`fetch-state` writes `<result>.sigstore.json` beside
+    it and verified the pair in this job); None for either that is not there (the first run)."""
     if not path or not Path(path).is_file():
+        return None, None
+    bundle = Path(path + ".sigstore.json")
+    return Path(path).read_bytes(), bundle.read_bytes() if bundle.is_file() else None
+
+
+def signed_k6(path: str | None) -> Any:
+    """The `k6` field of the last signed result (E516): what the next K6 evaluation names as the previous status and
+    what the result carries when this run evaluated none. Read only from the bytes the bundle signs
+    (`fence.signed_status`, E511); bytes no signature covers, or no result yet, are no K6 field."""
+    fence = pinned_module("fence", "E511")
+    raw, bundle = _signed_bytes(path)
+    if fence.signed_status(raw, bundle) in (fence.MISSING, fence.UNBOUND):
         return None
-    try:
-        return read_json(Path(path)).get("k6")
-    except (ValueError, AttributeError):
-        return None
+    data = _json_or_none(raw)  # bound: these are the bytes the bundle signs
+    block = data.get("k6") if isinstance(data, dict) else None
+    return block if isinstance(block, dict) else None
 
 
 def _pin_meta(meta: dict[str, Any], summary_cfg: config.Summary, prev_result: str | None) -> None:
@@ -695,6 +705,8 @@ def _pull_classify(boot: config.Bootstrap, policy: config.Policy, summary_cfg: c
     # still in it here is the epoch's (any other seed change is rejected before the rival), not the Founder's (E88).
     (out / "diff.patch").write_text(gitio.diff_text(repo, base, head, exclude=HIDDEN_NAMES, exclude_dirs=HIDDEN_DIRS + SEED_DIRS)
                                     if base_ok else "", encoding="utf-8")
+    if summary_cfg.exam_pin is not None:  # E516: what the watchers' static pass reads of the base (`cmd_watch`)
+        write_json(out / "base.json", _watch_base(repo, base) if base_ok else {"ledger": None, "tests": []})
     output(skip=False, kind=kind, head=head, run_tests=meta["run_tests"], run_rival=meta["run_rival"], repro=repro,
            exam_pinned=summary_cfg.exam_pin is not None)  # E516: the jobs that need the exam
     return 0
@@ -808,9 +820,11 @@ def cmd_join_parts(args: argparse.Namespace) -> int:
     """`run.json` from every part's `part.json`, each read from its artifact only if the artifact's hash is the one its
     job output named (``--part TAR=SHA``, in part order). A part without its artifact or its hash stops the join.
 
-    Under a pinned exam (E516) the vectors are judged on the answers of the exam store `kos` fetched (``--exam``),
-    only when its manifest's own hash is the epoch's pin and `answers.verify` holds; otherwise nothing is judged and
-    `run.json` says the exam was unavailable, which `decide` retries. With no pin ``--exam`` is never read."""
+    Under a pinned exam (E516) the vectors are judged on the visible answers of the exam store `kos` fetched
+    (``--exam``), read and checked against the epoch's pin by `answers` (E509); a store that cannot be had so judges
+    nothing, and `run.json` says the exam was unavailable, which `decide` retries. The same store gives the watchers'
+    private parameters, under which their findings (``--gozcu``) are published (`watchers.publish`, E514), and the
+    K6 exam's documents, from which the K6 status is evaluated (`k6.evaluate`, E512). With no pin neither is read."""
     kos = _kos(args)
     records = []
     for place, item in enumerate(args.part or []):
@@ -823,94 +837,249 @@ def cmd_join_parts(args: argparse.Namespace) -> int:
     pin = kos.meta.get("exam_pin")  # pull's, from this run's snapshot; `decide` compares it with the snapshot again
     if pin is None:
         return _write_run(Path(args.out), parts.join(kos.push, records))
-    files, measured, why = exam_store(Path(args.exam) if args.exam else None, pin)
-    if why is not None:
-        return _write_run(Path(args.out), {"exam": {"status": "unavailable", "why": why, "exam_sha256": measured},
-                                           "green": False, "tests": [], "vectors": [], "controls": [],
-                                           "module_less": [], "licenses": []})
-    answers = pinned_module("answers", "E509")
-    run = parts.join(dataclasses.replace(kos.push, groups=answers.join(kos.push.groups, files)), records)
-    run["exam"] = {"status": "read", "exam_sha256": measured}
-    traces = Path(args.target) / "hedef.json" if args.target else None
-    if traces is not None and traces.is_file():  # `kos_hedef`'s run of the copy target, for the K6 exam
-        run["k6"] = pinned_module("k6", "E512").signed_block(files, read_json(traces))
-    return _write_run(Path(args.out), run)
+    answers, watchers = pinned_module("answers", "E509"), pinned_module("watchers", "E514")
+    root, out = Path(args.root), Path(args.out)
 
-
-EXAM_MANIFEST = "manifest.json"  # the store's root of trust: exam_sha256 is the sha256 of its bytes (plan D3)
-
-
-def exam_store(where: Path | None, pin: str) -> tuple[dict[str, bytes], str | None, str | None]:
-    """(files, the manifest's measured sha256, why it is unavailable or None) of the exam store `kos` fetched (E516).
-    Every regular file but git's own, by relative path; the manifest's hash must be the pin before `answers.verify`
-    (E509) checks the files against it. Any failure is a reason name only: nothing of the store reaches a log."""
-    if where is None or not where.is_dir():
-        return {}, None, "missing"
-    files = {p.relative_to(where).as_posix(): p.read_bytes() for p in sorted(where.rglob("*"))
-             if p.is_file() and not p.is_symlink() and ".git" not in p.relative_to(where).parts}
-    raw = files.get(EXAM_MANIFEST)
-    measured = hashlib.sha256(raw).hexdigest() if raw is not None else None
-    if measured != pin:
-        return files, measured, "pin_mismatch" if raw is not None else "no_manifest"
-    answers = pinned_module("answers", "E509")
+    def unavailable(why: str) -> int:  # a class only: no file of the store is named in an artifact or a log
+        return _write_run(out, {"exam": {"status": "unavailable", "why": why, "exam_sha256": None}, "green": False,
+                                "tests": [], "vectors": [], "controls": [], "module_less": [], "licenses": []})
     try:
-        verified = answers.verify(json.loads(raw.decode("utf-8")), files, pin)
-    except Exception as exc:  # the store's content broke the check: the exam is unavailable, never green
-        return files, measured, f"verify:{type(exc).__name__}"
-    return files, measured, None if verified is not False else "verify_failed"
-
-
-def cmd_watch(args: argparse.Namespace) -> int:
-    """`gozcu` (E516, plan D9): the static watchers (`watchers`, E514) on the pulled push. Keyless and runs no brain
-    code; its inputs are pull's, which pull already bounded (`tree_too_large`). It writes `gozcu.json`, the findings
-    `decide` judges, for this head only."""
-    pulled, out = Path(args.pulled), Path(args.out)
-    meta = read_json(pulled / "meta.json")
-    found = pinned_module("watchers", "E514").watch((pulled / "diff.patch").read_text(encoding="utf-8"),
-                                                   (pulled / "brain.tar").read_bytes(), meta)
-    write_json(out / "gozcu.json", {"head": meta["head"], "findings": list(found.get("findings", [])),
-                                    "unverifiable": found.get("unverifiable", 0)})
+        store = exam_store(Path(args.exam) if args.exam else None, pin)
+        groups = applied(root / "vectors", tuple(kos.meta["manifest"]["done_mf"]), table=kos.table, tree=kos.src,
+                         exam=store.visible)
+        raw_params = store.read(WATCHERS_FILE)
+    except answers.AnswersError:  # before any broad handler: an unread store is an outage, never the Founder's (E509)
+        return unavailable("store")
+    try:
+        params = watchers.load_params(raw_params or b"")  # no defaults: the epoch's store names them (E514)
+    except watchers.ParamsError:
+        return unavailable("watchers")
+    if fixture_lookups(root / "vectors", store.visible):  # E244 on the answers: the Founder would read them in /vec
+        raise config.ConfigError("a public fixture of vectors/ carries an answer its case must compute (E509): the "
+                                 "operator installs the exam's admitted vectors only")
+    run = parts.join(dataclasses.replace(kos.push, groups=groups), records)
+    run["exam"] = {"status": "read", "exam_sha256": store.pin}
+    run["watchers"] = _published(Path(args.gozcu) if args.gozcu else None, kos.meta.get("head"), params)
+    run["k6"] = _k6_block(store, kos.meta, config.load_summary(root))
+    traces = Path(args.target) / "hedef.json" if args.target else None
+    if traces is not None and traces.is_file():  # `kos_hedef`'s base run of the copy target: counts, no verdict
+        run["target"] = _target_counts(read_json(traces), kos.meta.get("head"))
+    write_json(out / "run.json", run)
+    if answers.canary_hits([out], store.visible.canary):  # what would carry the answers out is never uploaded
+        (out / "run.json").unlink()
+        raise config.ConfigError("run/ holds the exam's canary: nothing of it is uploaded (E509)")
+    output(green=run["green"])
     return 0
 
 
-def cmd_run_target(args: argparse.Namespace) -> int:
-    """`kos_hedef` (E516, plan D8): the copy targets at their base in the target image, through `target_run` (E513),
-    which fetches without running install scripts and runs with no network. It writes `hedef.json`, the traces `kos`
-    judges with the K6 exam; it holds no secret and reads no answer."""
+WATCHERS_FILE = "watchers.json"  # the epoch's watcher parameters in the exam store (`watchers.load_params`, E514)
+K6_FILES = ("k6/exam.json", "k6/runs.json", "k6/held_paths.json", "k6/live_ready.json")  # E512, all optional
+
+
+@dataclass(frozen=True)
+class PinnedStore:
+    """The exam store `kos` fetched, at the epoch's pin (E516): the visible answers (`answers.Exam`) and every other
+    file its manifest lists, each read only through the manifest (`answers.read_store`, `answers.verify`)."""
+
+    root: Path
+    pin: str
+    manifest: bytes
+    listed: dict[str, Any]
+    salt: str
+    visible: Any
+
+    def read(self, rel: str) -> bytes | None:
+        """A file of this exam version, checked against the manifest; None when the manifest does not list it."""
+        if rel not in self.listed:
+            return None
+        answers = pinned_module("answers", "E509")
+        _manifest, files = answers.read_store(self.root, self.pin, (rel,))
+        answers.verify(self.manifest, files, self.pin)
+        return files[rel]
+
+
+def exam_store(where: Path | None, pin: str) -> PinnedStore:
+    """The exam store at ``where`` (a checkout of it), at the pin (E516); `answers.AnswersError` when it is not there,
+    cannot be read or is not the pinned bytes (`answers.load`, E509). The error names no file of the store."""
+    answers = pinned_module("answers", "E509")
+    if where is None or not where.is_dir():
+        raise answers.AnswersError("the exam store was not fetched")
+    manifest, files = answers.read_store(where, pin)
+    exam = answers.load(manifest, files, pin)
+    data = json.loads(manifest)  # `answers.load` held these bytes to the pin and read them as a store manifest
+    return PinnedStore(where, pin, manifest, dict(data["files"]), data["salt"], exam)
+
+
+def _json_or_none(raw: bytes | None) -> Any:
+    try:
+        return None if raw is None else json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, ValueError, RecursionError):
+        return None
+
+
+def _published(gozcu: Path | None, head: str | None, params: Any) -> dict[str, Any]:
+    """The watchers' verdict on this head (E516): `gozcu`'s findings published under the epoch's private parameters
+    (`watchers.publish`: the one istismar rule, `watchers.level`, and the salted evidence hashes). A `gozcu` document
+    of another head, or one whose findings are not the watchers' own, is no verdict: `decide` reads it as infra."""
+    watchers = pinned_module("watchers", "E514")
+    doc = read_json(gozcu / "gozcu.json") if gozcu is not None and (gozcu / "gozcu.json").is_file() else None
+    if not (isinstance(doc, dict) and doc.get("head") == head):
+        return {"head": head, "status": "missing"}
+    if doc.get("status") == "too_large":
+        return {"head": head, "status": "too_large"}
+    fields = {f.name for f in dataclasses.fields(watchers.Finding)}
+    found = doc.get("findings")
+    if doc.get("status") != "read" or not isinstance(found, list) or not all(
+            isinstance(f, dict) and set(f) == fields and f["watcher"] in watchers.WATCHERS
+            and f["proposed"] in watchers.LEVELS and isinstance(f["declared"], bool) for f in found):
+        return {"head": head, "status": "malformed"}
+    published = watchers.publish([watchers.Finding(**f) for f in found], params)
+    return {"head": head, "status": "read", "published": published, "unverifiable": 0}
+
+
+def _k6_block(store: PinnedStore, meta: dict[str, Any], summary_cfg: config.Summary) -> dict[str, Any]:
+    """The signed `k6` field of this run (E516, plan D7), evaluated by `k6.evaluate` (E512) from the exam store's K6
+    documents (none yet: `not_live`), the epoch's salt and pin, the one copy target's base, the fence's recall measured
+    with the referee's own matcher (`fence.touches_safety` on the owner's list), and the last signed status."""
+    k6, fence = pinned_module("k6", "E512"), pinned_module("fence", "E511")
+    exam, runs, held, ready = (_json_or_none(store.read(rel)) for rel in K6_FILES)
+    copies = [t for t in summary_cfg.targets or () if t.kind == "copy"]
+    copy = copies[0] if len(copies) == 1 else None
+    recall = None
+    if copy is not None and copy.safety_paths and isinstance(held, list) and all(isinstance(p, str) for p in held):
+        recall = k6.fence_recall(held, lambda path: bool(fence.touches_safety([path], copy.safety_paths)))
+    prev = meta.get("k6_prev")
+    previous = prev.get("status") if isinstance(prev, dict) and prev.get("status") in k6.STATUSES else None
+    return k6.evaluate(exam, runs, salt=bytes.fromhex(store.salt), exam_sha256=store.pin,
+                       base_commit=copy.base_sha if copy is not None else None, recall=recall, live_ready=ready,
+                       previous=previous)
+
+
+def _target_counts(doc: Any, head: str | None) -> dict[str, Any] | None:
+    """`kos_hedef`'s base run as counts per suite (E516): what the run artifact keeps of it; no verdict reads it."""
+    if not (isinstance(doc, dict) and doc.get("head") == head and isinstance(doc.get("traces"), dict)):
+        return None
+    return {tid: {"fetch_ok": (t.get("fetch") or {}).get("ok") is True,
+                  "suites": [{k: s.get(k) for k in ("suite", "ok", "counts", "runner_fault")}
+                             for s in t.get("suites") or [] if isinstance(s, dict)]}
+            for tid, t in sorted(doc["traces"].items()) if isinstance(t, dict)}
+
+
+def cmd_check_snapshot(args: argparse.Namespace) -> int:
+    """`cek`'s check before the snapshot is packed (E516, E509 `cek`): under a pinned exam the referee's `vectors/`
+    must be the inputs alone; one that carries answers by its form (`answers.carrying`) stops the run before any
+    artifact holds it. With no pin nothing is read."""
+    root = Path(args.root)
+    if config.load_summary(root).exam_pin is None:
+        return 0
+    found = pinned_module("answers", "E509").carrying([root / "vectors"])
+    if found:
+        raise config.ConfigError(f"vectors/ carries answers in {len(found)} file(s): under a pinned exam the operator "
+                                 "installs the inputs alone (`vectors.public_vectors`, E509)")
+    return 0
+
+
+def cmd_watch(args: argparse.Namespace) -> int:
+    """`gozcu` (E516, plan D9): the static watchers (`watchers.static_pass`, E514) on the pulled push. Keyless and runs
+    no brain code; its inputs are pull's: the diff, the changed paths, the push's own ledger rows (the base's ledger
+    from `base.json`), the visible cases' inputs and the changed code files at the head. It writes `gozcu.json`, the
+    findings `kos` publishes under the epoch's private parameters, for this head only."""
+    watchers = pinned_module("watchers", "E514")
     root, pulled, out = Path(args.root), Path(args.pulled), Path(args.out)
+    meta = read_json(pulled / "meta.json")
+    head, tar_bytes = meta["head"], (pulled / "brain.tar").read_bytes()
+    base = read_json(pulled / "base.json")
+    changed = [p for p in meta.get("changed") or [] if isinstance(p, str)]
+    rows = watchers.push_rows(tar_file(tar_bytes, LEDGER_FILE),
+                              base["ledger"].encode("utf-8") if isinstance(base.get("ledger"), str) else None)
+    cases = visible_cases(root / "vectors")
+    texts = {}
+    for path in changed:
+        raw = tar_file(tar_bytes, path) if watchers.is_code_path(path) else None
+        if raw is not None:
+            texts[path] = raw.decode("utf-8", "replace")
+    try:
+        findings, _suspects = watchers.static_pass((pulled / "diff.patch").read_text(encoding="utf-8"), changed, rows,
+                                                   cases, head=head, base_tests=base.get("tests") or [],
+                                                   head_texts=texts)
+        doc = {"head": head, "status": "read", "findings": [dataclasses.asdict(f) for f in findings]}
+    except watchers.InputTooLarge:
+        doc = {"head": head, "status": "too_large", "findings": []}
+    write_json(out / "gozcu.json", doc)
+    return 0
+
+
+def _watch_base(repo: Path, base: str) -> dict[str, Any]:
+    """What the watchers' static pass reads of the base (E516): its ledger, so the push's own rows are told apart
+    (`watchers.push_rows`), and its manifest's tests, whose ids a row may name (`watchers.Declared.covers`)."""
+    ledger = gitio.file_at(repo, base, LEDGER_FILE)
+    raw = gitio.file_at(repo, base, MANIFEST_FILE)
+    try:
+        tests = [] if raw is None else [{"id": t.id, "cmd": t.cmd, "stage": t.stage}
+                                        for t in parse_manifest(raw.decode("utf-8")).tests]
+    except (ManifestError, UnicodeDecodeError):
+        tests = []
+    try:
+        text = None if ledger is None else ledger.decode("utf-8")
+    except UnicodeDecodeError:
+        text = None  # a ledger the referee cannot read declares nothing (`watchers.push_rows`)
+    return {"ledger": text, "tests": tests}
+
+
+def cmd_run_target(args: argparse.Namespace) -> int:
+    """`kos_hedef` (E516, plan D8): each copy target at its base, in the pinned target image (`target_run`, E513):
+    the tree fetched by its commit and copied out without `.git`, its dependencies fetched with nothing of the tree
+    run (`target_run.fetch`), then each of the operator's suites run with no network (`TargetRunner`,
+    `target_run.run_suite`). It writes `hedef.json`; it holds no secret and reads no answer."""
+    target_run = pinned_module("target_run", "E513")
+    root, pulled, out, work = Path(args.root), Path(args.pulled), Path(args.out), Path(args.work)
     boot = config.load_bootstrap(root)
     if boot.target_image is None:
         raise config.ConfigError("bootstrap.json has no target_image: the pinned exam runs the copy target in it "
                                  "(E516, plan D8)")
+    traces: dict[str, Any] = {}
     copies = [t for t in config.load_summary(root).targets or () if t.kind == "copy" and t.base_sha]
-    traces = pinned_module("target_run", "E513").run_target(copies, boot.target_image, Path(args.work))
+    for place, target in enumerate(copies):
+        repo, tree, deps = work / f"repo-{place}", work / f"tree-{place}", work / f"deps-{place}"
+        repo.mkdir(parents=True, exist_ok=True)
+        gitio.git(repo, "init", "--bare", "--quiet")
+        gitio.git(repo, "fetch", "--quiet", "--no-tags", "--depth", "1", f"https://github.com/{target.repo}.git",
+                  target.base_sha)
+        extract(gitio.archive(repo, target.base_sha), tree, boot.limits.max_tree_bytes)
+        fetched = target_run.fetch(tree, boot.target_suites, deps, image=boot.target_image,
+                                   timeout_s=boot.limits.test_timeout_s)
+        suites = []
+        if fetched["ok"]:
+            runner = target_run.TargetRunner.for_suites(boot.target_image, str(tree.resolve()), str(deps.resolve()),
+                                                        boot.target_suites)
+            suites = [target_run.run_suite(runner, s, boot.limits.test_timeout_s) for s in boot.target_suites]
+        traces[target.id] = {"base_sha": target.base_sha, "suites": suites,
+                             "fetch": {k: fetched[k] for k in ("ok", "problems", "files")}}
     write_json(out / "hedef.json", {"head": read_json(pulled / "meta.json")["head"], "traces": traces})
     return 0
 
 
 def cmd_fence(args: argparse.Namespace) -> int:
-    """The referee's K6 fence on a copy diff (E516, plan D6): the copy target's changed paths against the owner's
-    `safety_paths` while the last signed `k6.status` (``--prev-result``, never the brain's) is not live, and a
-    brain-derived list (``--derived``, `{"security_paths": [...]}`) that does not cover the owner's. It writes
-    `fence.json`, which `decide --fence` turns into `safety_path_closed` and `safety_list_narrowed`."""
+    """The referee's K6 fence on a copy diff (E516, plan D6), with the fence's own rules (`fence`, E511): the copy
+    target's changed paths against the owner's `safety_paths` while the last signed `k6.status` is not live
+    (`fence.closed_reasons`; the status read only from the bytes the bundle beside ``--prev-result`` signs,
+    `fence.signed_status`, never the brain's), and a brain-derived list (``--derived``, `{"security_paths": [...]}`)
+    that does not cover the owner's (`fence.narrowed_reasons`). It writes `fence.json`, which `decide --fence` reads."""
+    fence = pinned_module("fence", "E511")
     summary_cfg = config.load_summary(Path(args.root))
     found = [t for t in summary_cfg.targets or () if t.id == args.target]
     if not found or found[0].kind != "copy" or not found[0].safety_paths:
         raise config.ConfigError(f"fence: {args.target!r} is not a copy target with safety_paths")
     owner = list(found[0].safety_paths)
-    fence = pinned_module("fence", "E511")
-    k6 = signed_k6(args.prev_result)
-    status = k6.get("status") if isinstance(k6, dict) else None
-    reasons: list[dict[str, str]] = []
-    if status != "live":
-        changed = gitio.changed_paths(Path(args.copy), args.base, args.head)
-        reasons += [{"kind": SAFETY_PATH_CLOSED, "ref": p} for p in fence.touches_safety(changed, owner)]
+    status = fence.signed_status(*_signed_bytes(args.prev_result))
+    changed = gitio.changed_paths(Path(args.copy), args.base, args.head)
+    reasons = fence.closed_reasons(changed, owner, status)
     if args.derived is not None:
         derived = read_json(Path(args.derived)).get("security_paths")
-        if not fence.superset_ok(derived, owner):
-            reasons.append({"kind": SAFETY_LIST_NARROWED, "ref": args.target})
-    write_json(Path(args.out) / "fence.json", {"head": args.head, "k6_status": status or "not_live",
-                                               "reasons": reasons})
+        if derived is not None and not (isinstance(derived, list) and all(isinstance(d, str) for d in derived)):
+            raise config.ConfigError("--derived: security_paths must be a list of path patterns")
+        reasons += fence.narrowed_reasons(derived, owner)
+    write_json(Path(args.out) / "fence.json", {"head": args.head, "k6_status": status, "reasons": reasons})
     return 0
 
 
@@ -1014,8 +1183,7 @@ def cmd_decide(args: argparse.Namespace) -> int:
     result = decide(meta, run, rival, None if repro_doc is None else repro_doc["results"], jobs,
                     policy.rival_min_attempts, policy.repeat_reject_limit,
                     state_repro=None if repro_doc is None else repro_doc.get("state", []), now=utc_now(),
-                    exam_pin=pin, gozcu=optional(args.gozcu, "gozcu.json") if pin else None,
-                    fence=optional(args.fence, "fence.json") if pin else None,
+                    exam_pin=pin, fence=optional(args.fence, "fence.json") if pin else None,
                     table=stagelock.open_table(root))  # the snapshot's, as `pull` read it (E402)
     result["run"] = {"id": os.environ.get("GITHUB_RUN_ID", "local"),
                      "attempt": os.environ.get("GITHUB_RUN_ATTEMPT", "1")}
@@ -1129,7 +1297,9 @@ def build_parser() -> argparse.ArgumentParser:
     add("join-parts", cmd_join_parts, root, ("--pulled", req), ("--deps", req), ("--work", req), ("--out", req),
         ("--part", {"action": "append", "help": "TAR=SHA256 of each part's artifact, in part order"}),
         ("--exam", {"help": "the exam store kos fetched; read only under a pinned exam (E516)"}),
+        ("--gozcu", {"help": "gozcu's output directory (gozcu.json); read only under a pinned exam (E516)"}),
         ("--target", {"help": "kos_hedef's output directory (hedef.json); read only under a pinned exam"}))
+    add("check-snapshot", cmd_check_snapshot, root)
     add("watch", cmd_watch, root, ("--pulled", req), ("--out", req))
     add("run-target", cmd_run_target, root, ("--pulled", req), ("--work", req), ("--out", req))
     add("fence", cmd_fence, root, ("--copy", dict(req, help="a local clone of the copy target")), ("--base", req),
@@ -1142,7 +1312,6 @@ def build_parser() -> argparse.ArgumentParser:
         ("--work", req), ("--out", req))
     add("decide", cmd_decide, root, ("--pulled", req), ("--run", {}), ("--rival", {}), ("--repro", {}),
         ("--job", {"action": "append"}), ("--out", req),
-        ("--gozcu", {"help": "the gozcu job's output (gozcu.json); read only under a pinned exam (E516)"}),
         ("--fence", {"help": "a fence.json of the copy diff (cmd fence); read only under a pinned exam"}))
     add("pack", cmd_pack, ("--dir", req), ("--out", req))
     add("unpack", cmd_unpack, ("--tar", req), ("--sha256", req), ("--out", req))

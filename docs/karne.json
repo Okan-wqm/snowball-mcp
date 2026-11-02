@@ -19,7 +19,7 @@
     "unevaluated_runs": 1,
     "waived_refutations": 1
   },
-  "definitions_sha256": "2247d684861b4a7db0793c85eb7dfa6b6a471079b254418c39ffb69cf131b50c",
+  "definitions_sha256": "1b6ed3b1fc6eef77e544a5ff29c9995afd51e552fa36b5e4ae41221ff3bd35ad",
   "exam": {
     "register": "E317",
     "status": "not_run"
@@ -533,7 +533,8 @@
       "G1": 0,
       "G2": 0,
       "G3": 0,
-      "G4": 0,
+      "G4a": 0,
+      "G4c": 0,
       "G5": 0
     },
     "pinned_pushes": 0,
@@ -545,7 +546,6 @@
     "unverifiable": 0,
     "warnings": {
       "ezber_suphe": 0,
-      "gozcu_declared": 0,
       "gozcu_suphe": 0
     }
   },

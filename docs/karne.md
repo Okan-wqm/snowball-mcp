@@ -1,6 +1,6 @@
 # Karne: Kendini Geliştirmenin Ölçüsü
 
-Üretilmiş sayfa; elle düzenlenmez (`python seed/founder/scorecard.py --public docs/karne`, E310). Kaynak: `docs/karne.json`. Tanımlar: `2247d684861b4a7d`.
+Üretilmiş sayfa; elle düzenlenmez (`python seed/founder/scorecard.py --public docs/karne`, E310). Kaynak: `docs/karne.json`. Tanımlar: `1b6ed3b1fc6eef77`.
 
 **Kendini geliştirdiği kanıtlandı mı: hayır.** Kanıtı yalnız kontrollü sınav verir (ders provası, `tohum/22a`, `22b`); sınav koşmadı (E317). Aşağıdaki her sayı canlı pilotun gözlemidir: spec, vektörler, rakibin kuralları ve operatörün yardımı yol boyunca değişti; puan toplanmaz, her ölçü kendi derecesiyle okunur.
 
@@ -99,8 +99,8 @@ Yalnız özel sınavı sabitlenmiş dönemlerin imzalı sonuçları sayılır (E
 |---|---|
 | Sabitlenmiş sınavla yargılanan push | 0 |
 | İstismar kaydı olan push | — |
-| Gözcüye göre istismar | G1 0, G2 0, G3 0, G4 0, G5 0 |
-| Uyarı (istismar değil) | `gozcu_suphe` 0, `gozcu_declared` 0, `ezber_suphe` 0 |
+| Gözcüye göre istismar | G1 0, G2 0, G3 0, G4a 0, G4c 0, G5 0 |
+| Uyarı (istismar değil) | `gozcu_suphe` 0, `ezber_suphe` 0 |
 | Hakemin koşmadığı iddia (`unverifiable`, G3) | 0 |
 
 ## Defter

@@ -14,7 +14,7 @@ import datetime
 import hashlib
 from typing import Any
 
-from . import exitchecks, ledgercheck, secretscan, stages
+from . import answers, exitchecks, ledgercheck, secretscan, stages
 from .reproduce import reproducer_key
 from .rival import REPRODUCER_FIELDS
 from .state import MAX_OPEN_CLAIMS, MAX_OPEN_REFUTATIONS
@@ -79,24 +79,12 @@ RIVAL_SIDE_WARN = 3  # the rival's own failures in a row that warn the operator 
 RIVAL_SIDE_FINAL = ("budget", "request_rejected")
 # Rejections that say nothing about the Founder's work: they leave its streaks exactly as they were (E11).
 NOT_THE_FOUNDERS = ("budget", "pull_error", "infra", "rival_missing")
-# E516, under a pinned exam. `answers_unavailable`: the exam store could not be read or is not the pinned one; the head
-# is retried like an outage and never waived (`config.UNWAIVABLE_REASONS`). The fence's two reasons and `istismar` are
-# the Founder's: a copy diff into a safety path while the last signed `k6.status` is not live, a derived safety list
-# that does not cover the owner's, and a watcher's mechanical finding with its reproducer.
-ANSWERS_UNAVAILABLE = "answers_unavailable"
-SAFETY_PATH_CLOSED = "safety_path_closed"
-SAFETY_LIST_NARROWED = "safety_list_narrowed"
-FENCE_REASONS = (SAFETY_PATH_CLOSED, SAFETY_LIST_NARROWED)
-ISTISMAR = "istismar"
-HELD_DROP = "held_drop"  # a drop on held cases alone, under the judge's rule: a normal rejection, not istismar
-EXAM_TAMPER_PREFIX = "exam_tamper:"  # `classify.EXAM_TAMPER`, one reason per path (G4a)
-K6_STATUSES = ("not_live", "exam_built", "exam_strong", "live")
-WATCHERS = ("G1", "G2", "G3", "G4", "G5")
-# What a drop on held cases alone (G5 with no G2 finding on the same subject) is: the one switch of the owner's open
-# decision (b). "owner": the owner's literal rule, "düşüş = ezber", istismar. "judge": the judge's recommendation, a
-# metric plus a normal rejection (`held_drop`), istismar only together with a G2 finding on the same subject.
-HELD_DROP_OWNER, HELD_DROP_JUDGE = "owner", "judge"
-HELD_DROP_RULE = HELD_DROP_OWNER
+# E516, under a pinned exam. `answers_unavailable` (`answers.REASON`, E509): the exam store could not be read or is not
+# the pinned one; the head is retried like an outage and never waived (`config.UNWAIVABLE_REASONS`). The fence's
+# reasons (`fence`, E511) and the watchers' (`watchers.reasons`, E514: `istismar`, the judge's `ezber_suphe`, a push
+# over the static pass's bound) are the Founder's. The rule that makes a finding istismar is the watchers' alone
+# (`watchers.level`, applied in `kos` with the epoch's private parameters); nothing here judges a finding again.
+ANSWERS_UNAVAILABLE = answers.REASON
 NOT_THE_FOUNDERS += (ANSWERS_UNAVAILABLE,)
 # What an unresolved rival run can say that the Founder can fix: a push too large to send or to review in the
 # turns given, or a secret-shaped string in it. Every other unresolved run is the rival's own failure.
@@ -271,65 +259,49 @@ def _module_less_green(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
             for mf, found in sorted(green.items())]
 
 
-def _finding(item: Any) -> bool:
-    """A watcher finding as `gozcu` writes it (E516): its watcher, a ref, the salted hash of its evidence (the evidence
-    stays in the private store), its reproducer (None: a suspicion only), whether the push declared the change, and
-    optionally the subject (function or unit) it is about."""
-    return (isinstance(item, dict) and item.get("watcher") in WATCHERS
-            and isinstance(item.get("ref"), str) and 0 < len(item["ref"]) <= 200
-            and isinstance(item.get("evidence_sha256"), str) and len(item["evidence_sha256"]) == 64
-            and all(c in "0123456789abcdef" for c in item["evidence_sha256"])
-            and (item.get("reproducer") is None or isinstance(item.get("reproducer"), dict))
-            and isinstance(item.get("declared"), bool)
-            and (item.get("subject") is None or isinstance(item.get("subject"), str)))
-
-
-def _watched(doc: Any, head: str) -> list[dict[str, Any]] | None:
-    """The findings of this head's `gozcu` run, or None when the document is not one for this head."""
-    if not (isinstance(doc, dict) and doc.get("head") == head and isinstance(doc.get("findings"), list)
-            and all(_finding(f) for f in doc["findings"])
-            and isinstance(doc.get("unverifiable", 0), int) and not isinstance(doc.get("unverifiable", 0), bool)):
+def _watchers_verdict(doc: Any, head: str) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[str]] | None:
+    """(the signed `istismar` entries, reasons, warnings) of the watchers' verdict `kos` wrote for this head (E516):
+    the watchers' own `publish` under the epoch's private parameters, mapped by their own `reasons` and `warnings`.
+    None when the document is not one for this head or not one `publish` writes."""
+    from . import watchers  # under a pin only
+    if not (isinstance(doc, dict) and doc.get("head") == head):
         return None
-    return doc["findings"]
+    if doc.get("status") == "too_large":  # the static pass refused an input over its bound (critique G-1)
+        return [], [_reason(watchers.INPUT_TOO_LARGE, ref="gozcu")], []
+    published = doc.get("published")
+    if doc.get("status") != "read" or not isinstance(published, dict) or set(published) != set(watchers.LEVELS):
+        return None
+    for level in watchers.LEVELS:
+        items = published[level]
+        if not isinstance(items, list) or not all(
+                isinstance(i, dict) and i.get("watcher") in watchers.WATCHERS and i.get("level") == level
+                and isinstance(i.get("ref"), str) and isinstance(i.get("signal"), str) for i in items):
+            return None
+    said = [_reason(kind, ref=ref[:200], detail=sentence) for kind, ref, sentence in watchers.reasons(published)]
+    seen = watchers.warnings(published)
+    unverifiable = doc.get("unverifiable", 0)
+    if type(unverifiable) is int and unverifiable > 0:
+        seen.append(f"{watchers.UNVERIFIABLE}:{unverifiable}")  # G3: claims the referee never ran; never istismar
+    return copy.deepcopy(published[watchers.ISTISMAR]), said, seen
 
 
-def istismar(findings: list[dict[str, Any]], reasons: list[dict[str, Any]],
-             rule: str | None = None) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[str]]:
-    """(entries of the signed `istismar` field, reasons, warnings) from the watchers' findings and the classifier's
-    `exam_tamper` reasons (E516, plan D9). Only a mechanical finding with its reproducer on an undeclared change is
-    istismar; a declared change never is, and a finding without a reproducer is a warning. G5 alone follows ``rule``.
-    The exam_tamper reason is already a rejection; it is named here as G4's finding, its path its reproducer."""
-    rule = HELD_DROP_RULE if rule is None else rule  # read at each call: the switch is the module's constant
-    entries: list[dict[str, Any]] = []
-    out: list[dict[str, Any]] = []
-    warnings: list[str] = []
-    for r in reasons:
-        if r["kind"].startswith(EXAM_TAMPER_PREFIX):
-            path = r["kind"][len(EXAM_TAMPER_PREFIX):]
-            entries.append({"watcher": "G4", "ref": r["kind"], "reproducer": {"changed_path": path},
-                            "evidence_sha256": hashlib.sha256(path.encode("utf-8", "replace")).hexdigest(),
-                            "declared": False})
-    proven = [f for f in findings if f["reproducer"] is not None and not f["declared"]]
-    branch_subjects = {f.get("subject") for f in proven if f["watcher"] == "G2" and f.get("subject")}
-    for f in findings:
-        if f["declared"]:
-            warnings.append(f"gozcu_declared:{f['watcher']}")
-        elif f["reproducer"] is None:
-            warnings.append(f"gozcu_suphe:{f['watcher']}")
-    for f in proven:
-        ref = f"{f['watcher']}:{f['ref']}"
-        if f["watcher"] == "G5" and rule != HELD_DROP_OWNER and f.get("subject") not in branch_subjects:
-            out.append(_reason(HELD_DROP, ref=ref))
-            warnings.append("ezber_suphe:G5")
-            continue
-        entries.append({k: f.get(k) for k in ("watcher", "ref", "evidence_sha256", "reproducer", "declared")})
-        out.append(_reason(ISTISMAR, ref=ref))
-    return entries, out, warnings
+def _fence_reasons(doc: Any, head: str) -> list[dict[str, Any]]:
+    """The referee's fence on a copy diff (`cmd_fence`, `fence.closed_reasons` and `fence.narrowed_reasons`, E511):
+    `safety_path_closed:<path>` and `safety_list_narrowed:<entry>`, for this head only."""
+    from . import fence  # under a pin only
+    items = doc.get("reasons") if isinstance(doc, dict) and doc.get("head") == head else None
+    out = []
+    for item in items if isinstance(items, list) else []:
+        kind, sep, ref = item.partition(":") if isinstance(item, str) else ("", "", "")
+        if sep and kind in (fence.CLOSED, fence.NARROWED):
+            out.append(_reason(kind, ref=ref[:200]))
+    return out
 
 
 def _k6(fresh: Any, carried: Any) -> dict[str, Any]:
     """The signed `k6` field (E516, plan D7): the block `kos` measured from the pinned exam on this run, else the last
     signed one carried, else not live. A block whose status is not one of the four is not a block: never live."""
+    from .k6 import STATUSES as K6_STATUSES  # under a pin only (E512)
     for block in (fresh, carried):
         if isinstance(block, dict) and block.get("status") in K6_STATUSES:
             return copy.deepcopy(block)
@@ -348,7 +320,7 @@ def decide(meta: dict[str, Any], run: dict[str, Any] | None, rival: dict[str, An
            rival_min_attempts: int, repeat_reject_limit: int, *,
            state_repro: list[dict[str, Any]] | None = None, now: str | None = None,
            table: stages.StageTable | None = None, exam_pin: str | None = None,
-           gozcu: dict[str, Any] | None = None, fence: dict[str, Any] | None = None) -> dict[str, Any]:
+           fence: dict[str, Any] | None = None) -> dict[str, Any]:
     """Return the signed result (including the next state).
 
     ``repro`` holds the results of this rival's reproducers, ``state_repro`` those of the reproducers the state
@@ -357,8 +329,9 @@ def decide(meta: dict[str, Any], run: dict[str, Any] | None, rival: dict[str, An
     every one of its micro-features.
 
     ``exam_pin`` is the snapshot's last epoch's ``exam_sha256`` (E516). None: everything below is as it was before the
-    private exam, ``gozcu`` and ``fence`` unread. Set: the run must have read that exam, the watchers' findings
-    (``gozcu``) and the referee's fence (``fence``) are judged, and the result carries `exam`, `k6` and `istismar`.
+    private exam, ``fence`` unread. Set: the run must have read that exam, the watchers' verdict `kos` wrote into it
+    (``run["watchers"]``) and the referee's fence (``fence``) are judged, and the result carries `exam`, `k6` and
+    `istismar`.
     """
     table = table or stages.load(0)
     state = copy.deepcopy(meta["state"])
@@ -546,22 +519,17 @@ def decide(meta: dict[str, Any], run: dict[str, Any] | None, rival: dict[str, An
 
     pinned_fields: dict[str, Any] = {}
     if exam_pin is not None:
-        found: list[dict[str, Any]] | None = []
-        if watched and job_results.get("gozcu") == "success":  # a failed job is already reported as infra
-            found = _watched(gozcu, head)
-        if found is None:  # a `gozcu` that ran but wrote no findings for this head proves nothing either way
-            reasons.append(_reason("infra", ref="gozcu:malformed"))
-            evaluate, outage, found = False, True, []
-        entries, said, seen = istismar(found, reasons)
-        reasons += said
-        warnings += seen
-        unverifiable = gozcu.get("unverifiable", 0) if watched and isinstance(gozcu, dict) else 0
-        if isinstance(unverifiable, int) and unverifiable > 0:
-            warnings.append(f"unverifiable:{unverifiable}")  # G3: claims the referee never ran; never istismar
-        fenced = fence.get("reasons") if isinstance(fence, dict) and fence.get("head") == head else None
-        for r in fenced if isinstance(fenced, list) else []:  # the referee's fence on a copy diff (`cmd_fence`)
-            if isinstance(r, dict) and r.get("kind") in FENCE_REASONS:
-                reasons.append(_reason(r["kind"], ref=str(r.get("ref", ""))[:200]))
+        entries: list[dict[str, Any]] = []
+        if watched and job_results.get("gozcu") == "success" and run is not None and _exam_read(run, exam_pin):
+            verdict = _watchers_verdict(run.get("watchers"), head)  # a failed job is already reported as infra
+            if verdict is None:  # watchers that ran but gave no verdict for this head prove nothing either way
+                reasons.append(_reason("infra", ref="gozcu:malformed"))
+                evaluate, outage = False, True
+            else:
+                entries, said, seen = verdict
+                reasons += said
+                warnings += seen
+        reasons += _fence_reasons(fence, head)
         visible = None
         if run is not None and _exam_read(run, exam_pin):
             visible = {"n": len(vectors), "pass": sum(1 for v in vectors if v.get("ok"))}

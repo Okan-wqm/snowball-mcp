@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import re
 
-from .treehash import RESERVED_TOP
-
 SPEC_STAGE_RE = re.compile(r"^spec/asama-\d+/")
 SPEC_INDEX = "spec/INDEX.md"
 LEDGER_FILE = "founder-ledger.jsonl"
@@ -46,17 +44,15 @@ def is_agent_config(path: str) -> bool:
     return any(part in AGENT_DIRS for part in parts) or (bool(parts) and parts[-1] in AGENT_FILES)
 
 
-# The exam's own slots in the tree the import makes the referee (E516, plan D9 G4a): `referee/` becomes the referee
-# repository's root, and these names there are the operator's files, the exam's vectors and seats and the bootstrap
-# referee, which the import keeps and never takes from the brain (`treehash.RESERVED_TOP`, the same names, case-folded).
-# Under a pinned exam a push that writes there touches the exam or the referee: rejected outright, no judgement needed.
-PROTECTED_EXAM = tuple(sorted(f"referee/{name}" for name in RESERVED_TOP))
 EXAM_TAMPER_LIMIT = 20  # paths named, like `changed_after_exit`
 
 
 def is_exam_path(path: str) -> bool:
-    folded = "/".join(part.casefold() for part in path.split("/") if part)
-    return any(folded == p or folded.startswith(p + "/") for p in PROTECTED_EXAM)
+    """The exam's machinery in a pushed tree (E516, plan D9 G4a): the watchers' one list (`watchers.PROTECTED_EXAM`,
+    E514: the exam's slots in `referee/`, the root `.github/`, the test runners' configurations). Read only under a
+    pinned exam: a push there touches the exam or the referee and is rejected outright, no judgement needed."""
+    from .watchers import is_exam_path as exam_path  # imported under a pin only: before it nothing here is new
+    return exam_path(path)
 
 
 def classify(changed: list[str], exam_pinned: bool = False) -> tuple[str, list[str]]:

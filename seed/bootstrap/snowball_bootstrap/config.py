@@ -81,6 +81,7 @@ class Bootstrap:
     rival: RivalConfig
     limits: Limits
     target_image: str | None = None  # E516, plan D8: node and cargo, pinned by digest; read only under a pinned exam
+    target_suites: tuple[Any, ...] = ()  # the copy target's own test suites (`target_run.Suite`), with target_image
 
 
 MODEL_RE = re.compile(r"^claude-[a-z0-9][a-z0-9.-]*\Z")
@@ -99,7 +100,8 @@ def load_bootstrap(root: Path) -> Bootstrap:
     data = _load(root / "bootstrap.json")
     where = "bootstrap.json"
     if isinstance(data, dict):
-        _only_known(data, {"brain_repo", "brain_branch", "image", "rival", "limits", "target_image"}, where)
+        _only_known(data, {"brain_repo", "brain_branch", "image", "rival", "limits", "target_image", "target_suites"},
+                    where)
     repo = _req(data, "brain_repo", str, where)
     if not REPO_RE.match(repo):
         raise ConfigError(f"{where}.brain_repo must be owner/name")
@@ -112,6 +114,12 @@ def load_bootstrap(root: Path) -> Bootstrap:
     target_image = _req(data, "target_image", str, where) if "target_image" in data else None
     if target_image is not None and not IMAGE_RE.match(target_image):
         raise ConfigError(f"{where}.target_image must be pinned by digest (name@sha256:<64 hex>)")
+    if (target_image is None) != ("target_suites" not in data):
+        raise ConfigError(f"{where}: target_image and target_suites come together, the image the suites run in (E516)")
+    suites: tuple[Any, ...] = ()
+    if target_image is not None:
+        from .target_run import load_suites  # target_run imports config: the suites' one reader (E513)
+        suites = load_suites(data["target_suites"], f"{where}.target_suites")
     rival = _req(data, "rival", dict, where)
     rw = f"{where}.rival"
     _only_known(rival, {"model", "effort", "max_turns", "per_run_cap_usd_micros"}, rw)
@@ -142,6 +150,7 @@ def load_bootstrap(root: Path) -> Bootstrap:
             max_tree_bytes=_pos_int(limits, "max_tree_bytes", lw),
         ),
         target_image=target_image,
+        target_suites=suites,
     )
 
 
@@ -394,10 +403,12 @@ def _texts(row: dict[str, Any], key: str, where: str) -> tuple[str, ...]:
     return tuple(value)
 
 
-def target(row: Any, where: str) -> Target:
+def target(row: Any, where: str, fenced: bool = False) -> Target:
     """One ``targets[]`` row, read strictly: exactly `26c`'s keys, so a misspelt key stops the run instead of leaving a
     list unread (`26c`: a missing or unknown field fails closed). ``safety_paths`` may be left out; when present it is
-    a list of non-empty strings like the other lists."""
+    a list of non-empty strings like the other lists. ``fenced`` (an epoch pins the private exam, E516): the referee's
+    own fence keeps the list, so it is read as the fence reads it (`fence.owner_paths`, E511): required and not empty
+    for a copy target, every entry a path pattern."""
     if not isinstance(row, dict) or not TARGET_KEYS <= set(row) <= TARGET_KEYS | TARGET_OPTIONAL_KEYS:
         raise ConfigError(f"{where} must have exactly the keys {', '.join(sorted(TARGET_KEYS))}, and optionally "
                           f"{', '.join(sorted(TARGET_OPTIONAL_KEYS))} (`26c`)")
@@ -411,6 +422,9 @@ def target(row: Any, where: str) -> Target:
         raise ConfigError(f"{where}.kind must be one of {', '.join(TARGET_KINDS)}")
     if row["base_sha"] is not None and not (isinstance(row["base_sha"], str) and SHA_RE.match(row["base_sha"])):
         raise ConfigError(f"{where}.base_sha must be a 40-character commit SHA, or null for a target with no commit")
+    if fenced:
+        from .fence import owner_paths  # fence imports config: read here, the fence's one rule for the list
+        owner_paths(row, where)
     return Target(row["id"], row["repo"], row["kind"], row["base_sha"], _texts(row, "identifiers", where),
                   _texts(row, "excluded_paths", where), _texts(row, "unit_candidates", where),
                   tuple(row["safety_paths"]) if "safety_paths" in row else None)
@@ -468,10 +482,11 @@ def summary_of(data: Any) -> Summary:
         epochs = tuple(_epoch(row, f"{where}.seed_epochs[{i}]") for i, row in enumerate(rows))
         _pins_kept(epochs, where)
     targets: tuple[Target, ...] | None = None
+    fenced = bool(epochs) and epochs[-1].exam_sha256 is not None  # E516: the referee's fence keeps the owner's list
     if "targets" in data:  # absent: the operator has not named the targets yet (`25` 10a)
         if not isinstance(data["targets"], list):
             raise ConfigError(f"{where}.targets must be a list of targets")
-        targets = tuple(target(row, f"{where}.targets[{i}]") for i, row in enumerate(data["targets"]))
+        targets = tuple(target(row, f"{where}.targets[{i}]", fenced) for i, row in enumerate(data["targets"]))
         if len({t.id for t in targets}) != len(targets):
             raise ConfigError(f"{where}.targets: two targets have the same id")
     commitment = None
@@ -482,20 +497,8 @@ def summary_of(data: Any) -> Summary:
     # Beside the exception, a commitment is the carried stage's plant, measured there (`02` "Sahip istisnası").
     exception = _honesty_exception(data["honesty_exception"], f"{where}.honesty_exception") \
         if "honesty_exception" in data else None
-    if epochs and epochs[-1].exam_sha256 is not None:
-        _fenced(targets, where)
     return Summary(seed_commit=seed_commit, seed_tree_sha256=seed_tree, epochs=epochs, targets=targets,
                    honesty_commitment=commitment, honesty_exception=exception)
-
-
-def _fenced(targets: tuple[Target, ...] | None, where: str) -> None:
-    """Under a pinned exam the K6 fence is the referee's (E516, plan D6): every copy target names the owner's safety
-    paths, the list a brain-derived one may only widen. A copy target without them stops the run; it is never read
-    as a target with no safety path at all."""
-    for i, t in enumerate(targets or ()):
-        if t.kind == "copy" and not t.safety_paths:
-            raise ConfigError(f"{where}.targets[{i}] ({t.id}) is a copy target without safety_paths: under a pinned "
-                              "exam the referee's fence reads the owner's list (E516)")
 
 
 def _honesty_exception(row: Any, where: str) -> HonestyException:

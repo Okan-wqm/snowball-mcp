@@ -30,6 +30,7 @@
 #   getir   nothing; network for wheels only                         - runs no brain code
 #   kos_parca  nothing; brain code only inside --network none containers (one job per part, E440)
 #   gozcu   nothing; the static watchers on the pulled push (pinned exam only) - runs no brain code
+#           (their findings are published in kos, under the epoch's private watcher parameters)
 #   kos_hedef  nothing; the copy target at its base inside --network none containers (pinned exam only)
 #   kos     Environment answers: the exam store's read key, in its fetch step only (pinned exam only); joins the
 #           parts' records, judging the vectors on their answers - runs no brain code
@@ -90,6 +91,8 @@ jobs:
           if [ -e referee/setup/imports.jsonl ]; then cp referee/setup/imports.jsonl snap/setup/; fi
       - name: Kill switch and operator files
         run: python3 -m snowball_bootstrap control --root snap
+      - name: Under a pinned exam, vectors/ holds the inputs alone (E516; nothing is read before the pin)
+        run: python3 -m snowball_bootstrap check-snapshot --root snap
       - id: cfg
         run: python3 -m snowball_bootstrap config-value --root snap
       - id: poll
@@ -310,8 +313,9 @@ jobs:
     # says (place, count, head, plan) and to hold exactly its own share; then every vector is judged on the parts'
     # answers in the single job's order. A part that failed, is missing or does not add up fails this job (`kos:failure`).
     # Under a pinned exam (E516) the vectors are judged on the private exam store's answers: the read key is in the
-    # fetch step's env alone, and the store is shredded before the job ends. No container runs in this job (T8).
-    needs: [cek, getir, kos_parca, kos_hedef]
+    # fetch step's env alone, and the store is shredded before the job ends. No container runs in this job (T8). The
+    # same store's watcher parameters publish `gozcu`'s findings (the one istismar rule, salted evidence hashes).
+    needs: [cek, getir, kos_parca, kos_hedef, gozcu]
     if: >-
       !cancelled() && needs.cek.outputs.run_tests == 'true' && needs.getir.result == 'success'
     runs-on: ubuntu-24.04
@@ -337,6 +341,9 @@ jobs:
       - if: needs.kos_hedef.result == 'success'
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with: { name: hedef }
+      - if: needs.gozcu.result == 'success'
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with: { name: gozcu }
       - name: Verify and unpack
         run: |
           echo "${{ needs.cek.outputs.snap_sha }}  snapshot.tar" | sha256sum -c -
@@ -346,6 +353,10 @@ jobs:
           if [ -f hedef.tar ]; then
             echo "${{ needs.kos_hedef.outputs.hedef_sha }}  hedef.tar" | sha256sum -c -
             mkdir hedef && tar -xf hedef.tar -C hedef
+          fi
+          if [ -f gozcu.tar ]; then
+            echo "${{ needs.gozcu.outputs.gozcu_sha }}  gozcu.tar" | sha256sum -c -
+            mkdir gozcu && tar -xf gozcu.tar -C gozcu
           fi
       - name: Kill switch (snapshot of this run)
         run: python3 -m snowball_bootstrap control --root snap
@@ -372,7 +383,7 @@ jobs:
           --part parts/part-1.tar=${{ needs.kos_parca.outputs.part_sha_1 }}
           --part parts/part-2.tar=${{ needs.kos_parca.outputs.part_sha_2 }}
           --part parts/part-3.tar=${{ needs.kos_parca.outputs.part_sha_3 }}
-          --exam exam --target hedef
+          --exam exam --gozcu gozcu --target hedef
       - name: Shred the exam store
         if: always()
         run: if [ -d exam ]; then find exam -type f -exec shred -u {} + ; rm -rf exam; fi
@@ -516,9 +527,6 @@ jobs:
       - if: needs.yeniden.result == 'success'
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with: { name: repro }
-      - if: needs.gozcu.result == 'success'
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
-        with: { name: gozcu }
       - name: Verify and unpack
         run: |
           set -eu
@@ -529,11 +537,10 @@ jobs:
           if [ -f run.tar ]; then check run.tar "${{ needs.kos.outputs.run_sha }}"; fi
           if [ -f rival.tar ]; then check rival.tar "${{ needs.cagir.outputs.rival_sha }}"; fi
           if [ -f repro.tar ]; then check repro.tar "${{ needs.yeniden.outputs.repro_sha }}"; fi
-          if [ -f gozcu.tar ]; then check gozcu.tar "${{ needs.gozcu.outputs.gozcu_sha }}"; fi
       - name: Decide
         run: >
           python3 -m snowball_bootstrap decide --root snap --pulled pulled
-          --run run --rival rival --repro repro --gozcu gozcu --out out
+          --run run --rival rival --repro repro --out out
           --job getir=${{ needs.getir.result }} --job kos=${{ needs.kos.result }}
           --job cagir=${{ needs.cagir.result }} --job yeniden=${{ needs.yeniden.result }}
           --job gozcu=${{ needs.gozcu.result }}

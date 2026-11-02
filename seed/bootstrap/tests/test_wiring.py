@@ -195,7 +195,7 @@ class KosPartsTest(unittest.TestCase):
 
     def test_the_join_fails_on_a_part_that_did_not_succeed_and_runs_no_brain_code(self):
         join = workflow_job("kos")
-        self.assertIn("    needs: [cek, getir, kos_parca, kos_hedef]\n", join)  # E516: the target's traces
+        self.assertIn("    needs: [cek, getir, kos_parca, kos_hedef, gozcu]\n", join)  # E516: traces, findings
         first = join[join.index("    steps:\n"):].split("      - ", 2)[1]
         self.assertEqual(first, "name: Every part finished\n        env:\n          RESULT: ${{ needs.kos_parca.result }}\n"
                                 '        run: test "$RESULT" = success\n')

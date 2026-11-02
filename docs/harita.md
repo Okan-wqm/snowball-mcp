@@ -31,7 +31,7 @@ flowchart LR
     canary["rival canary<br/>seed/bootstrap/local/canary.py"]
   end
   subgraph referee["Referee repository: workflow/bootstrap.yml on GitHub Actions"]
-    job_cek["job cek<br/>control · config-value · poll · licenses · fetch-state · pull · pack"]
+    job_cek["job cek<br/>control · check-snapshot · config-value · poll · licenses · fetch-state · pull · pack"]
     job_getir["job getir<br/>control · fetch-deps · pack"]
     job_kos_parca["job kos_parca<br/>control · run-part · pack"]
     job_gozcu["job gozcu<br/>control · watch · pack"]
@@ -47,10 +47,10 @@ flowchart LR
   job_cek --> job_kos_hedef
   job_kos_parca --> job_kos
   job_kos_hedef --> job_kos
+  job_gozcu --> job_kos
   job_kos --> job_cagir
   job_cagir --> job_yeniden
   job_yeniden --> job_yaz
-  job_gozcu --> job_yaz
   operator -.->|starts the pilot| launcher
   launcher -.->|docker run: one Founder session| capsule
   capsule -.->|git push| brain
@@ -76,50 +76,46 @@ flowchart LR
 
 | Job | needs | Runs | Permissions | Secrets |
 |---|---|---|---|---|
-| `cek` | - | `control`, `config-value`, `poll`, `licenses`, `fetch-state`, `pull`, `pack` | contents: read, actions: read | - |
+| `cek` | - | `control`, `check-snapshot`, `config-value`, `poll`, `licenses`, `fetch-state`, `pull`, `pack` | contents: read, actions: read | - |
 | `getir` | `cek` | `control`, `fetch-deps`, `pack` | {} | - |
 | `kos_parca` | `cek`, `getir` | `control`, `run-part`, `pack` | {} | - |
 | `gozcu` | `cek` | `control`, `watch`, `pack` | {} | - |
 | `kos_hedef` | `cek` | `control`, `run-target`, `pack` | {} | - |
-| `kos` | `cek`, `getir`, `kos_parca`, `kos_hedef` | `control`, `join-parts`, `pack` | {} | `ANSWERS_KEY`, `EXAM_REPO` |
+| `kos` | `cek`, `getir`, `kos_parca`, `kos_hedef`, `gozcu` | `control`, `join-parts`, `pack` | {} | `ANSWERS_KEY`, `EXAM_REPO` |
 | `cagir` | `cek`, `kos` | `control`, `rival`, `pack` | {} | `CLAUDE_CODE_OAUTH_TOKEN` |
 | `yeniden` | `cek`, `getir`, `kos`, `cagir` | `control`, `reproduce`, `pack` | {} | - |
 | `yaz` | `cek`, `getir`, `kos`, `cagir`, `yeniden`, `gozcu` | `control`, `decide`, `licenses` | contents: read, id-token: write | - |
 
 ## 2. Referee package: `seed/bootstrap/snowball_bootstrap`
 
-35 modules, 103 imports inside the package, 1 started as a separate process. Areas are roles. The overview has 6 areas and 17 edges; an arrow's number is how many imports cross from one area to the other.
+35 modules, 109 imports inside the package, 1 started as a separate process. Areas are roles. The overview has 5 areas and 14 edges; an arrow's number is how many imports cross from one area to the other.
 
 ```mermaid
 flowchart LR
-  a_Entry["Entry<br/>3 modules"]
-  a_Intake["Intake<br/>9 modules"]
-  a_Sandbox["Sandbox<br/>7 modules"]
+  a_Entry["Entry<br/>4 modules"]
+  a_Intake["Intake<br/>10 modules"]
+  a_Sandbox["Sandbox<br/>8 modules"]
   a_Rival["Rival<br/>4 modules"]
-  a_Judgement["Judgement<br/>6 modules"]
-  a_Unplaced["Unplaced<br/>6 modules"]
-  a_Entry -->|9| a_Intake
-  a_Entry -->|6| a_Judgement
+  a_Judgement["Judgement<br/>9 modules"]
+  a_Entry -->|16| a_Intake
+  a_Entry -->|8| a_Judgement
   a_Entry -->|2| a_Rival
-  a_Entry -->|5| a_Sandbox
-  a_Intake -->|1| a_Judgement
-  a_Judgement -->|7| a_Intake
+  a_Entry -->|7| a_Sandbox
+  a_Intake -->|3| a_Judgement
+  a_Intake -->|1| a_Sandbox
+  a_Judgement -->|15| a_Intake
   a_Judgement -->|4| a_Rival
+  a_Judgement -->|2| a_Sandbox
   a_Rival -->|3| a_Intake
   a_Rival -->|1| a_Sandbox
-  a_Sandbox -->|3| a_Intake
-  a_Sandbox -->|3| a_Judgement
+  a_Sandbox -->|5| a_Intake
+  a_Sandbox -->|4| a_Judgement
   a_Sandbox -->|1| a_Rival
-  a_Sandbox -->|1| a_Unplaced
-  a_Unplaced -->|1| a_Entry
-  a_Unplaced -->|16| a_Intake
-  a_Unplaced -->|4| a_Judgement
-  a_Unplaced -->|6| a_Sandbox
 ```
 
 ### Entry
 
-3 modules, 23 edges out of them.
+4 modules, 35 edges out of them.
 
 ```mermaid
 flowchart LR
@@ -127,6 +123,7 @@ flowchart LR
     m___init__["__init__"]
     m___main__["__main__"]
     m_cli["cli"]
+    m_heldrun["heldrun"]
   end
   subgraph a_Intake["Intake"]
     m_canon["canon"]:::outside
@@ -181,6 +178,18 @@ flowchart LR
   m_cli --> m_treehash
   m_cli --> m_vectors
   m_cli --> m_wiring
+  m_heldrun --> m_canon
+  m_heldrun --> m_cli
+  m_heldrun --> m_config
+  m_heldrun --> m_decide
+  m_heldrun --> m_ghapi
+  m_heldrun --> m_gitio
+  m_heldrun --> m_importer
+  m_heldrun --> m_manifest
+  m_heldrun --> m_stagelock
+  m_heldrun --> m_stages
+  m_heldrun --> m_treehash
+  m_heldrun --> m_vectors
   classDef outside stroke-dasharray: 4 3
 ```
 
@@ -189,14 +198,16 @@ flowchart LR
 | `__init__` | Snowball bootstrap referee. | - |
 | `__main__` | - | - |
 | `cli` | Command-line entry points: one subcommand per workflow step (`workflow/bootstrap.yml`). | `__main__`, `heldrun` |
+| `heldrun` | Held cases: run only inside the private exam repository, published only as a salted commitment (plan D5, E510). | - |
 
 ### Intake
 
-9 modules, 11 edges out of them.
+10 modules, 14 edges out of them.
 
 ```mermaid
 flowchart LR
   subgraph a_Intake["Intake"]
+    m_answers["answers"]
     m_canon["canon"]
     m_classify["classify"]
     m_config["config"]
@@ -208,9 +219,17 @@ flowchart LR
     m_treehash["treehash"]
   end
   subgraph a_Judgement["Judgement"]
+    m_fence["fence"]:::outside
     m_stages["stages"]:::outside
+    m_watchers["watchers"]:::outside
   end
-  m_classify --> m_treehash
+  subgraph a_Sandbox["Sandbox"]
+    m_target_run["target_run"]:::outside
+  end
+  m_answers --> m_canon
+  m_classify --> m_watchers
+  m_config --> m_fence
+  m_config --> m_target_run
   m_gitio --> m_treehash
   m_importer --> m_canon
   m_importer --> m_gitio
@@ -226,6 +245,7 @@ flowchart LR
 
 | Module | What it is (first sentence of its docstring) | Imported by |
 |---|---|---|
+| `answers` | The exam's answers apart from its inputs, and the pin that binds them to an epoch (E509). | `decide`, `vectors` |
 | `canon` | Canonical JSON (the RFC 8785 subset the seed allows) and hashing helpers. | `answers`, `cli`, `heldrun`, `importer`, `k6`, `ledgercheck`, `parts`, `reproduce`, `rival`, `stagelock`, `watchers` |
 | `classify` | What kind of push is this (`tohum/29b`, "İki tür push")? | `cli`, `exitchecks` |
 | `config` | Operator-written inputs, validated strictly. | `cli`, `exitchecks`, `fence`, `heldrun`, `k6`, `rival`, `stagelock`, `stages`, `state`, `target_run` |
@@ -234,11 +254,11 @@ flowchart LR
 | `importer` | Operator import at the Stage 0 exit and at each batch exit after it (`tohum/25a` 1-2, `asama-0/10a` #aktarim and #oyuncak, `asama-1/13` 3: "aynı komut"). | `cli`, `fence`, `heldrun`, `stagelock` |
 | `licenses` | License gate for downloaded wheels (`tohum/24`, "Lisans"). | `cli` |
 | `stagelock` | The stage lock and the counter it is bound to (`tohum/02` 5, `asama-0/10a` "Kilidin açılışı", `tohum/25a` 9, `26c`). | `cli`, `heldrun`, `importer` |
-| `treehash` | Tree hashes over git-archive tarballs, and safe extraction of regular files only. | `classify`, `cli`, `exitchecks`, `fence`, `gitio`, `heldrun`, `importer`, `moduleless`, `mutation`, `stages`, `watchers` |
+| `treehash` | Tree hashes over git-archive tarballs, and safe extraction of regular files only. | `cli`, `exitchecks`, `fence`, `gitio`, `heldrun`, `importer`, `moduleless`, `mutation`, `stages`, `watchers` |
 
 ### Sandbox
 
-7 modules, 15 edges out of them.
+8 modules, 19 edges out of them.
 
 ```mermaid
 flowchart LR
@@ -247,11 +267,13 @@ flowchart LR
     m_controls["controls"]
     m_manifest["manifest"]
     m_moduleless["moduleless"]
+    m_mutation["mutation"]
     m_parts["parts"]
     m_target_run["target_run"]
     m_vectors["vectors"]
   end
   subgraph a_Intake["Intake"]
+    m_answers["answers"]:::outside
     m_canon["canon"]:::outside
     m_config["config"]:::outside
     m_treehash["treehash"]:::outside
@@ -262,15 +284,16 @@ flowchart LR
   subgraph a_Rival["Rival"]
     m_secretscan["secretscan"]:::outside
   end
-  subgraph a_Unplaced["Unplaced"]
-    m_answers["answers"]:::outside
-  end
   m_controls --> m_container
   m_manifest --> m_stages
   m_moduleless --> m_container
   m_moduleless --> m_secretscan
   m_moduleless --> m_stages
   m_moduleless --> m_treehash
+  m_mutation --> m_container
+  m_mutation --> m_moduleless
+  m_mutation --> m_stages
+  m_mutation --> m_treehash
   m_parts --> m_canon
   m_parts --> m_container
   m_parts --> m_controls
@@ -289,8 +312,9 @@ flowchart LR
 | `controls` | Red controls: known answers about the runner itself (`tohum/08` 3). | `parts` |
 | `manifest` | The founder's test manifest (`snowball-tests.json`, `tohum/26c`) and its lock files. | `cli`, `heldrun`, `watchers` |
 | `moduleless` | Module-less red (`asama-0/14`; `tohum/04` 1, "Kasıtlı bozma"): a micro-feature's tests fail without it. | `cli`, `mutation` |
+| `mutation` | Mutation-kill ratchet on the Founder's code (E515; the A/F/G plan's WP7, watcher G1, red team T3). | - |
 | `parts` | `kos` in parts (E440): one push's run shared out among N parallel jobs and joined into the single job's `run.json`. | `cli` |
-| `target_run` | The target's toolchain in the referee (plan D8, register E513): the target's own tests and the rival's reproducers of a defect in target code run with node, npm and cargo, with ... | - |
+| `target_run` | The target's toolchain in the referee (plan D8, register E513): the target's own tests and the rival's reproducers of a defect in target code run with node, npm and cargo, with ... | `config` |
 | `vectors` | Apply the seed vectors (`tohum/29a`, `29d`) to the founder's code through the fixed interface. | `cli`, `heldrun`, `parts` |
 
 ### Rival
@@ -334,22 +358,27 @@ flowchart LR
 
 ### Judgement
 
-6 modules, 18 edges out of them.
+9 modules, 32 edges out of them.
 
 ```mermaid
 flowchart LR
   subgraph a_Judgement["Judgement"]
     m_decide["decide"]
     m_exitchecks["exitchecks"]
+    m_fence["fence"]
+    m_k6["k6"]
     m_ledgercheck["ledgercheck"]
     m_stages["stages"]
     m_state["state"]
+    m_watchers["watchers"]
     m_wiring["wiring"]
   end
   subgraph a_Intake["Intake"]
+    m_answers["answers"]:::outside
     m_canon["canon"]:::outside
     m_classify["classify"]:::outside
     m_config["config"]:::outside
+    m_importer["importer"]:::outside
     m_treehash["treehash"]:::outside
   end
   subgraph a_Rival["Rival"]
@@ -357,23 +386,41 @@ flowchart LR
     m_rival["rival"]:::outside
     m_secretscan["secretscan"]:::outside
   end
+  subgraph a_Sandbox["Sandbox"]
+    m_container["container"]:::outside
+    m_manifest["manifest"]:::outside
+  end
+  m_decide --> m_answers
   m_decide --> m_exitchecks
+  m_decide --> m_fence
+  m_decide --> m_k6
   m_decide --> m_ledgercheck
   m_decide --> m_reproduce
   m_decide --> m_rival
   m_decide --> m_secretscan
   m_decide --> m_stages
   m_decide --> m_state
+  m_decide --> m_watchers
   m_exitchecks --> m_classify
   m_exitchecks --> m_config
   m_exitchecks --> m_ledgercheck
   m_exitchecks --> m_treehash
   m_exitchecks --> m_wiring
+  m_fence --> m_config
+  m_fence --> m_importer
+  m_fence --> m_treehash
+  m_k6 --> m_canon
+  m_k6 --> m_config
   m_ledgercheck --> m_canon
   m_stages --> m_config
   m_stages --> m_treehash
   m_state --> m_config
   m_state --> m_rival
+  m_watchers --> m_canon
+  m_watchers --> m_container
+  m_watchers --> m_ledgercheck
+  m_watchers --> m_manifest
+  m_watchers --> m_treehash
   m_wiring --> m_stages
   classDef outside stroke-dasharray: 4 3
 ```
@@ -382,86 +429,13 @@ flowchart LR
 |---|---|---|
 | `decide` | The acceptance decision (`tohum/29b`, "Kabul" and "Aşama 0 çıkışının (A) parçası"). | `cli`, `heldrun` |
 | `exitchecks` | The (A) conditions of `asama-0/10` that `pull` checks on the brain archive it already holds (`29b`; the narrowing note's draft `29e` "Tohum denetimleri": in `çek`, read from ... | `cli`, `decide` |
+| `fence` | The K6 fence, kept by the referee (E511; `tohum/05` "Fiziksel güvenlik", `tohum/03` `class_requires`). | `config`, `decide` |
+| `k6` | The K6 exam's state and strength (E512): when the physical-safety fence (`tohum/05`) may open, decided by numbers. | `decide` |
 | `ledgercheck` | The Founder's ledger (`asama-0/10` #kurucu-defteri, `asama-0/09` test 30, `tohum/26`, `00a`; E107, E280). | `cli`, `decide`, `exitchecks`, `watchers` |
 | `stages` | The stage tables (`asama-0/14`, `tohum/26c` "Aşama tablosu"): the machine copy of a stage's micro-features. | `cli`, `decide`, `heldrun`, `manifest`, `moduleless`, `mutation`, `stagelock`, `vectors`, `wiring` |
 | `state` | The bootstrap's memory between runs: the last signed result's ``state`` block. | `cli`, `decide` |
+| `watchers` | Watchers (E514; owner 2026-11-01: "kandırmaya karşı gözcüler olmalı ki kandıramasın"; plan D9): mechanical checks that a push earned its green honestly, and the one rule that ... | `classify`, `decide` |
 | `wiring` | The loop workflow's wiring rules (`asama-0/10` #is-akisi, `asama-0/09` test 46, `asama-0/14` MF17; `tohum/08`, `01a`, `29p`; E100, E162, E281-E283). | `cli`, `exitchecks` |
-
-### Unplaced
-
-6 modules, 27 edges out of them.
-
-```mermaid
-flowchart LR
-  subgraph a_Unplaced["Unplaced"]
-    m_answers["answers"]
-    m_fence["fence"]
-    m_heldrun["heldrun"]
-    m_k6["k6"]
-    m_mutation["mutation"]
-    m_watchers["watchers"]
-  end
-  subgraph a_Entry["Entry"]
-    m_cli["cli"]:::outside
-  end
-  subgraph a_Intake["Intake"]
-    m_canon["canon"]:::outside
-    m_config["config"]:::outside
-    m_ghapi["ghapi"]:::outside
-    m_gitio["gitio"]:::outside
-    m_importer["importer"]:::outside
-    m_stagelock["stagelock"]:::outside
-    m_treehash["treehash"]:::outside
-  end
-  subgraph a_Judgement["Judgement"]
-    m_decide["decide"]:::outside
-    m_ledgercheck["ledgercheck"]:::outside
-    m_stages["stages"]:::outside
-  end
-  subgraph a_Sandbox["Sandbox"]
-    m_container["container"]:::outside
-    m_manifest["manifest"]:::outside
-    m_moduleless["moduleless"]:::outside
-    m_vectors["vectors"]:::outside
-  end
-  m_answers --> m_canon
-  m_fence --> m_config
-  m_fence --> m_importer
-  m_fence --> m_treehash
-  m_heldrun --> m_canon
-  m_heldrun --> m_cli
-  m_heldrun --> m_config
-  m_heldrun --> m_decide
-  m_heldrun --> m_ghapi
-  m_heldrun --> m_gitio
-  m_heldrun --> m_importer
-  m_heldrun --> m_manifest
-  m_heldrun --> m_stagelock
-  m_heldrun --> m_stages
-  m_heldrun --> m_treehash
-  m_heldrun --> m_vectors
-  m_k6 --> m_canon
-  m_k6 --> m_config
-  m_mutation --> m_container
-  m_mutation --> m_moduleless
-  m_mutation --> m_stages
-  m_mutation --> m_treehash
-  m_watchers --> m_canon
-  m_watchers --> m_container
-  m_watchers --> m_ledgercheck
-  m_watchers --> m_manifest
-  m_watchers --> m_treehash
-  classDef outside stroke-dasharray: 4 3
-```
-
-| Module | What it is (first sentence of its docstring) | Imported by |
-|---|---|---|
-| `answers` | The exam's answers apart from its inputs, and the pin that binds them to an epoch (E509). | `vectors` |
-| `fence` | The K6 fence, kept by the referee (E511; `tohum/05` "Fiziksel güvenlik", `tohum/03` `class_requires`). | - |
-| `heldrun` | Held cases: run only inside the private exam repository, published only as a salted commitment (plan D5, E510). | - |
-| `k6` | The K6 exam's state and strength (E512): when the physical-safety fence (`tohum/05`) may open, decided by numbers. | - |
-| `mutation` | Mutation-kill ratchet on the Founder's code (E515; the A/F/G plan's WP7, watcher G1, red team T3). | - |
-| `watchers` | Watchers (E514; owner 2026-11-01: "kandırmaya karşı gözcüler olmalı ki kandıramasın"; plan D9): mechanical checks that a push earned its green honestly, and the one rule that ... | - |
 
 ### Commands
 
@@ -479,9 +453,10 @@ Every subcommand of `cli.py`, the jobs that run it, and the package modules its 
 | `run-tests` | operator / local | `cmd_run_tests` | `canon`, `config`, `container`, `licenses`, `moduleless`, `parts`, `stagelock`, `treehash`, `vectors` |
 | `run-part` | `kos_parca` | `cmd_run_part` | `canon`, `config`, `container`, `licenses`, `moduleless`, `parts`, `stagelock`, `treehash`, `vectors` |
 | `join-parts` | `kos` | `cmd_join_parts` | `canon`, `config`, `licenses`, `moduleless`, `parts`, `stagelock`, `treehash`, `vectors` |
-| `watch` | `gozcu` | `cmd_watch` | `canon`, `config` |
-| `run-target` | `kos_hedef` | `cmd_run_target` | `canon`, `config` |
-| `fence` | operator / local | `cmd_fence` | `canon`, `config`, `decide`, `gitio` |
+| `check-snapshot` | `cek` | `cmd_check_snapshot` | `config` |
+| `watch` | `gozcu` | `cmd_watch` | `canon`, `classify`, `config`, `treehash`, `vectors` |
+| `run-target` | `kos_hedef` | `cmd_run_target` | `canon`, `config`, `gitio`, `treehash` |
+| `fence` | operator / local | `cmd_fence` | `canon`, `config`, `gitio` |
 | `rival` | `cagir` | `cmd_rival` | `canon`, `config`, `rival`, `stagelock`, `stages`, `treehash` |
 | `reproduce` | `yeniden` | `cmd_reproduce` | `canon`, `config`, `container`, `reproduce`, `treehash`, `vectors` |
 | `decide` | `yaz` | `cmd_decide` | `canon`, `config`, `decide`, `stagelock` |
@@ -494,7 +469,7 @@ Every subcommand of `cli.py`, the jobs that run it, and the package modules its 
 
 ## 3. Launcher links
 
-`seed/founder/launch.py` runs on the operator's machine and imports 6 referee modules, so the launcher applies the referee's own rules instead of a copy (E244). Through them it loads 17: `answers`, `canon`, `classify`, `config`, `container`, `decide`, `exitchecks`, `gitio`, `ledgercheck`, `reproduce`, `rival`, `secretscan`, `stages`, `state`, `treehash`, `vectors`, `wiring`.
+`seed/founder/launch.py` runs on the operator's machine and imports 6 referee modules, so the launcher applies the referee's own rules instead of a copy (E244). Through them it loads 24: `answers`, `canon`, `classify`, `config`, `container`, `decide`, `exitchecks`, `fence`, `gitio`, `importer`, `k6`, `ledgercheck`, `manifest`, `reproduce`, `rival`, `secretscan`, `stagelock`, `stages`, `state`, `target_run`, `treehash`, `vectors`, `watchers`, `wiring`.
 
 ```mermaid
 flowchart LR

@@ -75,11 +75,12 @@ LINKS = (
 # Which area of the referee package a module belongs to (a role, which the code cannot say). A module missing here is
 # drawn under UNPLACED, so a new module shows up on the map before anyone files it.
 AREAS = (
-    ("Entry", ("__init__", "__main__", "cli")),
-    ("Intake", ("canon", "classify", "config", "ghapi", "gitio", "importer", "licenses", "stagelock", "treehash")),
-    ("Sandbox", ("container", "controls", "manifest", "moduleless", "parts", "target_run", "vectors")),
+    ("Entry", ("__init__", "__main__", "cli", "heldrun")),
+    ("Intake", ("answers", "canon", "classify", "config", "ghapi", "gitio", "importer", "licenses", "stagelock",
+                "treehash")),
+    ("Sandbox", ("container", "controls", "manifest", "moduleless", "mutation", "parts", "target_run", "vectors")),
     ("Rival", ("reproduce", "rival", "rival_mcp", "secretscan")),
-    ("Judgement", ("decide", "exitchecks", "ledgercheck", "stages", "state", "wiring")),
+    ("Judgement", ("decide", "exitchecks", "fence", "k6", "ledgercheck", "stages", "state", "watchers", "wiring")),
 )
 UNPLACED = "Unplaced"
 # ---------------------------------------------------------------------------------------------------------------------
