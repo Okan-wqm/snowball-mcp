@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import datetime
 import hashlib
+import importlib
 import io
 import json
 import os
@@ -21,7 +23,8 @@ from . import canon, config, exitchecks, ghapi, gitio, ledgercheck, licenses, pa
 from .classify import (LEDGER_FILE, REPORTS_DIR, SEED_DIRS, classify, is_founder_record, is_seed_path,
                        spec_stage_dirs)
 from .container import DockerRunner
-from .decide import OUTAGE_GIVE_UP_DAYS, OUTAGE_RETRY_LIMIT, REPORT_FIELDS, decide, utc_now
+from .decide import (OUTAGE_GIVE_UP_DAYS, OUTAGE_RETRY_LIMIT, REPORT_FIELDS, SAFETY_LIST_NARROWED, SAFETY_PATH_CLOSED,
+                     decide, utc_now)
 from .importer import ImportErrorStop, run_import, verify_signature
 from .manifest import ManifestError, check_stage, declares, parse_lockfile, parse_manifest
 from .moduleless import run_module_less, units
@@ -110,6 +113,38 @@ def tar_page(tar_bytes: bytes, prefix: str) -> tuple[str, str] | None:
     return None
 
 
+def pinned_module(name: str, register: str) -> Any:
+    """A package module the pinned exam needs (E516): imported only on a path that runs under a pin, so before the pin
+    no run imports it. Missing under a pin is a deployment the operator made without it: the run stops (`26c`), it is
+    never read as a module that found nothing."""
+    try:
+        return importlib.import_module(f".{name}", __package__)
+    except ModuleNotFoundError as exc:
+        if exc.name != f"{__package__}.{name}":
+            raise
+        raise config.ConfigError(f"the pinned exam needs snowball_bootstrap/{name}.py ({register}), which this "
+                                 "bootstrap does not have") from None
+
+
+def signed_k6(path: str | None) -> Any:
+    """The `k6` field of the last signed result (E516): what the fence and the next result carry. ``path`` is the
+    result `fetch-state` verified in this job; none yet (the first run) is no K6 field."""
+    if not path or not Path(path).is_file():
+        return None
+    try:
+        return read_json(Path(path)).get("k6")
+    except (ValueError, AttributeError):
+        return None
+
+
+def _pin_meta(meta: dict[str, Any], summary_cfg: config.Summary, prev_result: str | None) -> None:
+    """Under a pinned exam the meta carries the pin `kos` compares the store with and the last signed `k6` field
+    (E516); `yaz` reads the pin from the snapshot again. With no pin the meta is as it was."""
+    if summary_cfg.exam_pin is not None:
+        meta["k6_prev"] = signed_k6(prev_result)
+        meta["exam_pin"] = summary_cfg.exam_pin
+
+
 def remaining_budget(policy: config.Policy, prev: dict[str, Any], stage: int) -> int:
     """What the rival may still spend: the month's cap and the open stage's brake (`29b`, `26e`, E492), the stage's
     spend counted from its lock (``prev`` is `state.for_stage`'s)."""
@@ -151,6 +186,7 @@ def cmd_control(args: argparse.Namespace) -> int:
 def cmd_config_value(args: argparse.Namespace) -> int:
     boot = config.load_bootstrap(Path(args.root))
     output(image=boot.image)
+    output(target_image=boot.target_image or "")  # E516: `kos_hedef`'s, which runs only under a pinned exam
     return 0
 
 
@@ -320,6 +356,7 @@ def cmd_pull(args: argparse.Namespace) -> int:
     reverted = config.load_reverted_exits(root)  # the operator's file: a broken list stops the run, never a rejection
     faults = exam_faults_in_force(repo, summary_cfg, config.load_exam_faults(root))
     meta["exam_faults"] = faults
+    _pin_meta(meta, summary_cfg, args.prev_result)
     try:
         return _pull_classify(boot, policy, summary_cfg, table, prev, repo, base, head, meta, out, waived, reverted)
     except (ValueError, TypeError, KeyError, IndexError, AttributeError, RecursionError) as exc:
@@ -329,6 +366,7 @@ def cmd_pull(args: argparse.Namespace) -> int:
         print(f"::warning::pull could not classify {head}: {type(exc).__name__}: {str(exc)[:200]!r}")
         meta = _pull_meta(head, base, prev)
         meta.update(kind="rejected", pre_reasons=["pull_error"], waived=waived, exam_faults=faults)
+        _pin_meta(meta, summary_cfg, args.prev_result)
         write_json(out / "meta.json", meta)
         output(skip=False, kind="rejected", head=head, run_tests=False, run_rival=False, repro=False)
         return 0
@@ -506,7 +544,7 @@ def _pull_classify(boot: config.Bootstrap, policy: config.Policy, summary_cfg: c
         left_in_place = exit_sha is not None and exit_sha == prev.get("rejected_exit_request")
         if left_in_place:
             own = [p for p in own if p != EXIT_FILE]
-        kind, reasons = classify(own)
+        kind, reasons = classify(own, exam_pinned=summary_cfg.exam_pin is not None)
         pre += reasons
         if EXIT_FILE in judged and not left_in_place:
             pre.append("exit_request_not_alone")
@@ -657,7 +695,8 @@ def _pull_classify(boot: config.Bootstrap, policy: config.Policy, summary_cfg: c
     # still in it here is the epoch's (any other seed change is rejected before the rival), not the Founder's (E88).
     (out / "diff.patch").write_text(gitio.diff_text(repo, base, head, exclude=HIDDEN_NAMES, exclude_dirs=HIDDEN_DIRS + SEED_DIRS)
                                     if base_ok else "", encoding="utf-8")
-    output(skip=False, kind=kind, head=head, run_tests=meta["run_tests"], run_rival=meta["run_rival"], repro=repro)
+    output(skip=False, kind=kind, head=head, run_tests=meta["run_tests"], run_rival=meta["run_rival"], repro=repro,
+           exam_pinned=summary_cfg.exam_pin is not None)  # E516: the jobs that need the exam
     return 0
 
 
@@ -767,7 +806,11 @@ def cmd_run_part(args: argparse.Namespace) -> int:
 
 def cmd_join_parts(args: argparse.Namespace) -> int:
     """`run.json` from every part's `part.json`, each read from its artifact only if the artifact's hash is the one its
-    job output named (``--part TAR=SHA``, in part order). A part without its artifact or its hash stops the join."""
+    job output named (``--part TAR=SHA``, in part order). A part without its artifact or its hash stops the join.
+
+    Under a pinned exam (E516) the vectors are judged on the answers of the exam store `kos` fetched (``--exam``),
+    only when its manifest's own hash is the epoch's pin and `answers.verify` holds; otherwise nothing is judged and
+    `run.json` says the exam was unavailable, which `decide` retries. With no pin ``--exam`` is never read."""
     kos = _kos(args)
     records = []
     for place, item in enumerate(args.part or []):
@@ -777,7 +820,98 @@ def cmd_join_parts(args: argparse.Namespace) -> int:
         dest = Path(args.work) / f"part-{place}"
         unpack(Path(tar), sha, dest)
         records.append(read_json(dest / "part.json"))
-    return _write_run(Path(args.out), parts.join(kos.push, records))
+    pin = kos.meta.get("exam_pin")  # pull's, from this run's snapshot; `decide` compares it with the snapshot again
+    if pin is None:
+        return _write_run(Path(args.out), parts.join(kos.push, records))
+    files, measured, why = exam_store(Path(args.exam) if args.exam else None, pin)
+    if why is not None:
+        return _write_run(Path(args.out), {"exam": {"status": "unavailable", "why": why, "exam_sha256": measured},
+                                           "green": False, "tests": [], "vectors": [], "controls": [],
+                                           "module_less": [], "licenses": []})
+    answers = pinned_module("answers", "E509")
+    run = parts.join(dataclasses.replace(kos.push, groups=answers.join(kos.push.groups, files)), records)
+    run["exam"] = {"status": "read", "exam_sha256": measured}
+    traces = Path(args.target) / "hedef.json" if args.target else None
+    if traces is not None and traces.is_file():  # `kos_hedef`'s run of the copy target, for the K6 exam
+        run["k6"] = pinned_module("k6", "E512").signed_block(files, read_json(traces))
+    return _write_run(Path(args.out), run)
+
+
+EXAM_MANIFEST = "manifest.json"  # the store's root of trust: exam_sha256 is the sha256 of its bytes (plan D3)
+
+
+def exam_store(where: Path | None, pin: str) -> tuple[dict[str, bytes], str | None, str | None]:
+    """(files, the manifest's measured sha256, why it is unavailable or None) of the exam store `kos` fetched (E516).
+    Every regular file but git's own, by relative path; the manifest's hash must be the pin before `answers.verify`
+    (E509) checks the files against it. Any failure is a reason name only: nothing of the store reaches a log."""
+    if where is None or not where.is_dir():
+        return {}, None, "missing"
+    files = {p.relative_to(where).as_posix(): p.read_bytes() for p in sorted(where.rglob("*"))
+             if p.is_file() and not p.is_symlink() and ".git" not in p.relative_to(where).parts}
+    raw = files.get(EXAM_MANIFEST)
+    measured = hashlib.sha256(raw).hexdigest() if raw is not None else None
+    if measured != pin:
+        return files, measured, "pin_mismatch" if raw is not None else "no_manifest"
+    answers = pinned_module("answers", "E509")
+    try:
+        verified = answers.verify(json.loads(raw.decode("utf-8")), files, pin)
+    except Exception as exc:  # the store's content broke the check: the exam is unavailable, never green
+        return files, measured, f"verify:{type(exc).__name__}"
+    return files, measured, None if verified is not False else "verify_failed"
+
+
+def cmd_watch(args: argparse.Namespace) -> int:
+    """`gozcu` (E516, plan D9): the static watchers (`watchers`, E514) on the pulled push. Keyless and runs no brain
+    code; its inputs are pull's, which pull already bounded (`tree_too_large`). It writes `gozcu.json`, the findings
+    `decide` judges, for this head only."""
+    pulled, out = Path(args.pulled), Path(args.out)
+    meta = read_json(pulled / "meta.json")
+    found = pinned_module("watchers", "E514").watch((pulled / "diff.patch").read_text(encoding="utf-8"),
+                                                   (pulled / "brain.tar").read_bytes(), meta)
+    write_json(out / "gozcu.json", {"head": meta["head"], "findings": list(found.get("findings", [])),
+                                    "unverifiable": found.get("unverifiable", 0)})
+    return 0
+
+
+def cmd_run_target(args: argparse.Namespace) -> int:
+    """`kos_hedef` (E516, plan D8): the copy targets at their base in the target image, through `target_run` (E513),
+    which fetches without running install scripts and runs with no network. It writes `hedef.json`, the traces `kos`
+    judges with the K6 exam; it holds no secret and reads no answer."""
+    root, pulled, out = Path(args.root), Path(args.pulled), Path(args.out)
+    boot = config.load_bootstrap(root)
+    if boot.target_image is None:
+        raise config.ConfigError("bootstrap.json has no target_image: the pinned exam runs the copy target in it "
+                                 "(E516, plan D8)")
+    copies = [t for t in config.load_summary(root).targets or () if t.kind == "copy" and t.base_sha]
+    traces = pinned_module("target_run", "E513").run_target(copies, boot.target_image, Path(args.work))
+    write_json(out / "hedef.json", {"head": read_json(pulled / "meta.json")["head"], "traces": traces})
+    return 0
+
+
+def cmd_fence(args: argparse.Namespace) -> int:
+    """The referee's K6 fence on a copy diff (E516, plan D6): the copy target's changed paths against the owner's
+    `safety_paths` while the last signed `k6.status` (``--prev-result``, never the brain's) is not live, and a
+    brain-derived list (``--derived``, `{"security_paths": [...]}`) that does not cover the owner's. It writes
+    `fence.json`, which `decide --fence` turns into `safety_path_closed` and `safety_list_narrowed`."""
+    summary_cfg = config.load_summary(Path(args.root))
+    found = [t for t in summary_cfg.targets or () if t.id == args.target]
+    if not found or found[0].kind != "copy" or not found[0].safety_paths:
+        raise config.ConfigError(f"fence: {args.target!r} is not a copy target with safety_paths")
+    owner = list(found[0].safety_paths)
+    fence = pinned_module("fence", "E511")
+    k6 = signed_k6(args.prev_result)
+    status = k6.get("status") if isinstance(k6, dict) else None
+    reasons: list[dict[str, str]] = []
+    if status != "live":
+        changed = gitio.changed_paths(Path(args.copy), args.base, args.head)
+        reasons += [{"kind": SAFETY_PATH_CLOSED, "ref": p} for p in fence.touches_safety(changed, owner)]
+    if args.derived is not None:
+        derived = read_json(Path(args.derived)).get("security_paths")
+        if not fence.superset_ok(derived, owner):
+            reasons.append({"kind": SAFETY_LIST_NARROWED, "ref": args.target})
+    write_json(Path(args.out) / "fence.json", {"head": args.head, "k6_status": status or "not_live",
+                                               "reasons": reasons})
+    return 0
 
 
 def _pages(tar_bytes: bytes, kind: str, stage: int) -> dict[str, str]:
@@ -876,9 +1010,12 @@ def cmd_decide(args: argparse.Namespace) -> int:
     rival = optional(args.rival, "rival.json")
     repro_doc = optional(args.repro, "repro.json")
     jobs = dict(item.split("=", 1) for item in args.job or [])
+    pin = config.load_summary(root).exam_pin  # the snapshot's row, checked again against what `kos` measured (E516)
     result = decide(meta, run, rival, None if repro_doc is None else repro_doc["results"], jobs,
                     policy.rival_min_attempts, policy.repeat_reject_limit,
                     state_repro=None if repro_doc is None else repro_doc.get("state", []), now=utc_now(),
+                    exam_pin=pin, gozcu=optional(args.gozcu, "gozcu.json") if pin else None,
+                    fence=optional(args.fence, "fence.json") if pin else None,
                     table=stagelock.open_table(root))  # the snapshot's, as `pull` read it (E402)
     result["run"] = {"id": os.environ.get("GITHUB_RUN_ID", "local"),
                      "attempt": os.environ.get("GITHUB_RUN_ATTEMPT", "1")}
@@ -940,8 +1077,12 @@ def cmd_seed_epoch(args: argparse.Namespace) -> int:
     source = Path(args.source) if args.source else brain
     bootstrap = tree_hash(gitio.archive(source, args.source_commit or commit, ("seed/bootstrap",)), "seed/bootstrap",
                           forbid_operator_names=False)
-    print(canon.dump({"commit": commit, "spec_tohum_sha256": spec_tohum, "seed_sha256": seed,
-                      "bootstrap_sha256": bootstrap}), end="")
+    row = {"commit": commit, "spec_tohum_sha256": spec_tohum, "seed_sha256": seed, "bootstrap_sha256": bootstrap}
+    if args.exam_sha256 is not None:  # E516: the epoch that pins the private exam, and every epoch after it
+        if not config.HEX64_RE.match(args.exam_sha256):
+            raise config.ConfigError("--exam-sha256 is the sha256 of the exam store's manifest: 64 hex characters")
+        row["exam_sha256"] = args.exam_sha256
+    print(canon.dump(row), end="")
     return 0
 
 
@@ -979,25 +1120,37 @@ def build_parser() -> argparse.ArgumentParser:
     add("poll", cmd_poll, root, ("--out", req), ("--remote", {}))
     add("licenses", cmd_licenses, root, ("--wheels", req), ("--out", {}))
     add("fetch-state", cmd_fetch_state, root, ("--out", req), ("--identity", req), ("--sigstore-python", req))
-    add("pull", cmd_pull, root, ("--state", req), ("--work", req), ("--out", req), ("--remote", {}))
+    add("pull", cmd_pull, root, ("--state", req), ("--work", req), ("--out", req), ("--remote", {}),
+        ("--prev-result", {"help": "the last signed result fetch-state verified; read only under a pinned exam"}))
     add("fetch-deps", cmd_fetch_deps, ("--pulled", req), ("--work", req), ("--out", req))
     add("run-tests", cmd_run_tests, root, ("--pulled", req), ("--deps", req), ("--work", req), ("--out", req))
     add("run-part", cmd_run_part, root, ("--part", {"required": True, "help": "K/N: part K of N, from 0 (E440)"}),
         ("--pulled", req), ("--deps", req), ("--work", req), ("--out", req))
     add("join-parts", cmd_join_parts, root, ("--pulled", req), ("--deps", req), ("--work", req), ("--out", req),
-        ("--part", {"action": "append", "help": "TAR=SHA256 of each part's artifact, in part order"}))
+        ("--part", {"action": "append", "help": "TAR=SHA256 of each part's artifact, in part order"}),
+        ("--exam", {"help": "the exam store kos fetched; read only under a pinned exam (E516)"}),
+        ("--target", {"help": "kos_hedef's output directory (hedef.json); read only under a pinned exam"}))
+    add("watch", cmd_watch, root, ("--pulled", req), ("--out", req))
+    add("run-target", cmd_run_target, root, ("--pulled", req), ("--work", req), ("--out", req))
+    add("fence", cmd_fence, root, ("--copy", dict(req, help="a local clone of the copy target")), ("--base", req),
+        ("--head", req), ("--target", dict(req, help="the copy target's id in setup/summary.json")),
+        ("--derived", {"help": "a JSON file {security_paths: [...]}, the brain-derived list"}),
+        ("--prev-result", {"help": "the last signed result, whose k6.status opens the fence"}), ("--out", req))
     add("rival", cmd_rival, root, ("--pulled", req), ("--work", req), ("--out", req),
         ("--claude", {"help": "path of the claude CLI (default: the one on PATH)"}))
     add("reproduce", cmd_reproduce, root, ("--pulled", req), ("--deps", req), ("--rival", req),
         ("--work", req), ("--out", req))
     add("decide", cmd_decide, root, ("--pulled", req), ("--run", {}), ("--rival", {}), ("--repro", {}),
-        ("--job", {"action": "append"}), ("--out", req))
+        ("--job", {"action": "append"}), ("--out", req),
+        ("--gozcu", {"help": "the gozcu job's output (gozcu.json); read only under a pinned exam (E516)"}),
+        ("--fence", {"help": "a fence.json of the copy diff (cmd fence); read only under a pinned exam"}))
     add("pack", cmd_pack, ("--dir", req), ("--out", req))
     add("unpack", cmd_unpack, ("--tar", req), ("--sha256", req), ("--out", req))
     add("seed-hash", cmd_seed_hash, ("--brain", req), ("--commit", req))
     add("seed-epoch", cmd_seed_epoch, ("--brain", req), ("--commit", req),
         ("--source", {"help": "repository whose seed/bootstrap/ the referee runs (default: the brain)"}),
-        ("--source-commit", {"help": "commit of --source (default: --commit)"}))
+        ("--source-commit", {"help": "commit of --source (default: --commit)"}),
+        ("--exam-sha256", {"help": "the exam store manifest's sha256, from the epoch that pins it on (E516)"}))
     add("import", cmd_import, ("--result", req), ("--bundle", req), ("--identity", req),
         ("--sigstore-python", req), ("--brain", dict(req, help="the brain repository (URL or path) the commit is in")),
         ("--referee", dict(req, help="the referee repository (URL or path): its main is cloned bare, built on and "

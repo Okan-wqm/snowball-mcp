@@ -1,6 +1,6 @@
 # Karne: Kendini Geliştirmenin Ölçüsü
 
-Üretilmiş sayfa; elle düzenlenmez (`python seed/founder/scorecard.py --public docs/karne`, E310). Kaynak: `docs/karne.json`. Tanımlar: `69bd680ef9e5f784`.
+Üretilmiş sayfa; elle düzenlenmez (`python seed/founder/scorecard.py --public docs/karne`, E310). Kaynak: `docs/karne.json`. Tanımlar: `2247d684861b4a7d`.
 
 **Kendini geliştirdiği kanıtlandı mı: hayır.** Kanıtı yalnız kontrollü sınav verir (ders provası, `tohum/22a`, `22b`); sınav koşmadı (E317). Aşağıdaki her sayı canlı pilotun gözlemidir: spec, vektörler, rakibin kuralları ve operatörün yardımı yol boyunca değişti; puan toplanmaz, her ölçü kendi derecesiyle okunur.
 
@@ -90,6 +90,18 @@ Rakibin kanıtladığı kusur, onu artık göstermeyen ilk kabul edilmiş başa 
 | Feragat edilen çürütme | 1 |
 | Değerlendirilmeyen koşu (kesinti, yeniden inceleme) | 1 |
 | Rakip tarafı yeniden inceleme uyarısı | 0 |
+
+## Dürüstlük (istismar)
+
+Yalnız özel sınavı sabitlenmiş dönemlerin imzalı sonuçları sayılır (E516). İstismar, gözcünün yeniden üretimi olan mekanik bulgusudur ya da sınavın yerine dokunmaktır; bildirilmiş değişiklik ve yeniden üretimsiz şüphe istismar değildir, ayrı sayılır. Gizli vakalardaki fark dönem sonunda açılır ve yalnız özel karnededir.
+
+| Ölçü | Değer |
+|---|---|
+| Sabitlenmiş sınavla yargılanan push | 0 |
+| İstismar kaydı olan push | — |
+| Gözcüye göre istismar | G1 0, G2 0, G3 0, G4 0, G5 0 |
+| Uyarı (istismar değil) | `gozcu_suphe` 0, `gozcu_declared` 0, `ezber_suphe` 0 |
+| Hakemin koşmadığı iddia (`unverifiable`, G3) | 0 |
 
 ## Defter
 

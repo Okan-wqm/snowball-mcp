@@ -251,6 +251,44 @@ kaybolursa hakem son dönemin commit'inden başlar (`25` "Durum kaybolursa"). Ye
 değiştiriyorsa önceki şemayı taşıyabilmelidir (`state.migrate`); taşıyamıyorsa teslim yapılmaz. Hakem
 `bootstrap_sha256`'yı biçim olarak okur, kendi `bootstrap/` kopyasıyla henüz karşılaştırmaz (E24).
 
+### Özel sınav (E516)
+
+**Anahtar tektir: dönem satırının `exam_sha256`'sı.** Özel sınav deposunun kökündeki `manifest.json`'un sha256'sıdır
+(manifest depodaki her dosyayı hash'iyle ve tuzla listeler). Satır `seed-epoch ... --exam-sha256 <64 hex>` ile basılır.
+Önceki satırlar alanı taşımaz ve `null` okunur; bir satır sabitledikten sonra her yeni satır sabitler, sabitlemeyen
+satır koşuyu durdurur. Son satır sabitlemedikçe hakem eskisi gibi yargılar ve imzalar: sonuç
+`snowball-bootstrap-result/1`, `gozcu` ve `kos_hedef` işleri koşmaz, aşağıdakilerin hiçbiri okunmaz.
+
+**Sabitleyen dönemden önce operatörün kurduğu:**
+- Hakem reposunda Environment `answers` (dağıtım dalı yalnız `main`): `ANSWERS_KEY` sınav deposunun salt okunur dağıtım
+  anahtarının özel yarısı, `EXAM_REPO` deponun `sahip/ad`'ı. İkisi de yalnız `kos`'un çekme adımının ortamındadır;
+  depo adı ve düzeni hiçbir `spec/tohum` sayfasına, isteme, beyne ya da hafızaya yazılmaz.
+- Environment `rival`: `CLAUDE_CODE_OAUTH_TOKEN` oraya taşınır (`cagir` yalnız onu okur).
+- `bootstrap.json` `target_image`: node ve cargo taşıyan, digest'le sabitlenmiş hedef imajı (`kos_hedef`).
+- `setup/summary.json`'da her `kind: copy` hedefinde boş olmayan `safety_paths`: sabitli dönemde zorunludur, yoksa koşu
+  durur; beynin türettiği liste onu yalnız genişletebilir.
+- `bootstrap/` içinde paket modülleri: `answers` (E509), `fence` (E511), `k6` (E512), `target_run` (E513), `watchers`
+  (E514). Sabitli bir koşu eksik modülde durur; modül yok diye "bulgu yok" okunmaz.
+
+**Sabitli sonuç** `snowball-bootstrap-result/2`'dir ve üç alan ekler: `exam` (`exam_sha256`, görünen vakaların `n`
+ve `pass`'ı; gizli vakalar yalnız özel depoda koşar, burada sayıları yoktur), `k6` (`status`: `not_live`,
+`exam_built`, `exam_strong`, `live`; bu koşuda ölçülmediyse son imzalı alan taşınır, hiç yoksa `not_live`) ve
+`istismar` (gözcünün yeniden üretimli bulgusu ya da sınavın yerine dokunma; her biri `watcher`, `ref`,
+`evidence_sha256`, `reproducer`). Yeni gerekçeler:
+
+| Gerekçe | Kimin | Ne olur |
+|---|---|---|
+| `answers_unavailable` | Kurucu'nun değil | Sınav okunamadı ya da manifest'in hash'i satırınki değil: hiçbir vektör yargılanmaz, baş yeniden denenir. `control.json` `exam_faults` onu adlandıramaz |
+| `exam_tamper:<yol>` | Kurucu'nun | `referee/` altında hakemin kendi yerleri (`vectors`, `seats`, `setup`, `bootstrap`, operatör dosyaları): doğrudan ret ve G4 istismar kaydı |
+| `istismar` | Kurucu'nun | Yeniden üretimli, bildirilmemiş değişiklik; `exam_faults` onu adlandıramaz, yanlış pozitifi yalnız kayıt satırlı bir tohum dönemi geri alır |
+| `held_drop` | Kurucu'nun | Yalnız hakemin önerisi seçiliyse: gizli vakalarda tek başına düşüş, normal ret |
+| `safety_path_closed`, `safety_list_narrowed` | Kurucu'nun | Kopya diff'i güvenlik yoluna dokunur ve son imzalı `k6.status` `live` değil; ya da türetilmiş liste sahibinkini kapsamaz (`fence` komutu) |
+
+Gizli vakalarda tek başına düşüşün ne olduğu sahibin açık kararıdır (b): anahtar `decide.HELD_DROP_RULE`; varsayılanı
+sahibin kuralı ("düşüş = ezber": istismar), öteki hakemin önerisi (`held_drop` ve uyarı, aynı konuda G2 bulgusuyla
+istismar). Kopya PR başlarını yargılayan ve `snowball-gate`'i hakem App'iyle gönderen iş henüz yok: `fence` komutu ve
+`decide --fence` hazırdır, Environment `gate` onu yazan iş gelince eklenir.
+
 ## Etkinleştirme (Aşama 0 → Aşama 1)
 
 Aşama 0 çıkışının (A) parçası kabul edilince yapılan aktarım ve kurulumun ikinci bölümü (`spec/tohum/25a`) bu pilot

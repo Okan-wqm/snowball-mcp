@@ -80,6 +80,7 @@ class Bootstrap:
     image: str
     rival: RivalConfig
     limits: Limits
+    target_image: str | None = None  # E516, plan D8: node and cargo, pinned by digest; read only under a pinned exam
 
 
 MODEL_RE = re.compile(r"^claude-[a-z0-9][a-z0-9.-]*\Z")
@@ -98,7 +99,7 @@ def load_bootstrap(root: Path) -> Bootstrap:
     data = _load(root / "bootstrap.json")
     where = "bootstrap.json"
     if isinstance(data, dict):
-        _only_known(data, {"brain_repo", "brain_branch", "image", "rival", "limits"}, where)
+        _only_known(data, {"brain_repo", "brain_branch", "image", "rival", "limits", "target_image"}, where)
     repo = _req(data, "brain_repo", str, where)
     if not REPO_RE.match(repo):
         raise ConfigError(f"{where}.brain_repo must be owner/name")
@@ -108,6 +109,9 @@ def load_bootstrap(root: Path) -> Bootstrap:
     image = _req(data, "image", str, where)
     if not IMAGE_RE.match(image):
         raise ConfigError(f"{where}.image must be pinned by digest (name@sha256:<64 hex>)")
+    target_image = _req(data, "target_image", str, where) if "target_image" in data else None
+    if target_image is not None and not IMAGE_RE.match(target_image):
+        raise ConfigError(f"{where}.target_image must be pinned by digest (name@sha256:<64 hex>)")
     rival = _req(data, "rival", dict, where)
     rw = f"{where}.rival"
     _only_known(rival, {"model", "effort", "max_turns", "per_run_cap_usd_micros"}, rw)
@@ -137,6 +141,7 @@ def load_bootstrap(root: Path) -> Bootstrap:
             max_prompt_chars=_pos_int(limits, "max_prompt_chars", lw),
             max_tree_bytes=_pos_int(limits, "max_tree_bytes", lw),
         ),
+        target_image=target_image,
     )
 
 
@@ -191,6 +196,10 @@ class ExamFault:
 
 
 EXAM_FAULT_KEYS = frozenset({"head", "signature"})
+# What the operator's exam faults may never name (E516): `answers_unavailable` says the exam was not read, so there is
+# no verdict to call the exam's fault (the head is retried), and an `istismar` finding is undone only by a seed epoch
+# with its register row, never by a line in control.json.
+UNWAIVABLE_REASONS = ("answers_unavailable", "istismar")
 SIGNATURE_RE = re.compile(r"^[a-z_]+:[^\r\n]{0,500}\Z")  # `<kind>:<test_id or ref>`; `zero_tests:` names none
 
 
@@ -210,6 +219,9 @@ def load_exam_faults(root: Path) -> list[ExamFault]:
             raise ConfigError(f"{where}.head must be the 40-character SHA of the rejected head")
         if not isinstance(row["signature"], str) or not SIGNATURE_RE.match(row["signature"]):
             raise ConfigError(f"{where}.signature must be a rejection signature, <kind>:<test or ref> (`29b`)")
+        if row["signature"].split(":", 1)[0] in UNWAIVABLE_REASONS:
+            raise ConfigError(f"{where}.signature names {row['signature'].split(':', 1)[0]}, which is never an exam "
+                              "fault: an unread exam is retried, istismar is undone only by a seed epoch (E516)")
         faults.append(ExamFault(row["head"], row["signature"]))
     return faults
 
@@ -303,6 +315,7 @@ class SeedEpoch:
     spec_tohum_sha256: str
     seed_sha256: str | None
     bootstrap_sha256: str
+    exam_sha256: str | None = None  # the private exam store's manifest, from the epoch that pins it on (E516)
 
 
 @dataclass(frozen=True)
@@ -317,6 +330,7 @@ class Target:
     identifiers: tuple[str, ...]
     excluded_paths: tuple[str, ...]
     unit_candidates: tuple[str, ...]
+    safety_paths: tuple[str, ...] | None = None  # the owner's physical safety paths; None when the row has none
 
 
 @dataclass(frozen=True)
@@ -345,11 +359,21 @@ class Summary:
         """The last seed epoch, the one the brain's seed must equal; None while only the setup seed exists."""
         return self.epochs[-1] if self.epochs else None
 
+    @property
+    def exam_pin(self) -> str | None:
+        """The exam this run judges with (E516): the last epoch's ``exam_sha256``. None until an epoch pins one, and
+        while it is None the referee judges and signs exactly as it did before the private exam existed."""
+        return self.epoch.exam_sha256 if self.epoch is not None else None
 
-EPOCH_KEYS = frozenset({"commit", "spec_tohum_sha256", "seed_sha256", "bootstrap_sha256"})
+
+EPOCH_KEYS = frozenset({"commit", "spec_tohum_sha256", "seed_sha256", "bootstrap_sha256", "exam_sha256"})
+# A row written before the private exam existed has no `exam_sha256` and reads as null (E516): the summary's rows
+# need no rewrite. From the first row that pins an exam on, every later row pins one too (`_pins_kept`).
+EPOCH_LEGACY_KEYS = EPOCH_KEYS - {"exam_sha256"}
 TARGET_KEYS = frozenset({"id", "repo", "kind", "base_sha", "identifiers", "excluded_paths", "unit_candidates"})
-# The owner's optional physical safety paths (`05` "Fiziksel güvenlik", E421): they only widen what the brain's
-# `profile.derive` derives, so this referee checks their form and nothing else reads them here.
+# The owner's physical safety paths (`05` "Fiziksel güvenlik", E421): they only widen what the brain's
+# `profile.derive` derives. Optional while no epoch pins an exam; from that epoch on every copy target names them,
+# because the referee's own fence reads them (`cmd_fence`, E516), not the Founder's classifier.
 TARGET_OPTIONAL_KEYS = frozenset({"safety_paths"})
 TARGET_KINDS = ("toy", "copy")
 HONESTY_EXCEPTION_KEYS = frozenset({"stage", "carry_to", "reason"})
@@ -388,12 +412,16 @@ def target(row: Any, where: str) -> Target:
     if row["base_sha"] is not None and not (isinstance(row["base_sha"], str) and SHA_RE.match(row["base_sha"])):
         raise ConfigError(f"{where}.base_sha must be a 40-character commit SHA, or null for a target with no commit")
     return Target(row["id"], row["repo"], row["kind"], row["base_sha"], _texts(row, "identifiers", where),
-                  _texts(row, "excluded_paths", where), _texts(row, "unit_candidates", where))
+                  _texts(row, "excluded_paths", where), _texts(row, "unit_candidates", where),
+                  tuple(row["safety_paths"]) if "safety_paths" in row else None)
 
 
 def _epoch(row: Any, where: str) -> SeedEpoch:
+    if isinstance(row, dict) and set(row) == EPOCH_LEGACY_KEYS:  # written before the private exam: no pin (E516)
+        row = dict(row, exam_sha256=None)
     if not isinstance(row, dict) or set(row) != EPOCH_KEYS:
-        raise ConfigError(f"{where} must have exactly the keys {', '.join(sorted(EPOCH_KEYS))} (`26c`)")
+        raise ConfigError(f"{where} must have exactly the keys {', '.join(sorted(EPOCH_KEYS))} (`26c`; a row "
+                          "written before the private exam may leave out exam_sha256, E516)")
     if not isinstance(row["commit"], str) or not SHA_RE.match(row["commit"]):
         raise ConfigError(f"{where}.commit must be a 40-character commit SHA")
     for key in ("spec_tohum_sha256", "bootstrap_sha256"):
@@ -401,7 +429,22 @@ def _epoch(row: Any, where: str) -> SeedEpoch:
             raise ConfigError(f"{where}.{key} must be 64 hex characters")
     if row["seed_sha256"] is not None and not (isinstance(row["seed_sha256"], str) and HEX64_RE.match(row["seed_sha256"])):
         raise ConfigError(f"{where}.seed_sha256 must be 64 hex characters, or null when the brain has no seed/")
-    return SeedEpoch(row["commit"], row["spec_tohum_sha256"], row["seed_sha256"], row["bootstrap_sha256"])
+    exam = row["exam_sha256"]
+    if exam is not None and not (isinstance(exam, str) and HEX64_RE.match(exam)):
+        raise ConfigError(f"{where}.exam_sha256 must be 64 hex characters, or null before the epoch that pins the "
+                          "exam (E516)")
+    return SeedEpoch(row["commit"], row["spec_tohum_sha256"], row["seed_sha256"], row["bootstrap_sha256"], exam)
+
+
+def _pins_kept(epochs: tuple[SeedEpoch, ...], where: str) -> None:
+    """From the first epoch that pins an exam on, every later epoch pins one (E516): a row that drops the pin would
+    turn the private exam off unseen and judge the next push as if it had never existed."""
+    pinned = False
+    for i, epoch in enumerate(epochs):
+        if pinned and epoch.exam_sha256 is None:
+            raise ConfigError(f"{where}.seed_epochs[{i}] drops the exam pin an earlier epoch set: every epoch after "
+                              "the first pinned one names its exam_sha256 (E516)")
+        pinned = pinned or epoch.exam_sha256 is not None
 
 
 def load_summary(root: Path) -> Summary:
@@ -423,6 +466,7 @@ def summary_of(data: Any) -> Summary:
         if not isinstance(rows, list) or not rows:
             raise ConfigError(f"{where}.seed_epochs must be a non-empty list of seed epochs")
         epochs = tuple(_epoch(row, f"{where}.seed_epochs[{i}]") for i, row in enumerate(rows))
+        _pins_kept(epochs, where)
     targets: tuple[Target, ...] | None = None
     if "targets" in data:  # absent: the operator has not named the targets yet (`25` 10a)
         if not isinstance(data["targets"], list):
@@ -438,8 +482,20 @@ def summary_of(data: Any) -> Summary:
     # Beside the exception, a commitment is the carried stage's plant, measured there (`02` "Sahip istisnası").
     exception = _honesty_exception(data["honesty_exception"], f"{where}.honesty_exception") \
         if "honesty_exception" in data else None
+    if epochs and epochs[-1].exam_sha256 is not None:
+        _fenced(targets, where)
     return Summary(seed_commit=seed_commit, seed_tree_sha256=seed_tree, epochs=epochs, targets=targets,
                    honesty_commitment=commitment, honesty_exception=exception)
+
+
+def _fenced(targets: tuple[Target, ...] | None, where: str) -> None:
+    """Under a pinned exam the K6 fence is the referee's (E516, plan D6): every copy target names the owner's safety
+    paths, the list a brain-derived one may only widen. A copy target without them stops the run; it is never read
+    as a target with no safety path at all."""
+    for i, t in enumerate(targets or ()):
+        if t.kind == "copy" and not t.safety_paths:
+            raise ConfigError(f"{where}.targets[{i}] ({t.id}) is a copy target without safety_paths: under a pinned "
+                              "exam the referee's fence reads the owner's list (E516)")
 
 
 def _honesty_exception(row: Any, where: str) -> HonestyException:

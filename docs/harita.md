@@ -16,7 +16,7 @@ Read from the code: the jobs, `needs:` and commands of `seed/bootstrap/workflow/
 
 ## 1. System flow
 
-15 nodes, 27 edges. A job box lists the `snowball_bootstrap` commands it runs, in order. Job arrows leave out dependencies another path already implies; the table lists every `needs:`. A seed epoch is the operator's delivery of `spec/tohum/` and `seed/` to the brain, with the `seed_epochs` row the referee checks on its next pull (`seed/founder/README.md`).
+17 nodes, 31 edges. A job box lists the `snowball_bootstrap` commands it runs, in order. Job arrows leave out dependencies another path already implies; the table lists every `needs:`. A seed epoch is the operator's delivery of `spec/tohum/` and `seed/` to the brain, with the `seed_epochs` row the referee checks on its next pull (`seed/founder/README.md`).
 
 ```mermaid
 flowchart LR
@@ -34,6 +34,8 @@ flowchart LR
     job_cek["job cek<br/>control · config-value · poll · licenses · fetch-state · pull · pack"]
     job_getir["job getir<br/>control · fetch-deps · pack"]
     job_kos_parca["job kos_parca<br/>control · run-part · pack"]
+    job_gozcu["job gozcu<br/>control · watch · pack"]
+    job_kos_hedef["job kos_hedef<br/>control · run-target · pack"]
     job_kos["job kos<br/>control · join-parts · pack"]
     job_cagir["job cagir<br/>control · rival · pack"]
     job_yeniden["job yeniden<br/>control · reproduce · pack"]
@@ -41,10 +43,14 @@ flowchart LR
   end
   job_cek --> job_getir
   job_getir --> job_kos_parca
+  job_cek --> job_gozcu
+  job_cek --> job_kos_hedef
   job_kos_parca --> job_kos
+  job_kos_hedef --> job_kos
   job_kos --> job_cagir
   job_cagir --> job_yeniden
   job_yeniden --> job_yaz
+  job_gozcu --> job_yaz
   operator -.->|starts the pilot| launcher
   launcher -.->|docker run: one Founder session| capsule
   capsule -.->|git push| brain
@@ -73,14 +79,16 @@ flowchart LR
 | `cek` | - | `control`, `config-value`, `poll`, `licenses`, `fetch-state`, `pull`, `pack` | contents: read, actions: read | - |
 | `getir` | `cek` | `control`, `fetch-deps`, `pack` | {} | - |
 | `kos_parca` | `cek`, `getir` | `control`, `run-part`, `pack` | {} | - |
-| `kos` | `cek`, `getir`, `kos_parca` | `control`, `join-parts`, `pack` | {} | - |
+| `gozcu` | `cek` | `control`, `watch`, `pack` | {} | - |
+| `kos_hedef` | `cek` | `control`, `run-target`, `pack` | {} | - |
+| `kos` | `cek`, `getir`, `kos_parca`, `kos_hedef` | `control`, `join-parts`, `pack` | {} | `ANSWERS_KEY`, `EXAM_REPO` |
 | `cagir` | `cek`, `kos` | `control`, `rival`, `pack` | {} | `CLAUDE_CODE_OAUTH_TOKEN` |
 | `yeniden` | `cek`, `getir`, `kos`, `cagir` | `control`, `reproduce`, `pack` | {} | - |
-| `yaz` | `cek`, `getir`, `kos`, `cagir`, `yeniden` | `control`, `decide`, `licenses` | contents: read, id-token: write | - |
+| `yaz` | `cek`, `getir`, `kos`, `cagir`, `yeniden`, `gozcu` | `control`, `decide`, `licenses` | contents: read, id-token: write | - |
 
 ## 2. Referee package: `seed/bootstrap/snowball_bootstrap`
 
-35 modules, 102 imports inside the package, 1 started as a separate process. Areas are roles. The overview has 6 areas and 17 edges; an arrow's number is how many imports cross from one area to the other.
+35 modules, 103 imports inside the package, 1 started as a separate process. Areas are roles. The overview has 6 areas and 17 edges; an arrow's number is how many imports cross from one area to the other.
 
 ```mermaid
 flowchart LR
@@ -184,7 +192,7 @@ flowchart LR
 
 ### Intake
 
-9 modules, 10 edges out of them.
+9 modules, 11 edges out of them.
 
 ```mermaid
 flowchart LR
@@ -202,6 +210,7 @@ flowchart LR
   subgraph a_Judgement["Judgement"]
     m_stages["stages"]:::outside
   end
+  m_classify --> m_treehash
   m_gitio --> m_treehash
   m_importer --> m_canon
   m_importer --> m_gitio
@@ -225,7 +234,7 @@ flowchart LR
 | `importer` | Operator import at the Stage 0 exit and at each batch exit after it (`tohum/25a` 1-2, `asama-0/10a` #aktarim and #oyuncak, `asama-1/13` 3: "aynı komut"). | `cli`, `fence`, `heldrun`, `stagelock` |
 | `licenses` | License gate for downloaded wheels (`tohum/24`, "Lisans"). | `cli` |
 | `stagelock` | The stage lock and the counter it is bound to (`tohum/02` 5, `asama-0/10a` "Kilidin açılışı", `tohum/25a` 9, `26c`). | `cli`, `heldrun`, `importer` |
-| `treehash` | Tree hashes over git-archive tarballs, and safe extraction of regular files only. | `cli`, `exitchecks`, `fence`, `gitio`, `heldrun`, `importer`, `moduleless`, `mutation`, `stages`, `watchers` |
+| `treehash` | Tree hashes over git-archive tarballs, and safe extraction of regular files only. | `classify`, `cli`, `exitchecks`, `fence`, `gitio`, `heldrun`, `importer`, `moduleless`, `mutation`, `stages`, `watchers` |
 
 ### Sandbox
 
@@ -460,7 +469,7 @@ Every subcommand of `cli.py`, the jobs that run it, and the package modules its 
 
 | Command | Run by | Handler | Modules it reaches |
 |---|---|---|---|
-| `control` | `cek`, `getir`, `kos_parca`, `kos`, `cagir`, `yeniden`, `yaz` | `cmd_control` | `config`, `stagelock`, `wiring` |
+| `control` | `cek`, `getir`, `kos_parca`, `gozcu`, `kos_hedef`, `kos`, `cagir`, `yeniden`, `yaz` | `cmd_control` | `config`, `stagelock`, `wiring` |
 | `config-value` | `cek` | `cmd_config_value` | `config` |
 | `poll` | `cek` | `cmd_poll` | `config`, `decide`, `ghapi`, `gitio`, `treehash` |
 | `licenses` | `cek`, `yaz` | `cmd_licenses` | `canon`, `config`, `licenses` |
@@ -470,13 +479,16 @@ Every subcommand of `cli.py`, the jobs that run it, and the package modules its 
 | `run-tests` | operator / local | `cmd_run_tests` | `canon`, `config`, `container`, `licenses`, `moduleless`, `parts`, `stagelock`, `treehash`, `vectors` |
 | `run-part` | `kos_parca` | `cmd_run_part` | `canon`, `config`, `container`, `licenses`, `moduleless`, `parts`, `stagelock`, `treehash`, `vectors` |
 | `join-parts` | `kos` | `cmd_join_parts` | `canon`, `config`, `licenses`, `moduleless`, `parts`, `stagelock`, `treehash`, `vectors` |
+| `watch` | `gozcu` | `cmd_watch` | `canon`, `config` |
+| `run-target` | `kos_hedef` | `cmd_run_target` | `canon`, `config` |
+| `fence` | operator / local | `cmd_fence` | `canon`, `config`, `decide`, `gitio` |
 | `rival` | `cagir` | `cmd_rival` | `canon`, `config`, `rival`, `stagelock`, `stages`, `treehash` |
 | `reproduce` | `yeniden` | `cmd_reproduce` | `canon`, `config`, `container`, `reproduce`, `treehash`, `vectors` |
 | `decide` | `yaz` | `cmd_decide` | `canon`, `config`, `decide`, `stagelock` |
-| `pack` | `cek`, `getir`, `kos_parca`, `kos`, `cagir`, `yeniden` | `cmd_pack` | - |
+| `pack` | `cek`, `getir`, `kos_parca`, `gozcu`, `kos_hedef`, `kos`, `cagir`, `yeniden` | `cmd_pack` | - |
 | `unpack` | operator / local | `cmd_unpack` | `treehash` |
 | `seed-hash` | operator / local | `cmd_seed_hash` | `gitio`, `treehash` |
-| `seed-epoch` | operator / local | `cmd_seed_epoch` | `canon`, `classify`, `gitio`, `treehash` |
+| `seed-epoch` | operator / local | `cmd_seed_epoch` | `canon`, `classify`, `config`, `gitio`, `treehash` |
 | `import` | operator / local | `cmd_import` | `importer` |
 | `stage-open` | operator / local | `cmd_stage_open` | `stagelock` |
 

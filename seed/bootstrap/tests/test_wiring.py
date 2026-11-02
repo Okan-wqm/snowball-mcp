@@ -22,6 +22,7 @@ BOOT = Path(__file__).resolve().parents[1]
 ROOT = BOOT.parents[1]
 WORKFLOW = (BOOT / "workflow" / "bootstrap.yml").read_text(encoding="utf-8")
 SETUP_DAY = (ROOT / "spec" / "tohum" / "25-kurulum-gunu.md").read_text(encoding="utf-8")
+EXAM_SECRETS = {"ANSWERS_KEY", "EXAM_REPO"}  # the Environment `answers` (E516)
 BS = chr(92)
 
 
@@ -109,14 +110,19 @@ class WorkflowWiringTest(unittest.TestCase):
 
     def test_every_secret_and_variable_is_documented_for_the_operator(self):
         names = set(re.findall(r"(?:secrets|vars)@BS@.([A-Z0-9_]+)".replace("@BS@", BS), WORKFLOW))
-        self.assertEqual(names, {"CLAUDE_CODE_OAUTH_TOKEN"})  # the brain is public: nothing else is held
-        for name in names:
-            self.assertIn(name, SETUP_DAY, f"tohum/25 never tells the operator about {name}")
+        # the brain is public: nothing else is held; the private exam store's two (E516) are the operator's alone,
+        # documented where the Founder never reads (seed/founder/README.md): the store's name is never in tohum
+        self.assertEqual(names, {"CLAUDE_CODE_OAUTH_TOKEN"} | EXAM_SECRETS)
+        self.assertIn("CLAUDE_CODE_OAUTH_TOKEN", SETUP_DAY, "tohum/25 never tells the operator about it")
+        operator = (ROOT / "seed" / "founder" / "README.md").read_text(encoding="utf-8")
+        for name in sorted(EXAM_SECRETS):
+            self.assertIn(name, operator, f"seed/founder/README.md never tells the operator about {name}")
+            self.assertNotIn(name, SETUP_DAY, f"{name} reached tohum, which the Founder reads")
 
     def test_the_model_credential_reaches_only_the_rival_step(self):
         self.assertEqual(WORKFLOW.count("${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}"), 1)
         used = re.findall(r"\$\{\{\s*secrets\.([A-Za-z0-9_]+)\s*\}\}", WORKFLOW)
-        self.assertEqual(used, ["CLAUDE_CODE_OAUTH_TOKEN"])  # no other way to read a secret
+        self.assertEqual(used, ["ANSWERS_KEY", "EXAM_REPO", "CLAUDE_CODE_OAUTH_TOKEN"])  # no other way (E516: kos)
         self.assertNotIn("toJSON(secrets", WORKFLOW)
         self.assertNotIn("secrets[", WORKFLOW)
         self.assertNotIn("secrets: inherit", WORKFLOW)
@@ -189,13 +195,14 @@ class KosPartsTest(unittest.TestCase):
 
     def test_the_join_fails_on_a_part_that_did_not_succeed_and_runs_no_brain_code(self):
         join = workflow_job("kos")
-        self.assertIn("    needs: [cek, getir, kos_parca]\n", join)
+        self.assertIn("    needs: [cek, getir, kos_parca, kos_hedef]\n", join)  # E516: the target's traces
         first = join[join.index("    steps:\n"):].split("      - ", 2)[1]
         self.assertEqual(first, "name: Every part finished\n        env:\n          RESULT: ${{ needs.kos_parca.result }}\n"
                                 '        run: test "$RESULT" = success\n')
         self.assertIn("    permissions: {}\n", join)
-        for word in ("docker", "secrets."):
-            self.assertNotIn(word, join)
+        self.assertNotIn("docker", join)
+        # E516: the exam store's key and name, in the fetch step's env and nowhere else (test_integration's T8 lint)
+        self.assertEqual(re.findall(r"secrets\.([A-Z_]+)", join), sorted(EXAM_SECRETS))
         self.assertEqual(set(re.findall(r"-m snowball_bootstrap ([a-z-]+)", join)), {"control", "join-parts", "pack"})
 
 
@@ -1354,7 +1361,7 @@ class SystemMapTest(unittest.TestCase):
         jobs = self.mod.workflow_jobs(WORKFLOW)
         listed = re.findall(r"^  ([A-Za-z_][A-Za-z0-9_-]*):[ \t]*$", WORKFLOW.split("\njobs:\n", 1)[1], re.M)
         self.assertEqual(list(jobs), listed)
-        self.assertEqual(jobs["yaz"].needs, ["cek", "getir", "kos", "cagir", "yeniden"])
+        self.assertEqual(jobs["yaz"].needs, ["cek", "getir", "kos", "cagir", "yeniden", "gozcu"])
         self.assertEqual(jobs["getir"].needs, ["cek"])
         ran = {c for job in jobs.values() for c in job.commands}
         self.assertLessEqual({argv[0] for argv in bootstrap_invocations()}, ran)

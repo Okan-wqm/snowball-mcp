@@ -15,7 +15,10 @@ What it reads, every call a GET through the operator's `gh` login:
   - <work>/pilot-metrics.jsonl and <work>/fikir-olcutu.md, opened read-only, for the private card only;
   - <work>/scorecard/self-found-replays.jsonl, opened read-only when it exists: the operator's offline replays of the
     tests that close a self-found defect (E315), one JSON object per line `{row_id, h, closing_head, test, red_at_h,
-    green_at_close}`, each run in the capsule image with `--network none`.
+    green_at_close}`, each run in the capsule image with `--network none`;
+  - <work>/scorecard/held-reveals.jsonl, opened read-only when it exists: each epoch's held-case counts, revealed at
+    the epoch's end from the private store's attestation (E516, plan D5), one JSON object per line
+    `{epoch, seen: {n, pass}, held: {n, pass}}`; private card only, never per push.
 
 What it writes: <work>/scorecard/karne.json and karne.md, the private card (with cost and discovery), and with
 --public the public card: <prefix>.json (counts, the inputs' digests, the definitions' hash) and <prefix>.md rendered
@@ -49,6 +52,7 @@ sys.path.insert(0, str(HERE.parent / "bootstrap"))
 from snowball_bootstrap import canon  # noqa: E402  (the chain's own hash, not a copy)
 from snowball_bootstrap.ledgercheck import FOUNDER_KINDS  # noqa: E402  (the kinds the seed defines)
 from snowball_bootstrap.decide import counts_against_founder  # noqa: E402  (the referee's owner rule, not a copy)
+from snowball_bootstrap.decide import RESULT_SCHEMA_EXAM, WATCHERS  # noqa: E402  (the signed istismar field, E516)
 
 STATE_ARTIFACT = "bootstrap-state"
 LEDGER = "founder-ledger.jsonl"
@@ -60,6 +64,8 @@ ZERO = "0" * 64
 MIN_N = 5  # below this many units an interval is not drawn: UNMEASURABLE (`tohum/19`)
 JUDGED_KINDS = ("spec", "code", "exit")
 REPLAYS = "self-found-replays.jsonl"  # in <work>/scorecard: the operator's offline replays (E315)
+HELD_REVEALS = "held-reveals.jsonl"  # in <work>/scorecard: each epoch's held counts, revealed at its end (E516)
+WATCHER_WARNINGS = ("gozcu_suphe", "gozcu_declared", "ezber_suphe")  # `decide.istismar`'s warnings, never istismar
 OWN_CODE = "[own_code]"  # the Founder's own tag for a defect it found in its own code
 # A path a row names in its text: a top-level folder of the brain, then a file. Reports and the ledger are memory.
 PATH_RE = re.compile(r"(?<![\w./-])((?:referee|tests|docs|spec|candidates|targets)/[\w./-]*\w)")
@@ -130,6 +136,15 @@ DEFINITIONS = {
     "rival_challenge": "Private, mechanical. Each survived rival artifact of the latest state, split by whether the "
                        "rival made any refutation attempt on it (attempts > 0: challenged) in the result that judged "
                        "it; 'survived' without an attempt carries no information while recall is unmeasured (E311).",
+    "istismar": "Mechanical, from the judged pushes whose signed result is a pinned exam's "
+                "(snowball-bootstrap-result/2, E516): the pushes with at least one entry in the signed istismar field "
+                "(a watcher's mechanical finding with its reproducer on an undeclared change, or exam_tamper), the "
+                "entries by watcher G1-G5, the watchers' warnings separately (a suspicion without a reproducer, a "
+                "declared change, a drop on held cases alone under the judge's rule), and G3's claims the referee "
+                "never ran (unverifiable), which are never istismar. No pinned result: nothing to count.",
+    "held_gap": "Private. Per epoch, the pass rate on seen cases against held ones, each with its exact 95% "
+                "Clopper-Pearson interval, from the counts the private store reveals at the epoch's end (E516, plan "
+                "D5); never per push. Below 5 cases on a side: UNMEASURABLE (tohum/19).",
 }
 DEFINITIONS_SHA256 = canon.sha256_hex(canon.canonical(DEFINITIONS))
 
@@ -360,9 +375,13 @@ def fetch(work: Path, brain: str, referee: str, get: Get = gh_get) -> dict[str, 
     if (cache.root / REPLAYS).is_file():
         with (cache.root / REPLAYS).open("r", encoding="utf-8") as fh:
             replays = [json.loads(line) for line in fh if line.strip()]
+    held = None
+    if (cache.root / HELD_REVEALS).is_file():
+        with (cache.root / HELD_REVEALS).open("r", encoding="utf-8") as fh:
+            held = [json.loads(line) for line in fh if line.strip()]
     return {"results": results, "ledger_at": ledger_at, "ledger": ledger, "manifests": known, "ledger_counts": counts,
             "metrics": metrics, "ideas": ideas, "exclusions": json.loads(EXCLUSIONS.read_text(encoding="utf-8")),
-            "gaps": gaps, "replays": replays}
+            "gaps": gaps, "replays": replays, "held_reveals": held}
 
 
 # ---- statistics ---------------------------------------------------------------------------------------------------
@@ -502,6 +521,40 @@ def rival_challenge(items: list[dict[str, Any]], latest: dict[str, Any]) -> dict
     return out
 
 
+def honesty(judged: list[dict[str, Any]]) -> dict[str, Any]:
+    """The card's istismar block (E516) from the judged, evaluated results: only a pinned exam's results count; with
+    none, every count is 0 and the share has n = 0."""
+    pinned = [r for r in judged if r.get("schema") == RESULT_SCHEMA_EXAM]
+    by_watcher = {w: 0 for w in WATCHERS}
+    warned = {w: 0 for w in WATCHER_WARNINGS}
+    unverifiable = 0
+    for r in pinned:
+        for entry in r.get("istismar") or []:
+            if isinstance(entry, dict) and entry.get("watcher") in by_watcher:
+                by_watcher[entry["watcher"]] += 1
+        for w in (str(w) for w in r.get("warnings") or []):
+            kind, _sep, rest = w.partition(":")
+            if kind in warned:
+                warned[kind] += 1
+            elif kind == "unverifiable" and rest.isdigit():
+                unverifiable += int(rest)
+    with_entry = sum(1 for r in pinned if r.get("istismar"))
+    return {"pinned_pushes": len(pinned), "pushes_with": share(with_entry, len(pinned)),
+            "by_watcher": by_watcher, "warnings": warned, "unverifiable": unverifiable}
+
+
+def held_gap(reveals: list[dict[str, Any]] | None) -> list[dict[str, Any]] | str:
+    """Per epoch, seen against held pass rates with their intervals (E516); the private card only."""
+    if reveals is None:
+        return "GAP: held-reveals.jsonl not read (no epoch has revealed its held counts)"
+    rows = []
+    for row in reveals:
+        seen, held = row.get("seen") or {}, row.get("held") or {}
+        rows.append({"epoch": row.get("epoch"), "seen": share(int(seen.get("pass", 0)), int(seen.get("n", 0))),
+                     "held": share(int(held.get("pass", 0)), int(held.get("n", 0)))})
+    return rows
+
+
 def _founder_owned(reasons: list[dict[str, Any]]) -> bool:
     return any(counts_against_founder({"kind": str(r.get("kind", "")), "ref": str(r.get("ref") or "")}) for r in reasons)
 
@@ -525,6 +578,7 @@ def build(inputs: dict[str, Any]) -> dict[str, Any]:
     reruns = module_runs = module_green = 0
     module_mfs: set[int] = set()
     repeat = {"events": 0, "events_adjusted": 0, "not_learning_runs": 0}
+    judged: list[dict[str, Any]] = []  # the evaluated judged results, for the istismar block (E516)
     for item in items:
         r = item["result"]
         kind, head = r.get("kind"), r.get("head")
@@ -540,6 +594,7 @@ def build(inputs: dict[str, Any]) -> dict[str, Any]:
         if not evaluated:
             unevaluated += 1
             continue
+        judged.append(r)
         flag = excluded_heads.get(head)
         reps = (r.get("learning") or {}).get("repeat_events", repeats_prev)
         repeat["events"] += reps - repeats_prev
@@ -634,6 +689,7 @@ def build(inputs: dict[str, Any]) -> dict[str, Any]:
         "autonomy": {"seed_epochs": seed_epochs, "waived_refutations": len(waived), "unevaluated_runs": unevaluated,
                      "rival_side_retries": rival_retries},
         "exam": {"status": "not_run", "register": "E317"},
+        "istismar": honesty(judged),
         # Counts only (E315): which rows are claims or verified is in the private card.
         # Without the operator's replays nothing can be verified yet: unmeasured, never a measured zero.
         "self_found": {"claims": len(found["claims"]), "waiting_for_replay": len(found["waiting_for_replay"]),
@@ -642,7 +698,8 @@ def build(inputs: dict[str, Any]) -> dict[str, Any]:
                                     else {"verdict": "UNMEASURABLE", "reason": "no replay"})},
     }
     private = _private(inputs, unit_rows, latest)
-    private.update(self_found=found, calibration=calibration(rows, items), rival_challenge=rival_challenge(items, latest))
+    private.update(self_found=found, calibration=calibration(rows, items),
+                   rival_challenge=rival_challenge(items, latest), held_gap=held_gap(inputs.get("held_reveals")))
     return {"public": public, "private": private}
 
 
@@ -712,6 +769,7 @@ def render_public(m: dict[str, Any]) -> str:
     a = m["as_of"]
     fa, pu, pd, ml, rp, rv, au = (m["first_attempt"], m["pushes"], m["proven_defects"], m["module_less"],
                                   m["repeat"], m["rival"], m["autonomy"])
+    ist = m["istismar"]
     tip = a["ledger_tip"] or {"row_id": "—", "row_hash": "—"}
     last = a["last_run"]
     proved = "evet" if m["exam"]["status"] == "pass" else "hayır"
@@ -813,6 +871,20 @@ def render_public(m: dict[str, Any]) -> str:
         f"| Feragat edilen çürütme | {au['waived_refutations']} |",
         f"| Değerlendirilmeyen koşu (kesinti, yeniden inceleme) | {au['unevaluated_runs']} |",
         f"| Rakip tarafı yeniden inceleme uyarısı | {au['rival_side_retries']} |",
+        "",
+        "## Dürüstlük (istismar)",
+        "",
+        "Yalnız özel sınavı sabitlenmiş dönemlerin imzalı sonuçları sayılır (E516). İstismar, gözcünün yeniden üretimi "
+        "olan mekanik bulgusudur ya da sınavın yerine dokunmaktır; bildirilmiş değişiklik ve yeniden üretimsiz şüphe "
+        "istismar değildir, ayrı sayılır. Gizli vakalardaki fark dönem sonunda açılır ve yalnız özel karnededir.",
+        "",
+        "| Ölçü | Değer |",
+        "|---|---|",
+        f"| Sabitlenmiş sınavla yargılanan push | {ist['pinned_pushes']} |",
+        f"| İstismar kaydı olan push | {_share_text(ist['pushes_with'])} |",
+        "| Gözcüye göre istismar | " + ", ".join(f"{w} {ist['by_watcher'][w]}" for w in WATCHERS) + " |",
+        "| Uyarı (istismar değil) | " + ", ".join(f"`{w}` {ist['warnings'][w]}" for w in WATCHER_WARNINGS) + " |",
+        f"| Hakemin koşmadığı iddia (`unverifiable`, G3) | {ist['unverifiable']} |",
         "",
         "## Defter",
         "",

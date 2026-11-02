@@ -2638,7 +2638,9 @@ class BatchExitDecisionTest(unittest.TestCase):
         work = Path(tmp.name)
         write(work / "root", {"policy.json": json.dumps({"constitutional": {
             "monthly_cap_usd": 300, "stage_params": {"rival_min_attempts": 2, "repeat_reject_limit": 3},
-            "stage_budgets": {"asama_0": {"rival_usd": 30}}, "license_allowlist": ["MIT"], "license_exceptions": {}}})})
+            "stage_budgets": {"asama_0": {"rival_usd": 30}}, "license_allowlist": ["MIT"], "license_exceptions": {}}}),
+            # `decide` reads the snapshot's last epoch for the exam pin (E516): no epoch, no pin
+            "setup/summary.json": json.dumps({"seed_commit": "a" * 40, "seed_tree_sha256": "b" * 64})})
         write(work / "pulled", {"meta.json": json.dumps(self.meta())})
         write(work / "run", {"run.json": json.dumps({"controls": [], "tests": [{"id": "T51", "cmd_sha256": "c",
                                                                                 "ok": True}],
