@@ -26,6 +26,7 @@ PKG = "seed/bootstrap/snowball_bootstrap"
 CANARY = "seed/bootstrap/local/canary.py"
 DEFS = "seed/founder/brain_defs.py"  # the capsule's loader of the brain's definitions (E450)
 LINDEX = "seed/founder/ledger_index.py"  # the capsule's read-only index of the Founder's ledger (E506)
+EPOCH = "seed/founder/deliver_epoch.py"  # the operator's one-command seed epoch delivery (E526)
 
 # (name, file, old text found exactly once, new text, what the mutant stands for)
 MUTANTS = [
@@ -368,6 +369,33 @@ MUTANTS = [
     ("reason_owner_not_the_referees_rule", "seed/founder/launch.py",
      '    if counts_against_founder(item):\n        return "founder"\n', "",
      "pilot: the report blames the rival or the referee for the Founder's rejections"),
+    # E527: the open reports no changelog of the brain's seed names, the operator's own line in the pilot-log
+    ("unanswered_reports_unlisted", "seed/founder/launch.py", 'if not re.search(r"(?<![\\w-])" + re.escape(rid)',
+     'if False and not re.search(r"(?<![\\w-])" + re.escape(rid)',
+     "E527: a report the operator never answered hides among the open ones again (seed-040)"),
+    ("unanswered_by_prefix", "seed/founder/launch.py", '+ re.escape(rid) + r"(?![\\w-])"', "+ re.escape(rid)",
+     "E527: seed-04 reads as answered because seed-041 is named"),
+    # E526: the one-command seed epoch delivery (seed/founder/deliver_epoch.py)
+    ("epoch_ci_not_checked", EPOCH, '        if not ok:\n            raise Refused(f"step 1: {why}")',
+     '        if False:\n            raise Refused(f"step 1: {why}")',
+     "E526: a commit whose CI is red or missing is delivered"),
+    ("epoch_strays_unseen", EPOCH, '    return [f for f in fields if f[:2] in ("??", "!!") or f[1:2] != " "]',
+     "    return []", "E526: a stray file in a clone (the __pycache__ of 2026-11-02) goes unseen"),
+    ("epoch_blob_unchecked", EPOCH, "    if problems:\n        raise Refused(f\"staged blobs are not S's",
+     "    if False:\n        raise Refused(f\"staged blobs are not S's",
+     "E526: a staged blob that is not S's (a line-end attribute, an edit, a mode) is pushed"),
+    ("epoch_cr_bytes_pass", EPOCH, "    if count:\n        raise Refused(f\"the staged diff has",
+     "    if False:\n        raise Refused(f\"the staged diff has",
+     "E242, E526: CR bytes in the staged diff are pushed"),
+    ("epoch_wrong_verdict_accepted", EPOCH, 'if got != ("seed_update", "noop", d):', "if got[2] != d:",
+     "E526: a delivery the referee rejected or judged as work reads as verified"),
+    ("epoch_unjudged_push_delivered", EPOCH,
+     '    if (newest.get("state") or {}).get("last_evaluated_sha") not in chain:', "    if False:",
+     "E385: a seed epoch lands on the Founder's unjudged push, which is then never judged by its name"),
+    ("epoch_unread_rejection_delivered", EPOCH, "    if read:\n", "    if True:\n",
+     "E385: a rejection no session read is buried under the seed_update, which carries no rejection block"),
+    ("epoch_removes_the_operators_stop", EPOCH, '        if j.get("stop_created"):\n', "        if True:\n",
+     "E526: the operator's own STOP is lifted by the delivery"),
     # The self-improvement scorecard (E310): each mutant is a way the teacher's instrument could flatter the student.
     ("scorecard_window_at_the_snapshot", "seed/founder/scorecard.py", "range(max(at, arrived) + 1)", "range(at + 1)",
      "E315: an outside finding after H but before the row arrives is not seen; the Founder's snapshot_id ends the window"),

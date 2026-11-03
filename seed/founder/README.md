@@ -72,10 +72,11 @@ karar "yürürlükte" görünürdü), sahibin kararını bekler. İmaj yeniden k
 | `referee/` | hakemin son imzalı sonucu (`result.json`), Kurucu okur |
 | `vec/` | vektörlerin girdileri, kapsüle `/vec` olarak salt okunur (E244): `cases.json` (her veri vakasının `id`, `purpose`, `cmd`, `stdin`, `fixture` ve `changed` alanları) ve fikstürler; beklenen değer yok. Her oturumdan önce hakem reposunun `main`'indeki `vectors/`'ten, hakemin kendi `vectors.founder_inputs`'uyla yeniden kurulur |
 | `logs/` | oturum dökümleri (`stream-json`); her oturumun klasöründe `brain-definitions.json`, beynin yüklenen ve düşen ajan ve skill tanımları (E450) |
-| `pilot-log.md` | operatörün raporu: her döngüde push, hakem kararı, yeni defter satırları ve bildirimler, maliyet satırının ne olduğu, beynin açık raporları ve yaşları |
-| `pilot-metrics.jsonl` | her döngünün ölçümü: push, karar, nedenler ve **sahipleri** (hakemin kendi kuralıyla: Kurucu / rakip / hakem), rakibin kanıtlanmış bulguları, eski çürütmeler, yeni bildirimler, süre, maliyet, hakemin yeniden inceleme sayısı; sonucun neye bağlanacağı (E313): `prompt_sha256`, `image_id`, `model`, `cli_version` ve `model_served` (dökümün `init` olayı), `seed_commit`, `spec_tohum_tree`, `rival_config`, `target_sha`, `timed_out`. Her başlatıcı başlangıcı ayrı bir `kind: intervention` satırıdır (argümanlar, imaj, prompt hash'i). `prompt_sha256` imajın kendisinin: kurulum imajı içindeki prompt'un sha256'sıyla etiketler (`snowball.prompt_sha256`), `--no-build` eski imajı koşturur, etiketsiz imajda `null`; çalışma kopyasınınki `checkout_prompt_sha256`; `context_sha256` imajın bütün kurulum dosyalarınınki (E506): kurulum imajı `snowball.context_sha256` ile de etiketler (`BUILD_FILES`'ın her dosyası, LF ile, sıralı `<yol>\0<sha256>\n` satırlarının sha256'sı), çalışma kopyasınınki `checkout_context_sha256`; ikisi farklıysa başlatıcı bunu söyler: yalnız prompt değil, değişmiş bir araç ya da yükleyici de görünür |
+| `pilot-log.md` | operatörün raporu: her döngüde push, hakem kararı, yeni defter satırları ve bildirimler, maliyet satırının ne olduğu, beynin açık raporları ve yaşları; ayrı bir satırda **CEVAPSIZ (operatör)**: kimliği beynin tuttuğu tohumun hiçbir `spec/tohum/CHANGELOG*.md`'sinde geçmeyen açık raporlar, yaşlarıyla (operatör onları ne yanıtlamış ne reddetmiş, E527; tam kimlik eşleşmesi: `seed-040` `seed-0401`'le adlanmış sayılmaz; günlükler okunamazsa `okunamadı`, hiçbir zaman "cevapsız" değil). Yalnız operatörün: bu klasör kapsüle bağlanmaz, Kurucu'ya hiçbiri ulaşmaz |
+| `pilot-metrics.jsonl` | her döngünün ölçümü: push, karar, nedenler ve **sahipleri** (hakemin kendi kuralıyla: Kurucu / rakip / hakem), rakibin kanıtlanmış bulguları, eski çürütmeler, yeni bildirimler, açık raporların ve cevapsızların sayısı (`reports_open`, `reports_unanswered`, E527; okunamayınca `null`), süre, maliyet, hakemin yeniden inceleme sayısı; sonucun neye bağlanacağı (E313): `prompt_sha256`, `image_id`, `model`, `cli_version` ve `model_served` (dökümün `init` olayı), `seed_commit`, `spec_tohum_tree`, `rival_config`, `target_sha`, `timed_out`. Her başlatıcı başlangıcı ayrı bir `kind: intervention` satırıdır (argümanlar, imaj, prompt hash'i). `prompt_sha256` imajın kendisinin: kurulum imajı içindeki prompt'un sha256'sıyla etiketler (`snowball.prompt_sha256`), `--no-build` eski imajı koşturur, etiketsiz imajda `null`; çalışma kopyasınınki `checkout_prompt_sha256`; `context_sha256` imajın bütün kurulum dosyalarınınki (E506): kurulum imajı `snowball.context_sha256` ile de etiketler (`BUILD_FILES`'ın her dosyası, LF ile, sıralı `<yol>\0<sha256>\n` satırlarının sha256'sı), çalışma kopyasınınki `checkout_context_sha256`; ikisi farklıysa başlatıcı bunu söyler: yalnız prompt değil, değişmiş bir araç ya da yükleyici de görünür |
 | `cost-pending.jsonl` | henüz yazılamamış maliyet satırları (aşağıda) |
 | `reports-seen.json` | başlatıcının her beyin raporunu ilk gördüğü an: raporun yaşı |
+| `epoch-delivery.json` | yalnız bir tohum teslimi sürerken: `deliver_epoch.py`'nin o teslimde yaptıkları (`S`, `STOP`'u kendisi mi koydu, `kill_switch` commit'leri, `D`, hakem commit'i, doğrulama koşusu); teslim bitince silinir, duran teslim onunla sürer (E526) |
 | `STOP` | oluşturulursa başlatıcı o adımdan sonra durur |
 | `launcher.lock` | çalışan başlatıcının özel işletim sistemi kilidi (E505): klasörde aynı anda tek başlatıcı. Süreç nasıl biterse bitsin (çökme, öldürme, yeniden açılış) işletim sistemi bırakır; elle silinmez |
 | `RUNNING` | süren koşu (JSON, E505): seçenekleri (`--work`, `--cycles` ve `--resume` dışında), kalan döngü, push'suz oturum sayısı, başlangıç ve son güncelleme. Ön denetim geçince yazılır, her döngüden sonra güncellenir; koşu `STOP`'la, push'suz iki oturumla, zaman aşımıyla, girdiler yenilenemeyince, Ctrl+C ile ya da son döngüsüyle bitince silinir. Çökme, öldürme ya da yeniden açılış onu bırakır ve `--resume` o koşuyu sürdürür. Gizli bilgi yazılmaz |
@@ -154,6 +155,34 @@ yalnız açık imzalı girdilerden sayılardır. Operatör iki dosyayı commit'l
 Canlı beyne yeni tohum (`spec/tohum/**`) yalnız bu yolla girer (`spec/tohum/25` madde 10b); beyne tohum kodu
 (`seed/`) gitmez (E150, sahibin yetkisiyle operatör kararı, 2026-11-01). Hakemin imzalı durumu (donmuş spec'ler, ret serileri, açık iddialar, kanıtlanmış kusurlar, rakip artefaktları)
 dönemden aynen geçer. Aşağıda `S` `snowball-mcp`'nin teslim edilen commit'i, `D` beyne giden teslim commit'idir.
+
+**Tek komut** (E526). Aşağıdaki sekiz adımı `deliver_epoch.py` yapar; operatör yalnız `S`'yi seçer ve dönemin
+günlük satırını (1. adım) `S`'ye koyar:
+
+```
+python seed/founder/deliver_epoch.py S --dry-run      # S'yi çözer, CI'ını okur, planı yazar; hiçbir şey yazmaz
+python seed/founder/deliver_epoch.py S [--summary-edit edit.json] [--note "İçerik: ..."]
+```
+
+İlk uyuşmazlıkta durur (çıkış 2) ve neyin kaldığını söyler. Reddettikleri: `S` `main`'de değilse ya da `ci.yml`'ın
+`S`'deki son push koşusu tamamlanmış ve yeşil değilse (1); başlatıcının kilidi (`launcher.lock`) `--wait` içinde
+boşalmazsa, Kurucu'nun son push'unun (başlatıcının maliyet commit'leri ve önceki teslimler altta kalan) kararı yoksa
+ya da reddi hiçbir oturumun okumadığı bir retse (E385: bir döngünün oturumu o başta başlamış olmalı,
+`pilot-metrics.jsonl` `brain_before`) (2); `kill_switch` zaten açıksa ve onu bu araç açmadıysa (2); bir klonda
+izlenmeyen ya da yok sayılan bir dosya varsa (2026-11-02'de hakem klonundaki bir `__pycache__` kopyayla sahnelendi),
+sahnelenen bir girdi `S`'nin blob'u ve kipi değilse ya da sahnelenen diff'te bir CR baytı varsa (E242; baytlar `git
+archive`'dan, `core.autocrlf=false` ile, her biri `ls-tree`'nin blob'una karşı) (3, 4); `D`'nin `spec/tohum` ağacı
+`S`'ninki değilse ya da `D` başka bir yola dokunuyorsa (4); `seed-epoch` satırı `D`'yi adlandırmıyorsa,
+`setup/summary.json` ya da `control.json` aracın yeniden yazdığı biçimde (girinti 2, tek satır sonu) değilse, ya da
+`--summary-edit`'in bir alanı `from`'daki değerde değilse (5); imzalı sonuç `seed_update`/`noop`/`D` değilse (7).
+`--summary-edit` yalnız `targets[]` girdilerinin alanlarını değiştirir: `{"targets": {"copy": {"unit_candidates":
+{"from": [...], "to": [...]}}}}`. `seed-epoch` `S`'nin kendi `seed/bootstrap/`'ından (git nesnelerinden yazılır, bayt
+kodu bırakılmaz) koşar. Her adım ya zaten yapılmışsa atlanır ya da uyuşmazlıkta durur: aracın yaptığı
+`<work>/epoch-delivery.json`'dadır, duran bir teslim aynı `S` ile yeniden koşturulunca kaldığı yerden sürer (başka bir
+`S` reddedilir). `kill_switch` açılmadan duran bir koşu klasörü bulduğu gibi bırakır (koyduğu `STOP` kalkar); sonra
+duran koşu `STOP`'u ve `kill_switch`'i bırakır. `STOP`'u yalnız kendisi koyduysa kaldırır; başlatıcıyı başlatmaz.
+`snowball-founder.env`'i okumaz. GitHub'a yazımlar operatörün `gh` girişiyle gider (başlatıcınınki gibi git'in `gh`
+kimlik yardımcısı ve `gh workflow run`). Testler `tests/test_deliver_epoch.py`'dedir.
 
 1. **Kaynak.** `snowball-mcp` `main`'inde CI'ı yeşil bir commit seç (`S`). Dönemin tohum günlüğü satırı
    (`spec/tohum/CHANGELOG.md`) yanıtladığı ya da reddettiği Kurucu raporlarının kimliklerini adlandırır:

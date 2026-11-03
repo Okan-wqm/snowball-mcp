@@ -7,8 +7,9 @@ One cycle:
   4. if the brain moved, dispatch the referee (its schedule fires rarely and irregularly, E32) and wait for it;
   5. write the session's cost as a `kind: cost` founder row on the brain's main (`tohum/24a` 4), when that commit is
      memory alone to the referee; otherwise keep it in <work>/cost-pending.jsonl for a later cycle;
-  6. append what happened to <work>/pilot-log.md (with the brain's open reports and their age) and one metrics line
-     that names what the cycle ran on (prompt, image, model, CLI, seed, rival configuration, target commit).
+  6. append what happened to <work>/pilot-log.md (with the brain's open reports and their age, and apart those no
+     changelog of the brain's seed names, the operator's unanswered ones, E527) and one metrics line that names what
+     the cycle ran on (prompt, image, model, CLI, seed, rival configuration, target commit).
 
 Everything lives in one folder, <work> (the operator deletes it to remove the pilot):
   <work>/snowball-founder.env   the Founder's two secrets; written by the operator, never read by this script
@@ -352,6 +353,19 @@ def report_ages(reports: list[dict], seen: dict[str, str], ts: str) -> list[tupl
     return sorted(out, key=lambda item: (-item[1], item[0]))
 
 
+CHANGELOG_RE = re.compile(r"CHANGELOG[^/]*\.md")  # the seed's changelogs: spec/tohum/CHANGELOG.md, CHANGELOG-<n>.md
+
+
+def unanswered_reports(ages: list[tuple[str, int]], changelogs: list[str]) -> list[tuple[str, int]]:
+    """The open reports whose id no seed changelog names (E527): the operator answers a report in an epoch's changelog
+    row (`<id> → <page:lines>` or `declined: <id>`, E342), so one named nowhere was never answered or declined. A
+    whole-id match: `seed-040` is not named by `seed-0401` or `seed-040-x`. For the operator alone (pilot-log,
+    metrics)."""
+    text = "\n".join(changelogs)
+    return [(rid, age) for rid, age in ages
+            if not re.search(r"(?<![\w-])" + re.escape(rid) + r"(?![\w-])", text)]
+
+
 def write_build_context(ctx: Path) -> None:
     """Copy exactly the files the image needs, with LF line ends: a Windows checkout may hand over CRLF, and a CR
     after the entrypoint's shebang makes the container fail before it starts (E152)."""
@@ -518,21 +532,38 @@ class Pilot:
         except (ValueError, TypeError, KeyError):
             return None
 
-    REPORTS_QUERY = ("query($owner:String!,$name:String!,$expr:String!){repository(owner:$owner,name:$name){"
-                     "object(expression:$expr){... on Tree{entries{name object{... on Blob{text}}}}}}}")
+    TREE_QUERY = ("query($owner:String!,$name:String!,$expr:String!){repository(owner:$owner,name:$name){"
+                  "object(expression:$expr){... on Tree{entries{name object{... on Blob{text isTruncated}}}}}}}")
 
-    def open_reports(self, sha: str) -> list[dict] | None:
-        """The brain's root `reports/*.json` at sha, each `{file, id, state}`, in one read-only GraphQL call; None when
-        it cannot be read."""
+    def tree_blobs(self, expr: str) -> list[dict] | None:
+        """The entries of the brain's tree `<sha>:<path>`, each `{name, object: {text, isTruncated}}`, in one read-only
+        GraphQL call; [] for no such tree, None when it cannot be read."""
         owner, name = self.brain.split("/", 1)
-        proc = run("gh", "api", "graphql", "-f", f"query={self.REPORTS_QUERY}", "-f", f"owner={owner}", "-f",
-                   f"name={name}", "-f", f"expr={sha}:reports", check=False, timeout=120)
+        proc = run("gh", "api", "graphql", "-f", f"query={self.TREE_QUERY}", "-f", f"owner={owner}", "-f",
+                   f"name={name}", "-f", f"expr={expr}", check=False, timeout=120)
         try:
             tree = json.loads(proc.stdout)["data"]["repository"]["object"] if proc.returncode == 0 else None
         except (ValueError, TypeError, KeyError):
             return None
+        return list((tree or {}).get("entries") or []) if proc.returncode == 0 else None
+
+    def seed_changelogs(self, sha: str) -> list[str] | None:
+        """The texts of the brain's `spec/tohum/CHANGELOG*.md` at sha: the seed it holds (E527). None when they cannot
+        be read whole (a failed call, no changelog, a truncated or binary blob): unknown, never "unanswered"."""
+        entries = self.tree_blobs(f"{sha}:spec/tohum")
+        logs = [e.get("object") or {} for e in entries or [] if CHANGELOG_RE.fullmatch(str(e.get("name", "")))]
+        if not logs or any(o.get("isTruncated") or not isinstance(o.get("text"), str) for o in logs):
+            return None
+        return [o["text"] for o in logs]
+
+    def open_reports(self, sha: str) -> list[dict] | None:
+        """The brain's root `reports/*.json` at sha, each `{file, id, state}`, in one read-only GraphQL call; None when
+        it cannot be read."""
+        entries = self.tree_blobs(f"{sha}:reports")
+        if entries is None:
+            return None
         out = []
-        for entry in (tree or {}).get("entries") or []:
+        for entry in entries:
             if not str(entry.get("name", "")).endswith(".json"):
                 continue
             try:
@@ -545,7 +576,8 @@ class Pilot:
 
     def observe(self, head: str) -> dict:
         """What this cycle's outcome is attributed to, read after the session (E313): the brain's seed text and open
-        reports at head, and the target commit the capsule mounted."""
+        reports at head, which of them no changelog of the seed it holds names (E527), and the target commit the capsule
+        mounted."""
         reports = self.open_reports(head)
         seen_path = self.work / REPORTS_SEEN
         try:
@@ -554,8 +586,10 @@ class Pilot:
             seen = {}
         ages = report_ages(reports or [], seen, now())
         seen_path.write_text(json.dumps(seen, ensure_ascii=False, indent=1, sort_keys=True) + "\n", encoding="utf-8")
+        changelogs = self.seed_changelogs(head) if reports is not None else None
         return {"spec_tohum_tree": self.spec_tohum_tree(head), "target_sha": self.target_head(),
-                "reports_open": None if reports is None else ages}
+                "reports_open": None if reports is None else ages,
+                "reports_unanswered": None if changelogs is None else unanswered_reports(ages, changelogs)}
 
     def record_cost(self, stamp: str, sess: dict, head: str, last_accepted: str | None) -> str:
         """The session's cost row (`tohum/24a` 4), with any rows an earlier cycle had to keep; what happened, as a line
@@ -908,6 +942,14 @@ class Pilot:
         else:
             lines.append(f"- Açık raporlar ({len(seen['reports_open'])}, beyin `{after[:7]}`; yaş: başlatıcının ilk "
                          "görmesinden bu yana saat): " + ", ".join(f"`{rid}` {age} sa" for rid, age in seen["reports_open"]))
+        # E527: an open report no changelog of the brain's seed names was never answered nor declined: the operator's
+        # move (a seed epoch). Its own line, so it cannot hide among the open ones; nothing of it reaches the Founder.
+        if seen.get("reports_unanswered") is None:
+            lines.append("- CEVAPSIZ (operatör): okunamadı (raporlar ya da beyindeki `spec/tohum/CHANGELOG*.md`)")
+        else:
+            lines.append(f"- CEVAPSIZ (operatör) ({len(seen['reports_unanswered'])}; beyindeki tohumun hiçbir "
+                         "`spec/tohum/CHANGELOG*.md`'si adlandırmıyor, yanıt ya da `declined:` bekliyor): "
+                         + (", ".join(f"`{rid}` {age} sa" for rid, age in seen["reports_unanswered"]) or "yok"))
         if dispatched is not None:
             lines.append(f"- Hakem koşusu: {dispatched['conclusion']} {dispatched['url']}"
                          + (f" (aynı commit {retries} kez yeniden incelendi)" if retries else ""))
@@ -944,6 +986,8 @@ class Pilot:
                              if (verdict or {}).get("rival") else None),
             "timed_out": bool(sess.get("timed_out")), "cost_row": cost,
             "reports_open": None if seen["reports_open"] is None else len(seen["reports_open"]),
+            "reports_unanswered": (None if seen.get("reports_unanswered") is None
+                                   else len(seen["reports_unanswered"])),
             "reports_new": [r.get("payload", {}).get("summary", "")[:120] for r in new_rows
                             if r.get("kind") in REPORT_KINDS],
         })
