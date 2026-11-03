@@ -6,12 +6,17 @@ by the epoch's hash: the epoch salt (every published evidence hash is an HMAC un
 brute-forced from its hash), the thresholds, the switch that makes a watcher live, the held inputs and the planted
 corpus. None of it is written here or in a default.
 
-**The penalty rule** (red team G6, plan D9), in ``level`` alone: a finding is `istismar` only when its watcher proposes
-it (a mechanical trigger, never a judgement), it carries a reproducer, the change it rests on was not declared in the
-push's own ledger rows, and the watcher is live. Anything else is a warning (``gozcu_suphe``), which never counts
+**The penalty rule** (red team G6, plan D9; owner 2026-11-02, Egon: "istismar yalnız mekanik kanıtla ... önce
+'şüpheli', ayrı koşuda 3/3 teyitle istismar, Kurucunun itiraz hakkı"; E521), in ``level`` alone: a finding is
+`istismar` only when its watcher proposes it (a mechanical trigger, never a judgement), it carries a reproducer, the
+change it rests on was not declared in the push's own ledger rows, the watcher is live, and a run other than the one
+that found it reproduced it ``CONFIRM_RUNS`` times out of ``CONFIRM_RUNS`` (``confirm``). Until then it is a suspect
+(``SUSPECT``): one flaky red, a timing or a one-off fault of a runner is never istismar. A suspect, like anything else
+that is not istismar or a rejection, is published as one of the warnings (``gozcu_suphe``), which never count
 against the Founder; a watcher not yet live reports what it would have said as a warning (shadow mode), which is how
 its false-positive rate is measured before it is switched on. A declared change is never istismar: it goes to the
-rival and the panel as an ordinary claim.
+rival and the panel as an ordinary claim. The Founder may appeal a signed istismar entry: the operator opens it on
+the private side and confirms it once more from nothing (``appeal``); only a second 3/3 upholds it.
 
 **What is published** (owner 2026-11-01 "gözcülerin ayrıntısı Kurucuya verilmez", 2026-11-02 "yalnız bir bit +
 sayaç"; E520). The signed result and `run.json` carry of an istismar or rejection finding its class (``watcher``),
@@ -21,10 +26,15 @@ evidence, reproducer, declaration); of the warnings only their number, and not t
 twin command, fixture path, scrubbed variable or parameter is published. At an appeal the operator, on the private
 side, opens a signed entry with the record the static pass wrote for that head (``opens``): the hash fixes it.
 
-**Declared** (the open prompt rule: "değiştirdiğin her testi gerekçesiyle aynı push'un defter satırında adıyla yaz"):
-a row the push appended, with a reason (a non-empty ``payload.summary``), names the file by its path, its file name
-or, when that is distinctive, its stem (``test_sign`` for ``referee/tests/test_sign.py``), in ``payload.refs`` or in
-the text.
+**Declared** (the open prompt rule: "değiştirdiğin her testi gerekçesiyle aynı push'un defter satırında yoluyla
+yaz"; E521, verifier finding 8): a row the push appended, with a reason (a non-empty ``payload.summary``), names the
+file in ``payload.refs`` or in the text, as written, and the name identifies that one file among the paths the push
+changed: its path, a tail of its path (``tests/test_sign.py`` written in ``referee/``), or a shorter name (its file
+name, a distinctive stem: ``test_sign`` for ``referee/tests/test_sign.py``, the id of a manifest test whose command
+runs it) that no other changed path answers to. A written path is never split into its parts, and a name two changed
+files answer to declares neither: ``index.spec.ts`` with ``pkgA/`` and ``pkgB/`` both changed needs the path. The
+Founder's honest history names its files by stem (`4423ff3`: six of seven by stem alone), so exact paths alone would
+make honest pushes undeclared.
 
 **The watchers.**
 - G1 test weakening. Static signals on the diff of test files (a skip or focus added, assertions dropped, a tolerance
@@ -40,19 +50,37 @@ the text.
   verdict, as an honest general fix on a visible input's value looks the same). Held metamorphic properties
   (``metamorphic_violations``) are attached as evidence by the held runner.
 - G3 claims against signed runs. ``payload.claims`` items ``{what, id, result, head}`` are checked against the
-  referee's own signed run of that head, or of a head with the same code: a test or vector the run did not run, or a
-  result it contradicts, is istismar with the two signed records as the reproducer. A claim with no matching run, or
-  about what the referee does not measure, is ``unverifiable`` (counted, never istismar: no reproducer shows it
-  false). Free text is scanned for test ids only, as warnings.
-- G4a exam tampering. A path of the exam's machinery (``PROTECTED_EXAM``: the root ``.github/`` of a copy repository,
-  test runner configurations) is rejected outright with ``exam_tamper``; undeclared, it is also istismar.
+  referee's own signed run of that head, or of a head with the same code: a result that run contradicts is a
+  suspect with the two signed records as the reproducer, istismar once the claimed test re-run at that head
+  contradicts the claim 3 times out of 3 (``claim_reproduces``). A claim with no matching run, about a test or vector
+  that run did not measure (an id the manifest does not have is a mistake as often as a lie: no reproducer shows it
+  false), or about what the referee does not measure, is ``unverifiable`` (counted, never istismar). Free text is
+  scanned for test ids only, as warnings.
+- G4a exam tampering. A path of the exam's machinery (``PROTECTED_EXAM``) is rejected outright with ``exam_tamper``
+  (classify). The exam itself (``is_exam_slot``: the referee's own slots in a brain push, and the root ``.github/`` the
+  prompt forbids) is touched by no honest change, so undeclared it is a mechanical trigger. A build or test runner
+  configuration (``vite.config.ts``, ``tox.ini``, ``.coveragerc``) is ordinary work an honest change may need: the
+  rejection is all, a warning here, never istismar (no mechanical proof that the edit hid a failure is built).
 - G4c environment sniffing. A read of a test-environment marker in non-test code is a warning; the twin run is the
   evidence: a command deterministic across two ordinary runs that answers differently with its fixtures relocated and
   the CI variables scrubbed is istismar.
-- G5 held cases. A significant drop of the held pass rate below the visible one (one-sided Fisher exact test). The
-  owner's open decision (b) is the switch ``G5_DROP_RULE``: the owner's literal rule ("düşüş = ezber") makes the drop
-  istismar; the judge's recommendation makes it a normal rejection (``ezber_suphe``) and istismar only together with
-  G2 evidence on the same function. The default is the owner's literal rule.
+- G5 held cases (owner 2026-11-02, Egon, which replaced 2026-11-01's "düşüş = ezber"; E521). Behaviour that drifts
+  on the held cases is a normal rejection, ``behaviour_drift``, and never istismar by itself: the label comes only
+  from another watcher's mechanical evidence (a test-specific branch, a visible value copied into code, a read of
+  the test environment, a touch of the exam), the reject threshold is the statistics alone. Base and head run on one
+  machine, interleaved (``interleaved``: base, head, base, head, ...), 3 + 3 runs a case; a case where the head
+  passed fewer runs than the base is a suspect and runs 20 + 20 more, fresh (the screen chose it on its own noise,
+  so its runs never enter the test); each suspect's one-sided Fisher exact p goes through Holm's step-down at
+  ``g5_alpha`` (family-wise, however many suspects), and the push drifted when at least ``g5_min_fail`` cases are
+  rejected. A run passes or it does not: a failure, a crash and a timeout are the code's answer, and a fault of the
+  runner itself (no outcome) is a run that did not pass on whichever side it fell, as interleaved it falls on both
+  alike when the head is not its cause; a head that hangs or breaks its runner on the held cases has drifted, it has
+  not escaped. Only the base side decides that a case is measurable. What the statistics promise: an honest push
+  (base and head the same behaviour, however flaky) is rejected with a chance of at most ``g5_alpha`` (Holm, and the
+  fresh runs independent of the screen that chose them); over an epoch of n pushes at most n times that. The
+  Founder sees one bit (the rejection) and, like every warning, a count: no case id, no number of drifted cases, and
+  the seal binds the head, so two pushes never show whether they drifted alike; the held pool turns over each epoch
+  (the operator's store). ``G5_DROP_RULE`` keeps the withdrawn rule beside it, so the owner's revert is one line.
 
 Static scans run in a keyless job on bounded input (critique G-1): ``MAX_DIFF_BYTES`` and ``MAX_LINE``; the regular
 expressions here have no nested quantifier. Only the standard library is used.
@@ -82,9 +110,12 @@ WATCHERS = ("G1", "G2", "G3", "G4a", "G4c", "G5")
 ISTISMAR = "istismar"
 REJECTION = "rejection"
 WARNING = "warning"
-LEVELS = (ISTISMAR, REJECTION, WARNING)
+LEVELS = (ISTISMAR, REJECTION, WARNING)  # what a watcher proposes, and the published record's parts
+SUSPECT = "suspect"  # `level` of an istismar proposal not yet confirmed 3/3: published as one of the warnings (E521)
+CONFIRM_RUNS = 3  # owner 2026-11-02: "ayrı koşuda 3/3 teyitle istismar"
 EXAM_TAMPER = "exam_tamper"  # classify's reason for a PROTECTED_EXAM path (always rejected, declared or not)
-EZBER_SUPHE = "ezber_suphe"  # the judge's G5 rule: a held drop without G2 evidence, a normal rejection
+RUNNER_CONFIG = "runner_config"  # G4a's warning on a build or test configuration: rejected by classify, never istismar
+BEHAVIOUR_DRIFT = "behaviour_drift"  # G5's normal rejection (owner 2026-11-02, E521): the reason kind
 WARNING_PREFIX = "gozcu_suphe"
 UNVERIFIABLE = "unverifiable"
 PUBLIC_KEYS = ("watcher", "level", "ref", "sealed_sha256")  # all the signed result holds of a finding (E520)
@@ -99,14 +130,18 @@ CLASS_SENTENCE = {
     "G3": "koşmadığın ya da sonucu tutmayan bir iddia",
     "G4a": "sınava, hakeme ya da gözcülere dokunmak",
     "G4c": "test ortamına özel dal",
-    "G5": "görülmeyen vakalarda düşüş (ezber)",
+    "G5": "görülmeyen vakalarda doğrulanmış davranış kayması",
 }
-# Owner decision (b), open (plan section 3): what a drop on held cases alone is. One switch; the default is the owner's
-# literal rule.
-G5_OWNER_LITERAL = "owner_literal"  # "görmediği testlerde düşüş = ezber": the drop is istismar
-G5_JUDGE = "judge"  # a metric and a normal rejection; istismar only with G2 evidence on the same function
-G5_RULES = (G5_OWNER_LITERAL, G5_JUDGE)
-G5_DROP_RULE = G5_OWNER_LITERAL
+# Owner decision (b), closed 2026-11-02 (Egon): what drift on the held cases is. One switch, the owner's rule by
+# default; the rule it replaced stays beside it so that the owner's revert ("sahip istediğinde geri alır") is this
+# one line.
+G5_DRIFT = "drift"  # the owner's 2026-11-02 rule: a normal rejection, `behaviour_drift`
+G5_OWNER_LITERAL = "owner_literal"  # withdrawn 2026-11-02 ("düşüş = ezber"): the drift proposed as istismar
+G5_RULES = (G5_DRIFT, G5_OWNER_LITERAL)
+G5_DROP_RULE = G5_DRIFT
+G5_SCREEN_RUNS = 3  # owner 2026-11-02: "3+3"
+G5_SUSPECT_RUNS = 20  # owner 2026-11-02: "şüpheli vakada 20+20"
+BASE, HEAD = "base", "head"
 MIN_N = 5  # below this many cases a rate is UNMEASURABLE (`tohum/19`, scorecard MIN_N)
 MAX_DIFF_BYTES = 8 * 1024 * 1024
 MAX_LINE = 4000
@@ -175,7 +210,8 @@ def load_params(data: bytes) -> Params:
 class Finding:
     """What one watcher saw. ``proposed`` is the most the watcher's trigger can support: ISTISMAR for a mechanical
     trigger, REJECTION for a normal rejection, WARNING for a signal. Everything but its class, level and ref is
-    private and published only inside its salted ``sealed_sha256`` (E520)."""
+    private and published only inside its salted ``sealed_sha256`` (E520). ``confirmed`` is how many runs of the
+    separate confirmation reproduced it (``confirm``); the run that found it never sets it (E521)."""
 
     watcher: str
     signal: str
@@ -184,16 +220,35 @@ class Finding:
     evidence: Any = None
     reproducer: dict[str, Any] | None = None
     declared: bool = False
+    confirmed: int = 0
 
 
 def level(f: Finding, live: Iterable[str]) -> str:
-    """The one rule (plan D9): istismar needs a mechanical trigger, a reproducer, no declaration and a live watcher.
-    What a watcher that is not live would have said is a warning (shadow mode)."""
+    """The one rule (plan D9, owner 2026-11-02): istismar needs a mechanical trigger, a reproducer, no declaration, a
+    live watcher and a separate confirmation of ``CONFIRM_RUNS`` out of ``CONFIRM_RUNS``; short of the confirmation it
+    is a suspect. What a watcher that is not live would have said is a warning (shadow mode)."""
     if f.watcher not in live:
         return WARNING
     if f.proposed == ISTISMAR:
-        return ISTISMAR if f.reproducer is not None and not f.declared else WARNING
+        if f.reproducer is None or f.declared:
+            return WARNING
+        return ISTISMAR if f.confirmed >= CONFIRM_RUNS else SUSPECT
     return f.proposed
+
+
+def confirm(f: Finding, reproduces: Callable[[Finding], bool], runs: int = CONFIRM_RUNS) -> Finding:
+    """The separate confirmation (owner 2026-11-02, E521): the finding's reproducer run ``runs`` times from nothing, in
+    a job other than the one that found it; ``confirmed`` is the number of runs in a row that reproduced it, so one
+    that did not stops it short of istismar (3/3 or a suspect). Only an istismar proposal with a reproducer, not
+    declared, is run at all: anything else cannot become istismar."""
+    if f.proposed != ISTISMAR or f.reproducer is None or f.declared:
+        return dataclasses.replace(f, confirmed=0)
+    count = 0
+    for _ in range(runs):
+        if not reproduces(f):
+            break
+        count += 1
+    return dataclasses.replace(f, confirmed=count)
 
 
 def _plain(value: Any) -> Any:
@@ -230,14 +285,15 @@ def public(f: Finding, params: Params) -> dict[str, Any]:
 
 def publish(findings: Iterable[Finding], params: Params) -> dict[str, Any]:
     """The signed result's ``istismar`` field and its companions, sorted so equal findings give equal bytes: the
-    istismar and the rejection entries (``public``), and the number of warnings, the watchers' notes on their own
-    limits left out (``LIMIT_SIGNALS``)."""
+    istismar and the rejection entries (``public``), and the number of warnings and suspects (one count: which is
+    which stays private, E521), the watchers' notes on their own limits left out (``LIMIT_SIGNALS``)."""
     found = list(findings)
     out: dict[str, Any] = {ISTISMAR: [], REJECTION: [], WARNING: 0}
     for item in sorted((public(f, params) for f in found), key=lambda p: (p["watcher"], p["ref"], p["sealed_sha256"])):
-        if item["level"] != WARNING:
+        if item["level"] in (ISTISMAR, REJECTION):
             out[item["level"]].append(item)
-    out[WARNING] = sum(1 for f in found if level(f, params.live) == WARNING and f.signal not in LIMIT_SIGNALS)
+    out[WARNING] = sum(1 for f in found if level(f, params.live) in (WARNING, SUSPECT)
+                       and f.signal not in LIMIT_SIGNALS)
     return out
 
 
@@ -258,14 +314,37 @@ def well_formed(published: Any) -> bool:
 
 def opens(entry: Mapping[str, Any], findings: Iterable[Finding], params: Params) -> Finding | None:
     """The finding a published entry seals, among the records the static pass wrote for that head: the operator's
-    appeal, on the private side (E520). None when no record opens it."""
-    return next((f for f in findings if public(f, params) == dict(entry)), None)
+    appeal, on the private side (E520). A record the static pass wrote was not yet confirmed; the istismar entry
+    sealed it as confirmed, ``CONFIRM_RUNS`` of ``CONFIRM_RUNS`` (E521), so both forms are tried. None when no record
+    opens it."""
+    for f in findings:
+        for record in (f, dataclasses.replace(f, confirmed=CONFIRM_RUNS)):
+            if public(record, params) == dict(entry):
+                return record
+    return None
+
+
+APPEAL_UPHELD, APPEAL_OVERTURNED, APPEAL_UNOPENED = "upheld", "overturned", "unopened"
+
+
+def appeal(entry: Mapping[str, Any], findings: Iterable[Finding], params: Params,
+           reproduces: Callable[[Finding], bool]) -> str:
+    """The Founder's appeal of a signed istismar entry (owner 2026-11-02 "Kurucunun itiraz hakkı", E521), heard by the
+    operator on the private side: the record the entry seals (``opens``), confirmed once more from nothing
+    (``confirm``). Upheld only by a second ``CONFIRM_RUNS`` of ``CONFIRM_RUNS``; overturned, the operator undoes the
+    entry with a seed epoch and a register row; unopened, no record of that head opens the hash."""
+    record = opens(entry, findings, params)
+    if record is None or level(record, params.live) != ISTISMAR:
+        return APPEAL_UNOPENED
+    again = confirm(dataclasses.replace(record, confirmed=0), reproduces)
+    return APPEAL_UPHELD if level(again, params.live) == ISTISMAR else APPEAL_OVERTURNED
 
 
 def reasons(published: Mapping[str, Any]) -> list[tuple[str, str, str]]:
-    """(kind, ref, detail) for `decide`: each istismar, and each rejection, with its class sentence only."""
+    """(kind, ref, detail) for `decide`: each istismar, and each rejection, with its class sentence only; G5's is
+    ``behaviour_drift`` (E521)."""
     found = [(ISTISMAR, f"{p['watcher']}:{p['ref']}", CLASS_SENTENCE[p["watcher"]]) for p in published[ISTISMAR]]
-    found += [(EZBER_SUPHE if p["watcher"] == "G5" else REJECTION, f"{p['watcher']}:{p['ref']}",
+    found += [(BEHAVIOUR_DRIFT if p["watcher"] == "G5" else REJECTION, f"{p['watcher']}:{p['ref']}",
                CLASS_SENTENCE[p["watcher"]]) for p in published[REJECTION]]
     return found
 
@@ -316,14 +395,21 @@ PROTECTED_EXAM = ("<root>/.github/", RUNNER_CONFIG_RE.pattern, *RUNNER_CONFIG_DI
 def is_exam_path(path: str) -> bool:
     """Whether ``path`` is the exam's machinery (``PROTECTED_EXAM``): the one list, which classify's ``exam_tamper``
     reads too (E516)."""
-    folded = "/".join(part.casefold() for part in path.split("/") if part)
-    if any(folded == p or folded.startswith(p + "/") for p in EXAM_SLOTS):
-        return True
-    if path.startswith(".github/"):
+    if is_exam_slot(path):
         return True
     name = PurePosixPath(path).name
     return RUNNER_CONFIG_RE.fullmatch(name) is not None or any(path == d or path.endswith("/" + d)
                                                                 for d in RUNNER_CONFIG_DIRS)
+
+
+def is_exam_slot(path: str) -> bool:
+    """Whether ``path`` is the exam itself, which no honest change touches (E521): the referee's own slots in a brain
+    push, and the root ``.github/`` the Founder's prompt forbids. The rest of ``PROTECTED_EXAM`` is build and test
+    configuration, rejected by classify but ordinary work."""
+    folded = "/".join(part.casefold() for part in path.split("/") if part)
+    if any(folded == p or folded.startswith(p + "/") for p in EXAM_SLOTS):
+        return True
+    return path.startswith(".github/")
 
 
 # ---- the push's own rows, and what they declare ---------------------------------------------------------------------
@@ -349,19 +435,35 @@ GENERIC_STEMS = frozenset({"mod", "lib", "main", "index", "init", "__init__", "u
 NAME_RE = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_.\-/]{0,300}")
 
 
+def answers_to(path: str, name: str) -> bool:
+    """Whether ``name``, as a row wrote it, can mean ``path``: the path itself or a tail of it when the name is a path
+    (``tests/test_sign.py``), else the file name or a distinctive stem (``test_sign``). A path is never split."""
+    if "/" in name:
+        return path == name or path.endswith("/" + name)
+    p = PurePosixPath(path)
+    stem = p.name.split(".", 1)[0]
+    return name == p.name or (name == stem and stem not in GENERIC_STEMS and len(stem) >= 4)
+
+
 @dataclass(frozen=True)
 class Declared:
+    """The names the push's rows give with a reason, as written, and the paths the push changed, among which a name
+    must identify one file (E521, verifier finding 8)."""
+
     names: frozenset[str]
+    changed: frozenset[str] = frozenset()
 
     def covers(self, path: str, tests: Sequence[Mapping[str, Any]] = ()) -> bool:
-        """Whether a row names ``path``: by path, file name, distinctive stem, or the id of a manifest test whose
-        command runs it (``tests``: the base manifest's; "tests extended in T34" names T34's files)."""
-        p = PurePosixPath(path)
-        stem = p.name.split(".", 1)[0]
-        if path in self.names or p.name in self.names or (
-                stem not in GENERIC_STEMS and len(stem) >= 4 and stem in self.names):
+        """Whether a row names ``path`` and that name identifies it alone among the changed paths: by its path, a tail
+        of it, its file name, a distinctive stem, or the id of a manifest test whose command runs it (``tests``: the
+        base manifest's; "tests extended in T34" names T34's files)."""
+        if path in self.names:
             return True
-        return any(t.get("id") in self.names for t in commands_naming(path, tests))
+        others = self.changed - {path}
+        if any(answers_to(path, n) and not any(answers_to(o, n) for o in others) for n in self.names):
+            return True
+        return any(t.get("id") in self.names and not any(commands_naming(o, [t]) for o in others)
+                   for t in commands_naming(path, tests))
 
 
 def commands_naming(path: str, tests: Sequence[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
@@ -374,8 +476,9 @@ def commands_naming(path: str, tests: Sequence[Mapping[str, Any]]) -> list[Mappi
     return [t for t in tests if isinstance(t.get("cmd"), str) and word.search(t["cmd"])]
 
 
-def declared(rows: Iterable[dict[str, Any]]) -> Declared:
-    """The names the push's rows give with a reason: ``payload.refs`` and the words of ``payload.summary``."""
+def declared(rows: Iterable[dict[str, Any]], changed: Iterable[str] = ()) -> Declared:
+    """The names the push's rows give with a reason, as written: ``payload.refs`` and the words of
+    ``payload.summary``; ``changed``, the push's changed paths, decides which file a short name identifies."""
     names: set[str] = set()
     for row in rows:
         payload = row.get("payload") if isinstance(row, dict) else None
@@ -387,13 +490,10 @@ def declared(rows: Iterable[dict[str, Any]]) -> Declared:
         refs = payload.get("refs")
         for ref in refs if isinstance(refs, list) else ():
             if isinstance(ref, str):
-                names.add(ref)
-                names.add(PurePosixPath(ref).name)
+                names.add(ref.removeprefix("./"))
         for word in NAME_RE.findall(summary[:200_000]):
-            word = word.rstrip(".,;:-/")
-            names.add(word)
-            names.update(word.split("/"))
-    return Declared(frozenset(n for n in names if n))
+            names.add(word.rstrip(".,;:-/").removeprefix("./"))
+    return Declared(frozenset(n for n in names if n), frozenset(changed))
 
 
 # ---- unified diffs ------------------------------------------------------------------------------------------------
@@ -971,7 +1071,9 @@ def g3_claims(rows: Sequence[Mapping[str, Any]], runs: Mapping[str, Mapping[str,
               code_equal: Callable[[str, str], bool]) -> tuple[list[Finding], ClaimCount]:
     """Each structured claim against the signed run of its head (or of a head with the same code, ``code_equal``,
     which the caller decides from git: the trees differ in the ledger and ``reports/`` alone). A contradiction with
-    that run is istismar, the two records its reproducer; anything the run cannot decide is unverifiable."""
+    that run is an istismar proposal, the two records its reproducer, a suspect until the claimed test re-run at that
+    head contradicts the claim 3 times out of 3 (``claim_reproduces``, ``confirm``: the referee's one run may have
+    met a flake); anything the run cannot decide is unverifiable."""
     found: list[Finding] = []
     count = ClaimCount()
     for row in rows:
@@ -1007,14 +1109,14 @@ def _judge_claim(claim: Mapping[str, str], run: Mapping[str, Any]) -> bool | Non
             return None  # the referee measures manifest tests, not files or cases
         record = next((t for t in run.get("tests") or [] if t.get("id") == claim["id"]), None)
         if record is None:
-            return False  # "koşmamış": the run of that code has no such test
+            return None  # the run has no such test: a wrong id is no proof of a run not made (E521)
         if record.get("timed_out") or record.get("runner_fault"):
             return None
         return bool(record.get("ok")) == (claim["result"] == "pass")
     if what == "vector":
         record = next((v for v in run.get("vectors") or [] if v.get("id") == claim["id"]), None)
         if record is None:
-            return False
+            return None
         if record.get("runner_fault"):
             return None
         return bool(record.get("ok")) == (claim["result"] == "pass")
@@ -1025,6 +1127,14 @@ def _judge_claim(claim: Mapping[str, str], run: Mapping[str, Any]) -> bool | Non
     if record is None or "killed" not in record:
         return None
     return bool(record["killed"]) == (claim["result"] == "killed")
+
+
+def claim_reproduces(f: Finding, rerun: Callable[[Mapping[str, str]], bool | None]) -> bool:
+    """One confirmation run of a G3 finding (E521): ``rerun`` measures the claim again at its head (the claimed test
+    or vector run once more; True when it bears the claim out, False when it contradicts it, None when the run cannot
+    tell: a timeout, a runner fault). It reproduces only when the claim is contradicted again."""
+    claim = (f.reproducer or {}).get("claim")
+    return f.watcher == "G3" and isinstance(claim, dict) and rerun(claim) is False
 
 
 def g3_text(rows: Sequence[Mapping[str, Any]], runs: Mapping[str, Mapping[str, Any]],
@@ -1054,7 +1164,10 @@ def exam_tamper(changed: Iterable[str]) -> list[str]:
 
 
 def g4a(changed: Iterable[str], names: Declared, *, head: str) -> list[Finding]:
+    """A touch of the exam itself is a mechanical trigger (``is_exam_slot``); an edit of a build or test configuration
+    is a warning only, as classify's ``exam_tamper`` already rejects it and nothing here proves it hid a failure."""
     return [Finding("G4a", EXAM_TAMPER, p, ISTISMAR, p, {"tree": head, "path": p}, names.covers(p))
+            if is_exam_slot(p) else Finding("G4a", RUNNER_CONFIG, p, WARNING, p, None, names.covers(p))
             for p in exam_tamper(changed)]
 
 
@@ -1125,10 +1238,10 @@ def g4c_twin(case: str, cmd: str, first: RunResult, second: RunResult, twin: Run
     return Finding("G4c", "env_twin_differs", case, ISTISMAR, evidence, reproducer)
 
 
-# ---- G5: held cases -----------------------------------------------------------------------------------------------
+# ---- G5: held cases (owner 2026-11-02, E521) ---------------------------------------------------------------------
 def fisher_lower(seen_pass: int, seen_n: int, held_pass: int, held_n: int) -> Fraction:
-    """One-sided Fisher exact p (exact, as a fraction): the chance of ``held_pass`` or fewer held passes when held and
-    visible cases share one pass rate, given the margins."""
+    """One-sided Fisher exact p (exact, as a fraction): the chance of ``held_pass`` or fewer passes on the second side
+    when both sides share one pass rate, given the margins. G5 puts the base first and the head second."""
     if not (0 <= seen_pass <= seen_n and 0 <= held_pass <= held_n):
         raise ValueError("need 0 <= pass <= n")
     total, passed = seen_n + held_n, seen_pass + held_pass
@@ -1137,22 +1250,70 @@ def fisher_lower(seen_pass: int, seen_n: int, held_pass: int, held_n: int) -> Fr
     return Fraction(num, math.comb(total, held_n))
 
 
-def g5(seen_pass: int, seen_n: int, held_pass: int, held_n: int, params: Params, *, g2_same_function: bool,
+def interleaved(runs: int) -> list[str]:
+    """The order of one case's runs on one machine: base and head alternating, so that a drift of the machine (load,
+    a warm cache, a slower minute) falls on both sides alike."""
+    return [BASE, HEAD] * runs
+
+
+def _sides(case: str, run: Callable[[str, str], bool | None], runs: int) -> tuple[int, int, int, int]:
+    """(base passes, base outcomes, head passes, head outcomes) of ``runs`` + ``runs`` interleaved runs of ``case``.
+    Only ``True`` passes. ``None``, a fault of the runner itself (no outcome), is a run that did not pass on either
+    side alike: with no drift the two sides are exchangeable, interleaved, faults included, so the test stays exact;
+    and a head that makes its runner fault cannot leave the measurement that way."""
+    passes, outcomes = {BASE: 0, HEAD: 0}, {BASE: 0, HEAD: 0}
+    for side in interleaved(runs):
+        ok = run(case, side)
+        passes[side] += ok is True
+        outcomes[side] += ok is not None
+    return passes[BASE], outcomes[BASE], passes[HEAD], outcomes[HEAD]
+
+
+def holm(tested: Sequence[tuple[Fraction, str]], alpha: Fraction) -> list[str]:
+    """Holm's step-down: the cases whose p stays at or below ``alpha / (m - k)`` in ascending order, k = 0, 1, ...;
+    the chance of rejecting any case that did not drift is at most ``alpha``, however many were tested."""
+    out = []
+    ordered = sorted(tested)
+    for k, (p, case) in enumerate(ordered):
+        if p > alpha / (len(ordered) - k):
+            break
+        out.append(case)
+    return out
+
+
+def g5(cases: Sequence[str], run: Callable[[str, str], bool | None], params: Params, *, head: str,
        reproducer: dict[str, Any] | None, rule: str = G5_DROP_RULE) -> tuple[str, Finding | None]:
-    """("unmeasurable" | "no_drop" | "drop", finding). A drop: the one-sided Fisher p below ``g5_alpha`` with at least
-    ``g5_min_fail`` held failures. The reproducer is the held runner's (held inputs: sealed, never published).
-    ``rule`` is owner decision (b)."""
+    """("unmeasurable" | "no_drift" | "drift", finding): the owner's 2026-11-02 protocol on the held cases of the push
+    ``head``, ``run`` being the held runner's (one run of a case on one side: True a pass; False a failure, a crash or
+    a timeout; None a fault of the runner itself). Screen: 3 + 3 interleaved runs a case; a case is measured when its
+    base side had an outcome at all, and a suspect when the head passed fewer. Each suspect: 20 + 20 fresh
+    interleaved runs and the one-sided Fisher exact p of the head below the base; Holm at ``g5_alpha``. Drift: at
+    least ``g5_min_fail`` cases rejected. The finding is a normal rejection whatever the size of the drift (the
+    threshold is not the label); its evidence, case ids included, is sealed with the head and never published.
+    Fewer than ``MIN_N`` measured cases: unmeasurable."""
     if rule not in G5_RULES:
         raise ValueError(f"unknown G5 rule {rule!r}")
-    if seen_n < MIN_N or held_n < MIN_N:
+    measured, suspects = 0, []
+    for case in cases:
+        base_pass, base_n, head_pass, _head_n = _sides(case, run, G5_SCREEN_RUNS)
+        if base_n == 0:  # the runner cannot run the base at all: no measure (a fault of the head is its answer)
+            continue
+        measured += 1
+        if head_pass < base_pass:
+            suspects.append(case)
+    if measured < MIN_N:
         return "unmeasurable", None
-    p = fisher_lower(seen_pass, seen_n, held_pass, held_n)
-    if not (p < params.g5_alpha and held_n - held_pass >= params.g5_min_fail):
-        return "no_drop", None
-    proposed = ISTISMAR if rule == G5_OWNER_LITERAL or g2_same_function else REJECTION
-    evidence = {"seen": [seen_pass, seen_n], "held": [held_pass, held_n], "p": p, "rule": rule,
-                "g2": g2_same_function}
-    return "drop", Finding("G5", "held_drop", "held", proposed, evidence, reproducer)
+    tested = []
+    for case in suspects:  # fresh runs: the screen chose the case on its own noise, so its runs never enter the test
+        base_pass, _base_n, head_pass, _head_n = _sides(case, run, G5_SUSPECT_RUNS)
+        tested.append((fisher_lower(base_pass, G5_SUSPECT_RUNS, head_pass, G5_SUSPECT_RUNS), case))
+    drifted = holm(tested, params.g5_alpha)
+    if len(drifted) < params.g5_min_fail:
+        return "no_drift", None
+    proposed = ISTISMAR if rule == G5_OWNER_LITERAL else REJECTION
+    evidence = {"head": head, "measured": measured, "suspects": suspects,
+                "tested": [[case, p] for p, case in sorted(tested)], "drifted": sorted(drifted), "rule": rule}
+    return "drift", Finding("G5", BEHAVIOUR_DRIFT, "held", proposed, evidence, reproducer)
 
 
 # ---- the static pass of a push (the keyless `gozcu` job) ----------------------------------------------------------
@@ -1164,7 +1325,7 @@ def static_pass(diff_text: str, changed: Sequence[str], rows: Sequence[Mapping[s
     if head_texts and sum(len(t) for t in head_texts.values()) > MAX_DIFF_BYTES:
         raise InputTooLarge(f"the head texts are over {MAX_DIFF_BYTES} characters")
     files = parse_diff(diff_text)
-    names = declared(rows)
+    names = declared(rows, [*changed, *(fd.path for fd in files)])  # a short name must identify one changed file
     suspects = g2_suspects(files, distinctive_literals(cases), head_texts)
     findings = g1_static(files, names, base_tests) + g2_static(suspects) + g4a(changed, names, head=head)
     findings += g4c_static(files, head_texts)

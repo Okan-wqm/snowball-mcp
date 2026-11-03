@@ -306,14 +306,25 @@ gerekçeler:
 |---|---|---|
 | `answers_unavailable` | Kurucu'nun değil | Sınav pinde okunamadı ya da gözcü parametreleri yok: hiçbir vektör yargılanmaz, baş yeniden denenir. `control.json` `exam_faults` onu adlandıramaz |
 | `exam_tamper:<yol>` | Kurucu'nun | Sınavın düzeneği (`watchers.PROTECTED_EXAM`: `referee/` altında hakemin kendi yerleri, kökteki `.github/`, test koşucularının yapılandırmaları): doğrudan ret |
-| `istismar` | Kurucu'nun | Gözcünün mekanik, yeniden üretimli, bildirilmemiş bulgusu ve gözcü canlı; `exam_faults` onu adlandıramaz, yanlış pozitifi yalnız kayıt satırlı bir tohum dönemi geri alır |
-| `ezber_suphe` | Kurucu'nun | Yalnız yargıcın G5 önerisi seçiliyse: gizli vakalarda tek başına düşüş, normal ret |
+| `istismar` | Kurucu'nun | Gözcünün mekanik, yeniden üretimli, bildirilmemiş bulgusu, gözcü canlı ve ayrı bir koşu onu 3/3 yeniden üretti (`watchers.confirm`, E521); öncesi şüphelidir, uyarı sayısına girer. `exam_faults` onu adlandıramaz; Kurucu itiraz eder (`seed_issue`), operatör kaydı `watchers.appeal` ile açıp baştan 3/3 yeniden üretir, tutmazsa kayıt satırlı bir tohum dönemi geri alır |
+| `behaviour_drift` | Kurucu'nun | G5: gizli vakalarda doğrulanmış davranış kayması, normal ret, kendi başına asla istismar değil (sahip 2026-11-02, E521) |
 | `gozcu_input_too_large` | Kurucu'nun | Durağan geçişin sınırını aşan push |
 | `safety_path_closed:<yol>`, `safety_list_narrowed:<giriş>` | Kurucu'nun | Kopya diff'i güvenlik yoluna dokunur ve son imzalı `k6.status` `live` değil; ya da türetilmiş liste sahibinkini kapsamaz (`fence` komutu, `fence.closed_reasons` ve `fence.narrowed_reasons`) |
 
-Gizli vakalarda tek başına düşüşün ne olduğu sahibin açık kararıdır (b): anahtar tektir, `watchers.G5_DROP_RULE`;
-varsayılanı sahibin kuralı ("düşüş = ezber": istismar), öteki yargıcın önerisi (`ezber_suphe`; aynı fonksiyonda G2
-bulgusuyla istismar). G5'in sayıları gizli koşucunun defterindedir (`heldrun`, E510) ve hakeme henüz bir yoldan gelmez.
+Gizli vakalardaki kayma sahibin 2026-11-02 kuralıdır (karar (b) kapandı; E521): anahtar tektir, `watchers.G5_DROP_RULE`,
+varsayılanı `G5_DRIFT` (`behaviour_drift`, normal ret); geri çekilen "düşüş = ezber" kuralı yanında durur, sahibin geri
+alması tek satırdır. Base ve head aynı makinede sırayla (`interleaved`) 3 + 3 koşar; head'in daha az geçtiği vaka
+şüphelidir ve 20 + 20 taze koşu alır; tek yönlü Fisher kesin p'leri Holm ile `g5_alpha`'da sınanır, en az `g5_min_fail`
+vaka reddedilirse push kaymıştır. Ret eşiği etiket değildir: istismar yalnız başka bir gözcünün mekanik kanıtıyla gelir.
+Başarısızlık, çökme ve zaman aşımı kodun cevabıdır; koşucunun kendi hatası hangi yana düşerse orada geçmeyen koşudur
+(sırayla koşulduğu için kayma yoksa iki yana eşit düşer, test kesin kalır): gizli girdide takılan ya da koşucuyu bozan
+head kaymıştır, ölçümden çıkmaz; vakanın ölçülebilirliğine yalnız base yanı karar verir. Dürüst bir push en çok
+`g5_alpha` olasılıkla reddedilir (n push'luk dönemde en çok n katı); tohumlu benzetimde %10 koşucu hatalı, %80 titrek 30
+vakada 2000 dürüst push'tan 1'i reddedildi (`g5_alpha` 0,001, `g5_min_fail` 1). Kurucuya bir bit (ret) ve uyarı sayacı
+gider; vaka kimliği ve kayan vaka sayısı gitmez, mühür head'i de bağlar (aynı kayan iki push iki ayrı mühür gösterir).
+G5'in koşuları gizli koşucuya henüz bağlı değildir (`heldrun` yalnız head'i koşar, E510); bağlanana kadar G5 hiçbir
+push'u yargılamaz. Ayrı 3/3 teyit koşusu da henüz hiçbir işe bağlı değildir: bugün hiçbir bulgu istismar olmaz, öneriler
+şüpheli olarak sayılır.
 Pull'un reddettiği bir push'ta gözcü koşmaz: onun `exam_tamper`'ı Kurucu'nun reddidir, istismar kaydı olmaz (gözcünün
 canlı anahtarı yalnız `kos`'tadır). Kopya PR başlarını yargılayan ve `snowball-fence`'i hakem App'iyle gönderen iş henüz
 yok: `fence` komutu ve `decide --fence` hazırdır. Özel karnenin gizli farkı `heldrun reveal`'in çıktısını

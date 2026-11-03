@@ -71,10 +71,11 @@ def read_run(watched=None, **exam):
     return run
 
 
-def tamper(path="jest.config.js", declared=False):
-    """G4a's finding as the static pass makes it: a mechanical trigger with its reproducer (`watchers.g4a`)."""
+def tamper(path=".github/workflows/ci.yml", declared=False, confirmed=watchers.CONFIRM_RUNS):
+    """G4a's finding on a touch of the exam itself (`watchers.g4a`): a mechanical trigger with its reproducer, by
+    default as a separate run confirmed it 3/3 (E521); ``confirmed=0`` is how the static pass writes it."""
     return watchers.Finding("G4a", watchers.EXAM_TAMPER, path, watchers.ISTISMAR, path, {"tree": B, "path": path},
-                            declared)
+                            declared, confirmed)
 
 
 READ = object()  # `pinned`'s default run: green, with the pinned exam read and the watchers' verdict
@@ -281,10 +282,11 @@ class IstismarTest(unittest.TestCase):
     private parameters; `decide` maps the published verdict by the watchers' `reasons` and `warnings`."""
 
     def test_istismar_is_the_watchers_rule_and_decide_maps_it(self):  # watcher_not_live_counts
-        res = pinned(findings=[tamper(), tamper("pytest.ini", declared=True)])
-        self.assertEqual([(r["kind"], r["ref"]) for r in res["reasons"]], [("istismar", "G4a:jest.config.js")])
+        res = pinned(findings=[tamper(), tamper(".github/workflows/deploy.yml", declared=True)])
+        self.assertEqual([(r["kind"], r["ref"]) for r in res["reasons"]],
+                         [("istismar", "G4a:.github/workflows/ci.yml")])
         self.assertEqual([(e["watcher"], e["ref"], e["level"]) for e in res["istismar"]],
-                         [("G4a", "jest.config.js", "istismar")])
+                         [("G4a", ".github/workflows/ci.yml", "istismar")])
         self.assertEqual(res["istismar"][0]["sealed_sha256"],
                          watchers.evidence_hash(SALT, dataclasses.asdict(tamper())))
         self.assertEqual(res["verdict"], "rejected")
@@ -292,24 +294,29 @@ class IstismarTest(unittest.TestCase):
         shadow = pinned(findings=[tamper()], live=[])  # a watcher not yet live says what it would have said
         self.assertEqual((shadow["verdict"], shadow["istismar"]), ("accepted", []))
         self.assertIn("gozcu_suphe:1", shadow["warnings"])
+        suspect = pinned(findings=[tamper(confirmed=2)])  # E521: short of 3/3 it is a suspect, one of the warnings
+        self.assertEqual((suspect["verdict"], suspect["istismar"], suspect["reasons"]), ("accepted", [], []))
+        self.assertIn("gozcu_suphe:1", suspect["warnings"])
 
     def test_istismar_counts_against_the_founder_and_keeps_its_streak(self):  # istismar_not_counted
-        state = state0(reject_streaks={"istismar:G4a:jest.config.js": 1})
+        state = state0(reject_streaks={"istismar:G4a:.github/workflows/ci.yml": 1})
         res = pinned(meta_("code", state, run_rival=False), findings=[tamper()])
         self.assertTrue(decide_module.counts_against_founder(res["reasons"][0]))
-        self.assertEqual(res["state"]["reject_streaks"], {"istismar:G4a:jest.config.js": 2})
-        self.assertEqual(res["learning"]["repeated"], ["istismar:G4a:jest.config.js"])
+        self.assertEqual(res["state"]["reject_streaks"], {"istismar:G4a:.github/workflows/ci.yml": 2})
+        self.assertEqual(res["learning"]["repeated"], ["istismar:G4a:.github/workflows/ci.yml"])
         self.assertEqual(res["state"]["last_evaluated_sha"], B)
 
-    def test_a_drop_on_held_cases_alone_has_one_switch_the_watchers(self):  # g5_default_judge
-        """Owner's open decision (b): one named constant, `watchers.G5_DROP_RULE`, default the owner's literal rule
-        ("düşüş = ezber"); decide keeps no second one. Under the judge's rule the drop is `ezber_suphe`, a normal
-        rejection that counts against the Founder."""
-        self.assertEqual(watchers.G5_DROP_RULE, watchers.G5_OWNER_LITERAL)
+    def test_drift_on_held_cases_is_a_normal_rejection_with_one_switch(self):  # g5_default_literal
+        """Owner decision (b), closed 2026-11-02 (E521): one named constant, `watchers.G5_DROP_RULE`, default the
+        owner's rule; decide keeps no second one. Drift on the held cases is `behaviour_drift`, a normal rejection that
+        counts against the Founder and is never istismar; the signed result names no case."""
+        self.assertEqual(watchers.G5_DROP_RULE, watchers.G5_DRIFT)
         self.assertFalse([n for n in vars(decide_module) if "DROP" in n or n.startswith("G5")])
-        drop = watchers.Finding("G5", "held_drop", "held", watchers.REJECTION, {"p": "1/1000"}, {"cmd": "x"})
+        drop = watchers.Finding("G5", watchers.BEHAVIOUR_DRIFT, "held", watchers.REJECTION,
+                                {"drifted": ["HELD-CASE-7"]}, {"cmd": "x"})
         res = pinned(findings=[drop])
-        self.assertEqual([(r["kind"], r["ref"]) for r in res["reasons"]], [("ezber_suphe", "G5:held")])
+        self.assertEqual([(r["kind"], r["ref"]) for r in res["reasons"]], [("behaviour_drift", "G5:held")])
+        self.assertNotIn("HELD-CASE-7", json.dumps(res))
         self.assertTrue(decide_module.counts_against_founder(res["reasons"][0]))
         self.assertEqual(res["istismar"], [])
 
@@ -478,7 +485,7 @@ class JoinPartsTest(unittest.TestCase):
         (self.root / "setup" / "summary.json").write_text(json.dumps(summary_doc(dict(ROW, exam_sha256=PIN))))
         self.gozcu = self.root / "gozcu"
         self.gozcu.mkdir()
-        self.write_gozcu([tamper()])
+        self.write_gozcu([tamper(confirmed=0)])
 
     def write_gozcu(self, found, head=B, status="read"):
         (self.gozcu / "gozcu.json").write_text(json.dumps(
@@ -520,13 +527,15 @@ class JoinPartsTest(unittest.TestCase):
         self.assertEqual((run["exam"], seen["groups"]), ({"status": "read", "exam_sha256": pin}, "joined"))
         self.assertEqual((seen["exam"].pin, dict(seen["exam"].answers)), (pin, self.ANSWERS))
         self.assertEqual(run["watchers"]["status"], "read")
-        self.assertEqual([e["ref"] for e in run["watchers"]["published"]["istismar"]], ["jest.config.js"])
+        published = run["watchers"]["published"]
+        self.assertEqual((published["istismar"], published["warning"]), ([], 1))  # E521: a suspect, as found
         self.assertEqual(run["k6"]["status"], "not_live")  # no K6 document in the store: the honest status
         self.assertEqual(sorted(run["k6"]), sorted(k6.PUBLIC_KEYS))  # why it is not live stays private (E520)
         res = decide(meta_("code", state0(), run_rival=False), dict(run, tests=green_run()["tests"]), None, None,
                      JOBS, 2, 3, exam_pin=pin)
-        self.assertEqual([r["kind"] for r in res["reasons"]], ["istismar"])  # the whole path, kos to yaz
-        self.write_gozcu([tamper()], head=A)
+        self.assertEqual((res["reasons"], res["istismar"]), ([], []))  # the whole path, kos to yaz: no 3/3 yet
+        self.assertIn("gozcu_suphe:1", res["warnings"])
+        self.write_gozcu([tamper(confirmed=0)], head=A)
         self.assertEqual(self.join(where, pin)[0]["watchers"], {"head": B, "status": "missing"})
         self.write_gozcu([], status="too_large")
         self.assertEqual(self.join(where, pin)[0]["watchers"]["status"], "too_large")
@@ -551,7 +560,7 @@ class JoinPartsTest(unittest.TestCase):
             ran(1, b"FAIL: test_x (tests.test_mech.T)\nAssertionError", b"", 5), base="MECH-BASE", head=B)
         twin = watchers.g4c_twin("d1", "python -m x /vec/MECH-FIX", ran(0, b"a", b"", 1), ran(0, b"a", b"", 1),
                                  ran(0, b"b", b"", 1), old="/vec", new="/MECH-TWIN", head=B)
-        found = [tamper(), transplant, twin, *over,
+        found = [tamper(confirmed=0), transplant, twin, *over,
                  watchers.g2_finding(suspects[0], {"path": "src/x.py", "line": 0, "text": "MECH-EDIT"},
                                      "python -m MECH-CASE", head=B, held_evidence={"MECH-HELD-N": 1}),
                  watchers.Finding("G1", "skip_added", "tests/test_mech.py", watchers.WARNING, ["MECH-SKIP"]),
@@ -559,7 +568,7 @@ class JoinPartsTest(unittest.TestCase):
                  watchers.Finding("G3", "claim_contradicted", "r9", watchers.ISTISMAR, {"what": "MECH-CLAIM"},
                                   {"claim": {"id": "MECH-CLAIM-ID"}, "row_hash": "MECH-ROW", "run_head": B}),
                  watchers.Finding("G4c", "env_marker_read", "src/x.py:4", watchers.WARNING, "MECH-MARKER"),
-                 watchers.Finding("G5", "held_drop", "held", watchers.REJECTION, {"p": "MECH-P"},
+                 watchers.Finding("G5", watchers.BEHAVIOUR_DRIFT, "held", watchers.REJECTION, {"p": "MECH-P"},
                                   {"cases": ["MECH-HELD-INPUT"]})]
         self.assertTrue(all(isinstance(f, watchers.Finding) for f in found))
         self.write_gozcu(found)
@@ -576,7 +585,7 @@ class JoinPartsTest(unittest.TestCase):
                 return set().union(*(keys(v) for v in value)) if value else set()
             return set()
 
-        for live, istismar, warned in ((list(watchers.WATCHERS), 5, 2), ([], 0, 8)):
+        for live, istismar, warned in ((list(watchers.WATCHERS), 0, 7), ([], 0, 8)):  # E521: five suspects
             where, pin, _canary = self.exam(live=live)
             run, _seen = self.join(where, pin)
             res = decide(meta_("code", state0(), run_rival=False), dict(run, tests=green_run()["tests"]), None,
@@ -596,9 +605,14 @@ class JoinPartsTest(unittest.TestCase):
             opened = [watchers.opens(e, found, params(live)) for e in entries]  # the private side, for an appeal
             self.assertEqual(len([f for f in opened if f is not None]), len(entries), live)
             self.assertEqual([f.reproducer for f in opened if f.watcher == "G5"],
-                             [{"cases": ["MECH-HELD-INPUT"]}] if istismar else [])
+                             [{"cases": ["MECH-HELD-INPUT"]}] if live else [])
             for entry in entries:  # a hash opens only the record it sealed
                 self.assertIsNone(watchers.opens(dict(entry, sealed_sha256="0" * 64), found, params(live)))
+        proven = pinned(findings=[watchers.confirm(f, lambda _f: True) for f in found])  # once confirmed 3/3
+        self.assertEqual(len(proven["istismar"]), 5)
+        self.assertEqual({tuple(sorted(e)) for e in proven["istismar"]}, {tuple(sorted(watchers.PUBLIC_KEYS))})
+        self.assertFalse(keys({k: proven[k] for k in ("istismar", "warnings", "reasons")}) & mechanic_keys)
+        self.assertEqual([m for m in markers if m in json.dumps(proven)], [])
         leaky = dict(run["k6"], unmet=["P:canary_missed"])
         self.assertEqual(decide(meta_("code", state0(), run_rival=False), dict(run, k6=leaky,
                                 tests=green_run()["tests"]), None, None, JOBS, 2, 3, exam_pin=pin)["k6"],
@@ -606,8 +620,17 @@ class JoinPartsTest(unittest.TestCase):
 
     def test_a_finding_the_watchers_never_write_is_no_verdict(self):  # watchers_finding_unchecked
         where, pin, _canary = self.exam()
-        for bad in (dict(dataclasses.asdict(tamper()), proposed="bogus"), dict(dataclasses.asdict(tamper()), x=1),
-                    dict(dataclasses.asdict(tamper()), watcher="G9"), dict(dataclasses.asdict(tamper()), declared=1)):
+        raw = dataclasses.asdict(tamper(confirmed=0))
+        for bad in (dict(raw, proposed="bogus"), dict(raw, x=1), dict(raw, watcher="G9"), dict(raw, declared=1)):
+            self.write_gozcu([bad])
+            self.assertEqual(self.join(where, pin)[0]["watchers"]["status"], "malformed", bad)
+
+    def test_a_finding_that_says_it_was_confirmed_is_no_verdict(self):  # gozcu_confirmation_trusted
+        """E521: the keyless static pass confirms nothing; a `gozcu.json` whose finding says it was confirmed 3/3 did
+        not come from it, and would make istismar without the separate run."""
+        where, pin, _canary = self.exam()
+        raw = dataclasses.asdict(tamper(confirmed=0))
+        for bad in (dict(raw, confirmed=3), dict(raw, confirmed=True), dict(raw, confirmed="0")):
             self.write_gozcu([bad])
             self.assertEqual(self.join(where, pin)[0]["watchers"]["status"], "malformed", bad)
 
@@ -681,8 +704,9 @@ class WatchCommandTest(unittest.TestCase):
             self.assertEqual(cli.main(argv), 0)
             doc = json.loads((Path(tmp) / "gozcu" / "gozcu.json").read_text())
             self.assertEqual((doc["head"], doc["status"]), (B, "read"))
-            self.assertIn(("G4a", "jest.config.js", "istismar"),
+            self.assertIn(("G4a", "jest.config.js", "warning"),  # E521: a test configuration is never istismar
                           [(f["watcher"], f["ref"], f["proposed"]) for f in doc["findings"]])
+            self.assertEqual({f["confirmed"] for f in doc["findings"]}, {0})  # the static pass confirms nothing
             with mock.patch.object(watchers, "static_pass", side_effect=watchers.InputTooLarge("big")):
                 self.assertEqual(cli.main(argv), 0)
             doc = json.loads((Path(tmp) / "gozcu" / "gozcu.json").read_text())
@@ -834,7 +858,7 @@ class ScorecardIstismarTest(unittest.TestCase):
             {"schema": two, "istismar": [{"watcher": "G1"}, {"watcher": "G4a"}],
              "warnings": ["gozcu_suphe:3", "unverifiable:2", "rival_side_retry:1"]},
             {"schema": two, "istismar": [], "warnings": ["gozcu_suphe:1", "unverifiable:1"],
-             "reasons": [{"kind": "ezber_suphe", "ref": "G5:held"}]},
+             "reasons": [{"kind": "behaviour_drift", "ref": "G5:held"}]},
             {"schema": "snowball-bootstrap-result/1", "istismar": [{"watcher": "G2"}], "warnings": ["gozcu_suphe:G1:x"]},
         ]
         block = self.sc.honesty(results)
@@ -842,7 +866,7 @@ class ScorecardIstismarTest(unittest.TestCase):
         self.assertEqual((block["pushes_with"]["x"], block["pushes_with"]["n"]), (1, 2))
         self.assertEqual(block["by_watcher"], {"G1": 1, "G2": 0, "G3": 0, "G4a": 1, "G4c": 0, "G5": 0})
         # summed, not counted: scorecard_warning_count_ignored
-        self.assertEqual(block["warnings"], {"gozcu_suphe": 4, "ezber_suphe": 1})
+        self.assertEqual(block["warnings"], {"gozcu_suphe": 4, "behaviour_drift": 1})
         self.assertEqual(block["unverifiable"], 3)
         self.assertEqual(self.sc.honesty([])["pinned_pushes"], 0)
         page = self.sc.render_public(dict(json.loads((ROOT / "docs" / "karne.json").read_text(encoding="utf-8")),

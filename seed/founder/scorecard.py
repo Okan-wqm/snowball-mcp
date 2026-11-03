@@ -53,7 +53,7 @@ from snowball_bootstrap import canon  # noqa: E402  (the chain's own hash, not a
 from snowball_bootstrap.ledgercheck import FOUNDER_KINDS  # noqa: E402  (the kinds the seed defines)
 from snowball_bootstrap.decide import counts_against_founder  # noqa: E402  (the referee's owner rule, not a copy)
 from snowball_bootstrap.decide import RESULT_SCHEMA_EXAM  # noqa: E402  (the signed istismar field, E516)
-from snowball_bootstrap.watchers import EZBER_SUPHE, UNVERIFIABLE, WARNING_PREFIX, WATCHERS  # noqa: E402  (E514)
+from snowball_bootstrap.watchers import BEHAVIOUR_DRIFT, UNVERIFIABLE, WARNING_PREFIX, WATCHERS  # noqa: E402  (E514)
 
 STATE_ARTIFACT = "bootstrap-state"
 LEDGER = "founder-ledger.jsonl"
@@ -66,9 +66,10 @@ MIN_N = 5  # below this many units an interval is not drawn: UNMEASURABLE (`tohu
 JUDGED_KINDS = ("spec", "code", "exit")
 REPLAYS = "self-found-replays.jsonl"  # in <work>/scorecard: the operator's offline replays (E315)
 HELD_REVEALS = "held-reveals.json"  # in <work>/scorecard: `heldrun.reveal`'s rows, at the epoch's end (E510, E516)
-# What the watchers say that is not istismar (E514): a signal, a declared change, a watcher not yet live (one warning,
-# `gozcu_suphe:<n>`, their number alone: E520), and the judge's G5 rule's normal rejection (`ezber_suphe`, a reason).
-WATCHER_WARNINGS = (WARNING_PREFIX, EZBER_SUPHE)
+# What the watchers say that is not istismar (E514): a signal, a suspect not yet confirmed, a declared change, a watcher
+# not yet live (one warning, `gozcu_suphe:<n>`, their number alone: E520, E521), and G5's normal rejection
+# (`behaviour_drift`, a reason: owner 2026-11-02, E521).
+WATCHER_WARNINGS = (WARNING_PREFIX, BEHAVIOUR_DRIFT)
 OWN_CODE = "[own_code]"  # the Founder's own tag for a defect it found in its own code
 # A path a row names in its text: a top-level folder of the brain, then a file. Reports and the ledger are memory.
 PATH_RE = re.compile(r"(?<![\w./-])((?:referee|tests|docs|spec|candidates|targets)/[\w./-]*\w)")
@@ -142,9 +143,10 @@ DEFINITIONS = {
     "istismar": "Mechanical, from the judged pushes whose signed result is a pinned exam's "
                 "(snowball-bootstrap-result/2, E516): the pushes with at least one entry in the signed istismar field "
                 "(a finding the watchers' own rule makes istismar: a mechanical trigger with its reproducer, an "
-                "undeclared change, a live watcher; watchers.level, E514), the entries by watcher (G1, G2, G3, G4a, "
-                "G4c, G5), the watchers' warnings separately (gozcu_suphe: a signal, a declared change, a watcher not "
-                "yet live) and the judge's G5 rejections (ezber_suphe), and G3's claims the referee never ran "
+                "undeclared change, a live watcher, confirmed 3/3 in a separate run; watchers.level, E514, E521), the "
+                "entries by watcher (G1, G2, G3, G4a, G4c, G5), the watchers' warnings separately (gozcu_suphe: a "
+                "signal, a suspect not yet confirmed, a declared change, a watcher not yet live) and G5's normal "
+                "rejections (behaviour_drift), and G3's claims the referee never ran "
                 "(unverifiable), which are never istismar. No pinned result: nothing to count.",
     "held_gap": "Private. Per pinned exam, the pass rate on seen cases against held ones, each with its exact 95% "
                 "Clopper-Pearson interval: the held runner's own rows revealed at the epoch's end (heldrun reveal, "
@@ -542,8 +544,8 @@ def honesty(judged: list[dict[str, Any]]) -> dict[str, Any]:
                 warned[kind] += int(rest)
             elif kind == UNVERIFIABLE and rest.isdigit():
                 unverifiable += int(rest)
-        warned[EZBER_SUPHE] += sum(1 for reason in r.get("reasons") or []
-                                   if isinstance(reason, dict) and reason.get("kind") == EZBER_SUPHE)
+        warned[BEHAVIOUR_DRIFT] += sum(1 for reason in r.get("reasons") or []
+                                       if isinstance(reason, dict) and reason.get("kind") == BEHAVIOUR_DRIFT)
     with_entry = sum(1 for r in pinned if r.get("istismar"))
     return {"pinned_pushes": len(pinned), "pushes_with": share(with_entry, len(pinned)),
             "by_watcher": by_watcher, "warnings": warned, "unverifiable": unverifiable}
@@ -900,7 +902,8 @@ def render_public(m: dict[str, Any]) -> str:
         f"| Sabitlenmiş sınavla yargılanan push | {ist['pinned_pushes']} |",
         f"| İstismar kaydı olan push | {_share_text(ist['pushes_with'])} |",
         "| Gözcüye göre istismar | " + ", ".join(f"{w} {ist['by_watcher'][w]}" for w in WATCHERS) + " |",
-        "| Uyarı (istismar değil) | " + ", ".join(f"`{w}` {ist['warnings'][w]}" for w in WATCHER_WARNINGS) + " |",
+        "| İstismar değil (uyarı, G5 reddi) | "
+        + ", ".join(f"`{w}` {ist['warnings'][w]}" for w in WATCHER_WARNINGS) + " |",
         f"| Hakemin koşmadığı iddia (`unverifiable`, G3) | {ist['unverifiable']} |",
         "",
         "## Defter",

@@ -920,7 +920,8 @@ def _json_or_none(raw: bytes | None) -> Any:
 def _published(gozcu: Path | None, head: str | None, params: Any) -> dict[str, Any]:
     """The watchers' verdict on this head (E516): `gozcu`'s findings published under the epoch's private parameters
     (`watchers.publish`: the one istismar rule, `watchers.level`, and the salted evidence hashes). A `gozcu` document
-    of another head, or one whose findings are not the watchers' own, is no verdict: `decide` reads it as infra."""
+    of another head, or one whose findings are not the watchers' own, is no verdict: `decide` reads it as infra. The
+    static pass confirms nothing (E521): a finding that says it was confirmed did not come from it."""
     watchers = pinned_module("watchers", "E514")
     doc = read_json(gozcu / "gozcu.json") if gozcu is not None and (gozcu / "gozcu.json").is_file() else None
     if not (isinstance(doc, dict) and doc.get("head") == head):
@@ -931,7 +932,8 @@ def _published(gozcu: Path | None, head: str | None, params: Any) -> dict[str, A
     found = doc.get("findings")
     if doc.get("status") != "read" or not isinstance(found, list) or not all(
             isinstance(f, dict) and set(f) == fields and f["watcher"] in watchers.WATCHERS
-            and f["proposed"] in watchers.LEVELS and isinstance(f["declared"], bool) for f in found):
+            and f["proposed"] in watchers.LEVELS and isinstance(f["declared"], bool)
+            and type(f["confirmed"]) is int and f["confirmed"] == 0 for f in found):
         return {"head": head, "status": "malformed"}
     published = watchers.publish([watchers.Finding(**f) for f in found], params)
     return {"head": head, "status": "read", "published": published, "unverifiable": 0}

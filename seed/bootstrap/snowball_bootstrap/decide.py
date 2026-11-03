@@ -81,7 +81,7 @@ RIVAL_SIDE_FINAL = ("budget", "request_rejected")
 NOT_THE_FOUNDERS = ("budget", "pull_error", "infra", "rival_missing")
 # E516, under a pinned exam. `answers_unavailable` (`answers.REASON`, E509): the exam store could not be read or is not
 # the pinned one; the head is retried like an outage and never waived (`config.UNWAIVABLE_REASONS`). The fence's
-# reasons (`fence`, E511) and the watchers' (`watchers.reasons`, E514: `istismar`, the judge's `ezber_suphe`, a push
+# reasons (`fence`, E511) and the watchers' (`watchers.reasons`, E514: `istismar`, G5's `behaviour_drift`, a push
 # over the static pass's bound) are the Founder's. The rule that makes a finding istismar is the watchers' alone
 # (`watchers.level`, applied in `kos` with the epoch's private parameters); nothing here judges a finding again.
 ANSWERS_UNAVAILABLE = answers.REASON

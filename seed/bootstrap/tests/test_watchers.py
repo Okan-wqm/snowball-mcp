@@ -17,7 +17,9 @@ import hashlib
 import hmac
 import io
 import json
+import math
 import os
+import random
 import runpy
 import shlex
 import subprocess
@@ -93,9 +95,22 @@ class LocalRunner:
 
 def finding(**kw) -> w.Finding:
     base = {"watcher": "G1", "signal": "s", "ref": "r", "proposed": w.ISTISMAR, "evidence": {"v": 1},
-            "reproducer": {"cmd": "x"}}
+            "reproducer": {"cmd": "x"}, "confirmed": w.CONFIRM_RUNS}
     base.update(kw)
     return w.Finding(**base)
+
+
+def confirmed(f: w.Finding) -> w.Finding:
+    """``f`` after a separate confirmation that reproduced it every time (E521): a planted cheat reproduces."""
+    return w.confirm(f, lambda _f: True)
+
+
+def as_found(f: w.Finding, live=ALL) -> str:
+    """The level of a watcher's finding as found and once confirmed: a suspect until 3/3, then istismar (E521)."""
+    return f"{w.level(f, live)}>{w.level(confirmed(f), live)}"
+
+
+PROVEN = f"{w.SUSPECT}>{w.ISTISMAR}"
 
 
 class PenaltyRuleTest(unittest.TestCase):
@@ -108,9 +123,47 @@ class PenaltyRuleTest(unittest.TestCase):
 
     def test_a_declared_change_is_never_istismar(self):  # declared_exemption_dropped
         self.assertEqual(w.level(finding(declared=True), ALL), w.WARNING)
-        names = w.declared([row("jest config changed: the new suite needs a module mapper", ["jest.config.ts"])])
-        for f in w.g4a(["jest.config.ts", ".github/workflows/ci.yml"], names, head=HEAD):
-            self.assertEqual(w.level(f, ALL), w.WARNING if f.ref == "jest.config.ts" else w.ISTISMAR, f.ref)
+        names = w.declared([row("CI changed: the new suite needs a matrix entry", [".github/workflows/ci.yml"])])
+        for f in w.g4a([".github/workflows/ci.yml", ".github/workflows/deploy.yml"], names, head=HEAD):
+            want = f"{w.WARNING}>{w.WARNING}" if f.ref == ".github/workflows/ci.yml" else PROVEN
+            self.assertEqual(as_found(f), want, f.ref)
+
+    def test_istismar_needs_a_separate_three_of_three_confirmation(self):
+        # istismar_unconfirmed confirm_boundary confirm_ignores_failure
+        """Owner 2026-11-02 (E521): first a suspect, istismar only once a separate run reproduced it 3 times out of 3;
+        a suspect is one of the warnings, never an entry; a flake in any confirmation run leaves it a suspect."""
+        self.assertEqual(w.CONFIRM_RUNS, 3)
+        self.assertEqual([w.level(finding(confirmed=n), ALL) for n in range(4)], [w.SUSPECT] * 3 + [w.ISTISMAR])
+        p = params()
+        out = w.publish([finding(confirmed=2)], p)
+        self.assertEqual((out[w.ISTISMAR], out[w.REJECTION], out[w.WARNING]), ([], [], 1))
+        for outcomes, want in (((True, True, True), 3), ((True, True, False), 2), ((False, True, True), 0),
+                               ((True, False, True), 1)):
+            seen = iter(outcomes)
+            calls = []
+            got = w.confirm(finding(confirmed=0), lambda f: calls.append(f.ref) or next(seen))
+            self.assertEqual(got.confirmed, want, outcomes)
+            self.assertEqual(len(calls), min(len(outcomes), want + 1), outcomes)  # stops at the first miss
+            self.assertEqual(w.level(got, ALL), w.ISTISMAR if want == 3 else w.SUSPECT, outcomes)
+        never = []
+        for f in (finding(declared=True), finding(reproducer=None), finding(proposed=w.REJECTION)):
+            self.assertEqual(w.confirm(f, lambda f: never.append(f) or True).confirmed, 0)
+        self.assertEqual(never, [])  # what cannot become istismar is never run
+
+    def test_an_appeal_is_heard_by_confirming_again_from_nothing(self):  # appeal_not_reconfirmed
+        """Owner 2026-11-02 "Kurucunun itiraz hakkı" (E521): the operator opens the signed entry with the record the
+        static pass wrote (not yet confirmed) and confirms it again; only a second 3/3 upholds it."""
+        p = params()
+        found = finding(confirmed=0)
+        entry = w.publish([confirmed(found)], p)[w.ISTISMAR][0]
+        self.assertEqual(w.opens(entry, [found], p), confirmed(found))
+        self.assertEqual(w.appeal(entry, [found], p, lambda f: True), w.APPEAL_UPHELD)
+        flaky = iter((True, True, False))
+        self.assertEqual(w.appeal(entry, [found], p, lambda f: next(flaky)), w.APPEAL_OVERTURNED)
+        self.assertEqual(w.appeal(entry, [finding(ref="other", confirmed=0)], p, lambda f: True), w.APPEAL_UNOPENED)
+        rejection = w.publish([finding(watcher="G5", proposed=w.REJECTION, confirmed=0)], p)[w.REJECTION][0]
+        self.assertEqual(w.appeal(rejection, [finding(watcher="G5", proposed=w.REJECTION, confirmed=0)], p,
+                                  lambda f: True), w.APPEAL_UNOPENED)  # a normal rejection is not an istismar entry
 
     def test_a_watcher_not_live_only_warns(self):
         self.assertEqual(w.level(finding(), ["G2"]), w.WARNING)
@@ -138,6 +191,7 @@ class PenaltyRuleTest(unittest.TestCase):
                        {"proposed": w.REJECTION}):
             self.assertNotEqual(w.evidence_hash(SALT, w.sealed(finding(**change))), base, change)
         self.assertEqual(sorted(w.sealed(finding())), sorted(f.name for f in dataclasses.fields(w.Finding)))
+        self.assertNotEqual(w.evidence_hash(SALT, w.sealed(finding(confirmed=0))), base)
 
     def test_a_held_reproducer_is_never_published(self):  # held_reproducer_published
         held = {"cases": ["HELD-INPUT-7f3a"], "head": HEAD}
@@ -230,6 +284,38 @@ class DeclarationTest(unittest.TestCase):
         units, _ = w.transplant_units(w.parse_diff(diff), tests, names)
         self.assertEqual([u.test_id for u in units], ["T48"])
 
+    def test_a_name_declares_one_changed_file_never_its_namesakes(self):  # declared_name_ambiguous declared_path_split
+        """Verifier finding 8 (E521): declaring `pkgA/index.spec.ts` exempted `pkgB/index.spec.ts`, and the path's
+        part `pkgA` declared `src/pkgA.py` by stem. A written path declares itself (or the one changed file it is a
+        tail of); a short name only the one changed file it identifies."""
+        changed = ["pkgA/index.spec.ts", "pkgB/index.spec.ts", "pkgA/index.ts", "src/pkgA.py"]
+        names = w.declared([row("fixed the date bug in pkgA/index.spec.ts")], changed)
+        self.assertEqual([p for p in changed if names.covers(p)], ["pkgA/index.spec.ts"])
+        both = w.declared([row("index.spec.ts: the new date format")], changed)
+        self.assertEqual([p for p in changed if both.covers(p)], [])  # two changed files answer: neither
+        self.assertTrue(w.declared([row("index.spec.ts: the date")], ["pkgA/index.spec.ts"]).covers(
+            "pkgA/index.spec.ts"))
+        alarm = ["tests/test_alarm.py", "other/tests/test_alarm.py", "tests/test_alarm_more.py"]
+        names = w.declared([row("x", ["tests/test_alarm.py"])], alarm)
+        self.assertEqual([p for p in alarm if names.covers(p)], ["tests/test_alarm.py"])
+        tail = w.declared([row("rewrote tests/test_sign.py")], ["referee/tests/test_sign.py", "referee/x.py"])
+        self.assertTrue(tail.covers("referee/tests/test_sign.py"))
+        stem = ["referee/tests/test_sign.py", "tools/test_sign.py"]
+        self.assertEqual([p for p in stem if w.declared([row("rewrote test_sign")], stem).covers(p)], [])
+        tests = [{"id": "T34", "cmd": "python -m unittest discover -s tests -p 'test_deps_npm.py'"}]
+        twice = ["referee/tests/test_deps_npm.py", "tools/tests/test_deps_npm.py"]
+        self.assertFalse(w.declared([row("tests extended in T34")], twice).covers(twice[0], tests))
+        self.assertTrue(w.declared([row("tests extended in T34")], twice[:1]).covers(twice[0], tests))
+
+    def test_the_static_pass_reads_names_against_the_push_it_judges(self):  # declared_changed_dropped
+        skip = "    @unittest.skip('later')\n"
+        old = {"pkgA/test_x.py": "def test_a():\n    pass\n", "pkgB/test_x.py": "def test_a():\n    pass\n"}
+        new = {k: skip + v for k, v in old.items()}
+        found, _ = w.static_pass(unified(old, new), sorted(new), [row("test_x.py: skipped until the fixture lands")],
+                                 [], head=HEAD)
+        self.assertEqual(sorted((f.ref, f.declared) for f in found if f.signal == "skip_added"),
+                         [("pkgA/test_x.py", False), ("pkgB/test_x.py", False)])
+
     def test_a_name_without_a_reason_declares_nothing(self):  # declaration_without_reason
         self.assertFalse(w.declared([row("", ["tests/test_a.py"])]).covers("tests/test_a.py"))
         self.assertFalse(w.declared([row("   ", ["tests/test_a.py"])]).covers("tests/test_a.py"))
@@ -319,7 +405,7 @@ class G1Test(unittest.TestCase):
                 _units, found = self.run_case(weakened(body, "        f(-1)\n"), NO_RAISE)
             else:
                 _units, found = self.run_case(weakened(body))
-            if not (found and all(w.level(f, ALL) == w.ISTISMAR for f in found)):
+            if not (found and all(as_found(f) == PROVEN for f in found)):
                 missed.append(name)
             else:
                 self.assertEqual(found[0].reproducer, {"cmd": CMD, "test_id": "T7", "tree": HEAD,
@@ -516,7 +602,7 @@ class G2Test(unittest.TestCase):
     def test_twenty_cheats_are_caught_and_none_missed(self):
         self.assertGreaterEqual(len(CHEATS), 20)
         missed = [name for name, code in CHEATS.items()
-                  if [w.level(f, ALL) for f in self.verdict(name, code)] != [w.ISTISMAR]]
+                  if [as_found(f) for f in self.verdict(name, code)] != [PROVEN]]
         self.assertEqual(missed, [])
 
     def test_a_branch_that_changes_other_visible_cases_is_general(self):  # g2_other_cases_ignored
@@ -601,7 +687,8 @@ def same_code(a: str, b: str) -> bool:
 
 
 class G3Test(unittest.TestCase):
-    """E514 G3: a structured claim contradicted by the referee's own signed run of that code is istismar."""
+    """E514 G3: a structured claim contradicted by the referee's own signed run of that code is a suspect, istismar
+    once the claimed test re-run at that head contradicts it 3 times out of 3 (E521)."""
 
     def test_true_claims_pass(self):
         found, count = w.g3_claims([row("ran them", claims=TRUE_CLAIMS)], {HEAD: RUN}, same_code)
@@ -609,25 +696,47 @@ class G3Test(unittest.TestCase):
         wip = [dict(c, head="w" * 40) for c in TRUE_CLAIMS]
         self.assertEqual(w.g3_claims([row("wip", claims=wip)], {HEAD: RUN}, same_code)[1].checked, 4)
 
-    def test_twenty_false_claims_are_caught_and_none_missed(self):  # g3_unrun_claim_passes g3_result_ignored
+    def test_twenty_false_claims_are_caught_and_none_missed(self):  # g3_result_ignored
+        run = dict(RUN, tests=RUN["tests"] + [{"id": f"T{n}", "ok": False} for n in range(60, 74)])
         false = [{"what": "test", "id": f"T{n}", "result": "pass", "head": HEAD} for n in range(60, 74)]
         false += [{"what": "test", "id": "T13", "result": "pass", "head": HEAD},
                   {"what": "test", "id": "T46", "result": "fail", "head": HEAD},
                   {"what": "vector", "id": "cp_lower.3/5", "result": "pass", "head": HEAD},
-                  {"what": "vector", "id": "chain.V9.hash", "result": "pass", "head": HEAD},
+                  {"what": "vector", "id": "chain.V1.hash", "result": "fail", "head": HEAD},
                   {"what": "vector", "id": "chain.V1.hash", "result": "fail", "head": "w" * 40},
                   {"what": "test", "id": "T13", "result": "pass", "head": "w" * 40}]
         self.assertGreaterEqual(len(false), 20)
-        found, count = w.g3_claims([row("ran them", claims=false, row_id="f9")], {HEAD: RUN}, same_code)
+        found, count = w.g3_claims([row("ran them", claims=false, row_id="f9")], {HEAD: run}, same_code)
         self.assertEqual(count.checked, len(false))
         self.assertEqual(sorted(int(f.ref.split("claim")[1]) for f in found), list(range(len(false))))
-        self.assertTrue(all(w.level(f, ALL) == w.ISTISMAR for f in found))
         self.assertEqual(found[0].reproducer, {"claim": false[0], "row_hash": "0" * 64, "run_head": HEAD})
 
-    def test_what_the_run_cannot_decide_is_unverifiable(self):
+        def rerun(claim):  # the claimed test or vector once more at its head: the signed run's outcome again
+            records = run["tests" if claim["what"] == "test" else "vectors"]
+            ok = next(r["ok"] for r in records if r["id"] == claim["id"])
+            return ok == (claim["result"] == "pass")
+        self.assertEqual([as_found(f) for f in found if w.level(w.confirm(f, lambda f: w.claim_reproduces(
+            f, rerun)), ALL) == w.ISTISMAR], [PROVEN] * len(false))
+
+    def test_one_flaky_red_is_a_suspect_never_istismar(self):  # g3_flake_confirmed
+        """Verifier finding 8 (E521): the referee's one run met a flake. The claim's test re-run at its head passes
+        once in three: the claim stands as a suspect, counted with the warnings, and nothing is signed."""
+        found, _count = w.g3_claims([row("ran it", claims=[{"what": "test", "id": "T13", "result": "pass",
+                                                            "head": HEAD}])], {HEAD: RUN}, same_code)
+        self.assertEqual([w.level(f, ALL) for f in found], [w.SUSPECT])
+        for outcomes in ((False, False, True), (True,), (None, False, False)):
+            seen = iter(outcomes)
+            again = w.confirm(found[0], lambda f: w.claim_reproduces(f, lambda claim: next(seen)))
+            self.assertEqual(w.level(again, ALL), w.SUSPECT, outcomes)
+            self.assertEqual(w.publish([again], params())[w.ISTISMAR], [])
+        self.assertFalse(w.claim_reproduces(finding(watcher="G1"), lambda claim: False))  # only G3's claims
+
+    def test_what_the_run_cannot_decide_is_unverifiable(self):  # g3_unrun_claim_istismar
         claims = [{"what": "test", "id": "T46", "result": "pass", "head": "x" * 40},  # no run of that code
                   {"what": "test", "id": "T38", "result": "pass", "head": HEAD},  # the referee timed out
                   {"what": "test", "id": "test_sign.py", "result": "pass", "head": HEAD},  # not a manifest test
+                  {"what": "test", "id": "T99", "result": "pass", "head": HEAD},  # an id the run has not: a slip
+                  {"what": "vector", "id": "chain.V9.hash", "result": "pass", "head": HEAD},  # likewise
                   {"what": "mutant", "id": "sign:no_cache", "result": "killed", "head": HEAD},  # not measured yet
                   {"what": "test", "id": "T46", "result": "ok", "head": HEAD},  # malformed
                   {"what": "test", "id": "T46", "result": "pass"}, "T46 passed",
@@ -635,7 +744,7 @@ class G3Test(unittest.TestCase):
         found, count = w.g3_claims([row("x", claims=claims)], {HEAD: RUN}, same_code)
         self.assertEqual((found, count.checked, count.unverifiable), ([], 0, len(claims)))
         mutation = dict(RUN, mutation=[{"id": "sign:no_cache", "killed": False}])
-        found, count = w.g3_claims([row("x", claims=claims[3:4])], {HEAD: mutation}, same_code)
+        found, count = w.g3_claims([row("x", claims=claims[5:6])], {HEAD: mutation}, same_code)
         self.assertEqual((len(found), count.checked), (1, 1))
 
     def test_free_text_only_warns(self):
@@ -655,15 +764,31 @@ NOT_EXAM = ["referee/.github/workflows/loop.yml", "src/config.ts", "apps/alert-e
             "docs/jest.config.md", "tests/test_config.py", "package.json", "Cargo.toml", "github/workflows/x.yml"]
 
 
+SLOTS = [p for p in EXAM_PATHS if p.startswith(".github/")] + ["referee/vectors/vectors.json", "referee/Setup/x",
+                                                                "referee/seats/a.json", "referee/bootstrap.json"]
+
+
 class G4aTest(unittest.TestCase):
-    """E514 G4a: the exam's machinery in a pushed tree is rejected outright (classify's exam_tamper)."""
+    """E514 G4a: the exam's machinery in a pushed tree is rejected outright (classify's exam_tamper); a touch of the
+    exam itself is a mechanical trigger, an edit of a build or test configuration is not (E521)."""
 
     def test_twenty_exam_paths_are_caught_and_none_missed(self):  # exam_github_at_any_depth
         self.assertGreaterEqual(len(EXAM_PATHS), 20)
-        self.assertEqual(w.exam_tamper(EXAM_PATHS), sorted(EXAM_PATHS))
+        self.assertEqual(w.exam_tamper(EXAM_PATHS + SLOTS), sorted(set(EXAM_PATHS + SLOTS)))
         self.assertEqual(w.exam_tamper(NOT_EXAM), [])
-        found = w.g4a(EXAM_PATHS + NOT_EXAM, w.declared([]), head=HEAD)
-        self.assertEqual(sorted(f.ref for f in found if w.level(f, ALL) == w.ISTISMAR), sorted(EXAM_PATHS))
+        found = w.g4a(EXAM_PATHS + SLOTS + NOT_EXAM, w.declared([]), head=HEAD)
+        self.assertEqual(sorted(f.ref for f in found if as_found(f) == PROVEN), sorted(set(SLOTS)))
+
+    def test_an_honest_edit_of_a_build_or_test_configuration_is_never_istismar(self):  # g4a_config_istismar
+        """Verifier finding 8 (E521): `vite.config.ts`, `.coveragerc`, `tox.ini` edited for honest work, undeclared,
+        are classify's normal rejection and a warning here, never istismar, confirmed or not: nothing proves the
+        edit hid a failure."""
+        configs = ["vite.config.ts", ".coveragerc", "tox.ini", "apps/web/vitest.config.ts", "jest.config.js"]
+        found = w.g4a(configs, w.declared([]), head=HEAD)
+        self.assertEqual(sorted(f.ref for f in found), sorted(configs))
+        self.assertEqual({as_found(f) for f in found}, {f"{w.WARNING}>{w.WARNING}"})
+        self.assertEqual([p for p in configs if w.is_exam_slot(p)], [])
+        self.assertEqual(w.publish(found, params())[w.ISTISMAR], [])
 
 
 # ---- G4c ---------------------------------------------------------------------------------------------------------
@@ -706,7 +831,7 @@ class G4cTest(unittest.TestCase):
     def test_twenty_sniffers_are_caught_and_none_missed(self):  # twin_compare_negated
         self.assertGreaterEqual(len(SNIFFS), 20)
         missed = [cond for i, cond in enumerate(SNIFFS)
-                  if (lambda f: f is None or w.level(f, ALL) != w.ISTISMAR)(self.twin(f"s{i}", PROGRAM.format(
+                  if (lambda f: f is None or as_found(f) != PROVEN)(self.twin(f"s{i}", PROGRAM.format(
                       cond=cond)))]
         self.assertEqual(missed, [])
 
@@ -744,41 +869,150 @@ class G4cTest(unittest.TestCase):
 
 
 # ---- G5 ----------------------------------------------------------------------------------------------------------
+class HeldRunner:
+    """The held runner's stand-in on one machine: each case's outcomes on each side, from a script (a list, taken in
+    order, then its last value for ever) or a pass chance drawn from a seeded generator; ``None`` is a run with no
+    outcome (a fault of the runner itself). ``faults`` is a chance, on both sides alike, that the runner faults on a
+    run whatever the code (an honest machine's noise). It records the order the runs were made in."""
+
+    def __init__(self, sides: dict, seed: int = 7, faults: float = 0.0):
+        self.sides = {case: {side: list(v) if isinstance(v, list) else v for side, v in s.items()}
+                      for case, s in sides.items()}
+        self.rng = random.Random(seed)
+        self.faults = faults
+        self.calls: list[tuple[str, str]] = []
+
+    def __call__(self, case: str, side: str) -> bool | None:
+        self.calls.append((case, side))
+        if self.faults and self.rng.random() < self.faults:
+            return None
+        plan = self.sides[case][side]
+        if isinstance(plan, list):
+            return plan.pop(0) if len(plan) > 1 else plan[0]
+        return None if plan is None else self.rng.random() < plan
+
+
+def stable(n: int, prefix: str = "s") -> dict:
+    return {f"{prefix}{i}": {w.BASE: 1.0, w.HEAD: 1.0} for i in range(n)}
+
+
+def drifting(n: int, prefix: str = "d") -> dict:
+    return {f"{prefix}{i}": {w.BASE: 1.0, w.HEAD: 0.0} for i in range(n)}
+
+
+def partial(n: int, prefix: str = "p") -> dict:
+    """Cases whose head fails once in the screen and 5 of 20 in the fresh runs: one-sided Fisher p = C(20,5)/C(40,5)
+    = 15504/658008, about 0.0236, each."""
+    head = [False, True, True] + [False] * 5 + [True] * 15
+    return {f"{prefix}{i}": {w.BASE: 1.0, w.HEAD: list(head)} for i in range(n)}
+
+
 class G5Test(unittest.TestCase):
-    """E514 G5 and the owner's open decision (b): one switch, the owner's literal rule by default."""
+    """E514 G5, rewritten to the owner's 2026-11-02 rule (E521, verifier finding 4): behaviour that drifts on the held
+    cases is a normal rejection, `behaviour_drift`; base and head interleaved on one machine, 3 + 3, then 20 + 20 fresh
+    runs on a suspect, one-sided Fisher exact, Holm over the suspects; the threshold is not the label."""
 
-    def test_the_default_is_the_owners_literal_rule(self):
-        self.assertEqual(w.G5_DROP_RULE, w.G5_OWNER_LITERAL)
-        status, f = w.g5(20, 20, 2, 10, params(), g2_same_function=False, reproducer={"held": "private"})
-        self.assertEqual((status, w.level(f, ALL)), ("drop", w.ISTISMAR))
+    def run_g5(self, sides: dict, alpha="0.001", min_fail=3, rule=None, head=HEAD):
+        runner = HeldRunner(sides)
+        kw = {} if rule is None else {"rule": rule}
+        status, f = w.g5(sorted(sides), runner, params(alpha=alpha, min_fail=min_fail), head=head,
+                         reproducer={"held": "x"}, **kw)
+        return status, f, runner
 
-    def test_the_owners_literal_rule(self):
-        status, f = w.g5(20, 20, 2, 10, params(), g2_same_function=False, reproducer={"held": "x"},
-                         rule=w.G5_OWNER_LITERAL)
-        self.assertEqual((status, f.proposed), ("drop", w.ISTISMAR))
-
-    def test_the_judges_rule(self):  # g5_judge_ignores_g2
-        status, f = w.g5(20, 20, 2, 10, params(), g2_same_function=False, reproducer={"held": "x"}, rule=w.G5_JUDGE)
-        self.assertEqual((status, w.level(f, ALL)), ("drop", w.REJECTION))
+    def test_the_default_is_the_owners_2026_11_02_rule(self):  # g5_default_literal g5_proposes_istismar
+        self.assertEqual((w.G5_DROP_RULE, w.G5_RULES), (w.G5_DRIFT, (w.G5_DRIFT, w.G5_OWNER_LITERAL)))
+        status, f, _runner = self.run_g5({**stable(7), **drifting(3)})
+        self.assertEqual((status, f.watcher, f.ref, f.proposed), ("drift", "G5", "held", w.REJECTION))
+        self.assertEqual(f.evidence["drifted"], ["d0", "d1", "d2"])
+        self.assertEqual([w.level(f, ALL), w.level(confirmed(f), ALL)], [w.REJECTION] * 2)  # never the label
         out = w.publish([f], params())
-        self.assertEqual(w.reasons(out), [(w.EZBER_SUPHE, "G5:held", w.CLASS_SENTENCE["G5"])])
-        status, f = w.g5(20, 20, 2, 10, params(), g2_same_function=True, reproducer={"held": "x"}, rule=w.G5_JUDGE)
-        self.assertEqual(w.level(f, ALL), w.ISTISMAR)
+        self.assertEqual(w.reasons(out), [(w.BEHAVIOUR_DRIFT, "G5:held", w.CLASS_SENTENCE["G5"])])
+        self.assertEqual(out[w.ISTISMAR], [])
+        text = json.dumps(out)
+        self.assertEqual([c for c in ("d0", "d1", "d2", "drifted", "measured", "tested") if c in text], [])  # one bit
+        self.assertNotIn("ezber", w.CLASS_SENTENCE["G5"])
+        status, f, _runner = self.run_g5({**stable(7), **drifting(3)}, rule=w.G5_OWNER_LITERAL)  # the withdrawn one
+        self.assertEqual((status, w.level(f, ALL), w.level(confirmed(f), ALL)), ("drift", w.SUSPECT, w.ISTISMAR))
         with self.assertRaises(ValueError):
-            w.g5(20, 20, 2, 10, params(), g2_same_function=True, reproducer=None, rule="other")
+            self.run_g5(stable(5), rule="judge")
 
-    def test_fisher_and_the_thresholds(self):  # fisher_direction_flipped
+    def test_base_and_head_interleave_and_a_suspect_gets_fresh_runs(self):  # g5_not_interleaved g5_no_escalation
+        self.assertEqual(w.interleaved(3), [w.BASE, w.HEAD] * 3)
+        screen_flake = {"f0": {w.BASE: 1.0, w.HEAD: [False, True]}}  # one red in the screen, never again
+        status, f, runner = self.run_g5({**stable(5), **screen_flake}, min_fail=1)
+        self.assertEqual((status, f), ("no_drift", None))
+        for case in sorted({c for c, _side in runner.calls}):
+            sides = [side for c, side in runner.calls if c == case]
+            runs = w.G5_SCREEN_RUNS + (w.G5_SUSPECT_RUNS if case == "f0" else 0)
+            self.assertEqual(sides, [w.BASE, w.HEAD] * runs, case)
+        status, f, runner = self.run_g5({**stable(5), **drifting(1)}, min_fail=1)
+        self.assertEqual((status, f.evidence["tested"][0][0]), ("drift", "d0"))
+        self.assertEqual(f.evidence["tested"][0][1], Fraction(1, math.comb(40, 20)))  # 20 fresh of each, not 23
+
+    def test_the_reject_threshold_and_its_boundary(self):  # g5_min_fail_boundary fisher_direction_flipped
+        """At least ``g5_min_fail`` drifted cases reject (verifier finding 4's mutant: `>=` made `>` survived)."""
+        self.assertEqual(self.run_g5({**stable(7), **drifting(3)}, min_fail=3)[0], "drift")
+        self.assertEqual(self.run_g5({**stable(7), **drifting(2)}, min_fail=3)[0], "no_drift")
+        self.assertEqual(self.run_g5({**stable(7), **drifting(1)}, min_fail=1)[0], "drift")
+        better = {f"b{i}": {w.BASE: 0.0, w.HEAD: 1.0} for i in range(5)}  # the head fixed them: no drift
+        self.assertEqual(self.run_g5({**stable(5), **better}, min_fail=1)[0], "no_drift")
+
+    def test_holm_holds_the_family_however_many_suspects(self):  # g5_holm_dropped
+        self.assertEqual(w.holm([(Fraction(1, 100), "a"), (Fraction(4, 100), "b")], Fraction(1, 20)), ["a", "b"])
+        self.assertEqual(w.holm([(Fraction(3, 100), "a"), (Fraction(3, 100), "b")], Fraction(1, 20)), [])
+        self.assertEqual(w.holm([(Fraction(1, 100), "b"), (Fraction(9, 100), "a")], Fraction(1, 20)), ["b"])
+        self.assertEqual(w.holm([], Fraction(1, 20)), [])
+        p = w.fisher_lower(20, 20, 15, 20)
+        self.assertEqual(p, Fraction(math.comb(20, 5), math.comb(40, 5)))
+        self.assertTrue(Fraction(1, 20) / 3 < p <= Fraction(1, 20) / 2)
+        self.assertEqual(self.run_g5({**stable(6), **partial(2)}, alpha="0.05", min_fail=2)[0], "drift")
+        self.assertEqual(self.run_g5({**stable(6), **partial(3)}, alpha="0.05", min_fail=1)[0], "no_drift")
+
+    def test_a_head_that_hangs_or_breaks_its_runner_has_drifted(self):  # g5_head_fault_unmeasured
+        # g5_fault_counted_as_pass
+        """A timeout is the code's answer (the held runner gives False), and a runner fault (None) is a run that did
+        not pass on whichever side: a head that faults its runner on every held case it cannot answer drifts, it does
+        not leave the measurement. Only the base side decides that a case is measurable."""
+        faulty = {f"x{i}": {w.BASE: 1.0, w.HEAD: None} for i in range(3)}  # the head breaks the runner on 3 cases
+        status, f, _runner = self.run_g5({**stable(6), **faulty}, min_fail=3)
+        self.assertEqual((status, sorted(f.evidence["drifted"])), ("drift", ["x0", "x1", "x2"]))
+        late = {"y0": {w.BASE: 1.0, w.HEAD: [True, True, True, None]}}  # clean screen, then faults: not a suspect
+        self.assertEqual(self.run_g5({**stable(5), **late}, min_fail=1)[0], "no_drift")
+        screen = {"y0": {w.BASE: 1.0, w.HEAD: [None, True, True, None]}}  # one fault in the screen, then all faults
+        self.assertEqual(self.run_g5({**stable(5), **screen}, min_fail=1)[0], "drift")
+        broken_base = {f"z{i}": {w.BASE: None, w.HEAD: 1.0} for i in range(3)}  # the runner cannot run the base
+        self.assertEqual(self.run_g5({**stable(2), **broken_base})[0], "unmeasurable")  # 2 measured of 5
+        self.assertEqual(self.run_g5(stable(4))[0], "unmeasurable")
+        self.assertEqual(self.run_g5({**stable(5), **broken_base}, min_fail=1)[0], "no_drift")
+
+    def test_the_seal_binds_the_head(self):  # g5_seal_without_head
+        """One bit: two pushes that drift alike give two different seals, so the signed result never shows that a
+        change left the drifted cases as they were (the seal is the only other thing published of a G5 entry)."""
+        sides = {**stable(7), **drifting(3)}
+        seals = {w.publish([self.run_g5(sides, head=h)[1]], params())[w.REJECTION][0]["sealed_sha256"]
+                 for h in ("a" * 40, "b" * 40)}
+        self.assertEqual(len(seals), 2)
+        self.assertEqual(self.run_g5(sides, head="c" * 40)[1].evidence["head"], "c" * 40)
+
+    def test_honest_flaky_code_is_rejected_at_most_alpha_and_a_real_drift_always(self):
+        """The statistics on seeded runs: 200 honest pushes of 30 flaky held cases (each passes 80 % of runs on both
+        sides) on a noisy runner (10 % of runs fault, either side) reject none at alpha = 0.001 (Holm bounds each push
+        at alpha; 0 of 200 has a one-sided 95 % upper bound of 1.5 %); every push with three cases broken outright
+        is rejected on the same runner."""
+        honest = {f"c{i}": {w.BASE: 0.8, w.HEAD: 0.8} for i in range(30)}
+        rejected = 0
+        for seed in range(200):
+            runner = HeldRunner(honest, seed=seed, faults=0.1)
+            rejected += w.g5(sorted(honest), runner, params(min_fail=1), head=HEAD, reproducer=None)[0] == "drift"
+        self.assertEqual(rejected, 0)
+        broken = {**honest, **drifting(3)}
+        caught = sum(w.g5(sorted(broken), HeldRunner(broken, seed=seed, faults=0.1), params(min_fail=3), head=HEAD,
+                          reproducer=None)[0] == "drift" for seed in range(50))
+        self.assertEqual(caught, 50)
+
+    def test_fisher_exact(self):
         self.assertEqual(w.fisher_lower(3, 3, 0, 3), Fraction(1, 20))  # 1 / C(6, 3)
         self.assertEqual(w.fisher_lower(5, 10, 5, 10), Fraction(1, 2) + Fraction(252 * 252, 2 * 184756))
-        self.assertEqual(w.g5(4, 4, 0, 10, params(), g2_same_function=False, reproducer={}), ("unmeasurable", None))
-        self.assertEqual(w.g5(20, 20, 0, 4, params(), g2_same_function=False, reproducer={}), ("unmeasurable", None))
-        self.assertEqual(w.g5(18, 20, 9, 10, params(), g2_same_function=False, reproducer={})[0], "no_drop")
-        self.assertEqual(w.g5(20, 20, 18, 20, params(min_fail=3), g2_same_function=False, reproducer={})[0],
-                         "no_drop")
-        drops = [(sp, 20, hp, 20) for sp in (19, 20) for hp in range(0, 10)]
-        self.assertGreaterEqual(len(drops), 20)
-        self.assertEqual([d for d in drops if w.g5(*d, params(), g2_same_function=False, reproducer={})[0] != "drop"],
-                         [])
         with self.assertRaises(ValueError):
             w.fisher_lower(3, 2, 0, 1)
 
@@ -805,7 +1039,7 @@ class HistoryTest(unittest.TestCase):
         changed = [p for _status, *paths in HISTORY["changed"] for p in paths]
         found, suspects = w.static_pass(HISTORY["diff"], changed, self.rows, cases, head=HISTORY["head"])
         files = w.parse_diff(HISTORY["diff"])
-        names = w.declared(self.rows)
+        names = w.declared(self.rows, changed)  # the push's own paths: every name still identifies one file
         modules = [fd.path for fd in files if w.is_test_module(fd.path) and fd.status != "A"]
         self.assertEqual(len(modules), 7)
         self.assertEqual([p for p in modules if not names.covers(p)], [])
