@@ -4,6 +4,7 @@ is pinned here, so a later edit that loosens it fails a test instead of passing 
 from __future__ import annotations
 
 import argparse
+import ast
 import contextlib
 import dataclasses
 import hashlib
@@ -473,6 +474,8 @@ class VectorInputsTest(unittest.TestCase):
                 go_on = pilot.cycle(1, args)
             except launch.GitHubUnavailable:
                 go_on = "outage"  # run_cycles waits it out (E245)
+            except launch.Halt:
+                go_on = "halt"  # run_cycles writes HALT, RUNNING stays (E528)
         return calls, go_on, "".join(report), pilot.work / "vec"
 
     def test_the_inputs_are_rebuilt_before_each_session_and_a_failed_fetch_stops_the_cycle(self):
@@ -485,7 +488,7 @@ class VectorInputsTest(unittest.TestCase):
         self.assertIn("HTTP 502", report)
         broken = lambda *a, **kw: subprocess.CompletedProcess(a, 0, b"not a tarball", b"")  # noqa: E731
         calls, go_on, report, vec = self.run_cycle(broken)
-        self.assertEqual((calls, go_on), (["refresh"], False))  # a broken tarball is a defect: stop
+        self.assertEqual((calls, go_on), (["refresh"], "halt"))  # a defect no wait mends: the operator's (E528)
 
 
 class RefereeRetryTest(unittest.TestCase):  # E166: the loop never waits on the Founder for the rival's own failure
@@ -642,8 +645,15 @@ class RefereeRetryTest(unittest.TestCase):  # E166: the loop never waits on the 
         calls, waits = [], []
 
         class Fake:
+            idle = failures = limit_waits = 0
+            cycle_used = True
+            back_off = launch.Pilot.back_off  # the breaker waits it out (E528)
+
             def stopped(self):
                 return False
+
+            def write(self, text):
+                pass
 
             def cycle(self, n, args):
                 calls.append(n)
@@ -657,7 +667,7 @@ class RefereeRetryTest(unittest.TestCase):  # E166: the loop never waits on the 
         args = type("Args", (), dict(cycles=5))
         with mock.patch.object(launch, "say"):
             launch.run_cycles(Fake(), args)
-        self.assertEqual((calls, waits), ([1, 2], [launch.GH_OUTAGE_WAIT_S]))
+        self.assertEqual((calls, waits), ([1, 2], [launch.BREAKER_WAITS_S[0]]))
 
         class Unreadable(launch.Pilot):
             def dispatch_referee(self, timeout_s):
@@ -787,6 +797,7 @@ class RefereeRetryTest(unittest.TestCase):  # E166: the loop never waits on the 
         self.assertTrue(all(w > 0 for w in waits))
         rows = [json.loads(line) for line in pilot.metrics.read_text(encoding="utf-8").splitlines()]
         self.assertEqual([r["api_error"] for r in rows], ["usage_limit_reached"] * 2)
+        self.assertEqual([r["end"] for r in rows], ["usage_limit"] * 2)  # E528
 
     def test_a_push_the_referee_never_judged_is_judged_before_the_next_session(self):  # E168
         self.assertEqual(self.catch_up(prior_head="a" * 40), ["referee", "session"])
@@ -1977,7 +1988,9 @@ class LauncherResumeTest(unittest.TestCase):
         test = self
 
         class FakePilot:  # the launcher's Pilot as start() and run_cycles() see it; the cycle has its own tests
-            idle = 0
+            idle = failures = limit_waits = 0
+            cycle_used = True
+            back_off = test.launch.Pilot.back_off  # E528: an outage is a failure of the run
 
             def __init__(self, work, brain, referee, target):
                 self.work, self.report = work, work / "pilot-log.md"
@@ -2214,6 +2227,60 @@ class LauncherResumeTest(unittest.TestCase):
         self.assertFalse(wait({"docker": 0, "gh": 0}))
         self.assertEqual(asked, [])
 
+    def test_a_halt_keeps_running(self):  # halt_clears_running hand_start_keeps_a_halt
+        """E528: a run that cannot go on without the operator is not a deliberate end: HALT says why, RUNNING stays
+        with the cycles left, its failures and resumes reset; a start by hand is the operator's and replaces it."""
+        halt = self.launch.Halt("5 failures in a row, the last: the session ended in error without a push")
+        seen = self.main(["--cycles", "4", "--no-build"], outcomes=[True, halt])
+        self.assertEqual(seen["code"], self.launch.HALT_EXIT)
+        left = self.running()
+        self.assertEqual((left["cycles_left"], left["idle"], left["failures"], left["resumes"]), (3, 1, 0, 0))
+        mark = json.loads((self.work / "HALT").read_text(encoding="utf-8"))
+        self.assertEqual((mark["reason"], mark["cycles_left"]), (str(halt), 3))
+        self.assertIn(f"**HALT**: {halt}", (self.work / "pilot-log.md").read_text(encoding="utf-8"))
+        seen = self.main(["--cycles", "1", "--no-build"], outcomes=[True])
+        self.assertEqual((seen["code"], len(seen["running"])), (0, 1))
+        self.assertFalse((self.work / "HALT").exists())
+        self.assertIsNone(self.running())
+
+    def test_resume_waits_for_the_operator_on_a_halt(self):  # resume_ignores_a_halt
+        """E528: while HALT exists the task's resume does nothing and RUNNING stays; once the operator removes it, the
+        resume runs the cycles left."""
+        stored = self.store(argv=["--no-build"])
+        (self.work / "HALT").write_text('{"reason": "x"}', encoding="utf-8")
+        seen = self.main(["--resume"], outcomes=[True] * 3)
+        self.assertEqual((seen["code"], seen["calls"], seen["waited"]), (0, [], False))
+        self.assertEqual(self.running(), stored)
+        (self.work / "HALT").unlink()
+        seen = self.main(["--resume"], outcomes=[True] * 3)
+        self.assertEqual((seen["code"], seen["calls"], len(seen["running"])), (0, ["preflight"], 3))
+
+    def test_a_crash_loop_halts_the_fourth_resume(self):  # crash_loop_unguarded resume_not_counted
+        """E528: a crash that comes back on every resume would start a paid session each 15 minutes. Each resume counts
+        itself in RUNNING; the fourth in a row with no cycle ended between halts before any cycle, and RUNNING stays;
+        once the operator removes HALT, the guard starts again."""
+        self.store(argv=["--no-build"], cycles_left=3)
+        for k in (1, 2, 3):
+            with self.assertRaises(RuntimeError):
+                self.main(["--resume"], outcomes=[RuntimeError("the same bug each time")])
+            self.assertEqual(self.running()["resumes"], k)
+        seen = self.main(["--resume"], outcomes=[True])
+        self.assertEqual((seen["code"], seen["calls"], seen["running"]), (self.launch.HALT_EXIT, ["preflight"], []))
+        reason = json.loads((self.work / "HALT").read_text(encoding="utf-8"))["reason"]
+        self.assertEqual(reason, "3 resumes in a row ended before any cycle did")
+        self.assertEqual((self.running()["cycles_left"], self.running()["resumes"]), (3, 0))
+        (self.work / "HALT").unlink()
+        with self.assertRaises(RuntimeError):
+            self.main(["--resume"], outcomes=[RuntimeError("still there")])
+        self.assertEqual(self.running()["resumes"], 1)
+
+    def test_an_ended_cycle_resets_the_resumes(self):  # cycle_end_keeps_the_resumes
+        """E528: the guard counts resumes with no cycle ended between, not resumes in a long run."""
+        self.store(argv=["--no-build"], cycles_left=3, resumes=2)
+        with self.assertRaises(RuntimeError):
+            self.main(["--resume"], outcomes=[True, RuntimeError("a later bug")])
+        self.assertEqual((self.running()["resumes"], self.running()["cycles_left"]), (0, 2))
+
     TASK_NS = {"t": "http://schemas.microsoft.com/windows/2004/02/mit/task"}
 
     def task(self):
@@ -2273,6 +2340,292 @@ class LauncherResumeTest(unittest.TestCase):
             with self.assertRaises(SystemExit):  # not Windows: no task, nothing run
                 launch.main(["--install-service"])
         self.assertEqual(len(calls), 2)
+
+class LauncherEndStateTest(unittest.TestCase):
+    """E528 (the autonomy plan's first work package): the launcher names how each session ended, and only a deliberate
+    end removes RUNNING. A failure is backed off by a breaker and the fifth in a row halts (<work>/HALT, RUNNING stays);
+    a usage limit's wait uses up no cycle, nor does an outage; every child process has a limit; a capsule of this work
+    folder still running is stopped before the next session, and one that will not stop halts the run."""
+
+    def setUp(self):
+        self.launch = load_launch()
+        self.work = Path(tempfile.mkdtemp())
+        self.waits = []
+
+    def pilot(self, cycle=None):
+        waits = self.waits
+
+        class Pilot(quiet_pilot(self.launch)):
+            def write(self, text):
+                pass
+
+            def wait(self, seconds):
+                waits.append(seconds)
+
+        if cycle is not None:
+            Pilot.cycle = cycle
+        return Pilot(self.work, "o/brain", "o/referee", "target")
+
+    def test_each_session_end_is_named(self):  # brake_read_as_exit
+        end = self.launch.session_end
+        cases = {"usage_limit": [{"exit": 1, "api_error": "usage_limit_reached"}, {"exit": 0, "api_error_status": 429}],
+                 "timeout": [{"exit": -1, "timed_out": True, "transcript": "no result event"}],
+                 "brake": [{"exit": 0, "subtype": "error_max_turns"}, {"exit": 1, "subtype": "error_max_budget_usd"}],
+                 "exit": [{"exit": 0, "subtype": "success"}, {"exit": 0, "transcript": "missing"}],
+                 "error": [{"exit": 1, "subtype": "error_during_execution"}, {"exit": 125, "transcript": "missing"},
+                           {"exit": 137, "subtype": "success"}, {"exit": 1}]}
+        for name, sessions in cases.items():
+            for sess in sessions:
+                with self.subTest(sess=sess):
+                    self.assertEqual(end(sess), name)
+        self.assertEqual(sorted(self.launch.FAILED_ENDS), ["brake", "error", "timeout"])
+
+    def test_two_own_ends_end_the_run_a_failure_never_counts(self):  # idle_ends_at_three failure_counted_as_idle
+        """Only a session the Founder ended without a push counts toward the two that end the run; a failure between
+        is backed off and counted apart. A push starts both counts again."""
+        pilot = self.pilot()
+        with mock.patch.object(self.launch, "say"):
+            self.assertTrue(pilot.after_session(1, "exit", {}, False))
+            self.assertTrue(pilot.after_session(2, "error", {}, False))
+            self.assertTrue(pilot.after_session(3, "timeout", {}, False))
+            self.assertEqual((pilot.idle, pilot.failures), (1, 2))
+            self.assertFalse(pilot.after_session(4, "exit", {}, False))
+            self.assertEqual((pilot.idle, pilot.failures), (2, 0))
+            pilot.idle = 1
+            self.assertTrue(pilot.after_session(5, "exit", {}, True))
+            self.assertEqual(pilot.idle, 0)
+        self.assertEqual(self.waits, [5 * 60, 15 * 60])
+
+    def test_the_breaker_backs_off_and_halts(self):  # breaker_never_halts breaker_waits_flat push_keeps_the_failures
+        pilot = self.pilot()
+        with mock.patch.object(self.launch, "say"):
+            for n, end in enumerate(("error", "timeout", "brake", "error"), start=1):
+                self.assertTrue(pilot.after_session(n, end, {}, False))
+            self.assertEqual(self.waits, [5 * 60, 15 * 60, 45 * 60, 3 * 3600])
+            with self.assertRaisesRegex(self.launch.Halt, "^5 failures in a row, the last: the session ended in error"):
+                pilot.after_session(5, "error", {}, False)
+            pilot.failures = 4
+            self.assertTrue(pilot.after_session(6, "error", {}, True))  # it pushed: no failure, the count starts again
+            self.assertEqual(pilot.failures, 0)
+        self.assertEqual(len(self.waits), 4)
+
+    def test_a_usage_limit_uses_up_no_cycle(self):  # limit_wait_uses_up_a_cycle limit_fallback_flat
+        """The account's limit is waited out (to the reset the CLI names, else 30 min, 1 h, then 6 h by the limits in a
+        row); a session that could not work for it is not one of the run's cycles. One that pushed is."""
+        launch = self.launch
+        script = [("usage_limit", False), ("usage_limit", False), ("exit", True), ("usage_limit", True),
+                  ("exit", True)]
+        left = []
+
+        def cycle(pilot, n, args):
+            left.append(intent.state["cycles_left"])
+            end, pushed = script.pop(0)
+            limited = {"api_error": "usage_limit_reached", "final": "limit reached"} if end == "usage_limit" else {}
+            return pilot.after_session(n, end, limited, pushed)
+
+        intent = launch.Intent(self.work)
+        intent.write(["--no-build"], 3)
+        with mock.patch.object(launch, "say"):
+            self.assertEqual(launch.run_cycles(self.pilot(cycle), argparse.Namespace(cycles=3), intent), "ended")
+        self.assertEqual((left, script, self.running_exists()), ([3, 3, 3, 2, 1], [], False))
+        self.assertEqual(self.waits, [30 * 60, 3600, 30 * 60])
+        wait, at = launch.usage_limit_wait, datetime(2026, 11, 3, 1, 0, tzinfo=timezone.utc)
+        self.assertEqual([wait({"api_error_status": 429}, at, k) for k in (0, 1, 2, 3, 9)],
+                         [1800, 1800, 3600, 6 * 3600, 6 * 3600])
+        self.assertEqual(wait({"api_error_status": 429, "final": "resets 2am (UTC)"}, at, 3), 3600 + 120)
+
+    def running_exists(self):
+        return (self.work / "RUNNING").exists()
+
+    def test_an_outage_uses_up_no_cycle_and_the_fifth_halts(self):  # outage_uses_up_a_cycle outage_outside_the_breaker
+        """A GitHub outage, or a push the referee leaves unjudged, is a failure of the run: no cycle goes on it, the
+        breaker waits it out, a cycle that ran starts the count again, and the fifth in a row halts."""
+        launch = self.launch
+        outcomes = [launch.GitHubUnavailable("down")] * 2 + [True] + [launch.NoVerdict("b1b1b1b is still unjudged")] * 5
+        left = []
+
+        def cycle(pilot, n, args):
+            left.append(intent.state["cycles_left"])
+            outcome = outcomes.pop(0)
+            if isinstance(outcome, BaseException):
+                raise outcome
+            pilot.failures = 0  # it pushed
+            return outcome
+
+        intent = launch.Intent(self.work)
+        intent.write(["--no-build"], 2)
+        with mock.patch.object(launch, "say"):
+            self.assertEqual(launch.run_cycles(self.pilot(cycle), argparse.Namespace(cycles=2), intent), "halted")
+        self.assertEqual((left, outcomes), ([2, 2, 2, 1, 1, 1, 1, 1], []))
+        self.assertEqual(self.waits, [5 * 60, 15 * 60, 5 * 60, 15 * 60, 45 * 60, 3 * 3600])
+        running = json.loads((self.work / "RUNNING").read_text(encoding="utf-8"))
+        self.assertEqual((running["cycles_left"], running["failures"]), (1, 0))
+        reason = json.loads((self.work / "HALT").read_text(encoding="utf-8"))["reason"]
+        self.assertEqual(reason, "5 failures in a row, the last: NoVerdict: b1b1b1b is still unjudged")
+
+    def test_unbuildable_inputs_halt(self):  # inputs_unbuilt_end_the_run
+        launch, head = self.launch, "a" * 40
+
+        class Pilot(quiet_pilot(launch)):
+            def fetch_result(self):
+                return {"head": head, "verdict": "accepted", "state": {"last_evaluated_sha": head}}
+
+            def brain_head(self):
+                return head
+
+            def ledger_rows(self, sha):
+                return []
+
+            def refresh_inputs(self):
+                raise ValueError("the referee's tarball has 2 top folders with vectors/, not one")
+
+            def session(self, *a):
+                raise AssertionError("no session on inputs that could not be rebuilt")
+
+            def write(self, text):
+                pass
+
+        pilot = Pilot(self.work, "o/brain", "o/referee", "target")
+        pilot.seed = "s" * 40
+        args = argparse.Namespace(model="m", max_turns=1, budget_usd=1, session_timeout=1, referee_timeout=1)
+        with mock.patch.object(launch, "say"), self.assertRaisesRegex(
+                launch.Halt, "^the vector inputs could not be rebuilt: ValueError: the referee's tarball has 2"):
+            pilot.cycle(1, args)
+
+    def test_every_child_process_has_a_limit(self):  # run_without_a_limit capsule_stop_unbounded
+        """A docker or gh call that hangs would hold the lock and the loop for good: every `run` names a limit (a
+        call without one is a TypeError), and the preflight's checks say a hung docker instead of waiting on it."""
+        launch = self.launch
+        tree = ast.parse((FOUNDER / "launch.py").read_text(encoding="utf-8"))
+        calls = [node for node in ast.walk(tree) if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+                 and node.func.id == "run"]
+        self.assertGreaterEqual(len(calls), 15)  # the scan finds the calls (16 on 2026-11-03)
+        for call in calls:
+            limit = next((k.value for k in call.keywords if k.arg == "timeout"), None)
+            with self.subTest(line=call.lineno):
+                self.assertIsNotNone(limit)
+                self.assertFalse(isinstance(limit, ast.Constant) and not isinstance(limit.value, (int, float)))
+        with self.assertRaises(TypeError):
+            launch.run("docker", "info")
+        with mock.patch.object(launch.subprocess, "run") as child:
+            launch.run("docker", "ps", timeout=60)
+        self.assertEqual(child.call_args.kwargs["timeout"], 60)
+        hung = subprocess.TimeoutExpired(["docker"], 60)
+        pilot = launch.Pilot(self.work, "o/brain", "o/referee", "target")
+        with mock.patch.object(launch, "run", side_effect=hung), self.assertRaises(SystemExit) as stopped:
+            pilot.preflight()
+        self.assertIn("docker is not running (or did not answer)", str(stopped.exception))
+        with mock.patch.object(launch, "run", side_effect=hung):
+            self.assertEqual(pilot.summary(), {})
+
+    def docker(self, running, stops=True, ps_code=0):
+        """A fake `run`: `docker ps` lists `running`, `docker stop` removes the name when `stops`, `docker run` is the
+        session; every call is recorded."""
+        calls = []
+
+        def fake(*argv, **kw):
+            calls.append(argv)
+            if argv[:2] == ("docker", "ps"):
+                if isinstance(ps_code, BaseException):
+                    raise ps_code
+                return subprocess.CompletedProcess(argv, ps_code, "\n".join(running).encode() + b"\n", b"")
+            if argv[:2] == ("docker", "stop") and stops:
+                running.remove(argv[-1])
+            return subprocess.CompletedProcess(argv, 0, b"founder_session claude_exit=0\n", b"")
+        return fake, calls
+
+    def test_a_capsule_left_running_is_stopped_first(self):  # orphans_not_stopped foreign_capsule_stopped
+        """Before a session, every capsule of this work folder still running is stopped: this launcher holds the lock,
+        so it is a dead launcher's session (or a timed-out one's that did not stop) and could push beside the next. A
+        capsule of another work folder (no session folder here) or another name is not this launcher's."""
+        launch = self.launch
+        (self.work / "logs" / "20261103T010000Z").mkdir(parents=True)
+        mine = "snowball_founder_20261103t010000z"
+        running = [mine, "snowball_founder_20261103t020000z", "snowball_founder_x",
+                   "my_snowball_founder_20261103t010000z"]
+        fake, calls = self.docker(running)
+        pilot = launch.Pilot(self.work, "o/brain", "o/referee", "target")
+        with mock.patch.object(launch, "run", fake), mock.patch.object(launch, "say"):
+            self.assertTrue(pilot.stop_orphans())
+            sess = pilot.session("20261103T030000Z", "m", 1, 1, 60)
+        self.assertEqual([c[:2] for c in calls], [("docker", "ps"), ("docker", "stop"), ("docker", "ps"),
+                                                  ("docker", "run")])
+        argv = pilot.capsule_argv("20261103T030000Z", "m", 1, 1)
+        self.assertTrue(launch.CAPSULE_RE.fullmatch(argv[argv.index("--name") + 1]))  # the names it starts
+        self.assertEqual(calls[1][-1], mine)
+        self.assertEqual(launch.session_end(sess), "exit")
+        self.assertIn(f"kapsül durduruldu (önceki başlatıcıdan ya da durmayan bir oturumdan): {mine}",
+                      (self.work / "pilot-log.md").read_text(encoding="utf-8"))
+        fake, calls = self.docker(["snowball_founder_20261103t020000z"])  # another folder's only: nothing stopped
+        with mock.patch.object(launch, "run", fake), mock.patch.object(launch, "say"):
+            self.assertTrue(pilot.stop_orphans())
+        self.assertEqual([c[:2] for c in calls], [("docker", "ps")])
+
+    def test_no_second_writer_on_the_brain(self):  # orphan_stop_unverified docker_silence_starts_a_session
+        """A capsule of this folder that is still running after its stop halts the run; a docker that does not answer
+        the listing is no all-clear."""
+        launch = self.launch
+        (self.work / "logs" / "20261103T010000Z").mkdir(parents=True)
+        pilot = launch.Pilot(self.work, "o/brain", "o/referee", "target")
+        fake, calls = self.docker(["snowball_founder_20261103t010000z"], stops=False)
+        with mock.patch.object(launch, "run", fake), mock.patch.object(launch, "say"), \
+                self.assertRaisesRegex(launch.Halt, "would not stop: snowball_founder_20261103t010000z"):
+            pilot.stop_orphans()
+        self.assertEqual([c[:2] for c in calls], [("docker", "ps"), ("docker", "stop"), ("docker", "ps")])
+        for silent in (1, subprocess.TimeoutExpired(["docker"], 60)):
+            with self.subTest(silent=silent):
+                fake, calls = self.docker([], ps_code=silent)
+                with mock.patch.object(launch, "run", fake), mock.patch.object(launch, "say"):
+                    self.assertFalse(pilot.stop_orphans())
+                self.assertEqual([c[:2] for c in calls], [("docker", "ps")])
+
+    def test_the_cycle_starts_no_session_beside_a_capsule(self):  # orphans_unchecked_before_the_session
+        """The cycle asks for the stop right before the session: a docker that cannot list the capsules starts none
+        (`DockerUnavailable`, an outage of the run: backed off, no cycle used), a capsule that would not stop halts."""
+        launch, head, order = self.launch, "a" * 40, []
+
+        class Pilot(quiet_pilot(launch)):
+            answer = False
+
+            def fetch_result(self):
+                return {"head": head, "verdict": "accepted", "state": {"last_evaluated_sha": head}}
+
+            def brain_head(self):
+                return head
+
+            def ledger_rows(self, sha):
+                return []
+
+            def refresh_inputs(self):
+                pass
+
+            def stop_orphans(self):
+                order.append("stop_orphans")
+                if self.answer is None:
+                    raise launch.Halt("a capsule of this work folder would not stop: x")
+                return self.answer
+
+            def session(self, *a):
+                order.append("session")
+                return {"exit": 0, "minutes": 1}
+
+            def write(self, text):
+                pass
+
+        pilot = Pilot(self.work, "o/brain", "o/referee", "target")
+        pilot.seed = "s" * 40
+        args = argparse.Namespace(model="m", max_turns=1, budget_usd=1, session_timeout=1, referee_timeout=1)
+        with mock.patch.object(launch, "say"):
+            with self.assertRaisesRegex(launch.DockerUnavailable, "docker ps did not answer"):
+                pilot.cycle(1, args)
+            pilot.answer = None
+            with self.assertRaises(launch.Halt):
+                pilot.cycle(2, args)
+            pilot.answer = True
+            pilot.cycle(3, args)
+        self.assertEqual(order, ["stop_orphans", "stop_orphans", "stop_orphans", "session"])
+        self.assertTrue(issubclass(launch.DockerUnavailable, launch.Outage))  # run_cycles backs it off
+
 
 class LedgerIndexCapsuleTest(unittest.TestCase):  # E506, owner 2026-11-02 (gap D)
     """The ledger's read-only index reaches the Founder with the image and never with the brain (E150 stands): it is

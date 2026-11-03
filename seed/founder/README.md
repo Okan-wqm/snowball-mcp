@@ -93,7 +93,8 @@ karar "yürürlükte" görünürdü), sahibin kararını bekler. İmaj yeniden k
 | `reports-seen.json` | başlatıcının her beyin raporunu ilk gördüğü an: raporun yaşı |
 | `STOP` | oluşturulursa başlatıcı o adımdan sonra durur |
 | `launcher.lock` | çalışan başlatıcının özel işletim sistemi kilidi (E505): klasörde aynı anda tek başlatıcı. Süreç nasıl biterse bitsin (çökme, öldürme, yeniden açılış) işletim sistemi bırakır; elle silinmez |
-| `RUNNING` | süren koşu (JSON, E505): seçenekleri (`--work`, `--cycles` ve `--resume` dışında), kalan döngü, push'suz oturum sayısı, başlangıç ve son güncelleme. Ön denetim geçince yazılır, her döngüden sonra güncellenir; koşu `STOP`'la, push'suz iki oturumla, zaman aşımıyla, girdiler yenilenemeyince, Ctrl+C ile ya da son döngüsüyle bitince silinir. Çökme, öldürme ya da yeniden açılış onu bırakır ve `--resume` o koşuyu sürdürür. Gizli bilgi yazılmaz |
+| `RUNNING` | süren koşu (JSON, E505, E528): seçenekleri (`--work`, `--cycles` ve `--resume` dışında), kalan döngü, sayaçları (Kurucu'nun push'suz bitirdiği oturumlar `idle`, art arda başarısızlıklar `failures`, art arda kullanım sınırları `limit_waits`, son biten döngüden bu yana sürdürmeler `resumes`), başlangıç ve son güncelleme. Ön denetim geçince yazılır, her döngüden sonra güncellenir; yalnız koşu kasıtlı bitince silinir: `STOP`, Kurucu'nun push'suz bitirdiği iki oturum, Ctrl+C ya da son döngü. Çökme, öldürme, yeniden açılış ve HALT onu bırakır ve `--resume` o koşuyu sürdürür. Gizli bilgi yazılmaz |
+| `HALT` | koşu operatörü bekliyor (JSON, E528: neden, ne zaman, kalan döngü): art arda beşinci başarısızlık, bu klasörün durmayan bir kapsülü, yenilenemeyen vektör girdileri ya da arada hiçbir döngü bitmeden dördüncü sürdürme. `RUNNING` kalır (başarısızlık ve sürdürme sayaçları sıfırlanmış); `HALT` varken `--resume` hiçbir şey yapmaz. Operatör onu silince görev koşuyu sürdürür; elle başlatma onu siler ve koşunun yerine geçer |
 | `scorecard/` | karnenin önbelleği ve özel kopyası (E310): `results/` hakemin imzalı sonuçları ve Sigstore paketleri (yalnız eklenir, özetiyle denetlenir), `manifests.jsonl`, `ledger-counts.jsonl` (her yargılanmış başta defterin satır sayısı: öz-tespitin (b) penceresi, E315), `karne.json` ve `karne.md` (maliyet ve keşif dahil). Kapsüle hiç bağlanmaz |
 
 **Çalıştırma** (operatörün `gh` girişi ve Docker gerekir):
@@ -103,8 +104,23 @@ python seed/founder/launch.py --cycles 3
 ```
 
 Her döngü: hakemin son sonucunu indir → vektör girdilerini yenile → bir Kurucu oturumu → beyin değiştiyse hakemi
-tetikle ve bekle (zamanlayıcısı seyrek ve düzensiz çalışır, E32: beklemek güvenilmez) → maliyet satırı → `pilot-log.md`'ye yaz. Push'suz iki oturumda, zaman aşımında,
-`STOP` dosyasında ya da girdiler yenilenemeyince (eski ya da eksik girdiyle oturum açılmaz) durur.
+tetikle ve bekle (zamanlayıcısı seyrek ve düzensiz çalışır, E32: beklemek güvenilmez) → maliyet satırı →
+`pilot-log.md`'ye yaz.
+**Bitiş durumları** (E528). Her oturumun nasıl bittiği adlandırılır (`pilot-log.md`'de `bitiş`, metrikte `end`):
+`usage_limit` (hesabın kullanım sınırı, E243), `exit` (CLI bitti, kapsül 0 ile çıktı), `timeout` (duvar saati sınırında
+öldürüldü), `brake` (CLI'nin tur ya da bütçe freni: `error_max_turns`, `error_max_budget_usd`) ya da `error` (başka her
+çıkış: Docker kapsülü koşturamadı, kapsül öldürüldü, CLI hata verdi). Koşu yalnız kasıtlı biter ve yalnız o zaman
+`RUNNING` silinir: `STOP`, Kurucu'nun push'suz bitirdiği (`exit`) iki oturum ya da son döngü. Kullanım sınırı CLI'nin
+adlandırdığı sıfırlanmaya kadar beklenir (adlandırmazsa art arda sınırlara göre 30 dk, 1 sa, sonra 6 sa); push'suz böyle
+bir oturum döngü harcamaz ve hiçbir sayacı değiştirmez. `timeout`, `brake` ve `error` başarısızlıktır, push'suz oturum
+sayılmaz: art arda 1.'den 4.'ye 5 dk, 15 dk, 45 dk, sonra 3 sa beklenir, 5.'si HALT'tır. GitHub kesintisi, hakemin
+yargılamadan bıraktığı bir push ya da kapsülleri listeleyemeyen bir Docker (oturum hiç açılmaz) da koşunun
+başarısızlığıdır: döngü harcamaz, aynı bekleyişle beklenir. Push her iki sayacı sıfırlar. Yenilenemeyen vektör girdileri
+(eski ya da eksik girdiyle oturum açılmaz) beklemekle düzelmez: HALT. Her alt süreç (her `docker` ve `gh` çağrısı) bir
+sınırla çalışır. Her oturumdan önce bu çalışma klasörünün hâlâ koşan kapsülleri (`snowball_founder_<damga>` adlı ve
+`logs/<damga>` klasörü burada olan) durdurulur: kilit bu başlatıcıda olduğuna göre her biri ölmüş bir başlatıcının ya da
+durmayan bir oturumun kapsülüdür ve sonrakinin yanında push edebilir; durmayan biri HALT'tır, beyinde iki yazan olmaz.
+Başka klasörün ya da başka adın kapsülüne dokunulmaz.
 Sayfasıyla çelişen bir vektör kırmızı kalır ve operatör tohum dönemiyle yanıt verene kadar kabulü engeller; Kurucu
 onu kanıtıyla `seed_issue` olarak bildirir, etrafından dolaşmaz.
 **Maliyet satırı** (`spec/tohum/24a` 4, E344): her oturumdan sonra başlatıcı CLI'nin bildirdiğini çıplak gerçek olarak
@@ -138,14 +154,19 @@ Kaydı görmek: `schtasks /Query /TN "Snowball Founder launcher" /V /FO LIST`; k
 `--resume` ne yapar: kilidi alır, alamazsa başka bir başlatıcı yaşıyordur ve hiçbir şey yapmaz; `RUNNING` yoksa ya da
 `STOP` varsa sessizce çıkar (`STOP` varken o koşunun `RUNNING`'i silinir: `STOP` sonra kaldırılsa da eski koşu
 dirilmez); Docker ve `gh` yanıt verene kadar en çok 10 dakika bekler (bu arada da `STOP`'a bakar; yanıt gelmezse
-`RUNNING` kalır, görevin sonraki tetiklemesi yeniden dener); sonra saklı seçeneklerle kalan döngüleri koşturur ve
-`pilot-log.md`'ye bir satır yazar: `başlatıcı yeniden başladı (çökme/yeniden açılış sonrası): kalan N döngü`.
+`RUNNING` kalır, görevin sonraki tetiklemesi yeniden dener); `HALT` varsa hiçbir şey yapmaz, `RUNNING` kalır (E528);
+sonra saklı seçeneklerle ve sayaçlarla kalan döngüleri koşturur ve `pilot-log.md`'ye bir satır yazar:
+`başlatıcı yeniden başladı (çökme/yeniden açılış sonrası): kalan N döngü`. Her sürdürme ön denetimden sonra kendini
+`RUNNING`'de sayar, biten her döngü sayacı sıfırlar; arada döngü bitmeden üç sürdürmeden sonraki dördüncüsü hiçbir
+döngü koşturmadan HALT yazar (E528: her sürdürmede dönen bir çökme, bu olmasa her 15 dakikada ücretli bir oturum
+açardı). Ön denetimde kalan sürdürme (Docker, `gh` ya da hakemin özeti yanıt vermiyor) sayılmaz: oturum açmaz, görev
+yeniden dener.
 Yargılanmamış bir push her başlangıçta olduğu gibi önce yargılanır (E168); Kurucu yarım işini kendi dallarından sürdürür
-(E500). Ne yapmaz: `STOP`'u, push'suz iki oturumu, zaman aşımını, girdisizliği ya da Ctrl+C'yi geçersiz kılmaz; komut
+(E500). Ne yapmaz: `STOP`'u, Kurucu'nun push'suz bitirdiği iki oturumu, HALT'ı ya da Ctrl+C'yi geçersiz kılmaz; komut
 satırındaki başka seçenekleri okumaz (koşunun seçenekleri `RUNNING`'dedir); `snowball-founder.env`'i okumaz. Pencereyi
 kapatmak durdurma değildir, çökme sayılır ve sürdürülür: durdurmak için `STOP` ya da Ctrl+C. Elle başlatılan bir
-başlatıcı koşarken görevin her tetiklemesi kilidi alamaz ve çıkar. Elle başlatma kesilmiş bir koşunun
-yerine geçer, ön denetimi geçmese de: görev eski koşuyu onun arkasından diriltmez.
+başlatıcı koşarken görevin her tetiklemesi kilidi alamaz ve çıkar. Elle başlatma kesilmiş ya da HALT'ta bekleyen bir
+koşunun yerine geçer (`HALT`'ı da siler), ön denetimi geçmese de: görev eski koşuyu onun arkasından diriltmez.
 
 **Karne** (E310): kendini geliştirmenin ölçüsü, elle yazılmaz. Başlatıcının döngüsüne bağlı değildir (bir `gh`
 takılması döngüyü durdurmasın, yeniden başlatma gerekmesin); her döngüden sonra, başlatıcı çalışırken ayrı bir

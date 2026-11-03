@@ -2,8 +2,9 @@
 
 One cycle:
   1. download the referee's last signed result (`bootstrap-state` artifact of the referee's main branch);
-  2. rebuild <work>/vec from the `vectors/` of the referee repo's main (E244); if that fails, no session: stop;
-  3. run one Founder session in the capsule (seed/founder/Dockerfile);
+  2. rebuild <work>/vec from the `vectors/` of the referee repo's main (E244); if that fails, no session: HALT;
+  3. stop any capsule of this work folder still running (E528), then run one Founder session in the capsule
+     (seed/founder/Dockerfile);
   4. if the brain moved, dispatch the referee (its schedule fires rarely and irregularly, E32) and wait for it;
   5. write the session's cost as a `kind: cost` founder row on the brain's main (`tohum/24a` 4), when that commit is
      memory alone to the referee; otherwise keep it in <work>/cost-pending.jsonl for a later cycle;
@@ -24,11 +25,17 @@ Everything lives in one folder, <work> (the operator deletes it to remove the pi
   <work>/reports-seen.json      when the launcher first saw each brain report (a report's age)
   <work>/launcher.lock          the running launcher's exclusive OS lock: one launcher at a time; the OS frees it when
                                 the process ends, a crash or a reboot too (E505)
-  <work>/RUNNING                the run in progress (JSON): its options, the cycles left, when it started and was last
-                                updated; written after the preflight, removed when the run ends by STOP, two sessions
-                                without a push, a timed-out session, no vector inputs, Ctrl+C or its last cycle. A
-                                crash, a kill or a reboot leaves it, and `--resume` continues that run (E505). No
-                                secret is in it
+  <work>/RUNNING                the run in progress (JSON): its options, the cycles left, its counts (sessions without
+                                a push, failures in a row, usage limits in a row, resumes since a cycle last ended),
+                                when it started and was last updated; written after the preflight, removed only when
+                                the run ends deliberately: STOP, two sessions the Founder ended without a push, Ctrl+C
+                                or its last cycle. A crash, a kill, a reboot or a HALT leaves it, and `--resume`
+                                continues that run (E505, E528). No secret is in it
+  <work>/HALT                   the run waits for the operator (JSON: why, when, the cycles left; E528): five failures
+                                in a row, a capsule of this folder that would not stop, vector inputs that cannot be
+                                rebuilt, or a fourth resume in a row with no cycle ended between. RUNNING stays;
+                                `--resume` does nothing while HALT exists; the operator removes it and the task resumes
+                                the run, or starts one by hand, which replaces it
 
 The operator's own `gh` login dispatches the referee and reads results; it never enters the capsule. It writes to the
 brain only the cost rows, as the launcher's own identity, through git's `gh` credential helper.
@@ -38,7 +45,15 @@ Resume (E505): `--install-service` registers a Windows Scheduled Task for the cu
 nothing while another launcher holds the lock, when there is no RUNNING, or when STOP exists (a deliberate stop is
 never overridden: the run's RUNNING is then removed); else it waits for docker and gh to answer and runs the stored
 options for the cycles left. An unjudged push is judged first, as at every start (E168). A start by hand replaces a
-cut run.
+cut or halted run.
+
+How a session ended (E528, `session_end`): `usage_limit` (the account's limit, E243: waited out to the reset; without
+a push it uses up no cycle and changes no count), `exit` (the CLI ended and the capsule exited 0: without a push it is
+the Founder's own end, and two in a row end the run), or a failure: `timeout` (killed at the wall-clock limit), `brake`
+(the CLI's turn or budget brake) or `error` (any other exit). A failure without a push waits 5, 15, 45 min, then 3 h
+(the breaker); the fifth in a row halts. A GitHub outage, a push the referee leaves unjudged, or a docker that cannot
+list the capsules (no session starts) is a failure of the run too: it uses up no cycle and is waited out the same way.
+Every child process has a limit.
 """
 
 from __future__ import annotations
@@ -104,7 +119,9 @@ def now() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def run(*args: str, check: bool = True, timeout: float | None = None, stdin: bytes | None = None) -> subprocess.CompletedProcess:
+def run(*args: str, timeout: float, check: bool = True, stdin: bytes | None = None) -> subprocess.CompletedProcess:
+    """A child process, always with a limit (E528: a docker or gh call that hangs holds the lock and the loop for
+    good, and the task's next trigger can do nothing). Past it, subprocess.TimeoutExpired."""
     return subprocess.run(args, check=check, timeout=timeout, input=stdin, capture_output=True)
 
 
@@ -121,7 +138,6 @@ class NoVerdict(Outage):
 
 
 GH_RETRY_DELAYS_S = (10, 20, 40, 60, 60)  # about three minutes before a read counts as an outage
-GH_OUTAGE_WAIT_S = 300
 
 
 def gh_read(*args: str, timeout: float = 120) -> bytes:
@@ -168,25 +184,65 @@ def reason_owner(reason: dict) -> str:
 
 
 LIMIT_RESET_RE = re.compile(r"resets\s+(\d{1,2})(?::(\d{2}))?\s*([ap]m)\s*\(UTC\)", re.IGNORECASE)
-LIMIT_FALLBACK_S = 30 * 60
+LIMIT_FALLBACKS_S = (30 * 60, 3600, 6 * 3600)  # no reset named: the 1st, the 2nd, the 3rd and later limit in a row
 LIMIT_MAX_WAIT_S = 6 * 3600
 
 
-def usage_limit_wait(sess: dict, at: datetime) -> int | None:
-    """Seconds to wait when the session could not work because the account's usage limit was reached (the CLI's
-    closing result: api_error_status 429, api_error usage_limit_reached), else None. Such a session is an outage,
-    not a Founder that chose not to push (E243): the wait runs to the reset the CLI names, plus two minutes."""
-    if sess.get("api_error") != "usage_limit_reached" and sess.get("api_error_status") != 429:
+def usage_limited(sess: dict) -> bool:
+    """Whether the account's usage limit ended the session (the CLI's closing result: api_error_status 429, api_error
+    usage_limit_reached): an outage of the account, not a Founder that chose not to push (E243)."""
+    return sess.get("api_error") == "usage_limit_reached" or sess.get("api_error_status") == 429
+
+
+def usage_limit_wait(sess: dict, at: datetime, streak: int = 1) -> int | None:
+    """Seconds to wait when the session hit the account's usage limit, else None: to the reset the CLI names, plus two
+    minutes (E243). A reset it does not name waits by the limits in a row (`streak`): 30 min, 1 h, then 6 h (E528), so
+    a long limit is not polled every half hour."""
+    if not usage_limited(sess):
         return None
     m = LIMIT_RESET_RE.search(str(sess.get("final") or ""))
     if not m:
-        return LIMIT_FALLBACK_S
+        return LIMIT_FALLBACKS_S[min(max(streak, 1), len(LIMIT_FALLBACKS_S)) - 1]
     hour = int(m.group(1)) % 12 + (12 if m.group(3).lower() == "pm" else 0)
     reset = at.replace(hour=hour, minute=int(m.group(2) or 0), second=0, microsecond=0)
     wait = (reset - at).total_seconds()
     if wait <= 0:
         wait += 24 * 3600
     return int(min(wait + 120, LIMIT_MAX_WAIT_S))
+
+
+# E528: how a session ended, the breaker on failures in a row, the crash-loop guard of --resume, and HALT.
+BRAKE_SUBTYPES = ("error_max_turns", "error_max_budget_usd")  # the CLI's own brakes (--max-turns, --max-budget-usd)
+FAILED_ENDS = ("timeout", "brake", "error")  # not the Founder's choice: backed off, never a session without a push
+BREAKER_WAITS_S = (5 * 60, 15 * 60, 45 * 60, 3 * 3600)  # after the 1st, 2nd, 3rd and 4th failure in a row
+BREAKER_HALT = 5  # the 5th failure in a row halts the run
+CRASH_LOOP_RESUMES = 3  # resumes in a row with no cycle ended between; the next resume halts
+HALT_FILE = "HALT"
+HALT_EXIT = 3  # the exit code of a launcher that halted
+CAPSULE_PREFIX = "snowball_founder_"
+CAPSULE_RE = re.compile(CAPSULE_PREFIX + r"([0-9]{8}t[0-9]{6}z)")  # the names `capsule_argv` gives, no other
+
+
+class Halt(RuntimeError):
+    """The run cannot go on without the operator (E528): <work>/HALT is written, RUNNING stays, no resume starts it."""
+
+
+class DockerUnavailable(Outage):
+    """Docker could not list the running capsules: no session starts beside one it cannot see (E528)."""
+
+
+def session_end(sess: dict) -> str:
+    """How a session ended, from the launcher's own record of it (E528): `usage_limit` (the account's limit, E243),
+    `timeout` (killed at the wall-clock limit), `brake` (the CLI stopped at its turn or budget brake), `exit` (the CLI
+    ended and the capsule exited 0) or `error` (any other exit: docker could not run the capsule, the capsule was
+    killed, the CLI failed)."""
+    if usage_limited(sess):
+        return "usage_limit"
+    if sess.get("timed_out"):
+        return "timeout"
+    if sess.get("subtype") in BRAKE_SUBTYPES:
+        return "brake"
+    return "exit" if sess.get("exit") == 0 else "error"
 
 
 def prompt_sha256() -> str:
@@ -389,6 +445,10 @@ class Pilot:
         self.prompt_sha256: str | None = None  # what this launcher start built the capsule with (E313)
         self.context_sha256: str | None = None  # and every build file the image holds (E506)
         self.image_id: str | None = None
+        # The run's counts, kept in RUNNING (E505, E528): sessions the Founder ended without a push in a row, failures
+        # in a row (the breaker), usage limits in a row; and whether the last cycle used one up (a limit's does not).
+        self.idle = self.failures = self.limit_waits = 0
+        self.cycle_used = True
 
     # ---- checks -------------------------------------------------------------------------------------------
     def stopped(self) -> bool:
@@ -400,10 +460,10 @@ class Pilot:
             problems.append(f"{self.env_file} is missing or empty")
         if not self.target.is_dir():
             problems.append(f"target clone {self.target} is missing")
-        if run("docker", "info", check=False).returncode != 0:
-            problems.append("docker is not running")
-        if run("gh", "auth", "status", check=False).returncode != 0:
-            problems.append("gh is not logged in")
+        if not ready("docker", "info"):
+            problems.append("docker is not running (or did not answer)")
+        if not ready("gh", "auth", "status"):
+            problems.append("gh is not logged in (or did not answer)")
         else:
             self.seed = self.seed_commit()
             self.epoch = self.last_epoch()
@@ -415,11 +475,11 @@ class Pilot:
         self.logs.mkdir(exist_ok=True)
 
     def summary(self) -> dict:
-        raw = run("gh", "api", "-H", "Accept: application/vnd.github.raw",
-                  f"repos/{self.referee}/contents/setup/summary.json", check=False).stdout
         try:
+            raw = run("gh", "api", "-H", "Accept: application/vnd.github.raw",
+                      f"repos/{self.referee}/contents/setup/summary.json", check=False, timeout=120).stdout
             data = json.loads(raw)
-        except ValueError:
+        except (ValueError, subprocess.SubprocessError):
             return {}
         return data if isinstance(data, dict) else {}
 
@@ -494,8 +554,11 @@ class Pilot:
         return gh_json("api", f"repos/{self.brain}/commits/main")["sha"]
 
     def ledger_rows(self, sha: str) -> list[dict]:
-        proc = run("gh", "api", "-H", "Accept: application/vnd.github.raw",
-                   f"repos/{self.brain}/contents/founder-ledger.jsonl?ref={sha}", check=False)
+        try:
+            proc = run("gh", "api", "-H", "Accept: application/vnd.github.raw",
+                       f"repos/{self.brain}/contents/founder-ledger.jsonl?ref={sha}", check=False, timeout=120)
+        except subprocess.TimeoutExpired:  # unread, as a failed call is: no rows (E528)
+            return []
         rows = []
         for line in proc.stdout.decode(errors="replace").splitlines() if proc.returncode == 0 else []:
             try:
@@ -691,7 +754,7 @@ class Pilot:
         def bind(src: Path, dst: str, ro: bool) -> list[str]:
             return ["--mount", f"type=bind,src={src},dst={dst}" + (",readonly" if ro else "")]
 
-        return ["docker", "run", "--rm", "--name", f"snowball_founder_{stamp.lower()}",
+        return ["docker", "run", "--rm", "--name", f"{CAPSULE_PREFIX}{stamp.lower()}",
                "--read-only", "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
                "--pids-limit", "1024", "--memory", "8g", "--cpus", "4",
                "--tmpfs", "/tmp:rw,exec,size=2g,mode=1777",
@@ -717,7 +780,7 @@ class Pilot:
             exit_code, tail = proc.returncode, proc.stdout.decode(errors="replace").strip().splitlines()[-1:]
             err = proc.stderr.decode(errors="replace").strip()[-600:]  # docker's own complaint; the CLI's goes to logs/
         except subprocess.TimeoutExpired:
-            run("docker", "stop", f"snowball_founder_{stamp.lower()}", check=False)  # the container this script started
+            self.stop_capsule(f"{CAPSULE_PREFIX}{stamp.lower()}")  # the container this script started
             exit_code, tail = -1, ["session timed out"]
         out = {"exit": exit_code, "minutes": round((time.monotonic() - started) / 60, 1), "line": tail[0] if tail else "",
                "stderr": err}
@@ -725,6 +788,45 @@ class Pilot:
         out.update(self.transcript_init(self.session_logs(stamp) / f"session-{stamp}.jsonl"))
         out["timed_out"] = exit_code == -1 and tail == ["session timed out"]
         return out
+
+    def capsules(self) -> list[str] | None:
+        """The running capsules of this work folder (E528): named as `capsule_argv` names them and with their session
+        folder <work>/logs/<stamp>, so a launcher of another work folder on this machine keeps its own; None when docker
+        does not answer."""
+        try:
+            proc = run("docker", "ps", "--filter", f"name={CAPSULE_PREFIX}", "--format", "{{.Names}}", check=False,
+                       timeout=60)
+        except (OSError, subprocess.SubprocessError):
+            return None
+        if proc.returncode != 0:
+            return None
+        found = (CAPSULE_RE.fullmatch(name) for name in proc.stdout.decode(errors="replace").split())
+        return sorted(m.group(0) for m in found if m and self.session_logs(m.group(1).upper()).is_dir())
+
+    @staticmethod
+    def stop_capsule(name: str) -> None:
+        """`docker stop` (SIGKILL after 30 s), bounded; whether it stopped is what `capsules` says next."""
+        try:
+            run("docker", "stop", "--time", "30", name, check=False, timeout=120)
+        except (OSError, subprocess.SubprocessError):
+            pass
+
+    def stop_orphans(self) -> bool:
+        """Stop every capsule of this work folder still running before a session starts (E528): this launcher holds
+        the lock, so each is a dead launcher's session, or this one's that a timed-out stop left, and it could push
+        beside the next. False when docker does not answer; Halt when one still runs after its stop."""
+        found = self.capsules()
+        if not found:
+            return found is not None
+        for name in found:
+            say(f"stopping {name}: a capsule of this work folder still running before a session")
+            self.stop_capsule(name)
+        left = self.capsules()
+        if left is None or left:
+            raise Halt(f"a capsule of this work folder would not stop: {', '.join(left or found)}")
+        self.write(f"\n- {now()} hâlâ koşan kapsül durduruldu (önceki başlatıcıdan ya da durmayan bir oturumdan): "
+                   f"{', '.join(found)}\n")
+        return True
 
     @staticmethod
     def transcript_init(path: Path) -> dict:
@@ -843,7 +945,7 @@ class Pilot:
         return dispatched, verdict, retries
 
     def cycle(self, n: int, args) -> bool:
-        """One cycle; False when the pilot should stop."""
+        """One cycle; False when the run ends deliberately. Halt when it cannot go on without the operator (E528)."""
         stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
         prior = self.fetch_result()
         before = self.brain_head()
@@ -868,13 +970,17 @@ class Pilot:
             raise
         except (OSError, ValueError, KeyError, tarfile.TarError, subprocess.SubprocessError) as exc:
             # No session on stale or missing inputs: the Founder would test against vectors the referee no longer runs.
-            say(f"cycle {n}: the vector inputs could not be rebuilt ({exc}); no session, stopping")
+            # Not a deliberate end, and no wait mends it: the run halts for the operator, RUNNING stays (E528).
+            say(f"cycle {n}: the vector inputs could not be rebuilt ({exc}); no session, halting")
             self.write(f"\n## Döngü {n} — {stamp}\n\n- Vektör girdileri yenilenemedi, oturum yok: "
                        f"`{str(exc).replace('`', chr(39))}`\n")
-            return False
+            raise Halt(f"the vector inputs could not be rebuilt: {type(exc).__name__}: {str(exc)[:300]}") from None
         say(f"cycle {n}: Founder session {stamp} (brain {before[:7]})")
         self.previous_session_note(stamp, args.session_timeout, prior)
+        if not self.stop_orphans():  # no listing, no session: two writers on the brain are never allowed (E528)
+            raise DockerUnavailable("docker ps did not answer: no session beside a capsule it cannot see")
         sess = self.session(stamp, args.model, args.max_turns, args.budget_usd, args.session_timeout)
+        end = session_end(sess)
         after = self.brain_head()
         rows_after = self.ledger_rows(after)
         new_rows = rows_after[len(rows_before):] if rows_after[:len(rows_before)] == rows_before else rows_after
@@ -890,7 +996,8 @@ class Pilot:
         lines = [f"\n## Döngü {n} — {stamp}\n",
                  f"- Beyin: `{before[:7]}` → `{after[:7]}`" + (" (push yok)" if after == before else ""),
                  f"- Oturum: çıkış {sess.get('exit')}, {sess.get('minutes')} dk, tur {sess.get('turns')}, "
-                 f"maliyet {sess.get('cost_usd')} USD, sonuç {sess.get('subtype', sess.get('transcript'))}",
+                 f"maliyet {sess.get('cost_usd')} USD, sonuç {sess.get('subtype', sess.get('transcript'))}, "
+                 f"bitiş {end}",
                  f"- Hakemin önceki kararı (Kurucu'nun okuduğu): {(prior or {}).get('verdict', 'yok')}",
                  f"- Defter: {len(new_rows)} yeni satır " + (json.dumps(kinds, ensure_ascii=False) if kinds else ""),
                  ]
@@ -934,7 +1041,7 @@ class Pilot:
             "reproduced": sum(1 for r in (verdict or {}).get("reasons") or [] if r.get("kind") == "refutation_reproduced"),
             "old_refutations_still_reproducing": sum(1 for r in (verdict or {}).get("reasons") or []
                                                      if r.get("kind") == "refutation_still_reproduces"),
-            "ledger_new": kinds, "api_error": sess.get("api_error"),
+            "ledger_new": kinds, "api_error": sess.get("api_error"), "end": end,
             # What the outcome is attributed to (E313): the launcher start's prompt and image, the model asked for and
             # served, the CLI, the seed, the rival's configuration, the target commit, and whether time ran out (E340).
             "prompt_sha256": self.prompt_sha256, "image_id": self.image_id, "model": args.model,
@@ -947,14 +1054,43 @@ class Pilot:
             "reports_new": [r.get("payload", {}).get("summary", "")[:120] for r in new_rows
                             if r.get("kind") in REPORT_KINDS],
         })
-        say(f"cycle {n}: done, verdict {(verdict or {}).get('verdict', '-')}")
-        limit_wait = usage_limit_wait(sess, datetime.now(timezone.utc))
-        if limit_wait is not None and after == before:  # it could not work: an outage, not an idle session (E243)
-            say(f"cycle {n}: the session hit the account's usage limit; waiting {limit_wait // 60} min for the reset")
+        say(f"cycle {n}: done, verdict {(verdict or {}).get('verdict', '-')} (session end: {end})")
+        return self.after_session(n, end, sess, pushed=after != before)
+
+    def after_session(self, n: int, end: str, sess: dict, pushed: bool) -> bool:
+        """What the session's end means for the run (E528); False when the run ends deliberately. A push resets the
+        counts of sessions without a push and of failures. A usage limit is the account's outage (E243): its wait runs
+        to the reset, and without a push it changes no count and uses up no cycle. A failure without a push (`timeout`,
+        `brake`, `error`) is backed off, never counted as a session without a push. An `exit` without a push is the
+        Founder's own end: the second in a row ends the run."""
+        if pushed:
+            self.idle = self.failures = 0
+        elif end == "exit":
+            self.idle, self.failures = self.idle + 1, 0
+        self.limit_waits = self.limit_waits + 1 if end == "usage_limit" else 0
+        self.cycle_used = pushed or end != "usage_limit"
+        if end == "usage_limit":
+            limit_wait = usage_limit_wait(sess, datetime.now(timezone.utc), self.limit_waits) or 0
+            say(f"cycle {n}: the session hit the account's usage limit ({self.limit_waits} in a row); waiting "
+                f"{limit_wait // 60} min for the reset")
             self.wait(limit_wait)
             return not self.stopped()
-        self.idle = self.idle + 1 if after == before else 0
-        return not (self.stopped() or self.idle >= 2 or sess.get("exit") == -1)
+        if end in FAILED_ENDS and not pushed:
+            return self.back_off(n, f"the session ended in {end} without a push")
+        return not (self.stopped() or self.idle >= 2)
+
+    def back_off(self, n: int, why: str) -> bool:
+        """One more failure in a row, then its wait (BREAKER_WAITS_S), or Halt at the BREAKER_HALT-th (E528); False
+        when STOP came while waiting."""
+        self.failures += 1
+        if self.failures >= BREAKER_HALT:
+            raise Halt(f"{self.failures} failures in a row, the last: {why}")
+        wait_s = BREAKER_WAITS_S[min(self.failures, len(BREAKER_WAITS_S)) - 1]
+        say(f"cycle {n}: {why}; failure {self.failures} in a row, waiting {wait_s // 60} min")
+        self.write(f"\n- {now()} döngü {n}: {why}; art arda {self.failures}. başarısızlık, {wait_s // 60} dk "
+                   f"bekleniyor ({BREAKER_HALT}.'de HALT)\n")
+        self.wait(wait_s)
+        return not self.stopped()
 
     def wait(self, seconds: int) -> None:
         """Sleep, waking each minute to honour STOP."""
@@ -1003,7 +1139,9 @@ def main(argv: list[str] | None = None) -> int:
 
 def start(parser: argparse.ArgumentParser, args) -> int:
     """One launcher run, under the lock. The run's RUNNING is written once the preflight passed and goes when the run
-    ends deliberately (`run_cycles`) or by the operator's Ctrl+C; any other end leaves it for `--resume` (E505)."""
+    ends deliberately (`run_cycles`) or by the operator's Ctrl+C; any other end, a HALT too, leaves it for `--resume`
+    (E505, E528). A resume counts itself in RUNNING; the fourth in a row with no cycle ended between halts (E528: a
+    crash that comes back each time would otherwise start a paid session every 15 minutes)."""
     intent = Intent(args.work)
     try:
         if args.resume:
@@ -1012,13 +1150,21 @@ def start(parser: argparse.ArgumentParser, args) -> int:
                 return 0
         else:
             intent.clear()  # a start by hand replaces a cut run, also when its preflight then fails
+            intent.unhalt()  # and a halted one: the operator's own start (E528)
         if shutil.which("gh") is None or shutil.which("docker") is None:
             sys.exit("gh and docker must be on PATH")
         pilot = Pilot(args.work, args.brain, args.referee, args.target)
         pilot.idle = int(intent.state.get("idle") or 0) if args.resume else 0
+        pilot.failures = intent.count("failures") if args.resume else 0
+        pilot.limit_waits = intent.count("limit_waits") if args.resume else 0
         pilot.preflight()
         if not args.resume:
             intent.write(rerun_argv(parser, args), args.cycles)
+        elif intent.count("resumes") >= CRASH_LOOP_RESUMES:
+            halt(args.work, intent, f"{intent.count('resumes')} resumes in a row ended before any cycle did")
+            return HALT_EXIT
+        else:
+            intent.resumed()
         if not args.no_build:
             pilot.build()
         pilot.intervention(args)
@@ -1028,32 +1174,58 @@ def start(parser: argparse.ArgumentParser, args) -> int:
             pilot.write(f"\n- {now()} başlatıcı yeniden başladı (çökme/yeniden açılış sonrası): kalan {args.cycles} "
                         f"döngü (`RUNNING`: başlangıç {intent.state.get('started')}, son güncelleme "
                         f"{intent.state.get('updated')})\n")
-        run_cycles(pilot, args, intent)
+        if run_cycles(pilot, args, intent) == "halted":
+            return HALT_EXIT
     except KeyboardInterrupt:  # the operator's Ctrl+C is a deliberate stop; a crash, a kill or a reboot is not
         intent.clear()
         raise
     return 0
 
 
-def run_cycles(pilot: Pilot, args, intent: Intent | None = None) -> None:
-    for n in range(1, args.cycles + 1):
+def run_cycles(pilot: Pilot, args, intent: Intent | None = None) -> str:
+    """The run's cycles: "ended" when it ends deliberately (STOP, two sessions the Founder ended without a push, its
+    last cycle; RUNNING goes), "halted" on Halt (HALT is written; RUNNING stays with the cycles left before the halted
+    cycle and its failures and resumes reset, for when the operator lets it go on; E528). A cycle whose session could
+    not work for the account's usage limit uses up no cycle, nor does an outage, which is a failure of the run: it is
+    waited out by the breaker, and the fifth in a row halts."""
+    left, n = args.cycles, 0
+    while left > 0:
         if pilot.stopped():
             say("STOP file found; stopping")
             break
+        n += 1
+        pilot.cycle_used = True
         try:
-            go_on = pilot.cycle(n, args)
-        except Outage as exc:  # an outage is waited out, not a reason to end the pilot (E245, E248)
-            say(f"cycle {n}: {exc}; waiting {GH_OUTAGE_WAIT_S // 60} min, then the next cycle judges any unjudged "
-                "push first (E168)")
-            pilot.wait(GH_OUTAGE_WAIT_S)
-            go_on = not pilot.stopped()
+            try:
+                go_on = pilot.cycle(n, args)
+            except Outage as exc:  # an outage is waited out, not a reason to end the pilot (E245, E248)
+                say(f"cycle {n}: {exc}; the next cycle judges any unjudged push first (E168)")
+                pilot.cycle_used = False  # no session ran on it, or its push is judged first by the next cycle
+                go_on = pilot.back_off(n, f"{type(exc).__name__}: {exc}")
+        except Halt as exc:
+            if intent is not None:
+                intent.update(left, pilot.idle, pilot.failures, pilot.limit_waits)
+                halt(pilot.work, intent, str(exc))
+            return "halted"
+        left -= 1 if pilot.cycle_used else 0
         if intent is not None:
-            intent.update(args.cycles - n, pilot.idle)
+            intent.update(left, pilot.idle, pilot.failures, pilot.limit_waits)
         if not go_on:
-            say("stopping (STOP file, two sessions without a push, a timed-out session, or no vector inputs)")
+            say("stopping (STOP file, or two sessions the Founder ended without a push)")
             break
     if intent is not None:  # every end that reaches here is deliberate, or the last cycle ran: nothing to resume
         intent.clear()
+    return "ended"
+
+
+def halt(work: Path, intent: Intent, reason: str) -> None:
+    """Write <work>/HALT and the operator's line in pilot-log.md; RUNNING stays (E528)."""
+    left = intent.state.get("cycles_left")
+    intent.halt(reason)
+    say(f"HALT: {reason}; {intent.path} stays ({left} cycle(s) left) until {intent.halt_path} is removed")
+    with (work / "pilot-log.md").open("a", encoding="utf-8") as fh:
+        fh.write(f"\n- {now()} **HALT**: {reason}. `RUNNING` duruyor (kalan {left} döngü); `HALT` silinince "
+                 "`--resume` sürdürür, elle başlatma koşunun yerine geçer\n")
 
 
 # ---- resume after a crash or a reboot (E505) -------------------------------------------------------------------
@@ -1101,6 +1273,7 @@ class Intent:
 
     def __init__(self, work: Path) -> None:
         self.path = work / RUNNING_FILE
+        self.halt_path = work / HALT_FILE
         self.state: dict = {}
 
     def read(self) -> dict | None:
@@ -1121,9 +1294,34 @@ class Intent:
         self.state = {"argv": argv, "cycles_left": left, "idle": 0, "started": ts, "updated": ts}
         self.save()
 
-    def update(self, left: int, idle: int) -> None:
-        self.state.update(cycles_left=left, idle=idle, updated=now())
+    def update(self, left: int, idle: int, failures: int = 0, limit_waits: int = 0) -> None:
+        """After a cycle ended (or halted): what is left, the counts, and no resume since (E528)."""
+        self.state.update(cycles_left=left, idle=idle, failures=failures, limit_waits=limit_waits, resumes=0,
+                          updated=now())
         self.save()
+
+    def count(self, key: str) -> int:
+        """A count RUNNING holds, or 0 when it holds none or not a count (a file an older launcher wrote)."""
+        value = self.state.get(key)
+        return value if isinstance(value, int) and not isinstance(value, bool) and value > 0 else 0
+
+    def resumed(self) -> None:
+        """One more resume with no cycle ended since (the crash-loop guard, E528)."""
+        self.state.update(resumes=self.count("resumes") + 1, updated=now())
+        self.save()
+
+    def halt(self, reason: str) -> None:
+        """<work>/HALT, whole or not at all: why, when, the cycles left (E528). RUNNING keeps the run with its failures
+        and resumes reset: once the operator removes HALT, the breaker and the crash-loop guard start again."""
+        self.state.update(failures=0, resumes=0, updated=now())
+        self.save()
+        tmp = self.halt_path.with_name(HALT_FILE + ".tmp")
+        tmp.write_text(json.dumps({"reason": reason, "at": now(), "cycles_left": self.state.get("cycles_left")},
+                                  ensure_ascii=False, sort_keys=True) + "\n", encoding="utf-8")
+        os.replace(tmp, self.halt_path)
+
+    def unhalt(self) -> None:
+        self.halt_path.unlink(missing_ok=True)
 
     def save(self) -> None:
         """Whole or not at all: a power loss in the middle leaves the previous file."""
@@ -1152,8 +1350,8 @@ def rerun_argv(parser: argparse.ArgumentParser, args) -> list[str]:
 
 def resumed(parser: argparse.ArgumentParser, work: Path, intent: Intent):
     """The options of the run RUNNING names, with its cycles left, or None when there is nothing to resume: no RUNNING,
-    STOP (a deliberate stop is never overridden: its RUNNING goes), or no cycle left. Exits while docker or gh do not
-    answer: RUNNING stays, and the task's next trigger tries again."""
+    STOP (a deliberate stop is never overridden: its RUNNING goes), no cycle left, or HALT (the run waits for the
+    operator, E528). Exits while docker or gh do not answer: RUNNING stays, and the task's next trigger tries again."""
     plan = intent.read()
     if plan is None:
         if intent.path.exists():
@@ -1161,6 +1359,9 @@ def resumed(parser: argparse.ArgumentParser, work: Path, intent: Intent):
         return None
     if (work / "STOP").exists() or plan["cycles_left"] <= 0:
         intent.clear()
+        return None
+    if intent.halt_path.exists():  # E528: the run waits for the operator; RUNNING stays
+        say(f"{intent.halt_path} exists: the run waits for the operator; nothing resumed")
         return None
     if not wait_ready(work):
         if (work / "STOP").exists():

@@ -90,6 +90,9 @@ def quiet_pilot(launch):
 
         def verdict_on(self, head):  # the referee's artifacts; `PreviousSessionTest` tests the look-up
             return None
+
+        def stop_orphans(self):  # the machine's docker; `LauncherEndStateTest` tests the stop (E528)
+            return True
     return Quiet
 
 
