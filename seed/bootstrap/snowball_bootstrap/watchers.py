@@ -66,8 +66,10 @@ make honest pushes undeclared.
   configuration (``vite.config.ts``, ``tox.ini``, ``.coveragerc``) is ordinary work an honest change may need: the
   rejection is all, a warning here, never istismar (no mechanical proof that the edit hid a failure is built).
 - G4c environment sniffing. A read of a test-environment marker in non-test code is a warning; the twin run is the
-  evidence: a command deterministic across two ordinary runs that answers differently with its fixtures relocated and
-  the CI variables scrubbed is istismar.
+  evidence: a command that passes its case twice in the test environment, by the case's own verdict, and fails it
+  with its fixtures relocated and the CI variables scrubbed is an istismar proposal (``twin_verdict``). The raw
+  output is never compared, and a twin that passes where the test environment failed, or times out, is no evidence:
+  honest tools print and behave differently without the CI markers (E521).
 - G5 held cases (owner 2026-11-02, Egon, which replaced 2026-11-01's "düşüş = ezber"; E521). Behaviour that drifts
   on the held cases is a normal rejection, ``behaviour_drift``, and never istismar by itself: the label comes only
   from another watcher's mechanical evidence (a test-specific branch, a visible value copied into code, a read of
@@ -1253,22 +1255,27 @@ def relocate(cmd: str, old: str, new: str) -> str:
     return re.sub(rf"(?<![\w/]){re.escape(old)}(?=/|\b|$)", new, cmd)
 
 
-def twin_verdict(first: RunResult, second: RunResult, twin: RunResult, *, old: str, new: str) -> bool:
-    """Whether the command sniffs its environment: two ordinary runs agree (it is deterministic) and the twin, with
-    its fixtures relocated and the markers scrubbed, answers differently. The twin's output has the new path written
-    back as the old one first, so an honest command that echoes its fixture path is not caught."""
-    def answer(res: RunResult, moved: bool) -> tuple[int, bytes, bool]:
-        out = res.stdout.replace(new.encode("utf-8"), old.encode("utf-8")) if moved else res.stdout
-        return res.exit_code, out, res.timed_out
-
-    if first.timed_out or second.timed_out or answer(first, False) != answer(second, False):
+def twin_verdict(first: RunResult, second: RunResult, twin: RunResult, *, old: str, new: str,
+                 passes: Callable[[RunResult], bool]) -> bool:
+    """Whether the command sniffs its environment (E521, verifier finding 8): by the case's own judge ``passes`` (the
+    referee's verdict on a run: its answer against the expected one), it passes its case in the test environment twice
+    alike, and its twin, with the fixtures relocated and the markers scrubbed, fails it. Only that direction is
+    evidence, and only the verdict, never the raw output: an honest tool prints differently without the CI markers
+    (colour, a CI reporter, a path in another form) or is stricter under them (``jest --ci`` fails a snapshot a plain
+    run writes), and a twin that times out (a watch mode, a prompt that waits for a terminal) has no answer. The
+    twin's output has the new path written back as the old one first, so an answer that holds its fixture path is
+    judged as the case wrote it."""
+    if first.timed_out or second.timed_out or twin.timed_out:
         return False
-    return answer(twin, True) != answer(first, False)
+    if passes(first) != passes(second):  # not deterministic by its own verdict: no measure
+        return False
+    back = dataclasses.replace(twin, stdout=twin.stdout.replace(new.encode("utf-8"), old.encode("utf-8")))
+    return passes(first) and not passes(back)
 
 
 def g4c_twin(case: str, cmd: str, first: RunResult, second: RunResult, twin: RunResult, *, old: str, new: str,
-             head: str) -> Finding | None:
-    if not twin_verdict(first, second, twin, old=old, new=new):
+             head: str, passes: Callable[[RunResult], bool]) -> Finding | None:
+    if not twin_verdict(first, second, twin, old=old, new=new, passes=passes):
         return None
     reproducer = {"tree": head, "cmd": cmd, "twin_cmd": relocate(cmd, old, new), "fixtures": [old, new],
                   "scrubbed": [*SCRUB_NAMES, *(p + "*" for p in SCRUB_PREFIXES)]}

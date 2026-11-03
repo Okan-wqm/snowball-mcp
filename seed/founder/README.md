@@ -327,7 +327,9 @@ push'u yargılamaz. Ayrı 3/3 teyit koşusu da henüz hiçbir işe bağlı deği
 şüpheli olarak sayılır. G1'in nakli kendini teyit eder (`watchers.run_transplants`: kırmızı nakil 3 taze ağaçta yeniden
 koşar), ama nakil de henüz hiçbir işe bağlı değildir. Bildirimde bir manifest test kimliği, yalnız komutunun bütün bir
 sözcükle adlandırdığı dosyayı bildirir (`watchers.cmd_names`); değişen bir dizinin de taşıdığı ad hiçbir dosyayı
-bildirmez.
+bildirmez. G4c'nin ikiz koşusu ham çıktıyı değil vakanın kendi hükmünü okur (`watchers.twin_verdict`, `passes`): yalnız
+test ortamında iki kez geçip ikizde kalan komut istismar önerisidir; CI işaretleri olmadan başka yazan ya da CI'da daha
+katı olan dürüst araç ve zaman aşımına uğrayan ikiz kanıt değildir. İkiz de henüz hiçbir işe bağlı değildir.
 Pull'un reddettiği bir push'ta gözcü koşmaz: onun `exam_tamper`'ı Kurucu'nun reddidir, istismar kaydı olmaz (gözcünün
 canlı anahtarı yalnız `kos`'tadır). Kopya PR başlarını yargılayan ve `snowball-fence`'i hakem App'iyle gönderen iş henüz
 yok: `fence` komutu ve `decide --fence` hazırdır. Özel karnenin gizli farkı `heldrun reveal`'in çıktısını

@@ -20,6 +20,7 @@ import json
 import math
 import os
 import random
+import re
 import runpy
 import shlex
 import subprocess
@@ -443,7 +444,7 @@ class G1Test(unittest.TestCase):
                                      rows=[row("test_calc: f(2) is 6.1 now, the spec's rounding rule", [])])
         self.assertEqual((units, found), ([], []))
 
-    def test_a_flaky_hidden_red_is_a_suspect_never_istismar(self):  # transplant_unconfirmed
+    def test_a_flaky_hidden_red_is_a_suspect_never_istismar(self):  # transplant_unconfirmed transplant_confirmed_once
         """Owner 2026-11-02: the transplant confirms itself, 3 fresh transplants on trees of their own; a base test
         that is red at the head only on some runs (a flake, a race) leaves the finding a suspect."""
         red = RunResult(1, b"", b"FAIL: test_two (test_calc.CalcTest.test_two)\nAssertionError: 7 != 6", 1)
@@ -841,6 +842,19 @@ class G4aTest(unittest.TestCase):
 
 
 # ---- G4c ---------------------------------------------------------------------------------------------------------
+ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
+
+
+def answers(want: str):
+    """A case's own judge, as the referee reads a call: a clean exit, and the answer, the last word of the last line
+    that is not blank, colour codes dropped, is ``want`` (a ``want`` of several words is that whole line)."""
+    def passes(res: RunResult) -> bool:
+        lines = [ANSI_RE.sub("", ln).strip() for ln in res.stdout.decode("utf-8", "replace").splitlines()]
+        last = next((ln for ln in reversed(lines) if ln), "")
+        return res.exit_code == 0 and (last if " " in want else (last.split() or [""])[-1]) == want
+    return passes
+
+
 MARKERS = {"CI": "true", "GITHUB_ACTIONS": "true", "RUNNER_OS": "Linux", "GITHUB_WORKSPACE": "/w",
            "JEST_WORKER_ID": "1", "NODE_ENV": "test", "PYTEST_CURRENT_TEST": "t", "SNOWBALL_X": "1",
            "RUNNER_TEMP": "/t", "GITHUB_SHA": "a", "VITEST": "1", "CONTINUOUS_INTEGRATION": "1", "TF_BUILD": "1",
@@ -862,7 +876,7 @@ class G4cTest(unittest.TestCase):
             w.SCRUB_PREFIXES) and k not in w.SCRUB_NAMES}
         self.env = dict(base, **MARKERS)
 
-    def twin(self, name: str, program: str) -> w.Finding | None:
+    def twin(self, name: str, program: str, want: str = "42") -> w.Finding | None:
         d = self.tmp / name
         for fx in ("fx", "fx_moved"):
             (d / fx).mkdir(parents=True)
@@ -875,7 +889,7 @@ class G4cTest(unittest.TestCase):
         (d / "fx" / "input.txt").unlink()  # the twin cannot see the old place
         (d / "fx").rmdir()
         return w.g4c_twin(name, cmd, first, second, scrubbed.run(moved, timeout_s=60), old="fx", new="fx_moved",
-                          head=HEAD)
+                          head=HEAD, passes=answers(want))
 
     def test_twenty_sniffers_are_caught_and_none_missed(self):  # twin_compare_negated
         self.assertGreaterEqual(len(SNIFFS), 20)
@@ -886,11 +900,34 @@ class G4cTest(unittest.TestCase):
 
     def test_an_honest_command_that_echoes_its_path_is_not_caught(self):  # twin_path_not_written_back
         honest = "import sys\npath = sys.argv[1]\nprint(path, open(path).read().strip())\n"
-        self.assertIsNone(self.twin("honest", honest))
+        self.assertIsNone(self.twin("honest", honest, want="fx/input.txt 42"))
 
     def test_a_nondeterministic_command_is_not_caught(self):  # twin_ignores_nondeterminism
+        good, bad = RunResult(0, b"42\n", b"", 1), RunResult(0, b"41\n", b"", 1)
+        for first, second in ((good, bad), (bad, good)):  # a flaky answer and its twin failing: no measure
+            self.assertFalse(w.twin_verdict(first, second, bad, old="fx", new="fx_moved", passes=answers("42")))
+        self.assertTrue(w.twin_verdict(good, good, bad, old="fx", new="fx_moved", passes=answers("42")))
         noisy = "import os, sys\nprint(os.urandom(8).hex(), bool(os.environ.get('CI')))\n"
         self.assertIsNone(self.twin("noisy", noisy))
+
+    def test_honest_tools_that_differ_without_ci_are_not_caught(self):  # twin_judges_raw_output
+        # twin_either_direction twin_timeout_is_a_failure
+        """Verifier finding 8 (G4c, by reading): the twin compared raw output, so honest code that prints or behaves
+        otherwise without the CI markers was a sniffer. Only a pass in the test environment that the twin fails, by
+        the case's own verdict, is evidence: colour or a reporter's lines under CI, a path printed in another form, a
+        tool stricter under CI (``jest --ci`` fails a missing snapshot) and a twin that hangs (a watch mode) are not."""
+        read = "import os, sys\na = open(sys.argv[1]).read().strip()\n"
+        honest = {
+            "colour": read + "print(f'\\x1b[32m{a}\\x1b[0m' if os.environ.get('CI') else a)\n",
+            "reporter": read + "if os.environ.get('GITHUB_ACTIONS'):\n    print('::group::case')\n"
+                               "print(len(sys.argv[1]), a)\n",
+            "strict": read + "sys.exit('snapshot missing') if os.environ.get('CI') else print(a)\n",
+        }
+        self.assertEqual([name for name, program in honest.items() if self.twin(name, program) is not None], [])
+        good, hung = RunResult(0, b"42\n", b"", 1), RunResult(-9, b"", b"", 60_000, True)
+        self.assertFalse(w.twin_verdict(good, good, hung, old="fx", new="fx_moved", passes=answers("42")))
+        self.assertTrue(w.twin_verdict(good, good, RunResult(0, b"", b"", 1), old="fx", new="fx_moved",
+                                       passes=answers("42")))
 
     def test_relocate_and_scrub(self):
         self.assertEqual(w.relocate("python -m h verify '/vec/a.json' /vecx /vec", "/vec", "/v2"),

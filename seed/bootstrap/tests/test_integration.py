@@ -559,7 +559,8 @@ class JoinPartsTest(unittest.TestCase):
             watchers.Transplant("tests/test_mech.py", "T3", "python -m unittest tests.test_mech"), True, True,
             ran(1, b"FAIL: test_x (tests.test_mech.T)\nAssertionError", b"", 5), base="MECH-BASE", head=B)
         twin = watchers.g4c_twin("d1", "python -m x /vec/MECH-FIX", ran(0, b"a", b"", 1), ran(0, b"a", b"", 1),
-                                 ran(0, b"b", b"", 1), old="/vec", new="/MECH-TWIN", head=B)
+                                 ran(0, b"b", b"", 1), old="/vec", new="/MECH-TWIN", head=B,
+                                 passes=lambda res: res.stdout == b"a")
         found = [tamper(confirmed=0), transplant, twin, *over,
                  watchers.g2_finding(suspects[0], {"path": "src/x.py", "line": 0, "text": "MECH-EDIT"},
                                      "python -m MECH-CASE", head=B, held_evidence={"MECH-HELD-N": 1}),
