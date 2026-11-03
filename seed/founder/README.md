@@ -11,7 +11,8 @@ araçtır (bulutta bir rutin), Cron araçları süreçle ölür ve hiç kullanı
 olayında dördünün olmadığını, kalanların durduğunu denetler. İmaj yeniden kurulunca geçerli olur; talimat değişmez.
 
 **Beynin ajan ve skill tanımları** (E450, sahibin onayı 2026-11-01). Her oturumda, klon kesildikten sonra ve
-`claude`'dan önce `brain_defs.py` beyin klonunun `HEAD`'indeki `agents/` ve `skills/` ağaçlarını git nesnelerinden
+`claude`'dan önce `brain_defs.py` hakemin beyinde son kabul ettiği commit'in (E531; aşağıda) `agents/` ve `skills/`
+ağaçlarını git nesnelerinden
 (`ls-tree`, `cat-file`; dosya sisteminden değil, hiçbir bağ beynin dışına götüremez) okur, denetler ve
 `$CLAUDE_CONFIG_DIR/brain-plugin`'e bir eklenti yazar; CLI onu `--plugin-dir` ile yükler, ayar kaynakları kapalı kalır
 (CLAUDE.md, ayarlar, hook'lar, MCP, çıktı stilleri hiçbir kaynaktan yüklenmez). Eklentinin ajanları ve skill'leri
@@ -19,9 +20,22 @@ olayında dördünün olmadığını, kalanların durduğunu denetler. İmaj yen
 (`{"name": "brain"}`), `agents/` ve `skills/` vardır; her ajan dosyası ve her `SKILL.md` denetlenen alanlardan yeniden
 yazılır (CLI denetleneni okur), skill'in kendi dosyaları bayt bayt ve kipleriyle kopyalanır.
 
+**Yalnız kabul edilmiş commit'ten** (E531, sahibin kararı 2026-11-03). Okunan commit klonun `HEAD`'i değil, hakemin
+imzalı sonucunun `state.last_accepted_sha`'sıdır: başlatıcı sonucu `referee/`'ye indirir (`fetch_result`), kapsül onu
+`/work/referee/result.json` olarak salt okunur görür ve giriş yükleyiciye dördüncü argüman olarak verir. Hakemin
+reddettiği ya da henüz yargılamadığı bir push'un tanımı yüklenmez; kabul edilince sonraki oturumda yüklenir. Sonuç
+yoksa, okunmuyorsa, `snowball-bootstrap-result/1` değilse ya da klonda olmayan bir commit adlandırıyorsa hiçbir tanım
+yüklenmez, kayıt nedenini (`NotAccepted: ...`) yazar, oturum tanımsız başlar. Ajanın `model`'i sahibin model kuralıdır
+(2026-11-01: claude-opus ya da claude-sonnet, en son sürüm): `inherit` (oturumunki), `claude-opus-5-5` ya da
+`claude-sonnet-5-5` (`ALLOWED_MODELS`); takma ad (ne adlandırdığı CLI'ın seçimi), haiku, eski sürüm ya da büyük bağlam
+penceresi `model_not_allowed:` ile düşer. Model sürümü değişince küme de değişir (operatörün işi); test başlatıcının ve
+girişin varsayılan modelini kümeye bağlar. Sınır: yükleyici sonucun Sigstore paketini yeniden doğrulamaz; sonucu
+başlatıcının `gh` girişi hakem reposunun `main` koşularından indirir, Kurucu'nun ona yazma yolu yoktur (bağ salt okunur,
+jeton yalnız beyin).
+
 | Kaynak (beyin) | Biçim |
 |---|---|
-| `agents/<ad>.md` | ön bilgi `name`, `description`, isteğe bağlı `tools` (`Read, Grep` gibi virgüllü adlar) ve `model` (`sonnet`, `opus`, `haiku`, `inherit` ya da bir kimlik); gövde ajanın talimatı |
+| `agents/<ad>.md` | ön bilgi `name`, `description`, isteğe bağlı `tools` (`Read, Grep` gibi virgüllü adlar) ve `model` (`inherit`, `claude-opus-5-5` ya da `claude-sonnet-5-5`; E531); gövde ajanın talimatı |
 | `skills/<ad>/SKILL.md` | ön bilgi `name`, `description`; gövde skill'in yönergesi; dizinin başka dosyaları skill'in kendi dosyalarıdır |
 
 Ön bilgi ilk satırı `---` olan ve bir sonraki `---` satırında biten satırlardır; boş olmayan her satırı satır başında
@@ -35,7 +49,8 @@ dördünden biri `tool_denied:`, başka ad `tool_not_allowed:` ile düşer; boyu
 (`LIMITS`: 32 ajan, 32 skill, tanım başına 64 KiB, skill başına 64 dosya ve 1 MiB, 6 dizin derinliği, toplam 4 MiB,
 4096 git girdisi); ad kuralı, adın dosyayla eşleşmesi, sembolik bağ, alt modül, güvensiz dosya adı ve hakemin ajan
 yapılandırması saydığı yol (`classify.AGENT_DIRS`, `AGENT_FILES`; `agents/claude.md` dahil) tanımı düşürür. Kayıt
-oturumun klasöründe `brain-definitions.json`'dır: beynin başı, yüklenen her tanımın adı, `loaded_as`'ı, kaynak blob'un
+oturumun klasöründe `brain-definitions.json`'dır (`snowball-brain-definitions/2`): tanımların okunduğu kabul
+edilmiş commit (`brain`) ve klonun başı (`head`), yüklenen her tanımın adı, `loaded_as`'ı, kaynak blob'un
 sha256'sı (skill'in her dosyasınınki de), düşen her tanım ve nedenleri, sınırlar ve araç kümeleri. Kullanım dökümden
 ölçülür: `Agent` çağrısının `subagent_type`'ı ve `Skill` çağrısının `skill`'i `brain:<ad>`'dır. Kırık bir tanım
 oturumu durdurmaz, atlanır ve kayda girer; yükleyicinin kendi hatası eklenti bırakmaz, kayıt hatayı adlandırır, oturum

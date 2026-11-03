@@ -64,7 +64,8 @@ iş kaybolur. Oturumun başladığı an, `/work/logs/` altındaki oturum döküm
 (`session-<zaman>.jsonl`). Önceki oturumun nasıl bittiği (sınırda kesildi mi, süresi, sınırı, push, defter satırı,
 hakemin kararı) `/work/logs/previous-session.json`'dadır. Zamanını nasıl kullanacağın senindir.
 
-**Beynin tanımları (gözlem).** Kapsül her oturumun başında beyin reposunun `HEAD`'indeki `agents/` ve `skills/`
+**Beynin tanımları (gözlem).** Kapsül her oturumun başında, hakemin beyinde son kabul ettiği commit'in
+(`/work/referee/result.json`'da `state.last_accepted_sha`; klonun `HEAD`'i değil) `agents/` ve `skills/`
 dizinlerindeki ajan ve skill tanımlarını (biçimleri `spec/tohum/24a`) denetleyip oturuma `brain:<ad>` adıyla yükler,
 beynin başka hiçbir dosyasını yapılandırma olarak yüklemez; neyin yüklendiği, neyin hangi nedenle atlandığı
 `/work/logs/brain-definitions.json`'dadır.

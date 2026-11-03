@@ -1531,11 +1531,35 @@ class BrainDefinitionsTest(unittest.TestCase):  # E450, owner 2026-11-01: the br
         tree_repo(path, entries)
         return path
 
+    def result(self, accepted: str, **fields) -> Path:
+        """The referee's signed result as the launcher mounts it (`/work/referee/result.json`), naming `accepted` the
+        last accepted brain commit (E531)."""
+        path = self.tmp / f"result{sum(1 for _ in self.tmp.iterdir())}.json"
+        result = {"schema": "snowball-bootstrap-result/1", "kind": "code", "verdict": "accepted", "head": accepted,
+                  "state": {"schema": "snowball-bootstrap-state/4", "last_accepted_sha": accepted,
+                            "last_evaluated_sha": accepted}}
+        path.write_text(json.dumps({**result, **fields}), encoding="utf-8")
+        return path
+
+    def accepted(self, brain: Path) -> Path:
+        """A signed result that accepted the brain's HEAD."""
+        return self.result(sh(brain, "git", "rev-parse", "HEAD"))
+
+    @staticmethod
+    def push(brain: Path, entries: dict[str, bytes]) -> str:
+        """One more commit on the brain, these files added or replaced (through git's index, as `tree_repo`)."""
+        for rel, data in entries.items():
+            blob = subprocess.run(["git", "hash-object", "-w", "--stdin"], cwd=brain, input=data, capture_output=True,
+                                  check=True).stdout.decode("ascii").strip()
+            sh(brain, "git", "update-index", "--add", "--cacheinfo", f"100644,{blob},{rel}")
+        sh(brain, "git", "commit", "-q", "-m", "push")
+        return sh(brain, "git", "rev-parse", "HEAD")
+
     def load(self, entries: dict, limits=None) -> tuple[dict, Path]:
         brain = self.brain(entries)
         plugin = brain.with_name(brain.name + "-plugin")
         with mock.patch.object(self.defs, "LIMITS", limits or self.defs.LIMITS):
-            record = self.defs.build(brain, plugin).record()
+            record = self.defs.build(brain, plugin, self.accepted(brain)).record()
         return record, plugin
 
     @staticmethod
@@ -1559,7 +1583,7 @@ class BrainDefinitionsTest(unittest.TestCase):  # E450, owner 2026-11-01: the br
         (brain / "agents").mkdir()  # in the working tree, not committed: git's objects are what is read
         (brain / "agents" / "extra.md").write_bytes(definition("extra"))
         plugin = self.tmp / "plugin"
-        record = self.defs.build(brain, plugin).record()
+        record = self.defs.build(brain, plugin, self.accepted(brain)).record()
         self.assertEqual(self.files(plugin), [".claude-plugin/plugin.json", "agents/reviewer.md", "skills/probe/SKILL.md"])
         self.assertEqual(json.loads((plugin / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8")),
                          {"name": "brain"})
@@ -1570,7 +1594,8 @@ class BrainDefinitionsTest(unittest.TestCase):  # E450, owner 2026-11-01: the br
 
     def test_every_definition_is_written_anew_from_its_checked_fields(self):
         agent = ('---\r\nname: reviewer\r\ndescription: "Reviews: \\"quoted\\" code, ç # text"\r\n\r\n'
-                 'tools: Read,  Grep ,Read\r\nmodel: sonnet\r\n---\r\nYou review.\r\n---\r\nstill the body\r\n')
+                 'tools: Read,  Grep ,Read\r\nmodel: claude-sonnet-5-5\r\n---\r\nYou review.\r\n---\r\n'
+                 'still the body\r\n')
         script = b"#!/bin/sh\r\necho run\r\n"
         record, plugin = self.load({
             "agents/reviewer.md": agent.encode("utf-8"),
@@ -1578,7 +1603,7 @@ class BrainDefinitionsTest(unittest.TestCase):  # E450, owner 2026-11-01: the br
             "skills/probe/scripts/run.sh": ("100755", script), "skills/probe/notes.md": b"notes\n"})
         self.assertEqual((plugin / "agents" / "reviewer.md").read_text(encoding="utf-8"),
                          '---\nname: reviewer\ndescription: "Reviews: \\"quoted\\" code, ç # text"\ntools: Read, Grep\n'
-                         "model: sonnet\n---\nYou review.\n---\nstill the body\n")
+                         "model: claude-sonnet-5-5\n---\nYou review.\n---\nstill the body\n")
         self.assertEqual((plugin / "skills" / "probe" / "SKILL.md").read_text(encoding="utf-8"),
                          '---\nname: probe\ndescription: "It\'s a probe: run it"\n---\nRun it.\n')
         self.assertEqual((plugin / "skills" / "probe" / "scripts" / "run.sh").read_bytes(), script)  # as it is
@@ -1586,7 +1611,7 @@ class BrainDefinitionsTest(unittest.TestCase):  # E450, owner 2026-11-01: the br
             self.assertEqual((plugin / "skills" / "probe" / "scripts" / "run.sh").stat().st_mode & 0o777, 0o755)
             self.assertEqual((plugin / "skills" / "probe" / "notes.md").stat().st_mode & 0o777, 0o644)
         self.assertEqual(record["agents"][0]["tools"], ["Read", "Grep"])
-        self.assertEqual(record["agents"][0]["model"], "sonnet")
+        self.assertEqual(record["agents"][0]["model"], "claude-sonnet-5-5")
 
     def test_a_key_outside_the_format_drops_the_definition(self):
         keys = ("hooks", "mcpServers", "permissionMode", "skills", "isolation", "disallowedTools", "color")
@@ -1625,6 +1650,110 @@ class BrainDefinitionsTest(unittest.TestCase):  # E450, owner 2026-11-01: the br
         self.assertEqual(re.findall(r'--disallowedTools "([^"]*)"', entry), [",".join(self.defs.DENIED_TOOLS)])
         self.assertEqual(self.defs.ALLOWED_TOOLS & set(self.defs.DENIED_TOOLS), set())
         self.assertTrue(all(self.defs.TOOL_RE.fullmatch(tool) for tool in self.defs.ALLOWED_TOOLS))
+
+    def test_an_agent_with_a_model_off_the_rule_is_dropped(self):  # brain_model_unchecked brain_model_takes_an_alias
+        """E531, the owner's model rule (2026-11-01): claude-opus or claude-sonnet, the latest release. An agent takes
+        the session's model (`inherit`, or no `model`) or one of the two by full id; an alias (what it names is the
+        CLI's choice), haiku, an older release or a larger context window is skipped and named."""
+        entries = {f"agents/ok-{i}.md": definition(f"ok-{i}", extra={"model": model})
+                   for i, model in enumerate(("inherit", "claude-opus-5-5", "claude-sonnet-5-5"))}
+        entries["agents/plain.md"] = definition("plain")
+        outside = ("opus", "sonnet", "haiku", "claude-haiku-4-5", "claude-opus-4-1", "claude-opus-5-5[1m]",
+                   "Claude-Opus-5-5", "gpt-5", "")
+        entries.update({f"agents/out-{i}.md": definition(f"out-{i}", extra={"model": model})
+                        for i, model in enumerate(outside)})
+        record, plugin = self.load(entries)
+        self.assertEqual([(a["name"], a["model"]) for a in record["agents"]],
+                         [("ok-0", "inherit"), ("ok-1", "claude-opus-5-5"), ("ok-2", "claude-sonnet-5-5"),
+                          ("plain", None)])
+        self.assertEqual(self.skipped(record), {f"agents/out-{i}.md": [f"model_not_allowed:{model}"]
+                                                for i, model in enumerate(outside)})
+        self.assertEqual(self.defs.ALLOWED_MODELS, {"inherit", "claude-opus-5-5", "claude-sonnet-5-5"})
+
+    def test_the_model_set_holds_the_sessions_model(self):  # brain_model_set_drops_the_sessions
+        """E531: `inherit` is the session's model; the set the loader allows also holds it by name, as the launcher and
+        the entrypoint give it, so an agent pinning the session's own model is never dropped."""
+        launcher = (FOUNDER / "launch.py").read_text(encoding="utf-8")
+        entry = (FOUNDER / "entrypoint.sh").read_text(encoding="utf-8")
+        models = re.findall(r'add_argument\("--model", default="([^"]+)"\)', launcher)
+        models += re.findall(r'--model "\$\{FOUNDER_MODEL:-([^}]+)\}"', entry)
+        self.assertEqual(len(models), 2, models)
+        self.assertLessEqual(set(models), self.defs.ALLOWED_MODELS)
+
+    def test_the_loader_reads_the_result_the_launcher_mounts(self):  # capsule_loader_without_the_result
+        """E531: the entrypoint hands the loader `/work/referee/result.json`, the file the launcher writes from the
+        referee's newest signed result into the folder it mounts there read-only; the loader reads the referee's own
+        schema and the state key that names the last accepted commit."""
+        from snowball_bootstrap import decide, state
+        entry = (FOUNDER / "entrypoint.sh").read_text(encoding="utf-8")
+        start = entry.index("python3 /opt/founder/brain_defs.py")
+        call = entry[start:entry.index("|| echo", start)]
+        self.assertEqual(call.split()[-1], "/work/referee/result.json")
+        launch = load_launch()
+        pilot = launch.Pilot(self.tmp / "work", "owner/brain", "owner/referee", "target")
+        argv = pilot.capsule_argv("20261103T000000Z", "claude-opus-5-5", 200, 15)
+        self.assertIn(f"type=bind,src={pilot.result_dir},dst=/work/referee,readonly", argv)
+        self.assertEqual(pilot.result_dir, self.tmp / "work" / "referee")  # fetch_result writes result.json there
+        self.assertEqual(self.defs.RESULT_SCHEMA, decide.RESULT_SCHEMA)
+        self.assertIn("last_accepted_sha", state.KEYS)
+
+    def test_an_organ_from_a_rejected_push_is_not_loaded(self):  # brain_defs_reads_head brain_defs_build_reads_head
+        """E531: the referee accepted A; push B rewrites A's agent, adds an agent and a skill's file, and is rejected
+        (the signed result names B its head and A its last accepted commit). The session loads A's definitions alone,
+        whatever the clone's HEAD holds, and the record names both commits."""
+        brain = self.brain({"agents/reviewer.md": definition("reviewer"), "skills/probe/SKILL.md": definition("probe")})
+        accepted = sh(brain, "git", "rev-parse", "HEAD")
+        rejected = self.push(brain, {"agents/reviewer.md": definition("reviewer", "Rewritten.", "Do more.\n"),
+                                     "agents/rogue.md": definition("rogue", extra={"tools": "Bash"}),
+                                     "skills/probe/run.sh": b"#!/bin/sh\necho rogue\n"})
+        result = self.result(accepted, head=rejected, verdict="rejected",
+                             state={"schema": "snowball-bootstrap-state/4", "last_accepted_sha": accepted,
+                                    "last_evaluated_sha": rejected})
+        plugin = self.tmp / "plugin"
+        record = self.defs.build(brain, plugin, result).record()
+        self.assertIsNone(record["error"])
+        self.assertEqual((record["brain"], record["head"]), (accepted, rejected))
+        self.assertEqual(self.files(plugin),
+                         [".claude-plugin/plugin.json", "agents/reviewer.md", "skills/probe/SKILL.md"])
+        self.assertIn('description: "Reviews code."', (plugin / "agents" / "reviewer.md").read_text(encoding="utf-8"))
+        self.assertEqual(record["agents"][0]["sha256"], hashlib.sha256(definition("reviewer")).hexdigest())
+        self.assertEqual(record["skipped"], [])  # B is not looked at: nothing of it is named either
+        # Once the referee accepts B, the next session loads it.
+        record = self.defs.build(brain, self.tmp / "plugin-b", self.accepted(brain)).record()
+        self.assertEqual([a["name"] for a in record["agents"]], ["reviewer", "rogue"])
+        self.assertEqual(sorted(record["skills"][0]["files"]), ["skills/probe/SKILL.md", "skills/probe/run.sh"])
+
+    def test_no_accepted_commit_loads_nothing(self):  # brain_result_schema_unchecked brain_accepted_not_looked_up
+        """E531: a result that is missing, does not read, is not the referee's, or names no commit the clone holds gives
+        no plugin, never the clone's HEAD; the record names why and the session starts without them."""
+        brain = self.brain({"agents/reviewer.md": definition("reviewer")})
+        head = sh(brain, "git", "rev-parse", "HEAD")
+        bad = self.tmp / "bad.json"
+        bad.write_bytes(b"{not json")
+        listed = self.tmp / "list.json"
+        listed.write_text("[]", encoding="utf-8")
+        cases = {
+            "missing": (self.tmp / "absent.json", "no signed result to read"),
+            "not json": (bad, "no signed result to read"),
+            "not an object": (listed, "is not a snowball-bootstrap-result/1 with a state"),
+            "other schema": (self.result(head, schema="snowball-bootstrap-result/0"), "with a state"),
+            "no state": (self.result(head, state=None), "with a state"),
+            "no sha": (self.result(head, state={"last_evaluated_sha": head}), "names no accepted commit"),
+            "short sha": (self.result(head[:12]), "names no accepted commit"),
+            "upper case": (self.result(head.upper()), "names no accepted commit"),
+            "not held": (self.result("0" * 40), "the clone does not hold the accepted commit " + "0" * 40),
+            "a tree": (self.result(sh(brain, "git", "rev-parse", "HEAD^{tree}")), "does not hold the accepted commit"),
+        }
+        for name, (result, why) in cases.items():
+            with self.subTest(name):
+                plugin = self.tmp / f"plugin-{name.replace(' ', '-')}"
+                record = self.defs.build(brain, plugin, result).record()
+                self.assertTrue(record["error"].startswith("NotAccepted: "), record["error"])
+                self.assertIn(why, record["error"])
+                self.assertEqual((record["brain"], record["head"]), (None, head))
+                self.assertEqual((record["agents"], record["skills"]), ([], []))
+                self.assertFalse(plugin.exists())
+                self.assertFalse(plugin.with_name(plugin.name + ".partial").exists())
 
     def test_the_limits_are_one_named_constant_and_each_is_enforced(self):
         Limits = self.defs.Limits
@@ -1697,12 +1826,14 @@ class BrainDefinitionsTest(unittest.TestCase):  # E450, owner 2026-11-01: the br
                             "agents/bad.md": b"no front matter\n"})
         logs = self.tmp / "logs"
         logs.mkdir()
-        rc = self.defs.main([str(brain), str(self.tmp / "plugin"), str(logs / "brain-definitions.json")])
+        rc = self.defs.main([str(brain), str(self.tmp / "plugin"), str(logs / "brain-definitions.json"),
+                             str(self.accepted(brain))])
         self.assertEqual(rc, 0)
         record = json.loads((logs / "brain-definitions.json").read_text(encoding="utf-8"))
         sha = lambda data: hashlib.sha256(data).hexdigest()  # noqa: E731  the blob's bytes: `git cat-file blob | sha256sum`
-        self.assertEqual(record["schema"], "snowball-brain-definitions/1")
-        self.assertEqual(record["brain"], sh(brain, "git", "rev-parse", "HEAD"))
+        self.assertEqual(record["schema"], "snowball-brain-definitions/2")
+        self.assertEqual(record["brain"], sh(brain, "git", "rev-parse", "HEAD"))  # the accepted commit, here HEAD too
+        self.assertEqual(record["head"], record["brain"])
         self.assertIsNone(record["error"])
         self.assertEqual(record["agents"], [{"name": "reviewer", "loaded_as": "brain:reviewer", "path": "agents/reviewer.md",
                                              "sha256": sha(agent), "tools": None, "model": "inherit"}])
@@ -1727,7 +1858,7 @@ class BrainDefinitionsTest(unittest.TestCase):  # E450, owner 2026-11-01: the br
             "agents/ctrl.md": b'---\nname: ctrl\ndescription: "a\\u0007b"\n---\nx\n',
             "agents/sep.md": "---\nname: sep\ndescription: a\u2028b\n---\nx\n".encode("utf-8"),
             "agents/long.md": definition("long", description="d" * 1025),
-            "agents/model.md": definition("model", extra={"model": "sonnet; rm -rf /"}),
+            "agents/model.md": definition("model", extra={"model": "claude-opus-5-5; rm -rf /"}),
             "skills/good/SKILL.md": definition("good"),
             "skills/nobody/SKILL.md": b"---\nname: nobody\ndescription: d\n---\n"})
         self.assertEqual([a["name"] for a in record["agents"]], ["good"])
@@ -1737,7 +1868,8 @@ class BrainDefinitionsTest(unittest.TestCase):  # E450, owner 2026-11-01: the br
             "agents/line.md": ["bad_frontmatter_line"], "agents/twice.md": ["duplicate_key:name"],
             "agents/nodesc.md": ["missing:description"], "agents/empty.md": ["empty_body"],
             "agents/quote.md": ["bad_quotes:description", "missing:description"], "agents/ctrl.md": ["bad_description"],
-            "agents/sep.md": ["bad_description"], "agents/long.md": ["bad_description"], "agents/model.md": ["bad_model"],
+            "agents/sep.md": ["bad_description"], "agents/long.md": ["bad_description"],
+            "agents/model.md": ["model_not_allowed:claude-opus-5-5; rm -rf /"],
             "skills/nobody/": ["empty_body"]})
         self.assertIsNone(record["error"])
 
@@ -1761,7 +1893,8 @@ class BrainDefinitionsTest(unittest.TestCase):  # E450, owner 2026-11-01: the br
         plugin, record_file = self.tmp / "plugin", self.tmp / "brain-definitions.json"
         err = io.StringIO()
         with contextlib.redirect_stderr(err):
-            self.assertEqual(self.defs.main([str(self.tmp / "no-brain"), str(plugin), str(record_file)]), 0)
+            self.assertEqual(self.defs.main([str(self.tmp / "no-brain"), str(plugin), str(record_file),
+                                             str(self.tmp / "result.json")]), 0)
         self.assertIn("brain definitions not loaded: CalledProcessError", err.getvalue())  # the container's log
         record = json.loads(record_file.read_text(encoding="utf-8"))
         self.assertTrue(record["error"].startswith("CalledProcessError"), record["error"])
@@ -1772,7 +1905,7 @@ class BrainDefinitionsTest(unittest.TestCase):  # E450, owner 2026-11-01: the br
     def test_the_capsule_loads_them_after_the_clone_and_before_claude_and_never_stops_on_them(self):
         entry = (FOUNDER / "entrypoint.sh").read_text(encoding="utf-8")
         loader = ('python3 /opt/founder/brain_defs.py /work/brain "$CLAUDE_CONFIG_DIR/brain-plugin" '
-                  '/work/logs/brain-definitions.json \\\n  || echo ')
+                  '/work/logs/brain-definitions.json \\\n  /work/referee/result.json || echo ')
         self.assertEqual(entry.count("/opt/founder/brain_defs.py"), 1)
         self.assertIn(loader, entry)  # `||`: under `set -e` a failed loader never stops the session
         self.assertLess(entry.index("gc --quiet --prune=now"), entry.index(loader))
@@ -1795,7 +1928,9 @@ class BrainDefinitionsTest(unittest.TestCase):  # E450, owner 2026-11-01: the br
         paragraph = prompt[prompt.index(title):]
         paragraph = paragraph[:paragraph.index("**", len(title))]
         for phrase in ("her oturumun başında", "`agents/` ve `skills/`", "`brain:<ad>`", "`spec/tohum/24a`",
-                       "başka hiçbir dosyasını yapılandırma olarak yüklemez", "`/work/logs/brain-definitions.json`"):
+                       "başka hiçbir dosyasını yapılandırma olarak yüklemez", "`/work/logs/brain-definitions.json`",
+                       "hakemin beyinde son kabul ettiği commit'in",
+                       "`state.last_accepted_sha`; klonun `HEAD`'i değil"):  # prompt_names_head_for_the_definitions
             self.assertIn(phrase, paragraph)
         for nudge in ("yaz", "kullan", "öner", "oluştur", "faydal", "yararl", "gerekirse", "istersen", "senindir", "meli",
                       "malı"):

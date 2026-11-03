@@ -1,16 +1,20 @@
-"""The brain's own agent and skill definitions, checked and turned into this session's plugin (register E450).
+r"""The brain's own agent and skill definitions, checked and turned into this session's plugin (register E450, E531).
 
 The capsule runs this once a session, after the brain is cloned and before `claude` starts (entrypoint.sh):
 
-    python3 /opt/founder/brain_defs.py /work/brain "$CLAUDE_CONFIG_DIR/brain-plugin" /work/logs/brain-definitions.json
+    python3 /opt/founder/brain_defs.py /work/brain "$CLAUDE_CONFIG_DIR/brain-plugin" /work/logs/brain-definitions.json \
+        /work/referee/result.json
 
 and the CLI loads the plugin with `--plugin-dir` (its setting sources stay off: no CLAUDE.md, settings, hooks, MCP
 servers or output styles of any source). Agents and skills of a plugin are named `<plugin>:<name>`, here
 `brain:<name>`: a brain definition never takes the place of one of the CLI's own.
 
-What is read. Only the trees `agents/` and `skills/` of the clone's HEAD, and only from git's objects (`ls-tree`,
-`cat-file`), never through the file system: no link can lead out of the brain. A symbolic link or a submodule is
-not followed, it drops its definition.
+What is read. Only the trees `agents/` and `skills/` of the brain commit the referee last accepted, never of the
+clone's HEAD (E531): an organ from a push the referee rejected, or has not judged, is not loaded. That commit is
+`state.last_accepted_sha` of the referee's signed result, which the launcher downloads and mounts read-only at
+/work/referee (`launch.py` `fetch_result`); a result that is missing, does not read, or names no commit the clone holds
+loads nothing, and the record says why. Only git's objects are read (`ls-tree`, `cat-file`), never the file system: no
+link can lead out of the brain. A symbolic link or a submodule is not followed, it drops its definition.
 
 The source formats (the brain):
 
@@ -18,7 +22,7 @@ The source formats (the brain):
                                name: <name>
                                description: <one line>
                                tools: <Tool>, <Tool>     optional; without it the agent has the session's tools
-                               model: <model>            optional; an alias (sonnet, opus, haiku, inherit) or an id
+                               model: <model>            optional; one of ALLOWED_MODELS (inherit: the session's)
                                ---
                                <the agent's prompt>
 
@@ -32,16 +36,19 @@ The source formats (the brain):
 The front matter is the lines between a first line `---` and the next line `---`. Every line of it that is not
 blank is `<key>: <value>`, the key at the start of the line; the value is the rest of the line without the
 whitespace around it. A value in double quotes is read as a JSON string, one in single quotes with `''` for `'`;
-any other value is taken as it is (a `#` or a `: ` in it is text). Only the keys above are taken; any other key (hooks, mcpServers, permissionMode, allowed-tools ...) drops the
-definition. A name is lower-case letters and digits in words joined by single hyphens, at most `MAX_NAME_CHARS`, and
-is the file's or the folder's own name. A description is one line, at most `MAX_DESCRIPTION_CHARS`, without control
-characters. The text after the front matter must not be empty. Files are UTF-8; CRLF line ends are read as LF.
+any other value is taken as it is (a `#` or a `: ` in it is text). Only the keys above are taken; any other key
+(hooks, mcpServers, permissionMode, allowed-tools ...) drops the definition, and so do a tool outside the capsule's
+(ALLOWED_TOOLS) and a model outside the owner's rule (ALLOWED_MODELS). A name is lower-case letters and digits in
+words joined by single hyphens, at most `MAX_NAME_CHARS`, and is the file's or the folder's own name. A description
+is one line, at most `MAX_DESCRIPTION_CHARS`, without control characters. The text after the front matter must not
+be empty. Files are UTF-8; CRLF line ends are read as LF.
 
 What is written. A plugin holding nothing but `.claude-plugin/plugin.json`, `agents/` and `skills/`; every agent file
 and every SKILL.md is written anew from the checked fields (so the CLI reads exactly what was checked), a skill's own
-files byte for byte. The load record (names, sha256 of the source blobs, and every skipped definition with its
-reasons) goes to the session's log folder. A broken definition never stops the session: it is skipped and named
-there; a failure of this script leaves no plugin, the record names the error, and the session starts without them.
+files byte for byte. The load record (the commit read and the clone's HEAD, names, sha256 of the source blobs, and
+every skipped definition with its reasons) goes to the session's log folder. A broken definition never stops the
+session: it is skipped and named there; a failure of this script leaves no plugin, the record names the error, and
+the session starts without them.
 """
 
 from __future__ import annotations
@@ -57,7 +64,7 @@ import unicodedata
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
-SCHEMA = "snowball-brain-definitions/1"
+SCHEMA = "snowball-brain-definitions/2"  # /2: `brain` is the accepted commit, `head` the clone's (E531)
 PLUGIN = "brain"  # the CLI names the plugin's agents and skills `brain:<name>`
 AGENTS_DIR, SKILLS_DIR, SKILL_FILE = "agents", "skills", "SKILL.md"
 AGENT_KEYS = ("name", "description", "tools", "model")  # in the order they are written back
@@ -103,10 +110,19 @@ MAX_DESCRIPTION_CHARS = 1024
 NAME_RE = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
 KEY_RE = re.compile(r"([A-Za-z][A-Za-z0-9_-]*):(?:[ \t]+(.*))?")
 TOOL_RE = re.compile(r"[A-Za-z][A-Za-z0-9_]*")
-MODEL_RE = re.compile(r"[a-z0-9][a-z0-9.-]{0,62}(?:\[[a-z0-9]+\])?")
+# The owner's model rule (2026-11-01): claude-opus or claude-sonnet, always the latest release, now 5.5. An agent's
+# `model` is the session's own (`inherit`: the launcher's --model, which test_founder_capsule holds to this set) or one
+# of the two by full id. An alias is not taken: what it names is the CLI's choice, not checkable here (E531).
+ALLOWED_MODELS = frozenset({"inherit", "claude-opus-5-5", "claude-sonnet-5-5"})
 COMPONENT_RE = re.compile(r"[A-Za-z0-9._-]+")  # one folder or file name in a skill's own files
 GIT_TIMEOUT_S = 120
+RESULT_SCHEMA = "snowball-bootstrap-result/1"  # the referee's signed result, decide.RESULT_SCHEMA (a test holds it)
+SHA_RE = re.compile(r"[0-9a-f]{40}")
 FILE_MODES = {"100644": 0o644, "100755": 0o755}
+
+
+class NotAccepted(Exception):
+    """No brain commit the referee accepted can be read: nothing loads (E531)."""
 
 
 class Skip(Exception):
@@ -246,8 +262,8 @@ def check_fields(fields: dict[str, str], name: str) -> dict[str, object]:
                 reasons.append(f"tool_not_allowed:{tool[:64]}")
         out["tools"] = tools
     if "model" in fields:
-        if not MODEL_RE.fullmatch(fields["model"]):
-            reasons.append("bad_model")
+        if fields["model"] not in ALLOWED_MODELS:
+            reasons.append(f"model_not_allowed:{fields['model'][:64]}")
         out["model"] = fields["model"]
     if reasons:
         raise Skip(*reasons)
@@ -277,7 +293,8 @@ def check_name(name: str) -> None:
 
 @dataclass
 class Load:
-    brain: str | None = None
+    brain: str | None = None  # the commit the definitions are read from: the one the referee last accepted (E531)
+    head: str | None = None  # the clone's HEAD, named only
     agents: list[dict] = field(default_factory=list)
     skills: list[dict] = field(default_factory=list)
     skipped: list[dict] = field(default_factory=list)
@@ -291,17 +308,36 @@ class Load:
             self.skipped.append({"path": path, "reasons": reasons})
 
     def record(self) -> dict:
-        return {"schema": SCHEMA, "plugin": PLUGIN, "brain": self.brain, "error": self.error,
+        return {"schema": SCHEMA, "plugin": PLUGIN, "brain": self.brain, "head": self.head, "error": self.error,
                 "agents": self.agents, "skills": self.skills, "skipped": self.skipped,
                 "skipped_total": self.skipped_total, "written_bytes": self.written_bytes, "limits": asdict(LIMITS),
                 "denied_tools": list(DENIED_TOOLS), "allowed_tools": sorted(ALLOWED_TOOLS)}
 
 
-def top_trees(brain: Path, load: Load) -> dict[str, list[Entry]]:
-    """The entries under agents/ and skills/ (relative to each), at most LIMITS.entries together."""
+def accepted_commit(brain: Path, result_file: Path) -> str:
+    """`state.last_accepted_sha` of the referee's signed result, once the clone is known to hold that commit."""
+    try:
+        result = json.loads(result_file.read_bytes())
+    except (OSError, ValueError) as exc:
+        raise NotAccepted(f"no signed result to read at {result_file} ({type(exc).__name__})") from None
+    state = result.get("state") if isinstance(result, dict) else None
+    if not isinstance(state, dict) or result.get("schema") != RESULT_SCHEMA:
+        raise NotAccepted(f"{result_file} is not a {RESULT_SCHEMA} with a state")
+    sha = state.get("last_accepted_sha")
+    if not isinstance(sha, str) or not SHA_RE.fullmatch(sha):
+        raise NotAccepted(f"{result_file} names no accepted commit")
+    try:
+        git(brain, "cat-file", "-e", f"{sha}^{{commit}}")
+    except subprocess.CalledProcessError:
+        raise NotAccepted(f"the clone does not hold the accepted commit {sha}") from None
+    return sha
+
+
+def top_trees(brain: Path, commit: str, load: Load) -> dict[str, list[Entry]]:
+    """The entries under agents/ and skills/ of commit (relative to each), at most LIMITS.entries together."""
     out: dict[str, list[Entry]] = {}
     budget = LIMITS.entries
-    for top in ls_tree(brain, "HEAD", AGENTS_DIR, SKILLS_DIR):
+    for top in ls_tree(brain, commit, AGENTS_DIR, SKILLS_DIR):
         if top.path not in (AGENTS_DIR, SKILLS_DIR):
             continue
         if top.kind != "tree":
@@ -438,16 +474,18 @@ def load_skills(brain: Path, entries: list[Entry], out: Path, load: Load) -> Non
             load.skip(f"{SKILLS_DIR}/{name}/", [f"error:{type(exc).__name__}"])
 
 
-def build(brain: Path, plugin: Path) -> Load:
-    """Write the plugin at `plugin` (which must not exist yet) and return what was loaded and skipped."""
+def build(brain: Path, plugin: Path, result_file: Path) -> Load:
+    """Write the plugin at `plugin` (which must not exist yet) from the brain commit the referee last accepted, as the
+    signed result at `result_file` names it, and return what was loaded and skipped."""
     load = Load()
     staging = plugin.with_name(plugin.name + ".partial")
     try:
-        load.brain = git(brain, "rev-parse", "--verify", "--quiet", "HEAD^{commit}").decode("ascii").strip() or None
+        load.head = git(brain, "rev-parse", "--verify", "--quiet", "HEAD^{commit}").decode("ascii").strip() or None
+        load.brain = accepted_commit(brain, result_file)
         shutil.rmtree(staging, ignore_errors=True)
         (staging / ".claude-plugin").mkdir(parents=True)
         (staging / ".claude-plugin" / "plugin.json").write_text(json.dumps({"name": PLUGIN}) + "\n", encoding="utf-8")
-        trees = top_trees(brain, load)
+        trees = top_trees(brain, load.brain, load)
         load_agents(brain, trees.get(AGENTS_DIR, []), staging, load)
         load_skills(brain, trees.get(SKILLS_DIR, []), staging, load)
         staging.rename(plugin)
@@ -465,11 +503,12 @@ def write_record(path: Path, record: dict) -> None:
 
 
 def main(argv: list[str]) -> int:
-    if len(argv) != 3:
-        print("usage: brain_defs.py <brain clone> <plugin folder to write> <record file>", file=sys.stderr)
+    if len(argv) != 4:
+        print("usage: brain_defs.py <brain clone> <plugin folder to write> <record file> <referee result.json>",
+              file=sys.stderr)
         return 2
-    brain, plugin, record = (Path(a) for a in argv)
-    load = build(brain, plugin)
+    brain, plugin, record, result = (Path(a) for a in argv)
+    load = build(brain, plugin, result)
     write_record(record, load.record())
     if load.error:
         print(f"brain definitions not loaded: {load.error}", file=sys.stderr)

@@ -281,10 +281,13 @@ class CapsuleBrainDefinitionsTest(unittest.TestCase):  # E450, owner 2026-11-01
         cfg, self.cwd = root / "cfg", root / "brain"
         cfg.mkdir()
         (cfg / "no-mcp.json").write_text('{"mcpServers":{}}\n', encoding="utf-8")
-        tree_repo(self.cwd, self.BRAIN)
+        accepted = tree_repo(self.cwd, self.BRAIN)
         (self.cwd / "CLAUDE.md").write_bytes(self.BRAIN["CLAUDE.md"])  # checked out where the session runs, as in /work/brain
+        result = root / "result.json"  # the referee accepted the brain's one commit (E531)
+        result.write_text(json.dumps({"schema": "snowball-bootstrap-result/1",
+                                      "state": {"last_accepted_sha": accepted}}), encoding="utf-8")
         self.assertEqual(load_brain_defs().main([str(self.cwd), str(cfg / "brain-plugin"),
-                                                 str(root / "brain-definitions.json")]), 0)
+                                                 str(root / "brain-definitions.json"), str(result)]), 0)
         self.record = json.loads((root / "brain-definitions.json").read_text(encoding="utf-8"))
         self.argv = entrypoint_argv(CLAUDE, cfg)
         self.env = cli_env(**rival.PINNED_ENV, CLAUDE_CODE_OAUTH_TOKEN="not-a-real-token", CLAUDE_CONFIG_DIR=str(cfg))

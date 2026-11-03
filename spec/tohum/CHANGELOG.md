@@ -4,6 +4,9 @@ Tarih: 2026-10-29 · Sürüm: 2.2
 Okunma: bir sayfanın geçmişi aranırken
 Çapa: git geçmişi ve zincirdeki spec hash satırları
 
+- 2.2 (2026-11-03, E531; sahibin kararı (2026-11-03), uzman paneli): kapsül ajan ve skill tanımlarını hakemin beyinde
+  son kabul ettiği commit'ten (imzalı sonucun `state.last_accepted_sha`'sı) yükler, `HEAD`'den değil: reddedilmiş ya da
+  yargılanmamış push'un tanımı yüklenmez; ajanın `model`'i sahibin model kuralındadır, başkası düşer (`24a`).
 - 2.2 (2026-11-02, E507; Kurucu raporu): `26e`: bir modülün ilk adı Python'un standart kütüphanesinde bir modülün adı
   olamaz (`sys.stdlib_module_names`); hakem komutu `referee/` `sys.path`'te önde koşar ve o ad standart modülü gizler;
   böyle satırı olan tablo yüklenmez. Aşama 0'ın donmuş tablosundaki `profile` (MF4, MF6) kuraldan önce gelir, o tablo

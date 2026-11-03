@@ -65,12 +65,14 @@ kod `referee/`'yi, `referee/` başka kodu import etmez. Beyin push'unda herhangi
 harf duyarsız) `.claude/**`, `CLAUDE.md`, `AGENTS.md`, `.mcp.json`, `.vscode/**`, `.envrc`,
 `.devcontainer/**` → `agent_config_modified` (`29b`).
 
-**Ajan ve skill tanımları** (sahip, 2026-11-01). Kapsül her oturumun başında, `claude`'dan önce, beyin `HEAD`'inin
-`agents/` ve `skills/` ağaçlarını git nesnelerinden okuyup denetler ve oturuma `brain` eklentisi olarak verir (adlar
-`brain:<ad>`); beynin başka hiçbir dosyası yapılandırma olmaz. Biçim: `---` satırları arasında satır başına
-`<anahtar>: <değer>`, sonra boş olmayan metin; ajanda `name`, `description`, isteğe bağlı `tools` (virgüllü, kapsülün
-araçlarından) ve `model`, skill'de `name` ve `description`. Başka anahtar, kapalı dört araç, bağ, alt modül ya da sınır
-aşımı tanımı düşürür, oturumu durdurmaz; kayıt `/work/logs/brain-definitions.json`, kurallar `seed/founder/brain_defs.py`.
+**Ajan ve skill tanımları** (sahip, 2026-11-01). Kapsül her oturumun başında, `claude`'dan önce, hakemin beyinde son
+kabul ettiği commit'in (imzalı sonucun `state.last_accepted_sha`'sı; `HEAD` değil) `agents/` ve `skills/` ağaçlarını git
+nesnelerinden okuyup denetler ve oturuma `brain` eklentisi olarak verir (adlar `brain:<ad>`); beynin başka hiçbir
+dosyası yapılandırma olmaz. Biçim: `---` satırları arasında satır başına `<anahtar>: <değer>`, sonra boş olmayan metin;
+ajanda `name`, `description`, isteğe bağlı `tools` (virgüllü, kapsülün araçlarından) ve `model` (`inherit`,
+`claude-opus-5-5` ya da `claude-sonnet-5-5`), skill'de `name` ve `description`. Başka anahtar ya da model, kapalı araç,
+bağ, alt modül ya da sınır aşımı tanımı düşürür, oturumu durdurmaz; kayıt `/work/logs/brain-definitions.json`, kurallar
+`seed/founder/brain_defs.py`.
 
 **Hakem reposu:** `bootstrap/` ve `.github/workflows/bootstrap.yml` (önyükleme hakemi, tohum dönemiyle
 değişir); aktarılan `referee/` ağacı kökte (`ledger/`, `gate/`, `runner/`, `profile/`, `target/`,
