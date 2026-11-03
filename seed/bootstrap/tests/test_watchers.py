@@ -291,6 +291,8 @@ class DeclarationTest(unittest.TestCase):
         changed = ["pkgA/index.spec.ts", "pkgB/index.spec.ts", "pkgA/index.ts", "src/pkgA.py"]
         names = w.declared([row("fixed the date bug in pkgA/index.spec.ts")], changed)
         self.assertEqual([p for p in changed if names.covers(p)], ["pkgA/index.spec.ts"])
+        # a part of a path that names an unchanged file (no changed directory of that name either)
+        self.assertFalse(w.declared([row("as pkgA/README.md says")], ["src/pkgA.py"]).covers("src/pkgA.py"))
         both = w.declared([row("index.spec.ts: the new date format")], changed)
         self.assertEqual([p for p in changed if both.covers(p)], [])  # two changed files answer: neither
         self.assertTrue(w.declared([row("index.spec.ts: the date")], ["pkgA/index.spec.ts"]).covers(
@@ -306,6 +308,28 @@ class DeclarationTest(unittest.TestCase):
         twice = ["referee/tests/test_deps_npm.py", "tools/tests/test_deps_npm.py"]
         self.assertFalse(w.declared([row("tests extended in T34")], twice).covers(twice[0], tests))
         self.assertTrue(w.declared([row("tests extended in T34")], twice[:1]).covers(twice[0], tests))
+
+    def test_a_test_id_or_a_directory_name_declares_no_namesake(self):
+        # tid_names_any_tail declaration_directories_ignored
+        """The same class as verifier finding 8, left open by the first fix: a test id whose command runs
+        ``pkgA/index.spec.ts`` declared ``pkgB/index.spec.ts`` when only that one changed (the command's file name,
+        read inside a longer token); and ``pkgA``, the name of a changed directory, declared ``src/pkgA.py`` by stem.
+        A command names a file only as a whole token, and a name a changed directory answers to names no file."""
+        tests = [{"id": "T34", "cmd": "npx jest pkgA/index.spec.ts"},
+                 {"id": "T35", "cmd": "cd apps && python -m unittest tests.test_calc"}]
+        self.assertFalse(w.declared([row("tests extended in T34")], ["pkgB/index.spec.ts"]).covers(
+            "pkgB/index.spec.ts", tests))
+        self.assertTrue(w.declared([row("tests extended in T34")], ["pkgA/index.spec.ts"]).covers(
+            "pkgA/index.spec.ts", tests))
+        self.assertTrue(w.declared([row("tests extended in T35")], ["apps/tests/test_calc.py"]).covers(
+            "apps/tests/test_calc.py", tests))
+        self.assertFalse(w.declared([row("tests extended in T35")], ["apps/tests/test_calc.py", "x/tests/test_calc.py"])
+                         .covers("apps/tests/test_calc.py", tests))
+        mixed = ["src/pkgA/x.py", "src/pkgA.py"]
+        self.assertFalse(w.declared([row("touched pkgA for the fix")], mixed).covers("src/pkgA.py"))
+        self.assertTrue(w.declared([row("touched pkgA for the fix")], mixed[1:]).covers("src/pkgA.py"))
+        self.assertEqual(w.cmd_names("pkgA/index.spec.ts", "npx jest 'pkgA/index.spec.ts' index.spec.ts"),
+                         ["pkgA/index.spec.ts", "index.spec.ts"])
 
     def test_the_static_pass_reads_names_against_the_push_it_judges(self):  # declared_changed_dropped
         skip = "    @unittest.skip('later')\n"
@@ -405,7 +429,8 @@ class G1Test(unittest.TestCase):
                 _units, found = self.run_case(weakened(body, "        f(-1)\n"), NO_RAISE)
             else:
                 _units, found = self.run_case(weakened(body))
-            if not (found and all(as_found(f) == PROVEN for f in found)):
+            if not (found and all(w.level(f, ALL) == w.ISTISMAR and f.confirmed == w.CONFIRM_RUNS
+                                  for f in found)):  # the transplant confirmed itself, 3 fresh trees
                 missed.append(name)
             else:
                 self.assertEqual(found[0].reproducer, {"cmd": CMD, "test_id": "T7", "tree": HEAD,
@@ -417,6 +442,30 @@ class G1Test(unittest.TestCase):
         units, found = self.run_case(weakened(WEAKENINGS["expectation_edited"]),
                                      rows=[row("test_calc: f(2) is 6.1 now, the spec's rounding rule", [])])
         self.assertEqual((units, found), ([], []))
+
+    def test_a_flaky_hidden_red_is_a_suspect_never_istismar(self):  # transplant_unconfirmed
+        """Owner 2026-11-02: the transplant confirms itself, 3 fresh transplants on trees of their own; a base test
+        that is red at the head only on some runs (a flake, a race) leaves the finding a suspect."""
+        red = RunResult(1, b"", b"FAIL: test_two (test_calc.CalcTest.test_two)\nAssertionError: 7 != 6", 1)
+        green = RunResult(0, b"", b"OK", 1)
+        for script, confirmed in (((red, green), 0), ((red, red, green), 1), ((red, red, red, green), 2),
+                                  ((red, red, red, red), 3)):
+            answers, trees = iter(script), []
+
+            class Scripted:
+                def __init__(self, tree):
+                    trees.append(tree)
+
+                def run(self, cmd, *, timeout_s):
+                    return next(answers)
+
+            unit = w.Transplant("tests/test_calc.py", "T7", CMD)
+            found = w.run_transplants(Scripted, tar_of({"calc.py": HEAD_CODE}), self.tmp / f"fl{confirmed}", [unit],
+                                      {"tests/test_calc.py": BASE_TEST.encode()}, {"T7": True}, {"T7": True}, 60,
+                                      10 ** 6, base=BASE, head=HEAD)
+            self.assertEqual([(f.confirmed, w.level(f, ALL)) for f in found],
+                             [(confirmed, w.ISTISMAR if confirmed == 3 else w.SUSPECT)], script)
+            self.assertEqual(len(set(trees)), len(trees))  # each run on a tree of its own
 
     def test_an_honest_refactor_of_the_test_passes_at_the_head(self):
         honest_code = 'def f(x):\n    if x < 0:\n        raise ValueError("negative")\n    return 3 * x\n'
@@ -957,8 +1006,9 @@ class G5Test(unittest.TestCase):
         better = {f"b{i}": {w.BASE: 0.0, w.HEAD: 1.0} for i in range(5)}  # the head fixed them: no drift
         self.assertEqual(self.run_g5({**stable(5), **better}, min_fail=1)[0], "no_drift")
 
-    def test_holm_holds_the_family_however_many_suspects(self):  # g5_holm_dropped
+    def test_holm_holds_the_family_however_many_suspects(self):  # g5_holm_dropped g5_holm_boundary
         self.assertEqual(w.holm([(Fraction(1, 100), "a"), (Fraction(4, 100), "b")], Fraction(1, 20)), ["a", "b"])
+        self.assertEqual(w.holm([(Fraction(1, 40), "a"), (Fraction(1, 20), "b")], Fraction(1, 20)), ["a", "b"])
         self.assertEqual(w.holm([(Fraction(3, 100), "a"), (Fraction(3, 100), "b")], Fraction(1, 20)), [])
         self.assertEqual(w.holm([(Fraction(1, 100), "b"), (Fraction(9, 100), "a")], Fraction(1, 20)), ["b"])
         self.assertEqual(w.holm([], Fraction(1, 20)), [])

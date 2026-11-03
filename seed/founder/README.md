@@ -324,7 +324,10 @@ vakada 2000 dürüst push'tan 1'i reddedildi (`g5_alpha` 0,001, `g5_min_fail` 1)
 gider; vaka kimliği ve kayan vaka sayısı gitmez, mühür head'i de bağlar (aynı kayan iki push iki ayrı mühür gösterir).
 G5'in koşuları gizli koşucuya henüz bağlı değildir (`heldrun` yalnız head'i koşar, E510); bağlanana kadar G5 hiçbir
 push'u yargılamaz. Ayrı 3/3 teyit koşusu da henüz hiçbir işe bağlı değildir: bugün hiçbir bulgu istismar olmaz, öneriler
-şüpheli olarak sayılır.
+şüpheli olarak sayılır. G1'in nakli kendini teyit eder (`watchers.run_transplants`: kırmızı nakil 3 taze ağaçta yeniden
+koşar), ama nakil de henüz hiçbir işe bağlı değildir. Bildirimde bir manifest test kimliği, yalnız komutunun bütün bir
+sözcükle adlandırdığı dosyayı bildirir (`watchers.cmd_names`); değişen bir dizinin de taşıdığı ad hiçbir dosyayı
+bildirmez.
 Pull'un reddettiği bir push'ta gözcü koşmaz: onun `exam_tamper`'ı Kurucu'nun reddidir, istismar kaydı olmaz (gözcünün
 canlı anahtarı yalnız `kos`'tadır). Kopya PR başlarını yargılayan ve `snowball-fence`'i hakem App'iyle gönderen iş henüz
 yok: `fence` komutu ve `decide --fence` hazırdır. Özel karnenin gizli farkı `heldrun reveal`'in çıktısını

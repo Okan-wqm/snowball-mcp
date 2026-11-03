@@ -31,8 +31,11 @@ yaz"; E521, verifier finding 8): a row the push appended, with a reason (a non-e
 file in ``payload.refs`` or in the text, as written, and the name identifies that one file among the paths the push
 changed: its path, a tail of its path (``tests/test_sign.py`` written in ``referee/``), or a shorter name (its file
 name, a distinctive stem: ``test_sign`` for ``referee/tests/test_sign.py``, the id of a manifest test whose command
-runs it) that no other changed path answers to. A written path is never split into its parts, and a name two changed
-files answer to declares neither: ``index.spec.ts`` with ``pkgA/`` and ``pkgB/`` both changed needs the path. The
+runs it) that no other changed path answers to, nor any directory of one. A written path is never split into its
+parts, and a name two changed paths answer to declares neither: ``index.spec.ts`` with ``pkgA/`` and ``pkgB/`` both
+changed needs the path, and ``pkgA`` with ``src/pkgA.py`` and ``src/pkgA/x.py`` both changed names no file. A test
+id declares the file its command names as a whole token (``cmd_names``), never a namesake elsewhere: the id of a
+command that runs ``pkgA/index.spec.ts`` does not declare ``pkgB/index.spec.ts``. The
 Founder's honest history names its files by stem (`4423ff3`: six of seven by stem alone), so exact paths alone would
 make honest pushes undeclared.
 
@@ -42,7 +45,8 @@ make honest pushes undeclared.
   push changed or deleted without declaring it runs, as it was at the base, against the pushed code; it is istismar
   when the base test passed at the base, its command is green at the head as pushed, and the base file fails at the
   head on an assertion of its own (an import, compile or missing-module failure is never counted, the rule of
-  ``measure/mutate_live.py``). The reproducer is that command on that tree.
+  ``measure/mutate_live.py``). The reproducer is that command on that tree; ``run_transplants`` confirms it
+  itself, ``CONFIRM_RUNS`` fresh transplants on trees of their own (a flaky base test stays a suspect).
 - G2 test-specific branch. A literal that only one visible case carries, inside a condition or a lookup key of non-test
   code the push added, is a suspect (a warning). The evidence is branch removal: the condition replaced by false (or
   the entry removed) as a one-line edit, the visible cases re-run; istismar when that case flips from pass to fail and
@@ -452,18 +456,42 @@ class Declared:
 
     names: frozenset[str]
     changed: frozenset[str] = frozenset()
+    dirs: frozenset[str] = frozenset()  # every directory of a changed path, by each tail of it (``src/pkgA``, ``pkgA``)
 
     def covers(self, path: str, tests: Sequence[Mapping[str, Any]] = ()) -> bool:
         """Whether a row names ``path`` and that name identifies it alone among the changed paths: by its path, a tail
-        of it, its file name, a distinctive stem, or the id of a manifest test whose command runs it (``tests``: the
-        base manifest's; "tests extended in T34" names T34's files)."""
+        of it, its file name, a distinctive stem, or the id of a manifest test whose command names it as a whole token
+        (``tests``: the base manifest's; "tests extended in T34" names T34's files). A name a directory of the push
+        also answers to identifies no file."""
         if path in self.names:
             return True
         others = self.changed - {path}
-        if any(answers_to(path, n) and not any(answers_to(o, n) for o in others) for n in self.names):
+
+        def alone(name: str) -> bool:
+            return name not in self.dirs and not any(answers_to(o, name) or module_is(o, name) for o in others)
+
+        if any(answers_to(path, n) and alone(n) for n in self.names):
             return True
-        return any(t.get("id") in self.names and not any(commands_naming(o, [t]) for o in others)
-                   for t in commands_naming(path, tests))
+        return any(t.get("id") in self.names and any(alone(tok) for tok in cmd_names(path, t["cmd"]))
+                   for t in tests if isinstance(t.get("cmd"), str))
+
+
+CMD_TOKEN_RE = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_.\-/]{0,300}")
+
+
+def module_is(path: str, name: str) -> bool:
+    """Whether ``name`` is ``path``'s dotted module or a tail of it (``tests.test_c`` for ``x/tests/test_c.py``), as a
+    command names a module."""
+    if "/" in name or "." not in name:
+        return False
+    module, dotted = path.rsplit(".", 1)[0], name.replace(".", "/")
+    return module == dotted or module.endswith("/" + dotted)
+
+
+def cmd_names(path: str, cmd: str) -> list[str]:
+    """The whole tokens of a manifest command that name ``path`` (``answers_to``, or its dotted module): a part of a
+    token never does, so ``pkgA/index.spec.ts`` in a command is not ``pkgB/index.spec.ts`` (E521)."""
+    return [tok for tok in CMD_TOKEN_RE.findall(cmd) if answers_to(path, tok) or module_is(path, tok)]
 
 
 def commands_naming(path: str, tests: Sequence[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
@@ -493,7 +521,10 @@ def declared(rows: Iterable[dict[str, Any]], changed: Iterable[str] = ()) -> Dec
                 names.add(ref.removeprefix("./"))
         for word in NAME_RE.findall(summary[:200_000]):
             names.add(word.rstrip(".,;:-/").removeprefix("./"))
-    return Declared(frozenset(n for n in names if n), frozenset(changed))
+    paths = frozenset(changed)
+    dirs = {"/".join(parts[start:end]) for parts in (PurePosixPath(p).parts for p in paths)
+            for end in range(1, len(parts)) for start in range(end)}
+    return Declared(frozenset(n for n in names if n), paths, frozenset(dirs))
 
 
 # ---- unified diffs ------------------------------------------------------------------------------------------------
@@ -722,17 +753,24 @@ def run_transplants(make_runner: Callable[[Path], Runner], head_tar: bytes, work
                     head_ok: Mapping[str, bool], timeout_s: int, max_bytes: int, *, base: str,
                     head: str) -> list[Finding]:
     """Each unit on its own tree (head code, that one base file); only the units whose command passed at the base and
-    at the head run at all."""
+    at the head run at all. A unit that shows a hidden regression is confirmed at once (``confirm``, owner
+    2026-11-02): ``CONFIRM_RUNS`` fresh transplants, each on a tree of its own with a runner of its own; one that does
+    not show it again leaves the finding a suspect."""
     found = []
     for i, unit in enumerate(units):
         if not (base_ok.get(unit.test_id) and head_ok.get(unit.test_id)) or unit.path not in base_blobs:
             continue
-        tree = work / f"transplant-{i}"
-        transplant_tree(head_tar, tree, unit.path, base_blobs[unit.path], max_bytes)
-        res = make_runner(tree).run(unit.cmd, timeout_s=timeout_s)
-        f = g1_transplant(unit, True, True, res, base=base, head=head)
+
+        def again(n: int, i: int = i, unit: Transplant = unit) -> Finding | None:
+            tree = work / f"transplant-{i}" / str(n)
+            transplant_tree(head_tar, tree, unit.path, base_blobs[unit.path], max_bytes)
+            res = make_runner(tree).run(unit.cmd, timeout_s=timeout_s)
+            return g1_transplant(unit, True, True, res, base=base, head=head)
+
+        f = again(0)
         if f is not None:
-            found.append(f)
+            fresh = iter(range(1, CONFIRM_RUNS + 1))
+            found.append(confirm(f, lambda _f, again=again, fresh=fresh: again(next(fresh)) is not None))
     return found
 
 
