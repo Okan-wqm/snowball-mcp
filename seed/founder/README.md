@@ -194,7 +194,8 @@ kimlik yardımcısı ve `gh workflow run`). Testler `tests/test_deliver_epoch.py
    ulaşır).
 3. **Hakem kopyası** (`25` madde 3): `S`'deki `seed/bootstrap/` → `bootstrap/`, `seed/bootstrap/vectors/` →
    `vectors/`, `spec/tohum/29-tohum-koltuklari.md` → `seats/`, `seed/bootstrap/workflow/bootstrap.yml` →
-   `.github/workflows/bootstrap.yml`. Henüz itme. Baytlar git blob'larıyla aynı olmalı (E242): hakem ve beyin
+   `.github/workflows/bootstrap.yml`, `seed/security-ledger.jsonl` → `setup/security-ledger.jsonl` (genesis okur,
+   `29o`; E541). Henüz itme. Baytlar git blob'larıyla aynı olmalı (E242): hakem ve beyin
    klonlarını `git -c core.autocrlf=false clone` ile al, her `archive`'ı `git -c core.autocrlf=false` ile koştur
    (`core.autocrlf=true` olan Windows'ta `git archive` LF'yi CRLF'ye çevirir); itmeden önce
    `git diff --cached | tr -cd '\r' | wc -c` 0 olmalı.

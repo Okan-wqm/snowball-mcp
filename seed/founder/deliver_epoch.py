@@ -10,7 +10,8 @@ stopped (each step is skipped when what it makes is already there; <work>/epoch-
   2. <work>/STOP is set (unless it is already there), the launcher's lock is taken (no launcher runs, none can start
      until the delivery ends), the Founder's last push is judged (E385: accepted, or its rejection read by a
      session); then the referee's `control.json` `kill_switch` goes on (main) and no referee run is queued or running;
-  3. the referee copy (`bootstrap/`, `vectors/`, `seats/29-tohum-koltuklari.md`, `.github/workflows/bootstrap.yml`) is
+  3. the referee copy (`bootstrap/`, `vectors/`, `seats/29-tohum-koltuklari.md`, `.github/workflows/bootstrap.yml`,
+     `setup/security-ledger.jsonl`, E541) is
      staged in a fresh clone from S's git objects (`git archive`, `core.autocrlf=false`), refusing a stray untracked or
      ignored file, an index entry that is not S's blob and mode, and any CR byte in the staged diff;
   4. `spec/tohum` is replaced by S's in a fresh brain clone as one commit D (nothing else changes; D's `spec/tohum`
@@ -66,7 +67,8 @@ CI_WORKFLOW = "ci.yml"
 # README step 3: what of S the referee repository holds, and where (`25` 3).
 REFEREE_MAP = (("seed/bootstrap", "bootstrap"), ("seed/bootstrap/vectors", "vectors"),
                ("spec/tohum/29-tohum-koltuklari.md", "seats/29-tohum-koltuklari.md"),
-               ("seed/bootstrap/workflow/bootstrap.yml", ".github/workflows/bootstrap.yml"))
+               ("seed/bootstrap/workflow/bootstrap.yml", ".github/workflows/bootstrap.yml"),
+               ("seed/security-ledger.jsonl", "setup/security-ledger.jsonl"))  # E541: genesis reads it (`29o`)
 BRAIN_MAP = (("spec/tohum", "spec/tohum"),)  # README step 4: nothing else of the brain changes (E180)
 SUMMARY, CONTROL = "setup/summary.json", "control.json"
 JOURNAL = "epoch-delivery.json"
