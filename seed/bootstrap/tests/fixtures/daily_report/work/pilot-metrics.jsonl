@@ -1,0 +1,10 @@
+{"brain_after": "dddddddddddddddddddddddddddddddddddddddd", "brain_before": "cccccccccccccccccccccccccccccccccccccccc", "cost_usd": 2.0, "kind": "code", "minutes": 30.0, "pushed": true, "session_exit": 0, "stamp": "20261101T100000Z", "turns": 40, "verdict": "accepted"}
+{"corrected_by": "E241: the launcher had written the older head's acceptance", "cost_usd": 3.0, "kind": null, "pushed": true, "session_exit": 0, "stamp": "20261102T120000Z", "verdict": null}
+{"args": {"cycles": "10", "resume": "False"}, "kind": "intervention", "ts": "2026-11-03T12:00:00Z"}
+{"cost_usd": 7.0, "kind": "code", "minutes": 50.5, "pushed": true, "session_exit": 0, "stamp": "20261103T180000Z", "turns": 61, "verdict": "accepted"}
+{"args": {"cycles": "9", "resume": "True"}, "kind": "intervention", "ts": "2026-11-04T06:00:00Z"}
+{"cost_usd": null, "kind": null, "pushed": false, "session_exit": -1, "stamp": "20261104T060500Z", "timed_out": null, "verdict": null}
+{"api_error": "usage_limit_reached", "budget_usd": 15, "cost_usd": 0.5, "end": "usage_limit", "kind": null, "pushed": false, "session_exit": 1, "stage": 0, "stamp": "20261104T100000Z", "verdict": null}
+{"budget_usd": 15, "cost_usd": 4.25, "end": "exit", "kind": "code", "minutes": 20.0, "pushed": true, "reports_unanswered": 2, "session_exit": 0, "stage": 0, "stamp": "20261104T120000Z", "target_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "turns": 25, "verdict": "accepted"}
+{"budget_usd": 15, "cost_usd": 14.9, "end": "brake", "kind": "code", "pushed": true, "session_exit": 0, "stage": 0, "stamp": "20261104T150000Z", "target_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "verdict": "rejected"}
+{"budget_usd": 15, "cost_usd": 1.0, "end": "error", "kind": null, "pushed": true, "session_exit": 1, "stage": 0, "stamp": "20261104T170000Z", "target_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "verdict": null}

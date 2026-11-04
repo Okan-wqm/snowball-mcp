@@ -96,6 +96,7 @@ karar "yürürlükte" görünürdü), sahibin kararını bekler. İmaj yeniden k
 | `RUNNING` | süren koşu (JSON, E505, E528): seçenekleri (`--work`, `--cycles` ve `--resume` dışında), kalan döngü, sayaçları (Kurucu'nun push'suz bitirdiği oturumlar `idle`, art arda başarısızlıklar `failures`, art arda kullanım sınırları `limit_waits`, son biten döngüden bu yana sürdürmeler `resumes`), başlangıç ve son güncelleme. Ön denetim geçince yazılır, her döngüden sonra güncellenir; yalnız koşu kasıtlı bitince silinir: `STOP`, Kurucu'nun push'suz bitirdiği iki oturum, Ctrl+C ya da son döngü. Çökme, öldürme, yeniden açılış ve HALT onu bırakır ve `--resume` o koşuyu sürdürür. Gizli bilgi yazılmaz |
 | `HALT` | koşu operatörü bekliyor (JSON, E528: neden, ne zaman, kalan döngü): art arda beşinci başarısızlık, bu klasörün durmayan bir kapsülü, yenilenemeyen vektör girdileri, okunamayan bütçe (E530) ya da arada hiçbir döngü bitmeden dördüncü sürdürme. `RUNNING` kalır (başarısızlık ve sürdürme sayaçları sıfırlanmış); `HALT` varken `--resume` hiçbir şey yapmaz. Operatör onu silince görev koşuyu sürdürür; elle başlatma onu siler ve koşunun yerine geçer |
 | `scorecard/` | karnenin önbelleği ve özel kopyası (E310): `results/` hakemin imzalı sonuçları ve Sigstore paketleri (yalnız eklenir, özetiyle denetlenir), `manifests.jsonl`, `ledger-counts.jsonl` (her yargılanmış başta defterin satır sayısı: öz-tespitin (b) penceresi, E315), `karne.json` ve `karne.md` (maliyet ve keşif dahil). Kapsüle hiç bağlanmaz |
+| `gunluk-rapor/` | operatörün günlük gözlemci raporu (E537): `<tarih>.md`, on satır, `daily_report.py` üretir, elle yazılmaz. Kapsüle hiç bağlanmaz |
 
 **Çalıştırma** (operatörün `gh` girişi ve Docker gerekir):
 
@@ -201,6 +202,42 @@ Yazdığı yerler yalnız `scorecard/` ve `--public` ile verilen `docs/karne.jso
 yalnız açık imzalı girdilerden sayılardır. Operatör iki dosyayı commit'ler; `CommittedCardTest` sayfanın json'dan
 üretildiğini ve tanımların koddakiyle aynı olduğunu denetler. Düzeltilmiş sütunun dışarıda bıraktıkları
 `scorecard_exclusions.json`'dadır, her biri kayıttaki satırıyla; hakemin kuralıyla sütun hep yanındadır.
+
+**Günlük gözlemci raporu** (E537, otonomi planı §6): operatörün izlediği on satır, betikten çıkar, elle yazılmaz;
+başlatıcının döngüsüne bağlı değildir:
+
+```
+python seed/founder/daily_report.py --work F:\snowball-work [--at 2026-11-04T18:00:00Z] [--offline] [--out F]
+```
+
+Pencere `--at`'a kadarki 24 saattir (başlatıcının gün tavanınınki) ve rapor `--at` anındaki kayıttır: ondan sonraki
+metrik satırı, günlük döngüsü ve zamanlı satır hiçbir sayıya girmez (dünün raporu bugün de aynı çıkar); `HALT`,
+`reports-seen.json`, karne ve boş disk şimdiki hâlleriyle okunur. Salt okunur açar: `pilot-metrics.jsonl`,
+`pilot-log.md`, `HALT`, `reports-seen.json`, `scorecard/karne.json` ve penceredeki her oturumun yükleyici kaydı
+`logs/<damga>/brain-definitions.json`; `--offline` değilse operatörün `gh` girişiyle iki GET: hakemin
+`policy.json`'u (tavanlar, hakemin `policy_of`'uyla) ve `setup/stage.json` (açık aşama). Yazdığı tek dosya
+`gunluk-rapor/<tarih>.md` (ya da `--out`). Sayılar başlatıcının kendi kurallarıdır, kopya değil: harcama
+`session_spend` (bildirilmeyen maliyet oturumun freniyle), bitiş satırın `end`'i (E528 öncesi satır alanlarından
+`session_end` ile; orada fren çıkıştan ayrılamaz), rapor yaşı `report_ages`, "kanıtlandı" karnenin `proved`'u (yalnız
+geçen kontrollü sınav). Satırlar planın sırasıyla: oturumlar ve bitişleri, HALT ve kayıt uzlaşması; harcama ve
+tavanlar; hedef; büyüme; tahmin; tuzak alarmı; açık raporlar; olaylar; kapsama; kanıt. Sahibin iki ölçüsü
+(`sabah-sorulari` 2026-11-03) satır eklemeden girer, ikisi de bu haftanın 7 günü ile önceki 7 gün: büyüme satırında
+aynı türden işin emeği (kabul edilen kod push'unun medyan maliyeti, süresi, turu; kayıt daha ince bir iş türü
+adlandırmaz), olaylar satırında insan dokunuşu (elle başlatma, `--resume` değil, ve operatörün günlüğe yazdığı dokunuş
+başlığı ya da `(insan dokunuşu` işaretli zamanlı satırı; kaydın biçimi tanımsızdır, E277, zamansız başlık
+"zamanı okunamayan" diye sayılır). Henüz kurulmamış bir düzenek
+(E529 nabız, E532 kanarya ve dışa çıkış, E534 tahmin, E535 iş/geliştirme ayrımı, E536 organlar) kayıt numarasıyla
+"ölçülmedi" der, hiçbir zaman 0 demez. Rapor sayı, kimlik ve zaman taşır; Kurucu'nun metnini taşımaz.
+
+**Kayıt uzlaşması.** Günlüğün her `## Döngü <n> — <damga>` bölümü damgasıyla bir metrik satırına eşlenir. Fark
+yalnız kayıtlar nedenini söylüyorsa açıklanmış sayılır: metrik dosyasının ilk satırından önce günlüğe yazılmış oturum
+(dosya döngü 9'da başladı) ya da kararını kendisi düzelten satır (`corrected_by`, E241). Başka her fark (günlükte
+olmayan satır, satırı olmayan oturum, iki kez yazılmış damga, ayrışan karar ya da push, okunamayan satır)
+açıklanmamıştır: satır `UZLAŞMADI` der ve o sayılarla kural kurulmaz. Canlı kayıtta (2026-11-05) günlük 123
+döngü, metrik 114 döngü satırı; fark 9 metrik öncesi oturum ve 1 düzeltilmiş satırdır, açıklanmayan 0. Planın "7'ye
+karşı 12 ret" farkı bunlardır: günlükteki 12 reddin 5'i metrik dosyasından önceki oturumlardadır; "99'a karşı 100"
+ise metriğin 8 başlatıcı satırını da döngü sayıyordu (`--at 2026-11-03T03:41:00Z`: günlük 100, metrik 91 döngü
+satırı, fark yine 9).
 
 ## Tohum teslimi (tohum dönemi, E88)
 

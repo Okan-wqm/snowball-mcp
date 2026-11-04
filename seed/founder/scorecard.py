@@ -708,20 +708,25 @@ def _verbs(m: dict[str, Any]) -> tuple[tuple[str, str, str], ...]:
     )
 
 
+def proved(m: dict[str, Any]) -> bool:
+    """Whether the card may say improvement is proved: only a controlled exam that passed (`tohum/22a`, `22b`)."""
+    return m["exam"]["status"] == "pass"
+
+
 def render_public(m: dict[str, Any]) -> str:
     a = m["as_of"]
     fa, pu, pd, ml, rp, rv, au = (m["first_attempt"], m["pushes"], m["proven_defects"], m["module_less"],
                                   m["repeat"], m["rival"], m["autonomy"])
     tip = a["ledger_tip"] or {"row_id": "—", "row_hash": "—"}
     last = a["last_run"]
-    proved = "evet" if m["exam"]["status"] == "pass" else "hayır"
+    said = "evet" if proved(m) else "hayır"
     out = [
         "# Karne: Kendini Geliştirmenin Ölçüsü",
         "",
         f"Üretilmiş sayfa; elle düzenlenmez (`python seed/founder/scorecard.py --public docs/karne`, E310). "
         f"Kaynak: `docs/karne.json`. Tanımlar: `{m['definitions_sha256'][:16]}`.",
         "",
-        f"**Kendini geliştirdiği kanıtlandı mı: {proved}.** Kanıtı yalnız kontrollü sınav verir (ders provası, "
+        f"**Kendini geliştirdiği kanıtlandı mı: {said}.** Kanıtı yalnız kontrollü sınav verir (ders provası, "
         f"`tohum/22a`, `22b`); sınav koşmadı ({m['exam']['register']}). Aşağıdaki her sayı canlı pilotun "
         "gözlemidir: spec, vektörler, rakibin kuralları ve operatörün yardımı yol boyunca değişti; puan "
         "toplanmaz, her ölçü kendi derecesiyle okunur.",

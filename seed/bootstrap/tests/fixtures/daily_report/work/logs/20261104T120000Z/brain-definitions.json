@@ -1,0 +1,1 @@
+{"agents": [{"name": "x"}, {"name": "y"}], "brain": "dddddddddddddddddddddddddddddddddddddddd", "error": null, "head": "dddddddddddddddddddddddddddddddddddddddd", "schema": "snowball-brain-definitions/2", "skills": [{"name": "z"}], "skipped": [], "skipped_total": 2}

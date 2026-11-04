@@ -84,6 +84,9 @@ kusurları operatörün yargısıdır, hakemin sonucunda yoktur (karne bildiriml
 `eksik-kaydi`'ndadır); Kurucu'nun düzeltemeyeceği bir nedenle kaybedilen döngü başlatıcının döngüsüdür, hakem onu
 görmez (karne yalnız hakemin değerlendirmediği koşuyu sayar). Başlatıcının `pilot-metrics.jsonl`'u (döngü 9'dan beri:
 push, karar, nedenler ve sahipleri, süre, maliyet) yalnız operatörün özel karnesine girer.
+Operatörün günlük gözlemci raporu (`seed/founder/daily_report.py`, E537) günlüğü metrikle damga damga uzlaştırır:
+günlüğün fazladan döngüleri ve retleri metrik dosyası başlamadan önceki oturumlardır, kararı farklı tek satır kendi
+düzeltmesini taşır (E241).
 
 ## Gerçek değer: kabul edilmiş aletler hedefte (döngü 10–16)
 

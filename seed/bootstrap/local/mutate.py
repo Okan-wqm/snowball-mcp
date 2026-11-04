@@ -27,6 +27,7 @@ CANARY = "seed/bootstrap/local/canary.py"
 DEFS = "seed/founder/brain_defs.py"  # the capsule's loader of the brain's definitions (E450)
 LINDEX = "seed/founder/ledger_index.py"  # the capsule's read-only index of the Founder's ledger (E506)
 LAUNCH = "seed/founder/launch.py"  # the operator's launcher (E528's end states)
+REPORT = "seed/founder/daily_report.py"  # the operator's daily observer report (E537)
 
 # (name, file, old text found exactly once, new text, what the mutant stands for)
 MUTANTS = [
@@ -2383,7 +2384,7 @@ MUTANTS = [
      "      max-parallel: 16" + chr(10), "",
      "E525: every shard starts at once and the referee's runs queue behind them"),
     ("mutation_shards_back_to_eight", ".github/workflows/ci.yml",
-     "        shard: [" + ", ".join(str(k) for k in range(70)) + "]\n",
+     "        shard: [" + ", ".join(str(k) for k in range(71)) + "]\n",
      "        shard: [0, 1, 2, 3, 4, 5, 6, 7]\n",
      "E410: fewer shards than the mutants need, and the mutation run hits its timeout and is cancelled"),
     # E450: the brain's agent and skill definitions, checked in the capsule before claude starts (seed/founder/brain_defs.py)
@@ -2952,6 +2953,49 @@ MUTANTS = [
      "        if proc.returncode != 0:\n            return f\"failed: gh issue create",
      "        if False:\n            return f\"failed: gh issue create",
      "E530: an issue gh could not open is reported as opened"),
+    # E537: the operator's daily observer report (seed/founder/daily_report.py): each a way it could flatter the run
+    ("daily_pre_metrics_unbounded", REPORT, 'if first is not None and c["stamp"] < first:', "if True:",
+     "E537: any logged session without a metrics row passes as one from before the metrics file began"),
+    ("daily_correction_unchecked", REPORT, 'if row.get("corrected_by"):', "if True:",
+     "E537: a verdict the log and the row disagree on passes as corrected without the row naming its correction"),
+    ("daily_push_not_compared", REPORT, 'if c["pushed"] is not None and c["pushed"] != bool(row.get("pushed")):',
+     "if False:", "E537: a push the log and the row disagree on reconciles"),
+    ("daily_log_only_rows_unflagged", REPORT,
+     'unexplained += [f"{s} günlükte yok" for s in sorted(set(by_stamp) - set(logged))]', "unexplained += []",
+     "E537: a metrics row the log lacks reconciles"),
+    ("daily_section_runs_past_a_heading", REPORT, "heads = [m.start() for m in HEADING_RE.finditer(log)]",
+     "heads = [m.start() for m in CYCLE_RE.finditer(log)]",
+     "E537: an operator's note under a cycle is read as that cycle's verdict"),
+    ("daily_spend_reported_only", REPORT, "day = launch.day_spent(spend, at) / 1e6",
+     'day = sum(r["cost_usd"] for r in sessions if isinstance(r.get("cost_usd"), (int, float)))',
+     "E537: a session the CLI reported no cost for spends nothing, not its brake: the day looks cheaper"),
+    ("daily_window_closed_at_the_start", REPORT, "return when is not None and at - WINDOW < when <= at",
+     "return when is not None and at - WINDOW <= when <= at",
+     "E537: a session exactly 24 hours old counts in the day, unlike the launcher's day cap"),
+    ("daily_end_ignores_the_row", REPORT, 'if isinstance(row.get("end"), str):', "if False:",
+     "E537: the launcher's recorded end is replaced by a guess from the row's fields: a brake reads as an exit"),
+    ("daily_halt_file_unread", REPORT, '"halt": _json(work / launch.HALT_FILE)', '"halt": None',
+     "E537: a run waiting in HALT is reported as not halted"),
+    ("scorecard_proved_without_the_exam", "seed/founder/scorecard.py", 'return m["exam"]["status"] == "pass"',
+     'return m["exam"]["status"] != "fail"', "E537: an exam that never ran reads as proof of improvement"),
+    ("daily_spend_after_the_end", REPORT, "if s[0] <= at]  # day_spent has no upper bound", "]",
+     "E537: a session after --at spends in the day: yesterday's report made today counts today's sessions"),
+    ("daily_rows_after_the_end", REPORT, "or (launch._row_time(r) or at) <= at]", "or True]",
+     "E537: a metrics row after --at counts in the sessions and the reconciliation"),
+    ("daily_log_past_the_end", REPORT, "if m.group(2) > stamp), len(log))", "if False), len(log))",
+     "E537: a log cycle after --at counts in the reconciliation and its open reports in line 7"),
+    ('daily_effort_any_verdict', REPORT, 'r.get("kind") == "code" and r.get("verdict") == "accepted"',
+     'r.get("kind") == "code"',
+     'E537: a rejected push counts as the same work done: its effort lowers or raises the trend'),
+    ('daily_week_closed_at_the_start', REPORT, '    back = int((at - when) / WEEK)\n',
+     '    back = int((at - when) / WEEK) if at - when != WEEK else 0\n',
+     'E537: a record exactly 7 days old counts in this week, unlike the day window'),
+    ('daily_touch_counts_a_resume', REPORT, '               and str((r.get("args") or {}).get("resume")) != "True"]',
+     '               ]',
+     'E537: a launcher the task resumed by itself counts as a human touch'),
+    ('daily_touch_heading_without_a_time_dropped', REPORT, '            unread += 1\n            continue\n',
+     '            continue\n',
+     'E537: a touch the operator logged without a time is dropped from the counter'),
 ]
 
 
