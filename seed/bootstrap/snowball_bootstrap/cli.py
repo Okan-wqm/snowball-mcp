@@ -17,7 +17,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from . import canon, config, exitchecks, ghapi, gitio, ledgercheck, licenses, parts, stagelock, stages, state as st, wiring
+from . import (canon, config, drillfixtures, exitchecks, ghapi, gitio, ledgercheck, licenses, parts, stagelock, stages,
+               state as st, wiring)
 from .classify import (LEDGER_FILE, REPORTS_DIR, SEED_DIRS, classify, is_founder_record, is_seed_path,
                        spec_stage_dirs)
 from .container import DockerRunner
@@ -961,6 +962,17 @@ def cmd_stage_open(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_drill_fixtures(args: argparse.Namespace) -> int:
+    """`25a` 7, `26f` "Canlı prova fikstürleri": after the import and before the activation, the live revert-drill
+    fixtures of the counter's last transfer, written to ``--out`` alone; only counts, the value's sha256 and its size
+    are printed (E499)."""
+    done = drillfixtures.produce(Path(args.referee), Path(args.toy), args.toy_ref, Path(args.brain), Path(args.catalog),
+                                 Path(args.out), drillfixtures.DockerSandbox(args.node_image))
+    print(json.dumps(done, indent=2, sort_keys=True))
+    print("Write the file's content as the referee secret loop.yml names for the fixtures; record only value_sha256.")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="snowball_bootstrap")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -1010,6 +1022,14 @@ def build_parser() -> argparse.ArgumentParser:
         ("--identity", dict(req, help="the loop workflow's signing identity (its yaz job anchors the roots; each "
                                       "root's bundle is read from brain/state, .brain/chain/<root>.sigstore.json)")),
         ("--sigstore-python", req))
+    add("drill-fixtures", cmd_drill_fixtures,
+        ("--referee", dict(req, help="the referee repository's local checkout, pulled after the import")),
+        ("--toy", dict(req, help="a local clone of the toy target")),
+        ("--toy-ref", {"default": "refs/remotes/origin/main", "help": "the toy's main in that clone"}),
+        ("--brain", dict(req, help="a local clone of the brain holding the transfer's brain_sha")),
+        ("--catalog", dict(req, help="the operator's private drafts, [{cause, patch}], outside any repository")),
+        ("--out", dict(req, help="where the value is written: a new file outside any repository")),
+        ("--node-image", dict(req, help="the Node image the toy's tools run in, name:tag@sha256:<digest>")))
     return parser
 
 

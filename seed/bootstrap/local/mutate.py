@@ -27,6 +27,7 @@ CANARY = "seed/bootstrap/local/canary.py"
 DEFS = "seed/founder/brain_defs.py"  # the capsule's loader of the brain's definitions (E450)
 LINDEX = "seed/founder/ledger_index.py"  # the capsule's read-only index of the Founder's ledger (E506)
 EPOCH = "seed/founder/deliver_epoch.py"  # the operator's one-command seed epoch delivery (E526)
+DFX = f"{PKG}/drillfixtures.py"  # the operator's drill-fixtures command (E499)
 
 # (name, file, old text found exactly once, new text, what the mutant stands for)
 MUTANTS = [
@@ -2424,7 +2425,7 @@ MUTANTS = [
      "      max-parallel: 16" + chr(10), "",
      "E525: every shard starts at once and the referee's runs queue behind them"),
     ("mutation_shards_back_to_eight", ".github/workflows/ci.yml",
-     "        shard: [" + ", ".join(str(k) for k in range(67)) + "]\n",
+     "        shard: [" + ", ".join(str(k) for k in range(68)) + "]\n",
      "        shard: [0, 1, 2, 3, 4, 5, 6, 7]\n",
      "E410: fewer shards than the mutants need, and the mutation run hits its timeout and is cancelled"),
     # E450: the brain's agent and skill definitions, checked in the capsule before claude starts (seed/founder/brain_defs.py)
@@ -2537,8 +2538,12 @@ MUTANTS = [
     # E421: the owner's optional physical safety paths (`05` "Fiziksel güvenlik", `26c`)
     ("safety_paths_refused", f"{PKG}/config.py", 'TARGET_OPTIONAL_KEYS = frozenset({"safety_paths"})',
      "TARGET_OPTIONAL_KEYS = frozenset()", "E421: a summary carrying the owner's safety paths stops every run"),
-    ("safety_paths_form_unchecked", f"{PKG}/config.py", '        _texts(row, "safety_paths", where)', "        pass",
+    ("safety_paths_form_unchecked", f"{PKG}/config.py",
+     '    safety = _texts(row, "safety_paths", where) if "safety_paths" in row else ()',
+     '    safety = tuple(row.get("safety_paths") or ())',
      "E421: a malformed safety path list loads and widens nothing"),
+    ("safety_paths_dropped", f"{PKG}/config.py", '_texts(row, "unit_candidates", where), safety)',
+     '_texts(row, "unit_candidates", where), ())', "E499: the owner's safety paths are read and then forgotten"),
     # E421-E427 and the reports this epoch answers: each rule on its page, said once
     ("physical_safety_restated_on_30", "spec/tohum/30-guvenlik-katalogu.md",
      "fiziksel güvenlik yolları da bu sıradadır (`05` \"Fiziksel güvenlik\")",
@@ -2830,6 +2835,53 @@ MUTANTS = [
      "(alan değerine göre tam bulma ve katlamalar; her yanıt okuduğu ucu\n   yazar, zinciri doğrulamaz; "
      "`text` yalnız aday verir).", "",
      "E506: the image holds the tool and the Founder is never told"),
+    # E499: the operator's drill-fixtures command (`26f` "Canlı prova fikstürleri"), each rule its refusal
+    ("drill_fixtures_add_accepted", DFX, '                raise ValueError(f"{what}, not one in-place modification")',
+     "                pass", "E499: an added, deleted or renamed file passes as a plant's in-place change"),
+    ("drill_fixtures_context_unchecked", DFX, "        if lines[old_at:old_at + hunk.old_count] != old:",
+     "        if False:", "E499: a hunk whose context is not the file's applies (fuzz)"),
+    ("drill_fixtures_new_start_unchecked", DFX, "        if new_at != old_at + delta:", "        if False:",
+     "E499: a hunk's new start may differ from its old one moved by the hunks before (offset)"),
+    ("drill_fixtures_index_unchecked", DFX, "    if not blob_id(old).startswith(edit.old_blob):", "    if False:",
+     "E499: a patch drafted against another file than this toy tree's passes"),
+    ("drill_fixtures_security_path_unchecked", DFX, "    if _on_security_path(edit.path, bind):", "    if False:",
+     "E499: a plant changes a file on a security path"),
+    ("drill_fixtures_candidate_files_unchecked", DFX, "        if edit.path in paths:", "        if False:",
+     "E499: a plant changes a file a merge-expected candidate changes, so the drill turns itself off"),
+    ("drill_fixtures_toy_tree_unchecked", DFX,
+     '    if _tree_hash(toy, ref, f"--toy {toy} at {ref}") != expected:', "    if False:",
+     "E499: the set is made on a toy tree the import line does not name"),
+    ("drill_fixtures_line_unbound", DFX, "    stagelock._committed_is_transferred(referee, head, row)", "    pass",
+     "E499: the set is bound to a counter line whose referee the checkout does not hold"),
+    ("drill_fixtures_counts_unchecked", DFX, "    if len(set(counts.values())) != 1 or not counts[CAUSES[0]]:",
+     "    if False:", "E499: unequal cause counts, or a cause missing, pass"),
+    ("drill_fixtures_ids_from_cause", DFX, "    ids = [secrets.token_hex(16) for _d in drafts]",
+     "    ids = [hashlib.sha256(c.encode()).hexdigest()[:32] for c, _p in drafts]",
+     "E499: an id the cause gives, so the public plant row names the cause"),
+    ("drill_fixtures_size_unchecked", DFX, "    if len(value) > MAX_VALUE_BYTES:", "    if False:",
+     "E499: a value GitHub cannot hold as one secret is written"),
+    ("drill_fixtures_base_unchecked", DFX,
+     "    if not (base.loads and base.lint_total is not None and base.tests_green):", "    if False:",
+     "E499: plants are measured against a base that is not clean"),
+    ("drill_fixtures_label_unmeasured", DFX, "        if found != cause:", "        if False:",
+     "E499: the declared cause is written whatever the toy's tools measure"),
+    ("drill_fixtures_ambiguous_accepted", DFX, "    if rose and red:", "    if False:",
+     "E499: a plant with two causes passes as one"),
+    ("drill_fixtures_docker_skipped", DFX, "        if not ok:", "        if False:",
+     "E499: without docker the measurement is skipped instead of refused"),
+    ("drill_fixtures_measured_online", DFX, '        args = [*HARDENED, "--network", "none", "--user", "65534:65534",',
+     '        args = [*HARDENED, "--user", "65534:65534",', "E499: the plant's code runs with a network"),
+    ("drill_fixtures_install_runs_scripts", DFX, "npm ci --ignore-scripts --no-audit", "npm ci --no-audit",
+     "E499: the dependencies' install scripts run"),
+    ("drill_fixtures_out_overwritten", DFX, "os.O_WRONLY | os.O_CREAT | os.O_EXCL",
+     "os.O_WRONLY | os.O_CREAT | os.O_TRUNC",
+     "E499: a value written over a file that appeared meanwhile"),
+    ("drill_fixtures_out_dir_late", DFX, "    if not out.parent.is_dir():", "    if False:",
+     "E499: a missing --out directory is found only after the whole measurement"),
+    ("drill_fixtures_surrogate_accepted", DFX, '        raise ValueError("a lone surrogate: not UTF-8 text") from None',
+     "        pass", "E499: a patch that is no UTF-8 text reaches the canonical value and stops it there"),
+    ("drill_fixtures_lint_split_ignored", DFX, "        if {1, -1} <= moves:", "        if False:",
+     "E499: ESLint errors and warnings moving apart pass as one cause, though a total of one of them names another"),
 ]
 
 
