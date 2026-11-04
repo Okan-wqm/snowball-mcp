@@ -18,11 +18,19 @@ IPv6 kapalı, ağ geçidi `gateway_mode_ipv4=isolated`, yani köprüde Docker an
 öbür üyesi oturumun aktarıcısıdır (`egress.py`, yalnız stdlib; kapsülün sabitli Python tabanında, kendi kapsayıcısında,
 kök salt okunur, yetkiler düşük, kodu ve jetonu salt okunur; yalnız kapsül ağındaki adresini dinler, köprüdeki başka bir
 kapsayıcı ona ulaşamaz). Aktarıcı yalnız iki şey taşır: CLI'ın `HTTPS_PROXY`'si için modelin API'sine
-(`api.anthropic.com:443`) `CONNECT` tüneli, ve `/git/` ile `/api/repos/` altında yalnız beyin reposunun git
-smart-HTTP'si ile REST çağrıları; GitHub jetonunu kendisi ekler, kapsül jeton tutmaz (`https://github.com/` adresleri
-`insteadOf` ile aktarıcıya döner). Yukarı akış ana bilgisayarı istekten değil yoldan gelir, yönlendirme izlenmez; ad
+(`api.anthropic.com:443`) `CONNECT` tüneli, ve `/git/` altında git smart-HTTP; GitHub jetonunu kendisi ekler, kapsül
+jeton tutmaz (`https://github.com/` adresleri `insteadOf` ile aktarıcıya döner). Taşıdığı şey tek bir izin listesidir
+(`ROUTES`, E524): yöntem, yol şablonu, şablonun tek sorgusu ve reponun gereken rolü. Beyin (`--repo`) çekilir ve itilir
+(`info/refs`'in iki `service`'i, `git-upload-pack`, `git-receive-pack`); Aşama 1'den kopya hedef (`launch.py --copy
+<sahip/ad>`, aktarıcıda `--fetch-repo`) yalnız çekilir, itilmesi `push_not_allowed`'dır. GitHub REST API'si hiç
+taşınmaz, beyninki de: `/api/` altındaki her istek `rest_not_carried` ile reddedilir ve kayda girer. Kanıt: pilotun 114
+oturumunda (2026-10-29..11-04, 6392 kabuk çağrısı) Kurucu beynine hiç REST çağrısı yapmadı (`gh` imajda yok; ağ işi
+`git push`/`fetch`/`ls-remote`), REST'i taşımak ise jetonun beyin içeriğinin ötesine uzanan her ucunu açardı
+(webhook ve teslimatlarını geri okuma, deploy anahtarı, ortak çalışan, repo ayarı, silme, devretme, Actions izni,
+`dispatches`, codespace). Yukarı akış ana bilgisayarı istekten değil yoldan gelir, yönlendirme izlenmez; ad
 büyük-küçük harf ayırmadan, adın sonunda `/` ile eşleşir (izinli bir ad başka bir reponun önü olamaz); boş, `.` ya da
-`..` kesimli, kodlanmış `/`, `\`, `.` ya da NUL taşıyan yol reddedilir. Her istek, izinli ya da reddedilmiş, oturumun
+`..` kesimli, kodlanmış `/`, `\`, `.` ya da NUL taşıyan yol (her iki harf büyüklüğünde) rota aranmadan
+reddedilir. Her istek, izinli ya da reddedilmiş, oturumun
 `relay/log/egress.jsonl`'ına bir JSON satırıdır (başlık ve gövde asla); reddedilenler okuma algılayıcısıdır, sayıları ve
 ilkleri döngünün satırına ve `pilot-log.md`'ye girer. Aktarıcı kalkmazsa oturum açılmaz (kesinti). Var olan ama bunların
 biri eksik bir `snowball_capsule` ağı (Docker'ın göstermediği alan da eksik sayılır) reddedilir, kullanılmaz,
@@ -41,9 +49,14 @@ yazar (`snowball.entrypoint_sha256`) ve her başlangıç onu çalışma kopyası
 ile eski imaj) başlatıcı `RUNNING`'i silip durur.
 
 `contained`'a geçiş operatörün (gizli değerler bu betikçe okunmaz): (1) `snowball-capsule.env`'e yalnız
-`CLAUDE_CODE_OAUTH_TOKEN=...`, `snowball-relay.env`'e yalnız `GITHUB_TOKEN=...` (bugünkü beyin-yalnız jeton) yaz; kapsül
-dosyasında `GITHUB_TOKEN` varsa giriş 64 ile durur; (2) başlatıcıyı `--egress contained` ile yeniden başlat (imaj
-yeniden kurulur; ağ yoksa yukarıdaki gibi açılır; Docker 28'den eskisi `isolated`'ı bilmez ve ağ reddedilir).
+`CLAUDE_CODE_OAUTH_TOKEN=...`, `snowball-relay.env`'e yalnız `GITHUB_TOKEN=...` yaz; kapsül dosyasında `GITHUB_TOKEN`
+varsa giriş 64 ile durur. Aktarıcının jetonu en az yetkilidir (E524): fine-grained, depo erişimi "Only select
+repositories" ile yalnız beyin (Aşama 1'de kopya da), izinler yalnız Contents: Read and write ve GitHub'ın her zaman
+eklediği Metadata: Read; Administration, Webhooks, Actions, Workflows, Codespaces, Pull requests, Issues, Secrets,
+Environments, Pages ve hiçbir hesap izni yok. Aktarıcı REST taşımadığı için bu ikinci kattır: aktarıcıdaki bir hata
+ya da bir gün eklenen bir rota jetonun yapamadığını yapamaz; (2) başlatıcıyı `--egress contained` ile yeniden
+başlat (imaj yeniden kurulur; ağ yoksa yukarıdaki gibi açılır; Docker 28'den eskisi `isolated`'ı bilmez ve ağ
+reddedilir).
 `test_founder_capsule` `ContainmentProbeTest`'i (`SNOWBALL_EGRESS_PROBE=<ad öneki>`) başlatıcının kendi argv'siyle
 gerçek Docker'da ölçer: 2026-11-02'de Docker 28.4'te 71 denemenin 69'u engellendi (DNS 7, TCP 11, UDP 1 ağ katmanında,
 ana makinenin kendi servisi dahil; aktarıcıda 50 yasak hedef, hepsi kayıtta `deny`), ikisi geçti: modelin API'sine TLS
@@ -114,7 +127,7 @@ karar "yürürlükte" görünürdü), sahibin kararını bekler. İmaj yeniden k
 |---|---|
 | `snowball-founder.env` | `--egress open`: `GITHUB_TOKEN` (yalnız beyin reposu, Contents: Read and write) ve `CLAUDE_CODE_OAUTH_TOKEN` (`claude setup-token`); operatör yazar, yalnız kapsül okur |
 | `snowball-capsule.env` | `--egress contained` (E508): yalnız `CLAUDE_CODE_OAUTH_TOKEN`; kapsülün tek gizli değeri |
-| `snowball-relay.env` | `--egress contained`: yalnız `GITHUB_TOKEN`; yalnız aktarıcının kapsayıcısına bağlanır |
+| `snowball-relay.env` | `--egress contained`: yalnız `GITHUB_TOKEN` (fine-grained, yalnız beyin ve Aşama 1'de kopya; Contents: Read and write, Metadata: Read, başka izin yok; E524); yalnız aktarıcının kapsayıcısına bağlanır |
 | `aquaculture_platform/` | hedef klonu, kapsüle salt okunur |
 | `referee/` | hakemin son imzalı sonucu (`result.json`), Kurucu okur |
 | `vec/` | vektörlerin girdileri, kapsüle `/vec` olarak salt okunur (E244): `cases.json` (her veri vakasının `id`, `purpose`, `cmd`, `stdin`, `fixture` ve `changed` alanları) ve fikstürler; beklenen değer yok. Her oturumdan önce hakem reposunun `main`'indeki `vectors/`'ten, hakemin kendi `vectors.founder_inputs`'uyla yeniden kurulur |

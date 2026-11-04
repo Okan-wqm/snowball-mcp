@@ -442,11 +442,12 @@ def referee_vectors(blob: bytes, dest: Path) -> Path:
 
 
 class Pilot:
-    def __init__(self, work: Path, brain: str, referee: str, target: str, egress: str = "open") -> None:
+    def __init__(self, work: Path, brain: str, referee: str, target: str, egress: str = "open", copy: str = "") -> None:
         if egress not in EGRESS_MODES:
             raise ValueError(f"egress {egress!r} is none of {EGRESS_MODES}")
         self.work, self.brain, self.referee = work, brain, referee
         self.egress = egress
+        self.copy = copy  # from Stage 1 the copy target: the relay fetches it and never pushes it (E524)
         self.network, self.container_prefix = CAPSULE_NETWORK, "snowball"  # a probe of the real docker sets its own
         self.target = work / target
         self.env_file = work / "snowball-founder.env"
@@ -851,7 +852,8 @@ class Pilot:
                 *bind(folder / "log", "/log", False),
                 "--entrypoint", "python3", relay_image(),
                 "-I", "/opt/relay/egress.py", "--listen", f"{RELAY_ALIAS}:{RELAY_PORT}",
-                "--token-file", "/run/secrets/relay.env", "--repo", self.brain, "--log", "/log/egress.jsonl"]
+                "--token-file", "/run/secrets/relay.env", "--repo", self.brain,
+                *(["--fetch-repo", self.copy] if self.copy else []), "--log", "/log/egress.jsonl"]
 
     def start_relay(self, stamp: str) -> str:
         """Start the session's relay and wait until it listens; its container's name. RelayDown when it does not come up
@@ -1185,8 +1187,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--no-build", action="store_true")
     p.add_argument("--egress", choices=EGRESS_MODES, default="open",
                    help="contained: the capsule on an internal network behind the relay, which carries the model's API "
-                        "and the brain repository alone and records every refused request (E508); needs "
+                        "and the brain's git alone and records every refused request (E508, E524); needs "
                         f"{CAPSULE_ENV} and {RELAY_ENV} in the work folder. open: the default bridge, as before")
+    p.add_argument("--copy", default="",
+                   help="from Stage 1: the copy target's owner/name, which a contained capsule fetches through the "
+                        "relay and never pushes (E524)")
     p.add_argument("--resume", action="store_true",
                    help="continue the run <work>/RUNNING names, after a crash or a reboot (E505)")
     p.add_argument("--install-service", action="store_true",
@@ -1225,7 +1230,7 @@ def start(parser: argparse.ArgumentParser, args) -> int:
             intent.clear()  # a start by hand replaces a cut run, also when its preflight then fails
         if shutil.which("gh") is None or shutil.which("docker") is None:
             sys.exit("gh and docker must be on PATH")
-        pilot = Pilot(args.work, args.brain, args.referee, args.target, args.egress)
+        pilot = Pilot(args.work, args.brain, args.referee, args.target, args.egress, args.copy)
         pilot.idle = int(intent.state.get("idle") or 0) if args.resume else 0
         pilot.preflight()
         if not args.resume:

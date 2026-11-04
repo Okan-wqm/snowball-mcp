@@ -1854,7 +1854,7 @@ class LauncherResumeTest(unittest.TestCase):
         class FakePilot:  # the launcher's Pilot as start() and run_cycles() see it; the cycle has its own tests
             idle = 0
 
-            def __init__(self, work, brain, referee, target, egress="open"):
+            def __init__(self, work, brain, referee, target, egress="open", copy=""):
                 self.work, self.report = work, work / "pilot-log.md"
                 seen["target"], seen["egress"] = target, egress
 
@@ -2267,10 +2267,13 @@ def load_egress():
 
 
 ALLOWED_REPO = "o/brain"
+COPY_REPO = "o/copy"  # fetched, never pushed (from Stage 1 the copy target, E524)
 # What a contained capsule must never reach through the relay (E508): the referee and the seed by path and by name
-# case, a longer name that starts with the brain's, the raw, codeload and objects hosts, the REST API outside the
-# brain, an IP literal, the cloud metadata address, the relay itself, encoded and dotted escapes. Each with the reason
-# the relay records.
+# case, a longer name that starts with the brain's, the raw, codeload and objects hosts, an IP literal, the cloud
+# metadata address, the relay itself, encoded and dotted escapes. E524: the REST API, the brain's own included (the
+# token's reach beyond the brain's contents: webhooks and their deliveries, deploy keys, collaborators, the repository's
+# settings, transfer and deletion, Actions permissions, dispatches, codespaces), an encoded backslash in either case,
+# and a push to the copy. Each with the reason the relay records.
 FORBIDDEN = (
     ("CONNECT", "github.com:443", "connect_not_allowed"),
     ("CONNECT", "raw.githubusercontent.com:443", "connect_not_allowed"),
@@ -2301,11 +2304,44 @@ FORBIDDEN = (
     ("GET", "/git/o/brain.git/info/refs?service=git-upload-archive", "git_endpoint"),
     ("POST", "/git/o/brain.git/info/refs?service=git-upload-pack", "git_endpoint"),
     ("GET", "/git/o/brain.git/../referee.git/info/refs?service=git-upload-pack", "unsafe_path"),
-    ("GET", "/api/repos/o/referee/contents/vectors/vectors.json", "repo_not_allowed"),
-    ("GET", "/api/repos/O/REFEREE/contents/vectors", "repo_not_allowed"),
-    ("GET", "/api/repos/o/snowball-mcp/tarball/main", "repo_not_allowed"),
-    ("GET", "/api/repos/o/brain-referee/contents/vectors", "repo_not_allowed"),
-    ("GET", "/api/repos/o/brainx", "repo_not_allowed"),
+    ("GET", "/git/o/brain.git/info%5Crefs?service=git-upload-pack", "unsafe_path"),
+    ("GET", "/git/o/brain%5c..%5creferee.git/info/refs?service=git-upload-pack", "unsafe_path"),
+    ("GET", "/git/o/brain.git/info/refs?service=git-upload-pack&x=1", "git_endpoint"),
+    ("HEAD", "/git/o/brain.git/info/refs?service=git-upload-pack", "git_endpoint"),
+    ("GET", "/git/o/brain.git/git-upload-pack", "git_endpoint"),
+    ("POST", "/git/o/brain.git/git-upload-pack?service=git-upload-pack", "git_endpoint"),
+    ("GET", "/git/o/brain.git/HEAD", "git_endpoint"),
+    ("GET", "/git/o/brain.git", "git_endpoint"),
+    ("GET", "/git/o/brain.git.git/info/refs?service=git-upload-pack", "repo_not_allowed"),
+    ("GET", "/git/o/copyx.git/info/refs?service=git-upload-pack", "repo_not_allowed"),
+    ("GET", "/git/o/copy.git/info/refs?service=git-receive-pack", "push_not_allowed"),
+    ("POST", "/git/o/copy.git/git-receive-pack", "push_not_allowed"),
+    ("POST", "/git/O/Copy/git-receive-pack", "push_not_allowed"),
+    ("GET", "/git/o", "repo_not_allowed"),
+    ("GET", "/api/repos/o/referee/contents/vectors/vectors.json", "rest_not_carried"),
+    ("GET", "/api/repos/O/REFEREE/contents/vectors", "rest_not_carried"),
+    ("GET", "/api/repos/o/snowball-mcp/tarball/main", "rest_not_carried"),
+    ("GET", "/api/repos/o/brain-referee/contents/vectors", "rest_not_carried"),
+    ("GET", "/api/repos/o/brainx", "rest_not_carried"),
+    ("GET", "/api/repos/o/brain", "rest_not_carried"),
+    ("GET", "/api/repos/o/brain/contents/a.md?ref=main", "rest_not_carried"),
+    ("POST", "/api/repos/o/brain/hooks", "rest_not_carried"),
+    ("GET", "/api/repos/o/brain/hooks/1/deliveries/2", "rest_not_carried"),
+    ("POST", "/api/repos/o/brain/hooks/1/deliveries/2/attempts", "rest_not_carried"),
+    ("PUT", "/api/repos/o/brain/collaborators/someone", "rest_not_carried"),
+    ("POST", "/api/repos/o/brain/keys", "rest_not_carried"),
+    ("PATCH", "/api/repos/o/brain", "rest_not_carried"),
+    ("DELETE", "/api/repos/o/brain", "rest_not_carried"),
+    ("POST", "/api/repos/o/brain/transfer", "rest_not_carried"),
+    ("PUT", "/api/repos/o/brain/actions/permissions", "rest_not_carried"),
+    ("POST", "/api/repos/o/brain/actions/workflows/x.yml/dispatches", "rest_not_carried"),
+    ("POST", "/api/repos/o/brain/dispatches", "rest_not_carried"),
+    ("POST", "/api/repos/o/brain/codespaces", "rest_not_carried"),
+    ("POST", "/api/repos/o/brain/forks", "rest_not_carried"),
+    ("POST", "/api/repos/o/brain/pages", "rest_not_carried"),
+    ("PUT", "/api/repos/o/brain/contents/x.md", "rest_not_carried"),
+    ("POST", "/API/Repos/o/brain/hooks", "rest_not_carried"),
+    ("GET", "/api/repos/o/brain/contents/x%5C..%5C..%5Creferee", "unsafe_path"),
     ("GET", "/api/repos/o/brain/../referee/contents", "unsafe_path"),
     ("GET", "/api/repos/o/brain/%2e%2e/referee/contents", "unsafe_path"),
     ("GET", "/api/repos/o/brain%2F..%2Freferee", "unsafe_path"),
@@ -2313,12 +2349,14 @@ FORBIDDEN = (
     ("GET", "/api/repos/o/brain/contents/%zz", "unsafe_path"),
     ("GET", "/api/repos/o/brain\\..\\referee", "unsafe_path"),
     ("GET", "/api/repos/o/brain/contents//x", "unsafe_path"),
-    ("GET", "/api/repositories/1/contents", "no_route"),
-    ("GET", "/api/user", "no_route"),
-    ("GET", "/api/search/code?q=repo:o/referee", "no_route"),
+    ("GET", "/api/repositories/1/contents", "rest_not_carried"),
+    ("GET", "/api/user", "rest_not_carried"),
+    ("GET", "/api/search/code?q=repo:o/referee", "rest_not_carried"),
     ("GET", "/o/referee/raw/main/vectors/vectors.json", "no_route"),
-    ("TRACE", "/api/repos/o/brain", "method"),
-    ("OPTIONS", "/api/repos/o/brain/contents", "method"),
+    ("GET", "/api", "no_route"),
+    ("POST", "/repos/o/brain/hooks", "no_route"),
+    ("TRACE", "/api/repos/o/brain", "rest_not_carried"),
+    ("OPTIONS", "/api/repos/o/brain/contents", "rest_not_carried"),
 )
 
 
@@ -2327,33 +2365,77 @@ class EgressDecisionTest(unittest.TestCase):
 
     def setUp(self):
         self.egress = load_egress()
-        self.policy = self.egress.policy([ALLOWED_REPO])
+        self.policy = self.egress.policy([ALLOWED_REPO], [COPY_REPO])
 
     def test_every_forbidden_target_is_denied_with_its_reason(self):  # relay_allows_any_repo relay_prefix_match_loose
+        # relay_rest_carried relay_encoded_backslash_passes relay_copy_pushed relay_query_ignored
         self.assertGreaterEqual(len(FORBIDDEN), 30)
         for method, target, reason in FORBIDDEN:
             decision = self.egress.decide(self.policy, method, target)
             self.assertEqual((decision.allow, decision.reason), (False, reason), f"{method} {target}")
 
+    def test_the_allow_list_is_git_smart_http_and_nothing_else(self):  # relay_git_endpoints_any relay_copy_pushed
+        """E524: the relay carries four routes, each a method, a template and its one query; the brain takes all four,
+        the copy the two that fetch. Every target is tried with every method a client could send, and what passes is
+        exactly those routes, always to the git host: no REST call is carried, not even the brain's own."""
+        egress = self.egress
+        self.assertEqual(egress.ROUTES, (
+            ("GET", "{repo}/info/refs", "service=git-upload-pack", "fetch"),
+            ("POST", "{repo}/git-upload-pack", "", "fetch"),
+            ("GET", "{repo}/info/refs", "service=git-receive-pack", "push"),
+            ("POST", "{repo}/git-receive-pack", "", "push"),
+        ))
+        methods = ("GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "TRACE")
+        rests = ("/info/refs", "/git-upload-pack", "/git-receive-pack", "/HEAD", "/objects/info/packs", "")
+        queries = ("", "service=git-upload-pack", "service=git-receive-pack", "service=git-upload-archive")
+        allowed = set()
+        for repo in (ALLOWED_REPO, COPY_REPO, "o/referee"):
+            for suffix in (".git", ""):
+                for rest in rests:
+                    for query in queries:
+                        for method in methods:
+                            target = f"/git/{repo}{suffix}{rest}" + (f"?{query}" if query else "")
+                            decision = egress.decide(self.policy, method, target)
+                            if decision.allow:
+                                self.assertEqual(decision.upstream, egress.GIT_UPSTREAM, target)
+                                self.assertEqual(decision.path, f"/{repo}.git{rest}" + (f"?{query}" if query else ""))
+                                allowed.add((method, repo, rest, query))
+        fetch = {("GET", "/info/refs", "service=git-upload-pack"), ("POST", "/git-upload-pack", "")}
+        push = {("GET", "/info/refs", "service=git-receive-pack"), ("POST", "/git-receive-pack", "")}
+        self.assertEqual(allowed, {(m, ALLOWED_REPO, r, q) for m, r, q in fetch | push}
+                         | {(m, COPY_REPO, r, q) for m, r, q in fetch})
+        for method in methods:  # the REST API is not carried, whatever the method or the repository
+            for target in ("/api/repos/o/brain", "/api/repos/o/brain/hooks", "/api/repos/o/copy/contents/a"):
+                self.assertEqual(egress.decide(self.policy, method, target).reason, "rest_not_carried", target)
+
+    def test_an_encoded_backslash_is_refused_before_any_route(self):  # relay_encoded_backslash_passes
+        """The verifier's survivor (2026-11-03): no target held an encoded backslash, so dropping `%5C` from the escape
+        check went unseen. Refused as unsafe in either case and in every segment, before a route is looked at."""
+        for target in ("/git/o/brain.git/info%5Crefs?service=git-upload-pack", "/git/o%5cbrain/info/refs",
+                       "/git/o/brain%5C.git/git-upload-pack", "/api/repos/o/brain/contents/a%5cb", "/x%5C"):
+            for method in ("GET", "POST"):
+                self.assertEqual(self.egress.decide(self.policy, method, target).reason, "unsafe_path", target)
+        self.assertIsNotNone(self.egress.ESCAPE_RE.search("%5C"))
+        self.assertIsNotNone(self.egress.ESCAPE_RE.search("%5c"))
+
     def test_the_brain_alone_passes_and_the_upstream_comes_from_the_route(self):
         decide = self.egress.decide
         cases = {
             ("GET", "/git/o/brain.git/info/refs?service=git-upload-pack"):
-                ("https://github.com", "/o/brain.git/info/refs?service=git-upload-pack", "basic"),
+                ("https://github.com", "/o/brain.git/info/refs?service=git-upload-pack"),
             ("GET", "/git/O/Brain/info/refs?service=git-receive-pack"):  # GitHub's names have no case
-                ("https://github.com", "/o/brain.git/info/refs?service=git-receive-pack", "basic"),
+                ("https://github.com", "/o/brain.git/info/refs?service=git-receive-pack"),
             ("POST", "/git/o/brain.git/git-upload-pack"):
-                ("https://github.com", "/o/brain.git/git-upload-pack", "basic"),
+                ("https://github.com", "/o/brain.git/git-upload-pack"),
             ("POST", "/git/o/brain.git/git-receive-pack"):
-                ("https://github.com", "/o/brain.git/git-receive-pack", "basic"),
-            ("GET", "/api/repos/o/brain"): ("https://api.github.com", "/repos/o/brain", "bearer"),
-            ("PATCH", "/api/repos/o/brain/issues/1?x=a%2Fb"):
-                ("https://api.github.com", "/repos/o/brain/issues/1?x=a%2Fb", "bearer"),
+                ("https://github.com", "/o/brain.git/git-receive-pack"),
+            ("GET", "/git/O/Copy.git/info/refs?service=git-upload-pack"):
+                ("https://github.com", "/o/copy.git/info/refs?service=git-upload-pack"),
+            ("POST", "/git/o/copy/git-upload-pack"): ("https://github.com", "/o/copy.git/git-upload-pack"),
         }
-        for (method, target), (upstream, path, auth) in cases.items():
+        for (method, target), (upstream, path) in cases.items():
             decision = decide(self.policy, method, target)
-            self.assertEqual((decision.allow, decision.upstream, decision.path, decision.auth),
-                             (True, upstream, path, auth), target)
+            self.assertEqual((decision.allow, decision.upstream, decision.path), (True, upstream, path), target)
         model = decide(self.policy, "CONNECT", "API.Anthropic.com:443")
         self.assertEqual((model.allow, model.upstream), (True, "api.anthropic.com:443"))
         self.assertEqual(self.egress.MODEL_HOSTS, (("api.anthropic.com", 443),))  # the model's API and nothing else
@@ -2363,6 +2445,13 @@ class EgressDecisionTest(unittest.TestCase):
         for bad in ([], ["brain"], ["o/brain/x"], ["o/.."], ["-o/brain"], ["o/br ain"]):
             with self.assertRaises(ValueError, msg=bad):
                 self.egress.policy(bad)
+        both = self.egress.policy(["o/brain"], ["O/Copy", "o/brain", "o/copy"])
+        self.assertEqual((both.repos, both.fetch_repos), (("o/brain",), ("o/copy",)))  # a pushed one is not demoted
+        for bad in (["copy"], ["o/copy/x"]):
+            with self.assertRaises(ValueError, msg=bad):
+                self.egress.policy(["o/brain"], bad)
+        with self.assertRaises(ValueError):
+            self.egress.policy([], ["o/copy"])  # a copy alone is no session
 
     def test_the_token_is_read_from_its_line_and_never_elsewhere(self):
         path = Path(tempfile.mkdtemp()) / "relay.env"
@@ -2371,8 +2460,7 @@ class EgressDecisionTest(unittest.TestCase):
         path.write_text("GITHUB_TOKEN=\n", encoding="utf-8")
         with self.assertRaises(ValueError):
             self.egress.read_token(path)
-        self.assertEqual(self.egress.auth_header("basic", "t"), "Basic eC1hY2Nlc3MtdG9rZW46dA==")
-        self.assertEqual(self.egress.auth_header("bearer", "t"), "Bearer t")
+        self.assertEqual(self.egress.auth_header("t"), "Basic eC1hY2Nlc3MtdG9rZW46dA==")
 
 
 class FakeGitHub:
@@ -2449,7 +2537,7 @@ class RelayLiveTest(unittest.TestCase):
         self.github = FakeGitHub(self.tmp / "repos")
         self.echo = socket.create_server(("127.0.0.1", 0))
         threading.Thread(target=self._echo, daemon=True).start()
-        policy = self.egress.policy([ALLOWED_REPO], git_upstream=self.github.url, api_upstream=self.github.url,
+        policy = self.egress.policy([ALLOWED_REPO], [COPY_REPO], git_upstream=self.github.url,
                                     connect=(("127.0.0.1", self.echo.getsockname()[1]),))
         self.log = self.tmp / "log" / "egress.jsonl"
         self.relay = self.egress.Relay(("127.0.0.1", 0), policy, self.TOKEN, self.log)
@@ -2484,6 +2572,28 @@ class RelayLiveTest(unittest.TestCase):
     def rows(self) -> list[dict]:
         return [json.loads(line) for line in self.log.read_text(encoding="utf-8").splitlines()]
 
+    def bare(self, repo: str, files: dict | None = None) -> Path:
+        """A bare repository the fake GitHub serves as repo, with one commit of files on main."""
+        bare = self.tmp / "repos" / f"{repo}.git"
+        bare.parent.mkdir(parents=True, exist_ok=True)
+        subprocess.run(["git", "init", "-q", "--bare", "-b", "main", str(bare)], check=True)
+        seed = self.tmp / f"seed-{repo.replace('/', '-')}"
+        make_repo(seed, files or {"a.txt": "one\n"})
+        sh(seed, "git", "push", "-q", str(bare), "main")
+        return bare
+
+    def git_env(self) -> dict:
+        """git as the contained entrypoint sets it up: https://github.com/ URLs are rewritten to the relay."""
+        home = self.tmp / "home"
+        if not home.is_dir():
+            home.mkdir()
+            env = {**os.environ, "HOME": str(home), "GIT_CONFIG_NOSYSTEM": "1", "GIT_TERMINAL_PROMPT": "0",
+                   "GIT_CONFIG_GLOBAL": str(home / ".gitconfig")}
+            subprocess.run(["git", "config", "--global", f"url.http://127.0.0.1:{self.port}/git/.insteadOf",
+                            "https://github.com/"], env=env, check=True)
+        return {**os.environ, "HOME": str(home), "GIT_CONFIG_NOSYSTEM": "1", "GIT_TERMINAL_PROMPT": "0",
+                "GIT_CONFIG_GLOBAL": str(home / ".gitconfig")}
+
     def test_nothing_forbidden_goes_out_each_logged(self):
         # relay_deny_not_logged relay_allows_any_repo relay_denied_still_forwarded relay_git_endpoints_any
         for method, target, _ in FORBIDDEN:
@@ -2493,7 +2603,9 @@ class RelayLiveTest(unittest.TestCase):
         self.assertEqual([(r["method"], r["target"], r["decision"], r["reason"]) for r in rows],
                          [(m, t, "deny", reason) for m, t, reason in FORBIDDEN])
         self.assertTrue(all(set(r) == {"ts", "peer", "method", "target", "decision", "reason"} for r in rows))
-        self.assertTrue(self.ask("GET", "/api/repos/o/brain").startswith(b"HTTP/1.1 200 "))  # the control
+        self.bare(ALLOWED_REPO)
+        control = self.ask("GET", "/git/o/brain.git/info/refs?service=git-upload-pack")
+        self.assertTrue(control.startswith(b"HTTP/1.1 200 "), control[:60])  # the control
         self.assertEqual(self.rows()[-1]["decision"], "allow")
 
     def test_a_malformed_request_is_logged_and_refused(self):
@@ -2506,11 +2618,31 @@ class RelayLiveTest(unittest.TestCase):
         self.assertEqual([(r["decision"], r["reason"]) for r in self.rows()], [("deny", "malformed")])
 
     def test_the_relays_token_replaces_the_clients_and_no_cookie_passes(self):  # relay_forwards_client_auth
-        answer = self.ask("GET", "/api/repos/O/brain/contents/a.md?ref=main",
+        self.bare(ALLOWED_REPO)
+        answer = self.ask("GET", "/git/O/brain/info/refs?service=git-upload-pack",
                           "Authorization: Bearer capsule-made-up\r\nCookie: s=1\r\n")
         self.assertTrue(answer.startswith(b"HTTP/1.1 200 "), answer[:60])
-        self.assertEqual(self.github.seen, [{"method": "GET", "path": "/repos/o/brain/contents/a.md?ref=main",
-                                             "authorization": f"Bearer {self.TOKEN}", "cookie": None}])
+        basic = "Basic " + base64.b64encode(f"x-access-token:{self.TOKEN}".encode()).decode()
+        self.assertEqual(self.github.seen, [{"method": "GET", "path": "/o/brain.git/info/refs?service=git-upload-pack",
+                                             "authorization": basic, "cookie": None}])
+
+    def test_the_copy_is_fetched_and_never_pushed(self):  # relay_copy_pushed
+        """E524: from Stage 1 the copy target is fetched through the relay; a push to it is refused at the relay and
+        logged, and not one receive-pack request reaches GitHub, whatever the token there would allow."""
+        self.bare(COPY_REPO, {"c.txt": "copy\n"})
+        env = self.git_env()
+        git = lambda *a: subprocess.run(["git", *a], env=env, capture_output=True)  # noqa: E731
+        clone = self.tmp / "copy"
+        self.assertEqual(git("clone", "-q", "https://github.com/o/copy.git", str(clone)).returncode, 0)
+        self.assertEqual((clone / "c.txt").read_text(encoding="utf-8"), "copy\n")
+        git("-C", str(clone), "config", "user.email", "f@example.invalid")
+        git("-C", str(clone), "config", "user.name", "f")
+        (clone / "d.txt").write_text("pushed?\n", encoding="utf-8")
+        git("-C", str(clone), "add", "-A")
+        git("-C", str(clone), "commit", "-q", "-m", "try")
+        self.assertNotEqual(git("-C", str(clone), "push", "-q", "origin", "main").returncode, 0)
+        self.assertFalse([s for s in self.github.seen if "receive-pack" in s["path"]])
+        self.assertIn(("deny", "push_not_allowed"), {(r["decision"], r["reason"]) for r in self.rows()})
 
     def test_the_model_tunnel_carries_bytes_both_ways(self):
         with socket.create_connection(("127.0.0.1", self.port), timeout=30) as conn:
@@ -2524,20 +2656,8 @@ class RelayLiveTest(unittest.TestCase):
         self.assertEqual([r["decision"] for r in self.rows()], ["allow"])
 
     def test_the_brain_is_cloned_and_pushed_through_the_relay_alone(self):
-        bare = self.tmp / "repos" / "o" / "brain.git"
-        bare.parent.mkdir(parents=True)
-        subprocess.run(["git", "init", "-q", "--bare", "-b", "main", str(bare)], check=True)
-        seed = self.tmp / "seed"
-        make_repo(seed, {"a.txt": "one\n"})
-        sh(seed, "git", "push", "-q", str(bare), "main")
-        home = self.tmp / "home"
-        home.mkdir()
-        env = {**os.environ, "HOME": str(home), "GIT_CONFIG_NOSYSTEM": "1", "GIT_TERMINAL_PROMPT": "0",
-               "GIT_CONFIG_GLOBAL": str(home / ".gitconfig")}
-        relay = f"http://127.0.0.1:{self.port}"
-        # As the contained entrypoint does it: https://github.com/ URLs are rewritten to the relay.
-        subprocess.run(["git", "config", "--global", f"url.{relay}/git/.insteadOf", "https://github.com/"],
-                       env=env, check=True)
+        bare = self.bare(ALLOWED_REPO)
+        env = self.git_env()
         clone = self.tmp / "clone"
         git = lambda *a: subprocess.run(["git", *a], env=env, check=True, capture_output=True)  # noqa: E731
         git("clone", "-q", "https://github.com/o/brain.git", str(clone))
@@ -2619,7 +2739,7 @@ class ContainedCapsuleTest(unittest.TestCase):
         self.assertIn('url."$RELAY/git/".insteadOf "https://github.com/"', branch)
         self.assertNotIn("extraheader", branch)
 
-    def test_the_relay_runs_the_capsules_pinned_python_locked_down(self):
+    def test_the_relay_runs_the_capsules_pinned_python_locked_down(self):  # relay_copy_not_fetch_only
         relay = self.pilot.relay_argv(self.STAMP)
         dockerfile = (FOUNDER / "Dockerfile").read_text(encoding="utf-8")
         self.assertEqual(self.launch.relay_image(), re.findall(r"(?m)^FROM (\S+)", dockerfile)[-1])
@@ -2632,6 +2752,13 @@ class ContainedCapsuleTest(unittest.TestCase):
         self.assertNotIn("--privileged", relay)
         self.assertEqual(relay[relay.index("--repo") + 1], "o/brain")  # the brain alone
         self.assertEqual(relay.count("--repo"), 1)
+        self.assertNotIn("--fetch-repo", relay)  # no copy before Stage 1
+        staged = self.launch.Pilot(self.work, "o/brain", "o/referee", "target", "contained", "o/copy")
+        staged_relay = staged.relay_argv(self.STAMP)
+        self.assertEqual(staged_relay[staged_relay.index("--fetch-repo") + 1], "o/copy")
+        self.assertEqual(staged_relay.count("--repo"), 1)  # the copy is fetched, never pushed
+        args = self.launch.build_parser().parse_args(["--copy", "o/copy"])
+        self.assertEqual(args.copy, "o/copy")
         self.assertEqual(relay[relay.index("--listen") + 1], "relay:3128")  # its capsule-network address, not 0.0.0.0
         for argv in (relay, self.argv):
             for i, arg in enumerate(argv):
@@ -2856,6 +2983,7 @@ class ContainedCapsuleTest(unittest.TestCase):
         self.assertIn('echo "$code" >&4', call)
 
     def test_a_start_refuses_an_image_whose_entrypoint_is_not_the_checkouts(self):  # image_entrypoint_unchecked
+        # launch_copy_dropped
         work = Path(tempfile.mkdtemp())
         seen = {"calls": []}
         launch = self.launch
@@ -2863,9 +2991,9 @@ class ContainedCapsuleTest(unittest.TestCase):
         class FakePilot:
             idle = 0
 
-            def __init__(self, work, brain, referee, target, egress="open"):
+            def __init__(self, work, brain, referee, target, egress="open", copy=""):
                 self.work, self.report = work, work / "pilot-log.md"
-                seen["egress"] = egress
+                seen["egress"], seen["copy"] = egress, copy
 
             def write(self, text):
                 pass
@@ -2896,6 +3024,10 @@ class ContainedCapsuleTest(unittest.TestCase):
         self.assertEqual(start("--no-build"), 0)
         self.assertEqual(seen["calls"], ["preflight", "intervention", "cycles"])
         self.assertEqual(launch.build_parser().parse_args([]).egress, "open")  # opt-in: a restart changes nothing
+        self.assertEqual(seen["copy"], "")  # no copy before Stage 1
+        seen.update(calls=[])
+        self.assertEqual(start("--no-build", "--egress", "contained", "--copy", "o/copy"), 0)  # E524: Stage 1
+        self.assertEqual(seen["copy"], "o/copy")
 
     def test_the_build_labels_the_image_with_its_entrypoint(self):  # E508
         calls = []

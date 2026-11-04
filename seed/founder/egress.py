@@ -5,8 +5,15 @@ With `launch.py --egress contained` the capsule sits on an internal Docker netwo
 (`CAPSULE_NETWORK`). The relay is the one other member, and the only one with a route; it offers exactly two things:
 
   * `CONNECT` to the model's API (`MODEL_HOSTS`), for the CLI's `HTTPS_PROXY`: a TLS tunnel the relay cannot read;
-  * plain HTTP under `/git/` and `/api/repos/` that forwards git smart-HTTP and GitHub REST calls of the allowed
-    repositories alone, adding the GitHub token only the relay holds: the capsule never has it.
+  * plain HTTP under `/git/` that forwards git smart-HTTP to github.com, adding the GitHub token only the relay
+    holds: the capsule never has it.
+
+What it carries is one allow-list, `ROUTES`: a method, a path template and the one query each takes, and the role a
+repository needs for it (E524). The brain (`--repo`) is fetched and pushed; a repository given with `--fetch-repo`
+(from Stage 1 the copy target) is fetched and never pushed. Nothing else is carried, the GitHub REST API least of all:
+in the pilot's 114 sessions (2026-10-29 to 11-04, 6392 shell calls) the Founder made no REST call to its brain, and a
+REST call the token allows (a webhook, a deploy key, a collaborator, the repository's settings, a dispatch, a codespace)
+would act beyond the brain's contents. A `/api/` request is refused as `rest_not_carried`, so the log shows the try.
 
 Every request is decided by `decide` (pure; the tests hold it) and written to the log as one JSON line, allowed or
 denied; a denied one is never forwarded and gets a bare 403. The upstream host comes from the route, never from the
@@ -14,8 +21,12 @@ request, and a redirect is handed back, never followed. Names are compared witho
 path with an empty, `.` or `..` segment, an encoded `/`, `\\`, `.` or NUL, or a character outside RFC 3986's set is
 refused before any route is looked at.
 
+The token the relay holds needs no more than the routes: a fine-grained token for the brain (and the copy) alone, with
+Contents read and write and the Metadata read GitHub always adds; no Administration, Webhooks, Actions, Workflows,
+Codespaces, Pull requests, Issues, Secrets, Environments or Pages permission, and no account permission.
+
     python3 -I egress.py --listen 0.0.0.0:3128 --token-file /run/secrets/relay.env --repo owner/name \\
-        --log /log/egress.jsonl
+        [--fetch-repo owner/copy] --log /log/egress.jsonl
 """
 
 from __future__ import annotations
@@ -39,17 +50,21 @@ from urllib.parse import urlsplit
 
 MODEL_HOSTS = (("api.anthropic.com", 443),)  # what CONNECT reaches; the CLI runs with nonessential traffic off
 GIT_UPSTREAM = "https://github.com"
-API_UPSTREAM = "https://api.github.com"
-GIT_ROOT, API_ROOT = "/git/", "/api/repos/"
-GIT_ENDPOINTS = (("GET", "/info/refs"), ("POST", "/git-upload-pack"), ("POST", "/git-receive-pack"))
-GIT_SERVICES = ("service=git-upload-pack", "service=git-receive-pack")  # the only query /info/refs takes
-API_METHODS = ("GET", "HEAD", "POST", "PATCH", "PUT", "DELETE")
+GIT_ROOT, API_ROOT = "/git/", "/api/"
+FETCH, PUSH = "fetch", "push"  # a repository's role: a pushed one is fetched too
+# The whole allow-list: (method, path template, the one query it takes, the role the repository needs). The template is
+# the path under GIT_ROOT, `{repo}` an allowed owner/name (with or without ".git"); everything else is literal.
+ROUTES = (
+    ("GET", "{repo}/info/refs", "service=git-upload-pack", FETCH),
+    ("POST", "{repo}/git-upload-pack", "", FETCH),
+    ("GET", "{repo}/info/refs", "service=git-receive-pack", PUSH),
+    ("POST", "{repo}/git-receive-pack", "", PUSH),
+)
 REPO_RE = re.compile(r"[a-z0-9][a-z0-9-]{0,38}/[a-z0-9._-]{1,100}")
 PATH_RE = re.compile(r"/[A-Za-z0-9._~!$&'()*+,=:@/%-]*")  # RFC 3986 pchar and "/" without ";": no space, no "\"
-QUERY_RE = re.compile(r"[A-Za-z0-9._~!$&'()*+,=:@/?%-]*")
 ESCAPE_RE = re.compile(r"%(?![0-9A-Fa-f]{2})|%(?:2[EeFf]|5[Cc]|00)")  # a broken escape; an encoded ".", "/", "\", NUL
-FORWARD_HEADERS = ("accept", "accept-encoding", "content-type", "content-encoding", "git-protocol", "user-agent",
-                   "x-github-api-version", "if-none-match", "if-modified-since")  # never authorization or cookie
+FORWARD_HEADERS = ("accept", "accept-encoding", "content-type", "content-encoding", "git-protocol",
+                   "user-agent")  # what git sends; never authorization or cookie
 RETURN_HEADERS = ("content-type", "content-encoding", "content-length", "cache-control", "etag", "last-modified",
                   "link", "location", "x-github-request-id", "x-ratelimit-limit", "x-ratelimit-remaining",
                   "x-ratelimit-reset", "x-ratelimit-used", "x-ratelimit-resource")
@@ -61,10 +76,10 @@ CHUNK = 64 << 10
 
 @dataclass(frozen=True)
 class Policy:
-    repos: tuple[str, ...]  # owner/name, lower case
+    repos: tuple[str, ...]  # owner/name, lower case: fetched and pushed (the brain)
+    fetch_repos: tuple[str, ...] = ()  # fetched, never pushed (from Stage 1 the copy target)
     connect: tuple[tuple[str, int], ...] = MODEL_HOSTS
     git_upstream: str = GIT_UPSTREAM
-    api_upstream: str = API_UPSTREAM
 
 
 @dataclass(frozen=True)
@@ -73,11 +88,9 @@ class Decision:
     reason: str  # "ok", or why the request was refused
     upstream: str = ""  # scheme://host[:port] for HTTP, host:port for CONNECT
     path: str = ""  # the upstream path and query
-    auth: str = ""  # "basic" (git) or "bearer" (REST)
 
 
-def policy(repos, **kw) -> Policy:
-    """The relay's policy for these owner/name repositories; ValueError for none or a malformed one."""
+def _names(repos) -> list[str]:
     names = []
     for repo in repos:
         name = str(repo).strip().lower()
@@ -85,9 +98,16 @@ def policy(repos, **kw) -> Policy:
             raise ValueError(f"not an owner/name repository: {repo!r}")
         if name not in names:
             names.append(name)
+    return names
+
+
+def policy(repos, fetch_repos=(), **kw) -> Policy:
+    """The relay's policy: repos fetched and pushed, fetch_repos fetched alone (a name in both is pushed); ValueError
+    for no pushed repository or a malformed name."""
+    names = _names(repos)
     if not names:
         raise ValueError("no repository is allowed")
-    return Policy(tuple(names), **kw)
+    return Policy(tuple(names), tuple(n for n in _names(fetch_repos) if n not in names), **kw)
 
 
 def _deny(reason: str) -> Decision:
@@ -101,7 +121,7 @@ def decide(pol: Policy, method: str, target: str) -> Decision:
     if not target.startswith("/"):
         return _deny("absolute_form")  # a proxy request for another host
     path, _, query = target.partition("?")
-    if not PATH_RE.fullmatch(path) or not QUERY_RE.fullmatch(query) or ESCAPE_RE.search(path):
+    if not PATH_RE.fullmatch(path) or ESCAPE_RE.search(path):
         return _deny("unsafe_path")
     if any(seg in ("", ".", "..") for seg in path.split("/")[1:]):
         return _deny("unsafe_path")
@@ -109,7 +129,7 @@ def decide(pol: Policy, method: str, target: str) -> Decision:
     if low.startswith(GIT_ROOT):
         return _git(pol, method, path, query)
     if low.startswith(API_ROOT):
-        return _api(pol, method, path, query)
+        return _deny("rest_not_carried")
     return _deny("no_route")
 
 
@@ -122,45 +142,33 @@ def _connect(pol: Policy, target: str) -> Decision:
     return Decision(True, "ok", f"{host.lower()}:{int(port)}")
 
 
-def _repo_under(path: str, root: str, repos: tuple[str, ...]) -> tuple[str, str] | None:
-    """The allowed repository path lies in, and the rest of path after its name; None for every other repository.
-    The name must end at a "/" or at the end: an allowed name is never a prefix of another repository's."""
-    low = path.lower()
-    for repo in repos:
-        if low.startswith(f"{root}{repo}/") or low == f"{root}{repo}":
-            return repo, path[len(root) + len(repo):]
-    return None
+def _role(pol: Policy, repo: str) -> str | None:
+    """What the relay lets the capsule do with this owner/name (lower case): the whole name, never a prefix of it."""
+    return PUSH if repo in pol.repos else FETCH if repo in pol.fetch_repos else None
 
 
 def _git(pol: Policy, method: str, path: str, query: str) -> Decision:
-    segs = path.split("/")  # "", "git", owner, name[.git], ...
-    if len(segs) > 3 and segs[3].lower().endswith(".git"):
-        segs[3] = segs[3][:-len(".git")]
-    found = _repo_under("/".join(segs), GIT_ROOT, pol.repos)
-    if found is None:
+    segs = path.split("/")  # "", "git", owner, name[.git], the endpoint's segments
+    if len(segs) < 4:
         return _deny("repo_not_allowed")
-    repo, rest = found
-    if (method, rest) not in GIT_ENDPOINTS:
-        return _deny("git_endpoint")
-    if query not in (GIT_SERVICES if rest == "/info/refs" else ("",)):
-        return _deny("git_endpoint")
-    return Decision(True, "ok", pol.git_upstream, f"/{repo}.git{rest}" + (f"?{query}" if query else ""), "basic")
-
-
-def _api(pol: Policy, method: str, path: str, query: str) -> Decision:
-    if method not in API_METHODS:
-        return _deny("method")
-    found = _repo_under(path, API_ROOT, pol.repos)
-    if found is None:
+    name = segs[3][:-len(".git")] if segs[3].lower().endswith(".git") else segs[3]
+    repo = f"{segs[2]}/{name}".lower()
+    role = _role(pol, repo)
+    if role is None:
         return _deny("repo_not_allowed")
-    repo, rest = found
-    return Decision(True, "ok", pol.api_upstream, f"/repos/{repo}{rest}" + (f"?{query}" if query else ""), "bearer")
+    endpoint = "{repo}" + "".join("/" + seg for seg in segs[4:])
+    rows = [row for row in ROUTES if row[:3] == (method, endpoint, query)]
+    if not rows:
+        return _deny("git_endpoint")
+    if rows[0][3] == PUSH and role != PUSH:
+        return _deny("push_not_allowed")
+    rest = endpoint[len("{repo}"):]
+    return Decision(True, "ok", pol.git_upstream, f"/{repo}.git{rest}" + (f"?{query}" if query else ""))
 
 
-def auth_header(kind: str, token: str) -> str:
-    if kind == "basic":  # git over HTTPS, as the open capsule's extraheader sends it
-        return "Basic " + base64.b64encode(f"x-access-token:{token}".encode()).decode()
-    return f"Bearer {token}"
+def auth_header(token: str) -> str:
+    """git over HTTPS, as the open capsule's extraheader sends it."""
+    return "Basic " + base64.b64encode(f"x-access-token:{token}".encode()).decode()
 
 
 def read_token(path: Path) -> str:
@@ -340,7 +348,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self._answer(400, b"bad body\n")
             return
         headers = {k: v for k, v in self.headers.items() if k.lower() in FORWARD_HEADERS}
-        headers["Authorization"] = auth_header(decision.auth, self.server.token)
+        headers["Authorization"] = auth_header(self.server.token)
         if self.headers.get("Content-Length") is not None and body is not None:
             headers["Content-Length"] = self.headers["Content-Length"]
         conn = _connection(decision.upstream)
@@ -369,18 +377,20 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--listen", default="0.0.0.0:3128")
     parser.add_argument("--token-file", type=Path, required=True)
-    parser.add_argument("--repo", action="append", required=True, help="owner/name; repeat for more")
+    parser.add_argument("--repo", action="append", required=True, help="owner/name fetched and pushed; repeatable")
+    parser.add_argument("--fetch-repo", action="append", default=[], help="owner/name fetched, never pushed")
     parser.add_argument("--log", type=Path, required=True)
     args = parser.parse_args(argv)
     try:
-        pol, token = policy(args.repo), read_token(args.token_file)
+        pol, token = policy(args.repo, args.fetch_repo), read_token(args.token_file)
     except (OSError, ValueError) as exc:
         print(f"relay: {exc}", file=sys.stderr)
         return 2
     host, _, port = args.listen.rpartition(":")
     server = Relay((host, int(port)), pol, token, args.log)
     signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))  # PID 1 in its container: docker stop ends it at once
-    print(f"relay listening on {host}:{port} for {', '.join(pol.repos)}", flush=True)
+    fetched = f"; fetch only {', '.join(pol.fetch_repos)}" if pol.fetch_repos else ""
+    print(f"relay listening on {host}:{port} for {', '.join(pol.repos)}{fetched}", flush=True)
     try:
         server.serve_forever()
     finally:
