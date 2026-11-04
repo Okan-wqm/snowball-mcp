@@ -40,7 +40,7 @@ WSL$ E=~/etkinlestirme; SHA=<2. adımdaki brain_sha>; ID=https://github.com/Okan
 | Ö3 | Hakemin `bootstrap/`'ındaki tohum araçları (yalnız tohum dönemiyle değişir) ve beynin döngüsü: K1 `import` `25a` 1–2'yi taşır; K2 `control` döngü arayüzünü taşır (`29p`); K3 `stage-open` var; K4 döngünün işleri her `targets[]` hedefinde bir devir koşar, girdileri `29s`'teki gibi (değişken yok). Denetimi 2. adımda; tutmayana el yaması yapılmaz | K1 ve K3 snowball-mcp `gaps/activation-tooling-3` dalında (E370–E372, ikinci tur E374–E379, E388–E389, üçüncü tur E402–E406, dördüncü E411–E417, beşinci E470–E475, altıncı E478–E485, yedinci E494, E496–E498 `gaps/stage1-ready`'de; E100, E275, E331 kapandı: içe aktarma çalışma ağacına hiç dokunmaz, yeni `main`'i git nesneleriyle kurar, git'in nesne denetiminden geçirir ve okuduğu `main`'e kirayla iter (E470, E479, E482), `stage-open` kökü `sha256:<kök>` özetiyle doğrular, klonları, aktarımı, istisnayı, hakemin satırını ve merge'leri bağlar, PASS satırının biçimi `26d`'de, P1'in (A)'sı ve aktarımı aynı tohumla olur, kilit yokken Aşama 0'ın yargısı değişmez), K2 snowball-mcp `main`'inde (`e7b3b24`, E282); üçü de hakemde yok, tohum dönemi bekliyor; K4 yok, beyin `8c57160` (E332) |
 | Ö4 | Sahip 5. adım için ulaşılabilir (web arayüzü, yaklaşık yarım saat) | — |
 | Ö5 | 0. adım bir kez yapılmış | yapılmadı |
-| Ö6 | Oyuncağa ekilecek canlı prova fikstürleri (`22a`, `asama-0/01` D8; `26f`): onlarsız D8 canlı koşmaz, (B)'nin #geri-alma'sı ölçülemez, PASS yazılamaz | yok. Yeri, biçimi ve kuralları `26f`'te (E499): hakemin ikinci prova sırrı, o aktarım satırına bağlı; operatör aktarımdan sonra ve 7. adımdan önce tohumun `drill-fixtures` komutuyla üretir, her aktarımda yeniden |
+| Ö6 | Oyuncağa ekilecek canlı prova fikstürleri (`22a`, `asama-0/01` D8; `26f`): onlarsız D8 canlı koşmaz, (B)'nin #geri-alma'sı ölçülemez, PASS yazılamaz | yok. Yeri, biçimi ve kuralları `26f`'te (E499): hakemin ikinci prova sırrı, o aktarım satırına bağlı; operatör aktarımdan sonra ve 7. adımdan önce tohumun `drill-fixtures` komutuyla üretir (6a), her aktarımda yeniden; komut snowball-mcp `tools/drill-fixtures` dalında, hakemin `bootstrap/`'ına bir tohum dönemiyle gelir |
 
 ## Adımlar
 
@@ -228,6 +228,39 @@ ister); sahibin söylediği listeyi `pilot-log.md`'ye yaz ("kurulu App: snowball
 kopya"). Özete değil: alanı yok (`26c:31-35`, `29o`), bilinmeyen alan kapalıya düşer (`26c`); genesis aynı kümeyi
 `app_scope` olarak denetler. Tutmayan satırı sahip düzeltir, 6 yeniden. *Geri dönüş:*
 `gh variable delete TARGET_OWNER -R $H`; gerisi salt okuma.
+
+**6a. Prova fikstürleri** (operatör · `25a` 7, `26f` "Canlı prova fikstürleri", E499: aktarımdan sonra, etkinleştirmeden
+önce; her aktarım yeni bir küme alır, kırmızı bir (B)'de yanan küme yeniden kullanılmaz). Taslaklar operatörün özel
+dosyasıdır, hiçbir repoda değil (komut repo içindeki taslağı da çıktıyı da reddeder): `[{"cause": …, "patch": …}]`;
+her `patch` oyuncağın `main`'inde `git diff`'in yazdığı, var olan tek dosyayı yerinde değiştiren diff (dosya eklemez,
+silmez, adını ya da kipini değiştirmez); üç nedenden (`build_break`, `lint_regression`, `test_regression`) eşit sayıda;
+dosyası bir güvenlik yolunda (yolunda `policy.json`'un bir `security_keywords`'ü, ya da oyuncağın `safety_paths`'ı)
+ve merge'ü beklenen bir adayın dosyası (beyin `candidates/toy/`'da `decision: merge`) değildir. Komut docker ister
+(WSL'de Docker Desktop tümleşimi); Node imajı oyuncağın `.nvmrc`'sinin sürümü, özetiyle:
+
+```
+WSL$ git -C $E/brain fetch -q origin && git -C $E/toy fetch -q origin && git -C $E/referee pull -q --ff-only
+WSL$ P=/mnt/f/snowball-work/private; V=$(cat $E/toy/textkit/.nvmrc); docker pull -q node:$V-bookworm-slim
+WSL$ NODE=node:$V-bookworm-slim@$(docker image inspect node:$V-bookworm-slim --format '{{index .RepoDigests 0}}' | cut -d@ -f2)
+WSL$ cd $E/arac && python3 -m snowball_bootstrap drill-fixtures --referee $E/referee --toy $E/toy --brain $E/brain --catalog $P/prova-taslak.json --out $P/prova-fiksturleri-<aktarım satırının row_hash'i>.b64 --node-image "$NODE"
+```
+
+Komut aktarım satırını hakem checkout'unun commit'inden okur ve ona bağlar (`stage-open`'ın bağı, E471); oyuncağın
+`main`'i ve beynin `brain_sha`'daki oyuncak fikstürü o satırın `toy_tree_sha256`'sı olmalıdır. Her taslağı `26f`'in
+kurallarıyla denetler, nedenini oyuncağın kendi araçlarıyla ölçer (temiz ağaç bir kez, sonra her ekim;
+`npm ci --ignore-scripts` ağı olan tek adım, gerisi `--network none`), tutmayanı taslağın sırasıyla adlandırıp
+reddeder ve hiçbir şey yazmaz; geçerse değeri yalnız `--out`'a (dosya yoksa) yazar, yalnız neden sayılarını, değerin
+sha256'sını ve boyutunu basar. Değeri `loop.yml`'un adlandırdığı adla hakemin sırrı olarak yaz (3. adımın listesindeki fikstür sırrı;
+ad spec'te değil, `loop.yml`'dadır), sha256'yı `pilot-log.md`'ye dokunuş satırı olarak yaz (kayda yalnız o girer):
+
+```
+PS> cmd /c "gh secret set <fikstür sırrının adı> -R $H < F:\snowball-work\private\prova-fiksturleri-<…>.b64"
+PS> gh secret list -R $H
+```
+
+`cmd /c`'nin `<`'ü dosyanın baytlarını olduğu gibi verir (PowerShell 5.1'in borusu satır sonu ekler). *Denetim:* sır
+listede, güncelleme anı şimdi; komutun bastığı `value_sha256` dosyanın sha256'sı (`sha256sum`). *Geri dönüş:*
+`gh secret delete <ad> -R $H`; özel dosya kalır, hiçbir repoya girmez ve kırmızı bir (B)'den sonra kullanılmaz.
 
 **7. Etkinleştir: oyuncağın devirleri, sonra kopyanın genesis'i** (operatör · `25a` 7, `asama-0/08` devir sırası
 1–6; ilk durum ve canlı kanıt).
