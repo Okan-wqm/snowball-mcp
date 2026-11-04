@@ -83,6 +83,7 @@ SOURCE_FILES = {
     "spec/tohum/CHANGELOG.md": b"# Tohum\n- 2.2: `seed-046-x` -> `29b:1`\n",
     "spec/tohum/00-giris.md": b"# Giris\n",
     "seed/founder/launch.py": b"# not delivered\n",
+    "seed/security-ledger.jsonl": b'{"row_id": "s1"}\n',
 }
 
 
@@ -174,7 +175,7 @@ class FakeGitHub:
 class DeliveryTest(unittest.TestCase):
     """The eight steps, and the copy's checks: CI, strays, S's blobs, CR bytes."""
 
-    def test_one_command_does_the_eight_steps(self):
+    def test_one_command_does_the_eight_steps(self):  # epoch_security_ledger_not_delivered
         world = World()
         before = world.head(world.referee)
         real_open, io_open = builtins.open, io.open
@@ -204,6 +205,10 @@ class DeliveryTest(unittest.TestCase):
         self.assertIs(json.loads(show(world.referee, commits[0], "control.json"))["kill_switch"], True)
         self.assertIs(json.loads(show(world.referee, commits[2], "control.json"))["kill_switch"], False)
         self.assertEqual(world.gh.seen_at_wait, [(True, world.c)])  # the switch was on before D reached the brain
+        # E541 (the Founder's report seed-047 (b)): genesis reads the seed's security ledger in the referee
+        # repository's setup/, where the import keeps it; the epoch delivers it there byte for byte
+        self.assertEqual(show(world.referee, commits[1], "setup/security-ledger.jsonl"),
+                         SOURCE_FILES["seed/security-ledger.jsonl"])
         for src, dest in deliver.REFEREE_MAP:  # every byte of the copy is S's, the old files are gone
             self.assertEqual(g(world.referee, "ls-tree", "-r", "--name-only", commits[1], "--", dest).split(),
                              [dest + p[len(src):] for p in sorted(SOURCE_FILES) if p == src or p.startswith(src + "/")])

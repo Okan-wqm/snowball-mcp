@@ -40,7 +40,7 @@ WSL$ E=~/etkinlestirme; SHA=<2. adımdaki brain_sha>; ID=https://github.com/Okan
 | Ö3 | Hakemin `bootstrap/`'ındaki tohum araçları (yalnız tohum dönemiyle değişir) ve beynin döngüsü: K1 `import` `25a` 1–2'yi taşır; K2 `control` döngü arayüzünü taşır (`29p`); K3 `stage-open` var; K4 döngünün işleri her `targets[]` hedefinde bir devir koşar, girdileri `29s`'teki gibi (değişken yok). Denetimi 2. adımda; tutmayana el yaması yapılmaz | K1 ve K3 snowball-mcp `gaps/activation-tooling-3` dalında (E370–E372, ikinci tur E374–E379, E388–E389, üçüncü tur E402–E406, dördüncü E411–E417, beşinci E470–E475, altıncı E478–E485, yedinci E494, E496–E498 `gaps/stage1-ready`'de; E100, E275, E331 kapandı: içe aktarma çalışma ağacına hiç dokunmaz, yeni `main`'i git nesneleriyle kurar, git'in nesne denetiminden geçirir ve okuduğu `main`'e kirayla iter (E470, E479, E482), `stage-open` kökü `sha256:<kök>` özetiyle doğrular, klonları, aktarımı, istisnayı, hakemin satırını ve merge'leri bağlar, PASS satırının biçimi `26d`'de, P1'in (A)'sı ve aktarımı aynı tohumla olur, kilit yokken Aşama 0'ın yargısı değişmez), K2 snowball-mcp `main`'inde (`e7b3b24`, E282); üçü de hakemde yok, tohum dönemi bekliyor; K4 yok, beyin `8c57160` (E332) |
 | Ö4 | Sahip 5. adım için ulaşılabilir (web arayüzü, yaklaşık yarım saat) | — |
 | Ö5 | 0. adım bir kez yapılmış | yapılmadı |
-| Ö6 | Oyuncağa ekilecek canlı prova fikstürleri (`22a`, `asama-0/01` D8; `26f`): onlarsız D8 canlı koşmaz, (B)'nin #geri-alma'sı ölçülemez, PASS yazılamaz | yok: tohumda yalnız vektör kataloğu var; kim ve ne zaman yazar sahibin kararı (E499) |
+| Ö6 | Oyuncağa ekilecek canlı prova fikstürleri (`22a`, `asama-0/01` D8; `26f`): onlarsız D8 canlı koşmaz, (B)'nin #geri-alma'sı ölçülemez, PASS yazılamaz | yok. Yeri, biçimi ve kuralları `26f`'te (E499): hakemin ikinci prova sırrı, o aktarım satırına bağlı; operatör aktarımdan sonra ve 7. adımdan önce tohumun `drill-fixtures` komutuyla üretir, her aktarımda yeniden |
 
 ## Adımlar
 
@@ -307,7 +307,7 @@ WSL$ git -C $E/referee pull -q --ff-only && python3 -c "import json,sys; p=sys.a
 WSL$ git -C $E/referee commit -q -am "Aşama 1'in rakip freni (asama-1/10, tohum/26e)" && git -C $E/referee push -q origin main
 WSL$ git -C $E/referee pull -q --ff-only && git -C $E/toy fetch -q origin
 WSL$ rm -rf $E/kopya-durum && git -c core.autocrlf=false clone -q --no-checkout --single-branch --branch brain/state https://github.com/Okan-wqm/snowball-rehearsal-copy.git $E/kopya-durum
-WSL$ cd $E/arac && python3 -m snowball_bootstrap stage-open --referee $E/referee --toy $E/toy --copy $E/kopya-durum --identity "https://github.com/Okan-wqm/snowball-rehearsal-referee/.github/workflows/loop.yml@refs/heads/main" --sigstore-python $E/sig/bin/python --result $E/a/result.json
+WSL$ cd $E/arac && python3 -m snowball_bootstrap stage-open --referee $E/referee --toy $E/toy --copy $E/kopya-durum --identity "https://github.com/Okan-wqm/snowball-rehearsal-referee/.github/workflows/loop.yml@refs/heads/main" --sigstore-python $E/sig/bin/python
 WSL$ cat $E/referee/setup/stage.json
 WSL$ grep referee_tree_sha256 $E/referee/setup/imports.jsonl | tail -n 1 | tr -d '\n' | sha256sum
 ```
@@ -353,27 +353,45 @@ geçer. *Geri dönüş:* `loop_schedule` `False`, it; `stage.json` commit'ini `g
 
 ## Başarısızlık
 
-`25a` "Başarısızlık": 1., 7. ya da 8. satır kırmızıysa sistem sert durur. Operatör:
+`25a` "Başarısızlık": 1., 7. ya da 8. satır kırmızıysa sistem sert durur. Operatör, sırası `25a`'nınki (arşiv, silme,
+yeniden aktarım; E540):
 
-1. `STOP` yerinde; kill switch açık (1. adımın betiği, it) ve `PS> gh workflow disable loop.yml -R $H`;
-2. `git -C $E/referee revert --no-edit <AKTARIM> && git -C $E/referee push -q origin main`: önyükleme hakemi
+1. `STOP` yerinde; kill switch açık (1. adımın betiği, it) ve `PS> gh workflow disable loop.yml -R $H`. Ruleset'lerin
+   kapalı kaldığı pencere ancak bundan sonra açılır: yazar App'ini yalnız `loop.yml`'ın işleri kullanır;
+2. **Arşiv.** İki hedefte her `refs/heads/brain/` dalının başı önce `pilot-log.md`'ye, sonra aynı hedef repoda
+   `refs/tags/arsiv/$N/<dal>` etiketine (`<dal>` tam adıyla, ör. `brain/state`). `$N` başarısız aktarım satırının
+   `row_hash`'idir: hakemin `main`'inde `setup/imports.jsonl`'un son aktarım satırı, geri almadan önce okunur (sıra
+   numarası olmaz: geri alma satırı sayaçtan da çıkarır, sonraki aktarım aynı sıraya düşer). Etiketi `etiket`
+   ruleset'inin bypass'ı olan Repository admin rolü iter (S7); yazar App'i etiket yazamaz (`29i` `refs`). Nesneler
+   GitHub'da erişilebilir kalır, başarısız koşunun zinciri ve Rekor kökleri denetlenebilir; yerel arşiv de kalır;
+3. **Silme.** Sahip S8'in ilk yarısını yapar, operatör her `brain/` dalını siler (`brain/state`, `brain/integration`,
+   `brain/c/*`, `brain/drill/*`, `brain/revert/*`; genesis `brain/state`'i yetim dal olarak açar, `01a`, `24`, ve GitHub
+   var olan ref'i yeniden yaratmaz, `POST git/refs`; kalan bir `brain/c/<cid>` kesimden sonra 422'dir), sahip S8'in
+   ikinci yarısını yapar; operatör iki ruleset'in kurallarının geri geldiğini `rules/branches` ile denetler (kapalı
+   kalan ruleset'i genesis `state_rules_missing` ya da `integration_rules_missing` ile durdurur, bypass aktörünü hiç
+   okumaz: Bypass list'e kimse eklenmez). Yalnız oyuncak ve kopyada, yalnız `brain/` dalları;
+4. `git -C $E/referee revert --no-edit <AKTARIM> && git -C $E/referee push -q origin main`: önyükleme hakemi
    etkilenmez, Kurucu'nun yolu açık kalır; sonra kill switch kapalı ve `control.json` `reverted_exits`'e (A)'nın
    `brain_sha`'sı eklenmiş, it (`26c`; E333'ü taşıyan tohum döneminden sonra: o olmadan `referee/`'ye dokunan her push
-   `referee_changed_after_exit` kalır);
-3. nedeni `pilot-log.md`'ye; düzeltilmiş SHA (A)'dan yeniden geçer, aktarımı yine dokunuştur (2.–4. adım);
-4. yeniden etkinleştirmeden önce hedeflerdeki `brain/` dalları gider, çünkü genesis `brain/state`'i yetim dal olarak
-   açar (`01a`, `24`) ve GitHub var olan ref'i yeniden yaratmaz (`POST git/refs`). Spec sessiz; en dar seçim: yalnız
-   oyuncak ve kopyada, yalnız `brain/` dalları, SHA'ları önce `pilot-log.md`'ye, nesneleri yerel arşive (zincirin kökleri
-   Rekor'da kalır). Sahip S8'in ilk yarısını yapar, operatör siler, sahip S8'in ikinci yarısını yapar. (Dallar kalırsa
-   da kilit açılabilir: (B) yeni aktarımı adlandıran yeni genesis satırlarıyla yeniden koşar, `stage-open` son genesis'i
-   okur, E411; bu adımın gerekip gerekmediği döngünün var olan `brain/state`'e ekleyip ekleyemediğine bağlıdır.)
+   `referee_changed_after_exit` kalır). Geri alma sayaç satırını da siler; insan dokunuşu sayacı bir eksik sayar (E546,
+   sahibe açık): dokunuşu `pilot-log.md`'ye yaz;
+5. nedeni `pilot-log.md`'ye; düzeltilmiş SHA (A)'dan yeniden geçer, aktarımı yine dokunuştur ([Adımlar](#adımlar)
+   2–4); prova fikstürleri yeni aktarım satırı için yeniden üretilir ve sırrı yazılır (`26f`; yanmış küme yeniden
+   kullanılmaz, Ö6). Sonra 7. adım: (B) iki hedefte yeni defterlerin ilk genesis'inden koşar.
 
 ```
+WSL$ git -C $E/referee pull -q --ff-only && N=$(grep referee_tree_sha256 $E/referee/setup/imports.jsonl | tail -n 1 | python3 -c "import json,sys; print(json.load(sys.stdin)['row_hash'])") && AT=$(date -u +%Y%m%dT%H%M%SZ) && echo "$N"
 PS> foreach ($T in $TS) { "== $T"; gh api "repos/$T/git/matching-refs/heads/brain/" --jq '.[] | [.ref, .object.sha] | @tsv' }
-WSL$ git -C $E/toy fetch -q origin "refs/heads/brain/*:refs/arsiv/$(date -u +%Y%m%dT%H%M%SZ)/*"
-WSL$ git -C $E/kopya.git fetch -q https://github.com/Okan-wqm/snowball-rehearsal-copy.git "refs/heads/brain/*:refs/arsiv/$(date -u +%Y%m%dT%H%M%SZ)/*"
+WSL$ git -C $E/toy fetch -q origin "refs/heads/brain/*:refs/arsiv/$AT/brain/*" && git -C $E/toy push -q origin "refs/arsiv/$AT/brain/*:refs/tags/arsiv/$N/brain/*"
+WSL$ U=https://github.com/Okan-wqm/snowball-rehearsal-copy.git; git -C $E/kopya.git fetch -q $U "refs/heads/brain/*:refs/arsiv/$AT/brain/*" && git -C $E/kopya.git push -q $U "refs/arsiv/$AT/brain/*:refs/tags/arsiv/$N/brain/*"
+PS> foreach ($T in $TS) { "== $T"; gh api "repos/$T/git/matching-refs/tags/arsiv/" --jq '.[] | [.ref, .object.sha] | @tsv' }
 PS> foreach ($T in $TS) { gh api "repos/$T/git/matching-refs/heads/brain/" --jq '.[].ref' | ForEach-Object { gh api -X DELETE "repos/$T/git/$_" } }
+PS> foreach ($T in $TS) { "== $T"; foreach ($B in 'brain/state', 'brain/integration') { gh api "repos/$T/rules/branches/$B" --jq '[.[].type] | unique | join(",")' } }
 ```
+
+*Denetim:* etiketlerin SHA'ları ilk listedekilerdir; silmeden sonra `matching-refs/heads/brain/` boştur; son komut her
+hedefte `deletion,non_fast_forward` ve `deletion,non_fast_forward,pull_request,required_status_checks` basar. Biri
+eksikse S8'in ikinci yarısı yapılmamıştır: kill switch kapatılmaz, sahibe söylenir.
 
 Hedef ürün reposu hiçbir durumda değişmez.
 
@@ -419,8 +437,9 @@ yapıştırılır; sohbete, dosyaya ya da günlüğe yazılmaz.
 
   Kontrolün kaynak listesinde App görünmezse (henüz hiç kontrol raporlamadı) `brain-integration`'ı Ek B'deki gövdeyle
   API'den yarat; "any source" seçilmez (genesis `integration_check_not_writer` ile durur).
-- **S8 · Yalnız Başarısızlık 4'te.** İki hedefte `brain-state` ve `brain-integration` → Enforcement status Disabled →
-  Save; operatör dalları silince ikisi yeniden Active.
+- **S8 · Yalnız Başarısızlık 3'te.** İki hedefte `brain-state` ve `brain-integration` → Enforcement status Disabled →
+  Save; operatör dalları silince ikisi yeniden Active, aynı ayarlarla. Bypass list'e kimse eklenmez; yalnız Enforcement
+  status değişir (genesis bypass aktörünü okumaz, `29o`).
 
 ## Spec sessiz: seçilenler
 
@@ -435,12 +454,14 @@ Hepsi en dar seçimdir ve E330'dadır.
 - Hedeflerin `main`'i `25a` 4'ün ikinci yoluyla: güncelleme kısıtı, bypass yalnız Repository admin (kopyanın aynalaması
   ve oyuncağın yeniden aktarımı bu roldedir; yazar App'i bu rolde değildir).
 - `brain-disi` ve `etiket`: App izinleri dal bazında sınırlanamaz; yazar App'ini `brain/` dallarına bunlar hapseder.
-- App beyanı özete değil `pilot-log.md`'ye. `TARGET_OWNER`'ı operatör yazar.
+- App beyanı özete değil `pilot-log.md`'ye (`25a` 5 Aşama 0'da yoktur, P1'le gelir; E545). `TARGET_OWNER`'ı
+  operatör yazar.
 - Sırlar repo düzeyinde (`loop.yml` ortam adlandırmaz); adları aktarılan `loop.yml`'dan. `25` 7'nin "prova gizli
   tohumu" bir döngü işi onu adlandırana kadar yaratılmaz.
 - Aynalama belirtecinde Workflows izni (GitHub iş akışı dosyası taşıyan push'u onsuz reddeder; Actions kapalı, dosyalar
   koşmaz), 30 gün; aynalama operatörün makinesinde. `oauth_token_expires` ISO tarih.
-- Yeniden etkinleştirmede yalnız oyuncak ve kopyada, yalnız `brain/` dalları silinir, önce kaydı ve yerel arşivi alınır.
+- Arşiv etiketlerinin yeri ve adı (`refs/tags/arsiv/<row_hash>/<dal>`, hedefin kendi reposunda) `25a`'nındır (E540);
+  komutlar burada.
 - 8. adımda `referee/` denetimi elle (E333). PASS satırının yeri `asama-0/10a`'nınki, oyuncak (E334).
 - `stage-open`'ın girdileri (E371): oyuncağın ve kopyanın `brain/state` klonları (`--ref` öntanımı
   `refs/remotes/origin/brain/state`; kök paketleri oradan, E414), döngünün `loop.yml` kimliği, imzalı (A) sonucu
