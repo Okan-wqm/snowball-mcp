@@ -375,8 +375,12 @@ class DraftRefusedTest(Fixture):
             self.refused(says, catalog=self.catalog([{"cause": "lint_regression", "patch": patch}]))
 
     def test_an_index_line_that_is_not_the_files_blobs_is_refused(self):  # drill_fixtures_index_unchecked
-        """E499 (`26c`'s diff.patch form): the index line names the file's blob in this toy tree and the result's."""
+        """E499 (`26c`'s diff.patch form): the index line names the file's blob in this toy tree and the result's, and
+        the file's own mode (no mode change)."""
         good = self.drafts["lint_regression"]
+        self.assertIn(" 100644\n", good)
+        self.refused("another mode", catalog=self.catalog([{"cause": "lint_regression",
+                                                            "patch": good.replace(" 100644\n", " 100755\n", 1)}]))
         old, new = good.split("\n")[1].split(" ")[1].split("..")
         self.refused("another blob", catalog=self.catalog([{"cause": "lint_regression",
                                                             "patch": good.replace(old, "1234567", 1)}]))
@@ -422,6 +426,19 @@ class MeasuredCauseTest(Fixture):
         none[TOY[GREET].replace(b"Hello", b"Hi")] = Measurement("v22.23.4", True, 1, True)
         self.refused("no cause", sandbox=FakeSandbox(none))
 
+    def test_a_plant_measured_with_other_tools_than_the_bases_is_refused(self):  # drill_fixtures_plan_unchecked
+        """E499 (`26f`: measured with the toy's own tools): a patch to .nvmrc, package.json or package-lock.json would
+        measure the plant on another Node or other dependencies than the clean base it is compared with."""
+        nvmrc = patch_of(self.toy, "textkit/.nvmrc", b"22.23.5\n")
+        manifest = patch_of(self.toy, "textkit/package.json",
+                            TOY["textkit/package.json"].replace(b'"1.0.0"', b'"1.0.1"'))
+        for patch in (nvmrc, manifest):
+            entries = [{"cause": "build_break", "patch": patch},
+                       {"cause": "lint_regression", "patch": self.drafts["lint_regression"]},
+                       {"cause": "test_regression", "patch": self.drafts["test_regression"]}]
+            self.refused("with the base's tools", catalog=self.catalog(entries))
+            self.assertEqual(self.sandbox.trees, [], "a tree was measured before every plan was checked")
+
     def test_the_clean_tree_must_load_green_on_the_toys_node(self):  # drill_fixtures_base_unchecked
         """E499: the base is measured once and must be clean, on the Node `.nvmrc` names."""
         self.refused("does not load", sandbox=FakeSandbox(self.answers, base=Measurement("v22.23.4", True, 1, False)))
@@ -437,6 +454,7 @@ class MeasuredCauseTest(Fixture):
                         Measurement("v22.23.4", None, 1, False), Measurement("v22.23.4", True, None, False),
                         Measurement("v22.23.4", True, 2, None), Measurement("v20.0.0", False, 1, False)):
             self.assertIsNone(cause(BASE, unnamed)[0], unnamed)
+        self.assertIn("flaky", cause(BASE, Measurement("v22.23.4", True, 1, None))[1])
 
     def test_errors_and_warnings_that_move_apart_name_no_cause(self):  # drill_fixtures_lint_split_ignored
         """E499 (`29j` leaves the lint total's producer unnamed): when ESLint's errors and warnings move apart, a total
@@ -460,11 +478,13 @@ class DiffTest(unittest.TestCase):
         return df.in_place_edit(text)
 
     def test_hunks_apply_at_their_lines_moved_by_the_hunks_before(self):
+        """E499: each hunk at its own lines, the later one's new start moved by the hunks before it."""
         text = ("diff --git a/f b/f\nindex 1111111..2222222 100644\n--- a/f\n+++ b/f\n"
                 "@@ -1,2 +1,3 @@\n a\n+x\n b\n@@ -7,2 +8,1 @@\n g\n-h\n")
         self.assertEqual(df.apply(self.OLD, self.edit(text).hunks), b"a\nx\nb\nc\nd\ne\nf\ng\n")
 
     def test_a_missing_last_newline_is_kept_or_changed_exactly(self):
+        """E499: git's no-newline marker is a byte of the context: a file whose last line ends otherwise is refused."""
         text = ("diff --git a/f b/f\nindex 1111111..2222222 100644\n--- a/f\n+++ b/f\n"
                 "@@ -1,2 +1,2 @@\n a\n-b\n\\ No newline at end of file\n+c\n")
         self.assertEqual(df.apply(b"a\nb", self.edit(text).hunks), b"a\nc\n")
@@ -472,11 +492,13 @@ class DiffTest(unittest.TestCase):
             df.apply(b"a\nb\n", self.edit(text).hunks)  # the file's b has its newline: the context is not byte for byte
 
     def test_counts_must_be_the_hunks_lines(self):
+        """E499: a hunk's lines are exactly its header's counts, neither fewer nor more, and no stray line."""
         for body in ("@@ -1,2 +1,2 @@\n a\n-b\n", "@@ -1,1 +1,1 @@\n a\n-b\n+c\n", "@@ -1 +1 @@\n-a\n+b\nzz\n"):
             with self.assertRaises(ValueError, msg=body):
                 self.edit("diff --git a/f b/f\nindex 1111111..2222222 100644\n--- a/f\n+++ b/f\n" + body)
 
     def test_a_hunk_that_changes_nothing_is_refused(self):
+        """E499: a hunk of context alone is no plant."""
         with self.assertRaisesRegex(ValueError, "changes nothing"):
             self.edit("diff --git a/f b/f\nindex 1111111..2222222 100644\n--- a/f\n+++ b/f\n@@ -1 +1 @@\n a\n")
 
@@ -488,6 +510,7 @@ class DiffTest(unittest.TestCase):
         self.assertEqual(df.changed_files(text), {"x.js", "p.js", "q.js"})
 
     def test_git_writes_the_blobs_the_index_line_names(self):
+        """E499: `blob_id` is git's own object name, which the index line abbreviates."""
         repo = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, repo, ignore_errors=True)
         (repo / "f").write_bytes(self.OLD)
@@ -505,6 +528,8 @@ class PlanTest(unittest.TestCase):
         return files
 
     def test_the_project_its_files_its_tests_and_its_node(self):
+        """E499: the toy's one Node project, the files node --check reads, the modules it imports (no test file, by
+        Node 22's default patterns) and the Node .nvmrc names."""
         plan = df.plan_of(self.tree())
         self.assertEqual(plan.project, "textkit")
         self.assertEqual(plan.node, "v22.23.4")
@@ -517,6 +542,8 @@ class PlanTest(unittest.TestCase):
             self.assertFalse(df.is_node_test_file(rel), rel)
 
     def test_a_tree_the_seed_cannot_measure_as_the_toys_own_is_refused(self):
+        """E499: a package outside the npm registry, a test script that is not exactly node --test, an .nvmrc naming no
+        version and two lockfiles are each refused before anything runs."""
         lock = json.loads(TOY["textkit/package-lock.json"])
         lock["packages"]["node_modules/x"] = {"version": "1.0.0", "resolved": "https://evil.example/x.tgz",
                                               "integrity": "sha512-x"}
@@ -545,10 +572,12 @@ class DockerSandboxTest(unittest.TestCase):
                               "load": [{"status": 0}] * len(self.plan.load),
                               "lint": {"status": 0, "timed_out": False, "stdout": '[{"errorCount": 1, '
                                                                                   '"warningCount": 2}]'},
-                              "test": {"status": 1, "timed_out": False}}).encode()
+                              "test": [{"status": 1, "timed_out": False}] * df.TEST_RUNS}).encode()
         return subprocess.CompletedProcess(argv, 0, out, b"")
 
     def test_only_the_install_is_online(self):  # drill_fixtures_measured_online drill_fixtures_install_runs_scripts
+        """E499: npm ci --ignore-scripts is the only step with a network; each tree is measured with --network none,
+        read-only, unprivileged, its dependencies mounted read-only; the volume is removed at the end."""
         box = df.DockerSandbox("node:22@sha256:" + "a" * 64, run=self.docker)
         tree = {rel: (content, False) for rel, content in TOY.items()}
         self.assertEqual(box.measure(tree, self.plan), Measurement("v22.23.4", True, 3, False, (1, 2)))
@@ -569,10 +598,12 @@ class DockerSandboxTest(unittest.TestCase):
         self.assertEqual(self.calls[-1][:4], ["docker", "volume", "rm", "-f"])
         self.assertEqual(self.calls[-1][4], volume)
 
-    def test_the_harnesss_output_is_read_strictly(self):
+    def test_the_harnesss_output_is_read_strictly(self):  # drill_fixtures_flaky_taken_for_red
+        """E499: the harness's one JSON line, each field the plan's; the tests are green or red only when all of
+        MF12's four runs (the first and three reruns, `29j` `flaky`) agree, else flaky and no answer."""
         good = {"node": "v22.23.4", "parse": [{"status": 0}] * len(self.plan.parse),
                 "load": [{"status": 0}] * len(self.plan.load), "lint": {"status": 1, "stdout": "[]"},
-                "test": {"status": 0}}
+                "test": [{"status": 0}] * df.TEST_RUNS}
         read = lambda **over: df.measurement_of(json.dumps(dict(good, **over)).encode(), self.plan)  # noqa: E731
         self.assertEqual(read(), Measurement("v22.23.4", True, 0, True, (0, 0)))
         two = '[{"errorCount": 2, "warningCount": 1}, {"errorCount": 0, "warningCount": 4}]'
@@ -582,7 +613,14 @@ class DockerSandboxTest(unittest.TestCase):
         self.assertIsNone(read(lint={"status": 2, "stdout": "[]"}).lint_total)
         self.assertIsNone(read(lint={"status": 1, "stdout": "Oops"}).lint_total)
         self.assertIsNone(read(lint={"status": 1, "stdout": '[{"errorCount": -1, "warningCount": 0}]'}).lint_split)
-        self.assertIsNone(read(test={"status": None, "timed_out": True}).tests_green)
+        self.assertEqual(df.TEST_RUNS, 4)
+        self.assertIs(read(test=[{"status": 1}] * 4).tests_green, False)
+        for runs in ([{"status": 1}] * 3 + [{"status": 0}], [{"status": 0}] + [{"status": 1}] * 3,
+                     [{"status": 0}] * 3 + [{"status": None, "timed_out": True}], [{"status": None}] * 4):
+            self.assertIsNone(read(test=runs).tests_green, runs)
+        for runs in ([{"status": 0}] * 3, [{"status": 0}] * 5, {"status": 0}):
+            with self.assertRaises(FixtureStop):
+                read(test=runs)
         with self.assertRaises(FixtureStop):
             read(parse=[])
         with self.assertRaises(FixtureStop):

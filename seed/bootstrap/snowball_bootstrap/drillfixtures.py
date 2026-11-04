@@ -29,12 +29,15 @@ The causes are measured with the toy's own tools in a sandbox, never with refere
 project's dependencies from its lockfile in a pinned Node image whose ``node --version`` must be the project's
 ``.nvmrc`` (``npm ci --ignore-scripts``, the only step with a network, the npm registry only), then measures each tree
 with ``--network none``: every JavaScript file parses (``node --check``) and every module that is not a test file
-imports; the toy's ``lint`` script's ESLint total; the toy's ``test`` script. The clean tree is measured once as the
-base, and must load with its tests green. `29j`'s rule order names the cause: ``build_break`` when the code no longer
-loads (its red tests and lint are its result); else ``lint_regression`` when the total rose and every test is green;
-``test_regression`` when a test is red and the total did not rise. Both, or neither, is no single cause and is refused;
-so is a plant whose ESLint errors and warnings move apart, as a total of one of them would name another cause.
-Without docker the command stops: the measurement is never skipped.
+imports; the toy's ``lint`` script's ESLint total; the toy's ``test`` script, four times (MF12's first run and three
+reruns: green or red in all four, else flaky and no cause). The clean tree is measured once as the base, and must load
+with its tests green; a plant whose patch changes what the measurement installs from or runs on (``package.json``,
+``package-lock.json``, ``.nvmrc``) is refused, so a plant and the base are measured with the same tools. `29j`'s rule
+order names the cause: ``build_break`` when the code no longer loads (its red tests and lint are its result); else
+``lint_regression`` when the total rose and every test is green; ``test_regression`` when the tests are red and the
+total did not rise. Both, or neither, is no single cause and is refused; so is a plant whose ESLint errors and warnings
+move apart, as a total of one of them would name another cause. Without docker the command stops: the measurement is
+never skipped.
 
 Spec sessiz, the narrowest choice each time (E499): the security paths are the seed's mechanical rule (`14`, `29k`
 ``security_keyword_substring``: a file whose lower-case path holds a lower-case keyword of ``policy.json``'s
@@ -71,6 +74,7 @@ ID_RE = re.compile(r"^[0-9a-f]{32}\Z")
 MAX_VALUE_BYTES = 48 * 1024  # GitHub's limit on one secret (E544 (4))
 REGISTRY = "https://registry.npmjs.org/"
 TEST_SCRIPT = "node --test"
+TEST_RUNS = 4  # MF12 (`29j` `flaky`): the first run and three reruns; a test is red when it fails in all four
 JS_SUFFIXES = (".js", ".mjs", ".cjs")
 NVMRC_RE = re.compile(r"^v?([0-9]+\.[0-9]+\.[0-9]+)\n?\Z")
 HUNK_RE = re.compile(r"^@@ -([0-9]+)(?:,([0-9]+))? \+([0-9]+)(?:,([0-9]+))? @@(?: .*)?\Z")
@@ -300,8 +304,9 @@ class Plan:
 @dataclass(frozen=True)
 class Measurement:
     """One tree, measured. ``loads``: every file parses and every non-test module imports (None: a step could not
-    finish); ``lint_total``: the ESLint total, errors and warnings (None: no usable report); ``tests_green``: None when
-    the run could not finish; ``lint_split``: the total's errors and warnings, when the report gave them apart."""
+    finish); ``lint_total``: the ESLint total, errors and warnings (None: no usable report); ``tests_green``: every
+    one of the ``TEST_RUNS`` runs green (True) or red (False), None when one could not finish or they differ;
+    ``lint_split``: the total's errors and warnings, when the report gave them apart."""
     node: str
     loads: bool | None
     lint_total: int | None
@@ -384,8 +389,10 @@ def measured_cause(base: Measurement, measured: Measurement) -> tuple[str | None
         return None, "it was measured on another Node"
     if measured.loads is False:
         return "build_break", "the code no longer loads"
-    if measured.loads is None or measured.lint_total is None or measured.tests_green is None:
+    if measured.loads is None or measured.lint_total is None:
         return None, "a step of its measurement could not finish"
+    if measured.tests_green is None:
+        return None, f"its tests did not finish, or were not the same in all {TEST_RUNS} runs (flaky, MF12)"
     if base.lint_split and measured.lint_split:
         moves = {(after > before) - (after < before) for before, after in zip(base.lint_split, measured.lint_split)}
         if {1, -1} <= moves:
@@ -428,8 +435,11 @@ for (const f of JSON.parse(process.env.DFX_LOAD)) {
   out.load.push({status: r.status, timed_out: r.timed_out});
 }
 out.lint = step('npm', ['run', '--silent', 'lint'], proj, true);
-const t = step('npm', ['test', '--silent'], proj, false);
-out.test = {status: t.status, timed_out: t.timed_out};
+out.test = [];
+for (let k = 0; k < Number(process.env.DFX_TEST_RUNS); k++) {
+  const t = step('npm', ['test', '--silent'], proj, false);
+  out.test.push({status: t.status, timed_out: t.timed_out});
+}
 process.stdout.write(JSON.stringify(out));
 """
 MEASURE_SH = 'set -eu\nmkdir /tmp/work\ntar -x -C /tmp/work --no-same-owner -f -\nexec node -e "$DFX_HARNESS"\n'
@@ -462,6 +472,15 @@ def _steps(value: Any, count: int) -> bool | None:
     return None if any(s.get("status") != 0 for s in value) else True
 
 
+def tests_green(runs: Any) -> bool | None:
+    """The ``TEST_RUNS`` runs of the toy's tests: True when every run passed, False when every run failed, None when
+    one could not finish or they differ (flaky: MF12 names no red test there and the sentinel does not revert)."""
+    if not isinstance(runs, list) or len(runs) != TEST_RUNS or not all(isinstance(r, dict) for r in runs):
+        raise ValueError("the test runs are not the plan's")
+    seen = {None if r.get("timed_out") or type(r.get("status")) is not int else r["status"] == 0 for r in runs}
+    return seen.pop() if len(seen) == 1 else None
+
+
 def lint_split(stdout: str) -> tuple[int, int] | None:
     """ESLint's JSON report's errors and warnings, each summed over every file; None for anything else."""
     try:
@@ -480,16 +499,16 @@ def measurement_of(stdout: bytes, plan: Plan) -> Measurement:
     """The harness's one JSON line read into a measurement; FixtureStop when it is not the harness's."""
     try:
         out = json.loads(stdout.decode("utf-8"))
-        node, lint, test = out["node"], out["lint"], out["test"]
+        node, lint = out["node"], out["lint"]
         loads = _steps(out["parse"], len(plan.parse))
         imported = _steps(out["load"], len(plan.load))
-        if not isinstance(node, str) or not isinstance(lint, dict) or not isinstance(test, dict):
+        green = tests_green(out["test"])
+        if not isinstance(node, str) or not isinstance(lint, dict):
             raise ValueError("not the harness's fields")
     except (UnicodeDecodeError, ValueError, KeyError, TypeError, RecursionError) as exc:
         raise FixtureStop(f"the measurement container's output is not the harness's: {type(exc).__name__}") from exc
     loads = False if False in (loads, imported) else (None if None in (loads, imported) else True)
     split = lint_split(lint.get("stdout", "")) if lint.get("status") in (0, 1) and not lint.get("timed_out") else None
-    green = None if test.get("timed_out") or type(test.get("status")) is not int else test["status"] == 0
     return Measurement(node, loads, None if split is None else sum(split), green, split)
 
 
@@ -546,12 +565,13 @@ class DockerSandbox:
     def measure(self, tree: Tree, plan: Plan) -> Measurement:
         volume = self._deps(plan)
         env = {"DFX_PROJECT": plan.project, "DFX_STEP_MS": str(self.step_s * 1000), "DFX_HARNESS": HARNESS,
+               "DFX_TEST_RUNS": str(TEST_RUNS),
                "DFX_PARSE": json.dumps(list(plan.parse)), "DFX_LOAD": json.dumps(list(plan.load))}
         args = [*HARDENED, "--network", "none", "--user", "65534:65534",
                 "--mount", f"type=volume,src={volume},dst=/deps,readonly"]
         for key, value in env.items():
             args += ["--env", f"{key}={value}"]
-        steps = len(plan.parse) + len(plan.load) + 2
+        steps = len(plan.parse) + len(plan.load) + 1 + TEST_RUNS
         proc = self._container([*args, "--entrypoint", "sh", self.image, "-c", MEASURE_SH], tar_of(tree),
                                steps * self.step_s + 300)
         if proc.returncode != 0:
@@ -641,11 +661,16 @@ def _tree_hash(repo: Path, treeish: str, what: str) -> str:
 
 
 def toy_tree(toy: Path, ref: str, expected: str) -> tuple[Tree, dict[str, str]]:
-    """The toy clone's tree at ``ref``, held to the line's ``toy_tree_sha256``; its files and each path's mode."""
-    if _tree_hash(toy, ref, f"--toy {toy} at {ref}") != expected:
+    """The toy clone's tree at ``ref``, held to the line's ``toy_tree_sha256``; its files and each path's mode. The ref
+    is resolved once, so the hash, the modes and the files are of one tree even if the ref moves meanwhile."""
+    try:
+        tree = gitio.git(toy, "rev-parse", "--verify", "--quiet", f"{ref}^{{tree}}").decode().strip()
+    except gitio.GitError as exc:
+        raise FixtureStop(f"--toy {toy} has no tree at {ref}: fetch the toy's main") from exc
+    if _tree_hash(toy, tree, f"--toy {toy} at {ref}") != expected:
         raise FixtureStop(f"the toy at {ref} is not the tree the last transfer line names (toy_tree_sha256)")
-    modes = {p: m for m, _s, p in gitio._entries(toy, ref)}
-    files = {p.as_posix(): (content, executable) for p, content, executable in iter_files(gitio.archive(toy, ref))}
+    modes = {p: m for m, _s, p in gitio._entries(toy, tree)}
+    files = {p.as_posix(): (content, executable) for p, content, executable in iter_files(gitio.archive(toy, tree))}
     return files, modes
 
 
@@ -738,15 +763,21 @@ def _checked_and_measured(referee: Path, toy: Path, toy_ref: str, brain: Path, c
     if len(value) > MAX_VALUE_BYTES:
         raise FixtureStop(f"the value is {len(value)} bytes, over GitHub's 48 KB for one secret (E544)")
     base_plan = plan_of(tree)
+    trees = []
+    for k, (path, new) in enumerate(plants):
+        patched = dict(tree, **{path: (new, tree[path][1])})
+        if plan_of(patched, f"catalog entry {k}'s tree") != base_plan:
+            raise FixtureStop(f"catalog entry {k}: its patch changes what the measurement installs from or runs on "
+                              "(package.json, package-lock.json, .nvmrc): a plant is measured with the base's tools")
+        trees.append(patched)
     base = sandbox.measure(tree, base_plan)
     if base.node != base_plan.node:
         raise FixtureStop(f"the image's Node is {base.node}, the toy's .nvmrc names {base_plan.node}")
     if not (base.loads and base.lint_total is not None and base.tests_green):
         raise FixtureStop("the clean toy tree does not load with a lint report and green tests: no plant can be "
                           "measured against it")
-    for k, ((cause, _patch), (path, new)) in enumerate(zip(drafts, plants)):
-        patched = dict(tree, **{path: (new, tree[path][1])})
-        found, why = measured_cause(base, sandbox.measure(patched, plan_of(patched, f"catalog entry {k}'s tree")))
+    for k, ((cause, _patch), patched) in enumerate(zip(drafts, trees)):
+        found, why = measured_cause(base, sandbox.measure(patched, base_plan))
         if found != cause:
             raise FixtureStop(f"catalog entry {k}: declared {cause}, measured {found or 'no single cause'} ({why})")
     return value, counts

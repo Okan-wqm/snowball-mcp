@@ -233,7 +233,8 @@ kopya"). Özete değil: alanı yok (`26c:31-35`, `29o`), bilinmeyen alan kapalı
 önce; her aktarım yeni bir küme alır, kırmızı bir (B)'de yanan küme yeniden kullanılmaz). Taslaklar operatörün özel
 dosyasıdır, hiçbir repoda değil (komut repo içindeki taslağı da çıktıyı da reddeder): `[{"cause": …, "patch": …}]`;
 her `patch` oyuncağın `main`'inde `git diff`'in yazdığı, var olan tek dosyayı yerinde değiştiren diff (dosya eklemez,
-silmez, adını ya da kipini değiştirmez); üç nedenden (`build_break`, `lint_regression`, `test_regression`) eşit sayıda;
+silmez, adını ya da kipini değiştirmez; ölçümün araçları olan `package.json`, `package-lock.json` ve `.nvmrc`'ye
+dokunmaz); üç nedenden (`build_break`, `lint_regression`, `test_regression`) eşit sayıda;
 dosyası bir güvenlik yolunda (yolunda `policy.json`'un bir `security_keywords`'ü, ya da oyuncağın `safety_paths`'ı)
 ve merge'ü beklenen bir adayın dosyası (beyin `candidates/toy/`'da `decision: merge`) değildir. Komut docker ister
 (WSL'de Docker Desktop tümleşimi); Node imajı oyuncağın `.nvmrc`'sinin sürümü, özetiyle:
@@ -241,17 +242,19 @@ ve merge'ü beklenen bir adayın dosyası (beyin `candidates/toy/`'da `decision:
 ```
 WSL$ git -C $E/brain fetch -q origin && git -C $E/toy fetch -q origin && git -C $E/referee pull -q --ff-only
 WSL$ P=/mnt/f/snowball-work/private; V=$(cat $E/toy/textkit/.nvmrc); docker pull -q node:$V-bookworm-slim
-WSL$ NODE=node:$V-bookworm-slim@$(docker image inspect node:$V-bookworm-slim --format '{{index .RepoDigests 0}}' | cut -d@ -f2)
-WSL$ cd $E/arac && python3 -m snowball_bootstrap drill-fixtures --referee $E/referee --toy $E/toy --brain $E/brain --catalog $P/prova-taslak.json --out $P/prova-fiksturleri-<aktarım satırının row_hash'i>.b64 --node-image "$NODE"
+WSL$ I=node:$V-bookworm-slim; D=$(docker image inspect $I --format '{{index .RepoDigests 0}}'); NODE=$I@${D#*@}
+WSL$ cd $E/arac && python3 -m snowball_bootstrap drill-fixtures --referee $E/referee --toy $E/toy --brain $E/brain \
+       --catalog $P/prova-taslak.json --out $P/prova-fiksturleri-<aktarım satırının row_hash'i>.b64 --node-image "$NODE"
 ```
 
 Komut aktarım satırını hakem checkout'unun commit'inden okur ve ona bağlar (`stage-open`'ın bağı, E471); oyuncağın
 `main`'i ve beynin `brain_sha`'daki oyuncak fikstürü o satırın `toy_tree_sha256`'sı olmalıdır. Her taslağı `26f`'in
-kurallarıyla denetler, nedenini oyuncağın kendi araçlarıyla ölçer (temiz ağaç bir kez, sonra her ekim;
-`npm ci --ignore-scripts` ağı olan tek adım, gerisi `--network none`), tutmayanı taslağın sırasıyla adlandırıp
-reddeder ve hiçbir şey yazmaz; geçerse değeri yalnız `--out`'a (dosya yoksa) yazar, yalnız neden sayılarını, değerin
-sha256'sını ve boyutunu basar. Değeri `loop.yml`'un adlandırdığı adla hakemin sırrı olarak yaz (3. adımın listesindeki fikstür sırrı;
-ad spec'te değil, `loop.yml`'dadır), sha256'yı `pilot-log.md`'ye dokunuş satırı olarak yaz (kayda yalnız o girer):
+kurallarıyla denetler, nedenini oyuncağın kendi araçlarıyla ölçer (temiz ağaç bir kez, sonra her ekim; testler
+dört kez, MF12'nin ilk koşusu ve üç yeniden koşusu: dördü aynı değilse flaky, neden yok; `npm ci --ignore-scripts`
+ağı olan tek adım, gerisi `--network none`), tutmayanı taslağın sırasıyla adlandırıp reddeder ve hiçbir şey yazmaz;
+geçerse değeri yalnız `--out`'a (dosya yoksa) yazar, yalnız neden sayılarını, değerin sha256'sını ve boyutunu basar.
+Değeri `loop.yml`'un adlandırdığı adla hakemin sırrı olarak yaz (3. adımın listesindeki fikstür sırrı; ad spec'te
+değil, `loop.yml`'dadır), sha256'yı `pilot-log.md`'ye dokunuş satırı olarak yaz (kayda yalnız o girer):
 
 ```
 PS> cmd /c "gh secret set <fikstür sırrının adı> -R $H < F:\snowball-work\private\prova-fiksturleri-<…>.b64"

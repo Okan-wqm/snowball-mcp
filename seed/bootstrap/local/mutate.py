@@ -2849,7 +2849,7 @@ MUTANTS = [
     ("drill_fixtures_candidate_files_unchecked", DFX, "        if edit.path in paths:", "        if False:",
      "E499: a plant changes a file a merge-expected candidate changes, so the drill turns itself off"),
     ("drill_fixtures_toy_tree_unchecked", DFX,
-     '    if _tree_hash(toy, ref, f"--toy {toy} at {ref}") != expected:', "    if False:",
+     '    if _tree_hash(toy, tree, f"--toy {toy} at {ref}") != expected:', "    if False:",
      "E499: the set is made on a toy tree the import line does not name"),
     ("drill_fixtures_line_unbound", DFX, "    stagelock._committed_is_transferred(referee, head, row)", "    pass",
      "E499: the set is bound to a counter line whose referee the checkout does not hold"),
@@ -2882,6 +2882,12 @@ MUTANTS = [
      "        pass", "E499: a patch that is no UTF-8 text reaches the canonical value and stops it there"),
     ("drill_fixtures_lint_split_ignored", DFX, "        if {1, -1} <= moves:", "        if False:",
      "E499: ESLint errors and warnings moving apart pass as one cause, though a total of one of them names another"),
+    ("drill_fixtures_plan_unchecked", DFX,
+     "        if plan_of(patched, f\"catalog entry {k}'s tree\") != base_plan:", "        if False:",
+     "E499: a plant that changes .nvmrc or the dependencies is measured with other tools than the base"),
+    ("drill_fixtures_flaky_taken_for_red", DFX, "    return seen.pop() if len(seen) == 1 else None",
+     "    return seen.pop() if seen else None",
+     "E499: tests that fail in some of MF12's four runs pass as red, though the sentinel calls them flaky"),
 ]
 
 
