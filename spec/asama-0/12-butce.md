@@ -15,7 +15,7 @@ değerlerini verir.
 
 | Kalem | Başlangıç fren değeri | Frene takılınca |
 |---|---|---|
-| Kurucu oturumu | oturum başına `session_cap_usd` (20 USD; `--max-budget-usd`); aşama toplamı `stage_budgets.asama_0.founder_usd` (220 USD) | başlatıcı yeni oturum açmaz ve operatörü uyarır; Kurucu reddi değildir |
+| Kurucu oturumu | oturum başına `session_cap_usd` (15 USD; `--max-budget-usd`); herhangi 24 saatte `day_cap_usd` (100 USD); aşama toplamı `stage_budgets.asama_0.founder_usd` (220 USD) | başlatıcı freniyle günlük tavanı aşabilecek oturumu açmaz, bekler (döngü harcamaz) ve operatörü bir kez uyarır; aşama toplamı yalnız uyarır (sahip, 2026-11-03); Kurucu reddi değildir |
 | Tohum rakibi (Sonnet) | `stage_budgets.asama_0.rival_usd` (25 USD) | önyükleme hakemi rakip işini başlatmaz, yoklama uyarıyla geçer, commit tüketilmez; aynı baş politika değişince kendiliğinden yargılanır (`tohum/29b`) |
 | (B) kanaryası (`llm.call`) | `stage_budgets.asama_0.canary_usd` (1 USD); çağrı başına `--max-budget-usd` | çağrı yapılmaz, devir kapalıya düşer (test 37) |
 | Actions dakikası | anayasal aylık tavan (`monthly_cap_ci_minutes`, başlangıç 1.800); önyükleme koşusu push başına ≤ 30 dk (`tohum/25`) | GitHub harcama sınırı (`tohum/25` 8) |

@@ -51,7 +51,7 @@ typecheck[], test[], format[], build[], coverage[]}}`, `affected_test_cmd`, `gra
 `state_root`, `domain_lexicon[]`, `context_fingerprint`, `units[]` (doğrulanmış birim tarifleri, `26c`).
 Okuyucu listesi profilde değil, `27`'dedir.
 
-**policy.json**: `constitutional{monthly_cap_usd, monthly_cap_ci_minutes, session_cap_usd, shares,
+**policy.json**: `constitutional{monthly_cap_usd, monthly_cap_ci_minutes, session_cap_usd, day_cap_usd, shares,
 class_floors{K0, K1, K2, K4: {kind: census, misses: 0}, K3, K5..K8: {recall_lb, precision_lb}},
 required_exit_rows{capability: [row]}, regression_freeze, cycle_caps, daily_caps,
 security_keywords[], banned_phrases[], stage_order, class_requires{}, look_budget, confidence_level,

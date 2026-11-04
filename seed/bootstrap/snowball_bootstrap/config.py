@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -240,6 +240,11 @@ class Policy:
     repeat_reject_limit: int
     license_allowlist: frozenset[str]
     license_exceptions: dict[str, str]
+    # The Founder's brakes, which the launcher reads (`18a`, `24a`, E530). The referee checks only their form: a policy
+    # without them still judges, and the launcher starts no session on it.
+    session_cap_usd_micros: int | None = None  # `session_cap_usd`: the CLI's --max-budget-usd for each session
+    day_cap_usd_micros: int | None = None  # `day_cap_usd`: what the sessions may spend in any 24 hours
+    stage_founder_usd_micros: dict[int, int] = field(default_factory=dict)  # `asama_<k>.founder_usd`: alert only
 
     def rival_usd_micros(self, stage: int) -> int:
         """The open stage's rival brake (`29b`, `26e`, E492): ``stage_budgets.asama_<stage>.rival_usd``. Stage 0's must
@@ -264,6 +269,17 @@ def _stage_rival_budgets(budgets: dict[str, Any], where: str) -> dict[int, int]:
     return found
 
 
+def _stage_founder_budgets(budgets: dict[str, Any], where: str) -> dict[int, int]:
+    """Every ``asama_<k>.founder_usd`` the operator wrote, in micro-USD (`18a`, E530): optional; one that is there must
+    be a positive whole number of USD."""
+    found: dict[int, int] = {}
+    for key, block in budgets.items():
+        match = STAGE_BUDGET_RE.match(key)
+        if match and isinstance(block, dict) and "founder_usd" in block:
+            found[int(match.group(1))] = _pos_int(block, "founder_usd", f"{where}.{key}") * 1_000_000
+    return found
+
+
 def load_policy(root: Path) -> Policy:
     return policy_of(_load(root / "policy.json"))
 
@@ -284,6 +300,10 @@ def policy_of(data: Any) -> Policy:
                 or not all(isinstance(v, str) and v.strip() for v in entry.values()):
             raise ConfigError(f"{cw}.license_exceptions[{pin!r}] must be "
                               "{{expression, evidence}} keyed by normalised name==version")
+    session_cap, day_cap = (_pos_int(const, key, cw) * 1_000_000 if key in const else None
+                            for key in ("session_cap_usd", "day_cap_usd"))
+    if session_cap is not None and day_cap is not None and session_cap > day_cap:
+        raise ConfigError(f"{cw}.session_cap_usd is above day_cap_usd: no session could ever start (E530)")
     return Policy(
         monthly_cap_usd_micros=_pos_int(const, "monthly_cap_usd", cw) * 1_000_000,
         stage_rival_usd_micros=rival_budgets,
@@ -291,6 +311,9 @@ def policy_of(data: Any) -> Policy:
         repeat_reject_limit=_pos_int(params, "repeat_reject_limit", f"{cw}.stage_params"),
         license_allowlist=frozenset(allow),
         license_exceptions={pin: entry["expression"] for pin, entry in exceptions.items()},
+        session_cap_usd_micros=session_cap,
+        day_cap_usd_micros=day_cap,
+        stage_founder_usd_micros=_stage_founder_budgets(budgets, f"{cw}.stage_budgets"),
     )
 
 

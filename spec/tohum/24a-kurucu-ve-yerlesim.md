@@ -35,9 +35,9 @@ bir Windows kullanıcısında koşar; Kurucu'nun yapılandırması repo dışın
 
 **Maliyet bir ölçümdür, kapı değil** (`asama-0/12`). Kurucu kendi maliyetini ölçemez; ölçümü başlatıcı
 yazar (rapor yoksa `unmeasured`). Oturum sayısı ve USD toplamları ilerlemenin ve maliyetin ölçüsüdür;
-çıkış koşulu değildir ve Kurucu'yu durdurmaz. `session_cap_usd` ve aşama toplamı yalnız kaçak frenidir:
-olağan işi durdurmayacak kadar yüksektir, döngüyü keser; takılınca başlatıcı yeni oturum açmaz ve
-operatörü uyarır, bu bir ret değildir. Gerçek sınır aboneliğin kullanım penceresidir (5 saatlik ve
+çıkış koşulu değildir ve Kurucu'yu durdurmaz. `session_cap_usd` ve `day_cap_usd` (herhangi 24 saat) kaçak
+frenidir: başlatıcı freniyle günü aşabilecek oturumu açmaz, bekler ve operatörü bir kez uyarır; aşama
+toplamı yalnız uyarır; ret değildir. Gerçek sınır aboneliğin kullanım penceresidir (5 saatlik ve
 haftalık kota): takılmak (HTTP 429) operatör uyarısı ve kesintidir, Kurucu reddi değildir; oturum pencere
 açılınca kaldığı yerden sürer. Sonraki oturum öncekinin sonucu önyükleme hakeminde yeşilken başlar.
 Etkinleştirmeden sonra `cost` bölümünde inşa kalemidir.

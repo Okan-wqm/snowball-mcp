@@ -2728,5 +2728,382 @@ class LedgerIndexCapsuleTest(unittest.TestCase):  # E506, owner 2026-11-02 (gap 
 
 
 
+class LauncherBudgetTest(unittest.TestCase):
+    """E530 (the autonomy plan's budget package; the owner's decision of 2026-11-03): before every session the launcher
+    reads `session_cap_usd` and `day_cap_usd` from the referee's policy on main, with the referee's own parser, and the
+    spend from its metrics. The session's brake is the lower of --budget-usd and the session cap; a session that could
+    take the last 24 hours past the day cap does not start, one alert goes to the ops repository and the launcher waits,
+    using up no cycle; the stage's Founder total only alerts. The check fails closed. No test opens a real issue: the
+    sender runs dry, into a file."""
+
+    POLICY = {"constitutional": {
+        "monthly_cap_usd": 300, "stage_params": {"rival_min_attempts": 2, "repeat_reject_limit": 3},
+        "stage_budgets": {"asama_0": {"rival_usd": 30}}, "license_allowlist": ["MIT"], "license_exceptions": {},
+        "session_cap_usd": 15, "day_cap_usd": 100}}
+
+    def setUp(self):
+        self.launch = load_launch()
+        self.work = Path(tempfile.mkdtemp())
+        self.outbox = self.work / "alerts-dry.jsonl"
+        self.waits, self.sessions = [], []
+
+    def policy(self, **const):
+        data = json.loads(json.dumps(self.POLICY))
+        for key, value in const.items():
+            if value is None:
+                data["constitutional"].pop(key, None)
+            else:
+                data["constitutional"][key] = value
+        return data
+
+    def rows(self, *spent, kind=None):
+        """Metrics lines: (hours ago, cost_usd) sessions, and a launcher start's row first."""
+        at = datetime.now(timezone.utc)
+        out = [json.dumps({"kind": "intervention", "ts": at.strftime("%Y-%m-%dT%H:%M:%SZ"), "args": {}})]
+        for hours, cost in spent:
+            stamp = (at - timedelta(hours=hours)).strftime("%Y%m%dT%H%M%SZ")
+            out.append(json.dumps({"stamp": stamp, "cost_usd": cost, "verdict": "accepted"}))
+        return "\n".join(out) + "\n"
+
+    def pilot(self, policy=None, stage=0):
+        launch, test = self.launch, self
+        head = "a" * 40
+        policy = self.policy() if policy is None else policy
+
+        class Pilot(quiet_pilot(launch)):
+            budget = launch.Pilot.budget  # the subject: not quiet_pilot's stub
+
+            def budget_policy(self):
+                if isinstance(policy, BaseException):
+                    raise policy
+                return launch.policy_of(policy)
+
+            def open_stage(self):
+                return stage
+
+            def fetch_result(self):
+                return {"head": head, "verdict": "accepted", "state": {"last_evaluated_sha": head}}
+
+            def brain_head(self):
+                return head
+
+            def ledger_rows(self, sha):
+                return []
+
+            def refresh_inputs(self):
+                pass
+
+            def session(self, stamp, model, max_turns, budget_usd, timeout_s):
+                test.sessions.append(budget_usd)
+                return {"exit": 0, "minutes": 1, "cost_usd": 1.0}
+
+            def wait(self, seconds):
+                test.waits.append(seconds)
+                if test.after_wait is not None:
+                    self.metrics.write_text(test.after_wait, encoding="utf-8")
+
+        self.after_wait = None
+        pilot = Pilot(self.work, "o/brain", "o/referee", "target")
+        pilot.seed = "s" * 40
+        pilot.alerts = launch.alert.Sender("o/ops", dry_run=self.outbox)
+        return pilot
+
+    def args(self, budget_usd=50, cycles=1):
+        return argparse.Namespace(model="m", max_turns=1, budget_usd=budget_usd, session_timeout=60,
+                                  referee_timeout=60, cycles=cycles)
+
+    def sent(self):
+        lines = self.outbox.read_text(encoding="utf-8").splitlines() if self.outbox.is_file() else []
+        return [json.loads(line) for line in lines]
+
+    def test_the_policy_names_the_founders_brakes(self):  # policy_session_above_day_cap policy_founder_usd_unchecked
+        """The referee's parser reads the three keys (`18a`): the two caps from `constitutional`, each stage's
+        `founder_usd` from its block; all optional for the referee, each one that is there a positive whole USD."""
+        from snowball_bootstrap.config import ConfigError, policy_of
+        got = policy_of(self.policy())
+        self.assertEqual((got.session_cap_usd_micros, got.day_cap_usd_micros, got.stage_founder_usd_micros),
+                         (15_000_000, 100_000_000, {}))
+        bare = policy_of(self.policy(session_cap_usd=None, day_cap_usd=None))
+        self.assertEqual((bare.session_cap_usd_micros, bare.day_cap_usd_micros), (None, None))
+        staged = self.policy()
+        staged["constitutional"]["stage_budgets"]["asama_0"]["founder_usd"] = 220
+        staged["constitutional"]["stage_budgets"]["asama_1"] = {"founder_usd": 150}
+        self.assertEqual(policy_of(staged).stage_founder_usd_micros, {0: 220_000_000, 1: 150_000_000})
+        for bad in (0, -1, "15", True, 1.5):
+            for key in ("session_cap_usd", "day_cap_usd"):
+                with self.subTest(key=key, bad=bad), self.assertRaises(ConfigError):
+                    policy_of(self.policy(**{key: bad}))
+            broken = self.policy()
+            broken["constitutional"]["stage_budgets"]["asama_0"]["founder_usd"] = bad
+            with self.subTest(founder_usd=bad), self.assertRaises(ConfigError):
+                policy_of(broken)
+        with self.assertRaisesRegex(ConfigError, "session_cap_usd is above day_cap_usd"):
+            policy_of(self.policy(session_cap_usd=101))
+
+    def test_what_could_not_be_read_counts_at_its_worst(self):
+        # budget_unknown_cost_free budget_bad_cost_free budget_unread_line_free budget_trailing_unread_line_free
+        # budget_intervention_spends
+        """A launcher start spends nothing; a session the CLI did not report on costs the brake it ran under
+        (`budget_usd`, before E530 50 USD); a cost that is no number, a line cut by a power loss or two rows run
+        together counts as a 50 USD session, at the next readable row's time, or now when none follows."""
+        launch = self.launch
+        at = datetime(2026, 11, 3, 12, 0, tzinfo=timezone.utc)
+        lines = [{"kind": "intervention", "ts": "2026-11-03T01:00:00Z"},
+                 {"stamp": "20261103T020000Z", "cost_usd": 4.5, "stage": 0},
+                 {"stamp": "20261103T030000Z", "cost_usd": None, "budget_usd": 15},
+                 {"stamp": "20261103T040000Z", "cost_usd": None},
+                 {"stamp": "20261103T050000Z", "cost_usd": "12"},
+                 {"stamp": "20261103T060000Z", "cost_usd": -3},
+                 {"stamp": "20261103T070000Z", "cost_usd": 2, "stage": 1}]
+        data = [json.dumps(row).encode() for row in lines]
+        data.insert(3, b'{"stamp": "20261103T03')  # cut by a power loss
+        data.insert(5, b"\xff\xfe broken")  # not UTF-8
+        data.append(b'{"stamp": "x", "cost_usd": 1}')  # no time: the newest, counted now
+        spend = launch.session_spend(b"\n".join(data) + b"\n\n", at)
+        hour = lambda h: datetime(2026, 11, 3, h, 0, tzinfo=timezone.utc)  # noqa: E731
+        self.assertEqual(spend, [(hour(2), 4_500_000, 0), (hour(3), 15_000_000, 0), (hour(4), 50_000_000, 0),
+                                 (hour(4), 50_000_000, 0), (hour(5), 50_000_000, 0), (hour(5), 50_000_000, 0),
+                                 (hour(6), 50_000_000, 0), (hour(7), 2_000_000, 1), (at, 50_000_000, 0)])
+        self.assertEqual(launch.session_spend(b"", at), [])
+
+    def test_the_window_leaves_room_for_the_whole_brake(self):
+        # budget_cap_without_the_brake budget_window_too_wide budget_waits_from_the_newest
+        """Any 24 hours, not the calendar day; a session starts only if its whole brake fits under the cap, and the
+        wait runs until the oldest sessions have left the window enough for it, plus a minute."""
+        launch, at = self.launch, datetime(2026, 11, 3, 12, 0, tzinfo=timezone.utc)
+
+        def spend(*pairs):
+            return [(at - timedelta(hours=h), round(usd * 1e6), 0) for h, usd in pairs]
+        brake, cap = 15_000_000, 100_000_000
+        self.assertEqual(launch.day_cap_wait(spend((30, 500), (2, 85)), at, brake, cap), 0)
+        self.assertEqual(launch.day_spent(spend((30, 500), (23.5, 10), (2, 85)), at), 95_000_000)
+        self.assertEqual(launch.day_cap_wait(spend((20, 40), (10, 40), (1, 10)), at, brake, cap), 4 * 3600 + 60)
+        self.assertEqual(launch.day_cap_wait(spend((20, 40), (10, 40), (1, 10)), at, 5_000_000, cap), 0)
+        self.assertEqual(launch.day_cap_wait(spend((20, 10), (10, 80), (1, 10)), at, brake, cap), 14 * 3600 + 60)
+        self.assertEqual(launch.day_cap_wait(spend((23.5, 99)), at, brake, cap), 30 * 60 + 60)  # 30 min left, +1 min
+
+    def test_the_cap_is_hit_no_session_starts_and_one_alert_is_sent(self):
+        # budget_day_cap_ignored budget_wait_uses_up_a_cycle alert_sent_every_check
+        """The plan's test: over the day cap no session starts, the operator gets one alert (label alert:budget) however
+        often the check repeats while the cap holds, and the wait uses up no cycle; once the window frees, the
+        session runs."""
+        launch = self.launch
+        pilot = self.pilot()
+        pilot.metrics.write_text(self.rows((20, 40), (10, 40), (1, 10)), encoding="utf-8")
+        with mock.patch.object(launch, "say"):
+            self.assertTrue(pilot.cycle(1, self.args()))
+            self.assertFalse(pilot.cycle_used)
+            self.assertTrue(pilot.cycle(2, self.args()))
+        self.assertEqual(self.sessions, [])
+        self.assertEqual(len(self.waits), 2)
+        self.assertTrue(all(4 * 3600 - 120 <= w <= 4 * 3600 + 60 for w in self.waits), self.waits)
+        sent = self.sent()
+        self.assertEqual([(s["label"], s["repo"]) for s in sent], [("alert:budget", "o/ops")])
+        self.assertTrue(sent[0]["title"].startswith("[budget:day-cap] no session"))
+        self.assertIn("100 USD day cap", sent[0]["body"])
+        self.assertIn("günlük tavan", (self.work / "pilot-log.md").read_text(encoding="utf-8"))
+        self.sessions.clear()
+        self.waits.clear()
+        self.after_wait = self.rows((30, 40), (10, 40), (1, 10))  # the oldest left the window while it waited
+        with mock.patch.object(launch, "say"):
+            self.assertEqual(launch.run_cycles(pilot, self.args(cycles=1)), "ended")
+        self.assertEqual((self.sessions, len(self.waits), len(self.sent())), ([15], 1, 1))
+
+    def test_the_brake_is_the_lower_of_the_option_and_the_cap(self):  # budget_brake_from_the_option
+        # metrics_row_without_the_brake
+        """--budget-usd can only lower the policy's `session_cap_usd`; the metrics row names the brake and the stage
+        the session ran under, so a session the CLI did not report on is counted at its own brake."""
+        launch = self.launch
+        for option, brake in ((50, 15), (10, 10)):
+            with self.subTest(option=option):
+                self.sessions.clear()
+                pilot = self.pilot()
+                pilot.metrics.write_text(self.rows((1, 5)), encoding="utf-8")
+                with mock.patch.object(launch, "say"):
+                    pilot.cycle(1, self.args(budget_usd=option))
+                self.assertEqual(self.sessions, [brake])
+                row = json.loads(pilot.metrics.read_text(encoding="utf-8").splitlines()[-1])
+                self.assertEqual((row["budget_usd"], row["stage"]), (brake, 0))
+
+    def test_the_stage_cap_only_alerts(self):  # budget_stage_cap_halts budget_stage_cap_unseen
+        # budget_stage_spend_all_stages
+        """The open stage's Founder total at or past `stage_budgets.asama_<k>.founder_usd` sends one alert and the
+        session still starts (the owner's decision: only an alert until the owner sets the cap); only that stage's
+        sessions count."""
+        launch = self.launch
+        staged = self.policy()
+        staged["constitutional"]["stage_budgets"]["asama_1"] = {"rival_usd": 15, "founder_usd": 50}
+        pilot = self.pilot(staged, stage=1)
+        lines = self.rows((60, 40), (50, 40)).splitlines()
+        at = datetime.now(timezone.utc)
+        lines += [json.dumps({"stamp": (at - timedelta(hours=h)).strftime("%Y%m%dT%H%M%SZ"), "cost_usd": 10,
+                              "stage": 1}) for h in (40, 30)]
+        pilot.metrics.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        with mock.patch.object(launch, "say"):
+            pilot.cycle(1, self.args())
+        self.assertEqual((self.sessions, self.sent()), ([15], []))  # Stage 1 spent 20 of 50; Stage 0's 80 not its
+        pilot.metrics.write_text("\n".join(lines + lines[3:] * 2) + "\n", encoding="utf-8")
+        with mock.patch.object(launch, "say"):
+            pilot.cycle(2, self.args())
+        pilot.metrics.write_text("\n".join(lines + lines[3:] * 3) + "\n", encoding="utf-8")
+        with mock.patch.object(launch, "say"):
+            pilot.cycle(3, self.args())
+        self.assertEqual(self.sessions, [15, 15, 15])
+        sent = self.sent()
+        self.assertEqual(len(sent), 1)
+        self.assertTrue(sent[0]["title"].startswith("[budget:stage-cap:asama-1] Stage 1's Founder total"))
+        self.assertIn("spent 60.00 USD", sent[0]["body"])
+
+    def test_the_check_fails_closed(self):  # budget_unreadable_metrics_pass budget_without_caps_starts
+        # budget_unreadable_not_alerted
+        """No session on a budget the launcher cannot read: no metrics file, a policy without both caps or one that
+        does not parse, a stage lock without a stage. Each halts the run (HALT, RUNNING stays) with one alert. GitHub
+        down is an outage (backed off), not a halt."""
+        launch = self.launch
+        from snowball_bootstrap.config import ConfigError
+        cases = {"no metrics": (None, None), "no session cap": (self.policy(session_cap_usd=None), ""),
+                 "no day cap": (self.policy(day_cap_usd=None), ""), "malformed": (ConfigError("bad"), ""),
+                 "not JSON": (ValueError("Expecting value"), ""), "a lock without a stage": ("lock", "")}
+        for name, (policy, metrics) in cases.items():
+            with self.subTest(name):
+                self.sessions.clear()
+                self.outbox.unlink(missing_ok=True)
+                pilot = self.pilot(policy if policy != "lock" else None)
+                if policy == "lock":
+                    pilot.open_stage = mock.Mock(side_effect=ValueError("setup/stage.json names no stage: None"))
+                pilot.metrics.unlink(missing_ok=True)
+                if metrics is not None:
+                    pilot.metrics.write_text(self.rows((1, 1)), encoding="utf-8")
+                with mock.patch.object(launch, "say"), self.assertRaisesRegex(
+                        launch.Halt, r"^the budget cannot be read: .*\(alert: dry run\)$"):
+                    pilot.cycle(1, self.args())
+                self.assertEqual(self.sessions, [])
+                self.assertEqual([s["title"] for s in self.sent()],
+                                 ["[budget:unreadable] no session: the budget check failed closed"])
+        pilot = self.pilot(launch.GitHubUnavailable("gh api: down"))
+        pilot.metrics.write_text(self.rows((1, 1)), encoding="utf-8")
+        with mock.patch.object(launch, "say"), self.assertRaises(launch.GitHubUnavailable):
+            pilot.cycle(1, self.args())
+
+    def test_the_launcher_reads_the_referees_policy_and_lock(self):  # stage_lock_absent_is_an_outage
+        """The policy is main's `policy.json`, parsed by the referee's own `policy_of`; the open stage is the lock's
+        (`setup/stage.json`), Stage 0 while main has none; any other failure to read the lock is an outage."""
+        launch = self.launch
+        pilot = launch.Pilot(self.work, "o/brain", "o/referee", "target")
+        with mock.patch.object(launch, "gh_read", return_value=json.dumps(self.policy()).encode()) as read:
+            self.assertEqual(pilot.budget_policy().day_cap_usd_micros, 100_000_000)
+        self.assertEqual(read.call_args.args[-1], "repos/o/referee/contents/policy.json")
+        self.assertIs(launch.policy_of, __import__("snowball_bootstrap.config").config.policy_of)
+
+        def answer(code, out=b"", err=b""):
+            return mock.patch.object(launch, "run", return_value=subprocess.CompletedProcess([], code, out, err))
+        with answer(1, err=b"gh: Not Found (HTTP 404)"):
+            self.assertEqual(pilot.open_stage(), 0)
+        with answer(0, out=b'{"stage": 1, "pass_row_sha256": "x"}') as call:
+            self.assertEqual(pilot.open_stage(), 1)
+        self.assertIn("repos/o/referee/contents/setup/stage.json", call.call_args.args)
+        with answer(1, err=b"error connecting to api.github.com"), self.assertRaises(launch.GitHubUnavailable):
+            pilot.open_stage()
+        for bad in (b'{"stage": "1"}', b"[]", b'{"stage": -1}'):
+            with answer(0, out=bad), self.assertRaises(ValueError):
+                pilot.open_stage()
+
+    def test_an_alert_opens_once_per_key(self):  # alert_class_unchecked alert_without_label
+        # alert_failure_reads_as_opened
+        """`alert.Sender`: one open issue per key, in the class's label; a class outside the allow-list or a sender
+        without a repository sends nothing; a failed `gh` call is reported, never raised. Real sends go through
+        `gh issue create` with the body on stdin, checked here with a fake `run`."""
+        alert = self.launch.alert
+        self.assertEqual(alert.CLASSES, ("halt", "usage-limit", "heartbeat", "budget", "incident"))
+        dry = alert.Sender(None, dry_run=self.outbox)
+        self.assertEqual(dry.send("budget", "budget:day-cap", "t", "b"), "dry run")
+        self.assertEqual(dry.send("budget", "budget:day-cap", "t2", "b2"), "open #1")
+        self.assertEqual(dry.send("halt", "budget:day-cap", "t", "b"), "dry run")  # another class's label
+        self.assertEqual(dry.send("budget", "budget:unreadable", "t", "b"), "dry run")
+        self.assertTrue(dry.send("secrets", "x", "t", "b").startswith("suppressed"))
+        self.assertTrue(dry.send("budget", "Bad Key", "t", "b").startswith("suppressed"))
+        self.assertEqual(len(self.sent()), 3)
+        calls = []
+
+        def gh(listed, created=(0, b"https://github.com/o/ops/issues/7\n", b"")):
+            def fake(*argv, stdin=None):
+                calls.append((argv, stdin))
+                if argv[:3] == ("gh", "issue", "list"):
+                    return subprocess.CompletedProcess(argv, 0, json.dumps(listed).encode(), b"")
+                return subprocess.CompletedProcess(argv, *created)
+            return fake
+        self.assertEqual(alert.Sender(None, run=gh([])).send("budget", "k", "t", "b"), "no repository")
+        self.assertEqual(calls, [])
+        self.assertEqual(alert.Sender("o/ops", run=gh([])).send("budget", "budget:day-cap", "title", "body"),
+                         "opened #7")
+        self.assertEqual(calls[0][0], ("gh", "issue", "list", "--repo", "o/ops", "--label", "alert:budget", "--state",
+                                       "open", "--limit", "100", "--json", "number,title"))
+        self.assertEqual(calls[1], (("gh", "issue", "create", "--repo", "o/ops", "--label", "alert:budget", "--title",
+                                     "[budget:day-cap] title", "--body-file", "-"), b"body"))
+        calls.clear()
+        listed = [{"number": 3, "title": "[budget:day-cap] older"}, {"number": 4, "title": "[budget:stage-cap] x"}]
+        self.assertEqual(alert.Sender("o/ops", run=gh(listed)).send("budget", "budget:day-cap", "t", "b"), "open #3")
+        self.assertEqual(len(calls), 1)
+        failed = alert.Sender("o/ops", run=gh([], created=(1, b"", b"HTTP 403"))).send("budget", "k", "t", "b")
+        self.assertEqual(failed, "failed: gh issue create: HTTP 403")
+        hung = alert.Sender("o/ops", run=mock.Mock(side_effect=subprocess.TimeoutExpired(["gh"], 120)))
+        self.assertTrue(hung.send("budget", "k", "t", "b").startswith("failed: the open alerts could not be listed"))
+
+    def test_the_preflight_checks_the_ops_repository(self):  # alert_repo_unchecked ops_repo_unread
+        # alert_sender_outside_the_launchers_run ops_option_unused
+        """The alerts go to `--ops` (default Okan-wqm/snowball-ops, the owner's private ops repository of 2026-11-03),
+        through the operator's `gh` login. The preflight fails on a name that is no OWNER/NAME and on a repository that
+        login cannot read, so no alert goes nowhere; until it passes the sender sends nothing. The sender's `gh` calls
+        go through the launcher's own `run` (its limit, and a test's stand-in for it): no test reaches the real
+        repository."""
+        launch = self.launch
+        self.assertEqual(launch.build_parser().parse_args([]).ops, "Okan-wqm/snowball-ops")
+        self.assertIn("--ops", launch.rerun_argv(launch.build_parser(), launch.build_parser().parse_args([])))
+        (self.work / "snowball-founder.env").write_text("x" * 64, encoding="utf-8")
+        (self.work / "target").mkdir(exist_ok=True)
+        calls = []
+
+        def fake(readable):
+            def answer(*argv, **kw):
+                calls.append(argv)
+                if argv[:2] == ("gh", "api") and argv[2] == "repos/o/ops":
+                    return subprocess.CompletedProcess(argv, 0 if readable else 1, b"o/ops\n", b"HTTP 404")
+                if argv[:3] == ("gh", "issue", "list"):
+                    return subprocess.CompletedProcess(argv, 0, b"[]", b"")
+                return subprocess.CompletedProcess(argv, 0, b"https://github.com/o/ops/issues/9\n", b"")
+            return answer
+        for ops, readable, problem in (("o/ops", True, None), ("o/ops", False, "cannot be read with this gh login"),
+                                       ("o/ops extra", True, "names no OWNER/NAME"), ("", True, "names no OWNER/NAME"),
+                                       (None, True, "names no OWNER/NAME")):
+            with self.subTest(ops=ops, readable=readable):
+                calls.clear()
+                pilot = launch.Pilot(self.work, "o/brain", "o/referee", "target")
+                pilot.ops = ops
+                self.assertEqual(pilot.alerts.send("budget", "budget:day-cap", "t", "b"), "no repository")
+                with mock.patch.object(launch, "run", side_effect=fake(readable)), mock.patch.object(launch, "say"), \
+                        mock.patch.object(launch.Pilot, "seed_commit", return_value="5" * 40), \
+                        mock.patch.object(launch.Pilot, "last_epoch", return_value=None):
+                    if problem:
+                        with self.assertRaisesRegex(SystemExit, problem):
+                            pilot.preflight()
+                        self.assertEqual(pilot.alerts.send("budget", "budget:day-cap", "t", "b"), "no repository")
+                        continue
+                    pilot.preflight()
+                    self.assertIn(("gh", "api", "repos/o/ops", "--jq", ".full_name"), calls)
+                    self.assertEqual(pilot.alerts.send("budget", "budget:day-cap", "t", "b"), "opened #9")
+                self.assertEqual([c[:3] for c in calls[-2:]], [("gh", "issue", "list"), ("gh", "issue", "create")])
+        seen = {}
+
+        class Started(launch.Pilot):
+            def preflight(self):
+                seen["ops"] = self.ops
+                sys.exit("preflight stopped by the test")
+        with mock.patch.object(launch, "Pilot", Started), mock.patch.object(launch, "say"), \
+                mock.patch.object(launch.shutil, "which", return_value="/usr/bin/tool"), \
+                self.assertRaises(SystemExit):
+            launch.main(["--ops", "x/alerts", "--work", str(self.work)])
+        self.assertEqual(seen, {"ops": "x/alerts"})
+
+
 if __name__ == "__main__":
     unittest.main()

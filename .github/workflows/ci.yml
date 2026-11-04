@@ -80,7 +80,7 @@ jobs:
       max-parallel: 16
       matrix:
         # at most 15 mutants a shard: at the worst seen 3 minutes a mutant a shard ends in 45 of its 60 (E410, E502)
-        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67]
+        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -89,7 +89,7 @@ jobs:
         working-directory: seed/bootstrap
         env:
           SHARD: ${{ matrix.shard }}
-        run: python3 local/mutate.py --shard "$SHARD/68"
+        run: python3 local/mutate.py --shard "$SHARD/70"
 
   fixture-mutation:
     if: github.event_name != 'pull_request' && (github.event_name != 'push' || github.ref == 'refs/heads/main')

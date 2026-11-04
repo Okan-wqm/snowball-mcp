@@ -93,6 +93,9 @@ def quiet_pilot(launch):
 
         def stop_orphans(self):  # the machine's docker; `LauncherEndStateTest` tests the stop (E528)
             return True
+
+        def budget(self, n, args):  # the referee's policy and the metrics; `LauncherBudgetTest` tests the check (E530)
+            return args.budget_usd
     return Quiet
 
 

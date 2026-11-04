@@ -3,12 +3,14 @@
 One cycle:
   1. download the referee's last signed result (`bootstrap-state` artifact of the referee's main branch);
   2. rebuild <work>/vec from the `vectors/` of the referee repo's main (E244); if that fails, no session: HALT;
-  3. stop any capsule of this work folder still running (E528), then run one Founder session in the capsule
+  3. hold the session to the referee policy's caps (E530): its brake is `session_cap_usd`, and no session starts that
+     could take the last 24 hours past `day_cap_usd` (one alert, a wait, no cycle used); the stage cap only alerts;
+  4. stop any capsule of this work folder still running (E528), then run one Founder session in the capsule
      (seed/founder/Dockerfile);
-  4. if the brain moved, dispatch the referee (its schedule fires rarely and irregularly, E32) and wait for it;
-  5. write the session's cost as a `kind: cost` founder row on the brain's main (`tohum/24a` 4), when that commit is
+  5. if the brain moved, dispatch the referee (its schedule fires rarely and irregularly, E32) and wait for it;
+  6. write the session's cost as a `kind: cost` founder row on the brain's main (`tohum/24a` 4), when that commit is
      memory alone to the referee; otherwise keep it in <work>/cost-pending.jsonl for a later cycle;
-  6. append what happened to <work>/pilot-log.md (with the brain's open reports and their age) and one metrics line
+  7. append what happened to <work>/pilot-log.md (with the brain's open reports and their age) and one metrics line
      that names what the cycle ran on (prompt, image, model, CLI, seed, rival configuration, target commit).
 
 Everything lives in one folder, <work> (the operator deletes it to remove the pilot):
@@ -33,11 +35,14 @@ Everything lives in one folder, <work> (the operator deletes it to remove the pi
                                 continues that run (E505, E528). No secret is in it
   <work>/HALT                   the run waits for the operator (JSON: why, when, the cycles left; E528): five failures
                                 in a row, a capsule of this folder that would not stop, vector inputs that cannot be
-                                rebuilt, or a fourth resume in a row with no cycle ended between. RUNNING stays;
+                                rebuilt, a budget that cannot be read (E530), or a fourth resume in a row with no
+                                cycle ended between. RUNNING stays;
                                 `--resume` does nothing while HALT exists; the operator removes it and the task resumes
                                 the run, or starts one by hand, which replaces it
 
-The operator's own `gh` login dispatches the referee and reads results; it never enters the capsule. It writes to the
+The operator's own `gh` login dispatches the referee and reads results; it never enters the capsule. It also opens
+the operator's alerts (alert.py, E530) as issues in the private ops repository `--ops`; the preflight checks it can read
+that repository, so no alert goes nowhere. It writes to the
 brain only the cost rows, as the launcher's own identity, through git's `gh` credential helper.
 
 Resume (E505): `--install-service` registers a Windows Scheduled Task for the current user (no admin) that runs
@@ -72,17 +77,20 @@ import tempfile
 import time
 import xml.sax.saxutils
 import zipfile
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 SEED = HERE.parent
 sys.path.insert(0, str(SEED / "bootstrap"))
 from snowball_bootstrap import canon, gitio, ledgercheck  # noqa: E402  (the chain rule, the referee's git and ledger check)
+from snowball_bootstrap.config import REPO_RE, ConfigError, policy_of  # noqa: E402  (the referee's policy parser, E530)
 from snowball_bootstrap.classify import (LEDGER_FILE, SEED_DIRS, is_founder_record,  # noqa: E402  (what is memory
                                          is_seed_path)  # and what is the operator's delivery to the referee)
 from snowball_bootstrap.decide import counts_against_founder  # noqa: E402  (the referee's rule, not a copy)
 from snowball_bootstrap.vectors import founder_inputs  # noqa: E402  (the referee's projection, not a copy: E244)
+sys.path.insert(0, str(HERE))
+import alert  # noqa: E402  (the operator's alerts, E530)
 IMAGE = "snowball-founder:pilot"
 REFEREE_WORKFLOW = "bootstrap.yml"
 STATE_ARTIFACT = "bootstrap-state"
@@ -174,6 +182,12 @@ def say(msg: str) -> None:
     print(f"[{now()}] {msg}", flush=True)
 
 
+def alert_run(*argv: str, stdin: bytes | None = None) -> subprocess.CompletedProcess:
+    """The alerts' `gh` calls (alert.py) through this launcher's own `run`: the same limit, and a test that stands in
+    for `run` stands in for them too, so no test reaches the real ops repository (E530)."""
+    return run(*argv, check=False, timeout=alert.GH_TIMEOUT_S, stdin=stdin)
+
+
 def reason_owner(reason: dict) -> str:
     """Whose move a rejection reason asks for, by the referee's own rule (one source of truth): the measure of
     whether every rejection the Founder sees is one it can act on (E166, E167)."""
@@ -243,6 +257,82 @@ def session_end(sess: dict) -> str:
     if sess.get("subtype") in BRAKE_SUBTYPES:
         return "brake"
     return "exit" if sess.get("exit") == 0 else "error"
+
+
+# E530: the Founder's spend, held to the referee policy's caps before every session.
+STAMP_FORMAT = "%Y%m%dT%H%M%SZ"  # a session's stamp: when it started
+TS_FORMAT = "%Y-%m-%dT%H:%M:%SZ"  # `now()`'s: a launcher start's metrics row
+DAY_WINDOW_S = 24 * 3600  # `day_cap_usd` holds in any 24 hours, not per calendar day
+LEGACY_BRAKE_USD = 50  # the --budget-usd every session ran under before its metrics row named its brake
+OPS_REPO = "Okan-wqm/snowball-ops"  # --ops: the private repository the alerts open issues in (E530, alert.py)
+
+
+def _row_time(row: dict) -> datetime | None:
+    for key, form in (("stamp", STAMP_FORMAT), ("ts", TS_FORMAT)):
+        try:
+            return datetime.strptime(str(row[key]), form).replace(tzinfo=timezone.utc)
+        except (KeyError, ValueError):
+            continue
+    return None
+
+
+def _row_cost(row: dict) -> int:
+    """A session row's spend in micro-USD: the CLI's `cost_usd`; one the CLI did not report (a session killed at its
+    limit) is the brake it ran under (`budget_usd`, before E530 LEGACY_BRAKE_USD); a cost that is not a number is
+    the worst brake."""
+    cost = row.get("cost_usd")
+    if cost is None:
+        cost = row.get("budget_usd", LEGACY_BRAKE_USD)
+    if isinstance(cost, bool) or not isinstance(cost, (int, float)) or not 0 <= cost < float("inf"):
+        cost = LEGACY_BRAKE_USD
+    return round(cost * 1_000_000)
+
+
+def session_spend(data: bytes, at: datetime) -> list[tuple[datetime, int, int]]:
+    """Every session's (start, micro-USD, stage) in pilot-metrics.jsonl's bytes (E530). A launcher start's row spends
+    nothing. A line the budget cannot read (cut by a power loss, two rows run together, no time) is counted as a
+    session at LEGACY_BRAKE_USD at the time of the next row that has one, or `at` when none follows: the spend is
+    never lowered by what could not be read, and a cut line does not stop the run. A row without `stage` is Stage
+    0's (every row before E530 is)."""
+    out: list[tuple[datetime, int, int]] = []
+    unread = 0
+    for line in data.splitlines():
+        if not line.strip():
+            continue
+        try:
+            row = json.loads(line.decode("utf-8"))
+        except ValueError:  # UnicodeDecodeError and JSONDecodeError
+            row = None
+        when = _row_time(row) if isinstance(row, dict) else None
+        if when is None:
+            unread += 1
+            continue
+        out += [(when, LEGACY_BRAKE_USD * 1_000_000, 0)] * unread
+        unread = 0
+        if row.get("kind") != INTERVENTION:
+            stage = row.get("stage", 0)
+            out.append((when, _row_cost(row), stage if type(stage) is int else 0))
+    return out + [(at, LEGACY_BRAKE_USD * 1_000_000, 0)] * unread
+
+
+def day_spent(spend: list[tuple[datetime, int, int]], at: datetime) -> int:
+    """What the sessions that started in the 24 hours before `at` spent, in micro-USD."""
+    return sum(usd for when, usd, _stage in spend if (at - when).total_seconds() < DAY_WINDOW_S)
+
+
+def day_cap_wait(spend: list[tuple[datetime, int, int]], at: datetime, brake: int, cap: int) -> int:
+    """Seconds until a session under `brake` cannot take the last 24 hours past `cap` (micro-USD), plus a minute; 0 when
+    it can start now. The cap holds whatever the session spends, so the window must leave room for its whole brake;
+    the oldest sessions leave the window first, each 24 hours after it started."""
+    window = sorted((when, usd) for when, usd, _stage in spend if (at - when).total_seconds() < DAY_WINDOW_S)
+    total = sum(usd for _when, usd in window)
+    if total + brake <= cap:
+        return 0
+    for when, usd in window:
+        total -= usd
+        if total + brake <= cap:
+            return max(60, int((when + timedelta(seconds=DAY_WINDOW_S) - at).total_seconds()) + 60)
+    return DAY_WINDOW_S  # a brake above the cap: `policy_of` refuses that policy, so never reached
 
 
 def prompt_sha256() -> str:
@@ -449,6 +539,9 @@ class Pilot:
         # in a row (the breaker), usage limits in a row; and whether the last cycle used one up (a limit's does not).
         self.idle = self.failures = self.limit_waits = 0
         self.cycle_used = True
+        self.stage = 0  # the open stage the last budget check read (E530)
+        self.ops = OPS_REPO  # the alerts' repository (--ops); start() sets the option's
+        self.alerts = alert.Sender(None)  # sends nothing until the preflight has checked the ops repository (E530)
 
     # ---- checks -------------------------------------------------------------------------------------------
     def stopped(self) -> bool:
@@ -469,6 +562,14 @@ class Pilot:
             self.epoch = self.last_epoch()
             if not re.fullmatch(r"[0-9a-f]{40}", self.seed):
                 problems.append(f"{self.referee} setup/summary.json has no seed_commit")
+            if not REPO_RE.match(self.ops or ""):
+                problems.append(f"--ops {self.ops!r} names no OWNER/NAME repository: the alerts (E530) would reach "
+                                "nobody")
+            elif not ready("gh", "api", f"repos/{self.ops}", "--jq", ".full_name"):
+                problems.append(f"the ops repository {self.ops} cannot be read with this gh login: the alerts (E530) "
+                                "would reach nobody")
+            else:
+                self.alerts = alert.Sender(self.ops, run=alert_run)
         if problems:
             sys.exit("preflight failed:\n  " + "\n  ".join(problems))
         self.result_dir.mkdir(exist_ok=True)
@@ -746,6 +847,84 @@ class Pilot:
             return {"id": run_id, "conclusion": "github_unavailable", "url": ""}
         return {"id": run_id, "conclusion": "still_running", "url": ""}
 
+    # ---- the budget (E530) ---------------------------------------------------------------------------------
+    def budget_policy(self):
+        """The referee's policy on main, parsed by the referee's own `policy_of`; GitHubUnavailable while GitHub
+        cannot serve it, ValueError (ConfigError) when it does not parse."""
+        raw = gh_read("api", "-H", "Accept: application/vnd.github.raw", f"repos/{self.referee}/contents/policy.json")
+        return policy_of(json.loads(raw))
+
+    def open_stage(self) -> int:
+        """The stage the referee's lock `setup/stage.json` opened on main (`26c`); 0 without a lock."""
+        try:
+            proc = run("gh", "api", "-H", "Accept: application/vnd.github.raw",
+                       f"repos/{self.referee}/contents/setup/stage.json", check=False, timeout=120)
+        except subprocess.TimeoutExpired:
+            raise GitHubUnavailable("gh api setup/stage.json: timed out") from None
+        if proc.returncode != 0:
+            err = proc.stderr.decode(errors="replace")
+            if "HTTP 404" in err:
+                return 0
+            raise GitHubUnavailable(f"gh api setup/stage.json: {err.strip()[-300:]}")
+        lock = json.loads(proc.stdout)
+        stage = lock.get("stage") if isinstance(lock, dict) else None
+        if type(stage) is not int or stage < 0:
+            raise ValueError(f"setup/stage.json names no stage: {stage!r}")
+        return stage
+
+    def budget_alert(self, key: str, title: str, body: str) -> str:
+        """One budget alert to the operator (`alert`): what became of it, said and returned."""
+        sent = self.alerts.send("budget", key, title, body)
+        say(f"alert {key}: {sent}")
+        return sent
+
+    def budget(self, n: int, args) -> int | None:
+        """The session's brake in whole USD, or None when the day cap holds the session back (E530; `18a`, `24a`).
+        Read before every session from the referee's policy on main and this folder's metrics: the brake is the
+        lower of --budget-usd and `session_cap_usd`; a session that could take the last 24 hours past `day_cap_usd`
+        does not start: the operator gets one alert and the launcher waits until one could, using up no cycle. The
+        open stage's Founder total at or past `stage_budgets.asama_<k>.founder_usd` only alerts (the owner's decision
+        of 2026-11-03). Fails closed: a policy without both caps or one that does not parse, a stage lock that names
+        no stage, or a metrics file that cannot be read halts the run, alerted; GitHub down is an outage."""
+        try:
+            policy = self.budget_policy()
+            if policy.session_cap_usd_micros is None or policy.day_cap_usd_micros is None:
+                raise ConfigError("policy.json.constitutional names no session_cap_usd or no day_cap_usd")
+            stage = self.open_stage()
+            at = datetime.now(timezone.utc)
+            spend = session_spend(self.metrics.read_bytes(), at)
+        except (OSError, ValueError) as exc:  # a ConfigError, a broken policy or lock, a metrics file not read
+            why = f"the budget cannot be read: {type(exc).__name__}: {str(exc)[:300]}"
+            sent = self.budget_alert("budget:unreadable", "no session: the budget check failed closed", why)
+            raise Halt(f"{why} (alert: {sent})") from None
+        brake = min(args.budget_usd, policy.session_cap_usd_micros // 1_000_000)
+        stage_cap = policy.stage_founder_usd_micros.get(stage)
+        stage_spent = sum(usd for _when, usd, row_stage in spend if row_stage == stage)
+        if stage_cap is not None and stage_spent >= stage_cap:
+            text = (f"Stage {stage}'s Founder sessions spent {stage_spent / 1e6:.2f} USD; its cap "
+                    f"(stage_budgets.asama_{stage}.founder_usd) is {stage_cap / 1e6:.0f} USD. The sessions go on.")
+            sent = self.budget_alert(f"budget:stage-cap:asama-{stage}",
+                                     f"Stage {stage}'s Founder total is past its cap", text)
+            self.write(f"\n- {now()} döngü {n}: aşama {stage} Kurucu toplamı {stage_spent / 1e6:.2f} USD, tavanı "
+                       f"{stage_cap / 1e6:.0f} USD: yalnız uyarı, oturum açılır (uyarı: {sent})\n")
+        cap = policy.day_cap_usd_micros
+        wait_s = day_cap_wait(spend, at, brake * 1_000_000, cap)
+        if wait_s:
+            spent = day_spent(spend, at)
+            text = (f"The last 24 hours' sessions spent {spent / 1e6:.2f} USD; a session under its {brake} USD brake "
+                    f"could pass the {cap / 1e6:.0f} USD day cap (day_cap_usd). No session for {wait_s // 60} min; "
+                    "the launcher waits and uses up no cycle.")
+            sent = self.budget_alert("budget:day-cap", "no session: the day cap holds the sessions back", text)
+            say(f"cycle {n}: {text}")
+            self.write(f"\n- {now()} döngü {n}: günlük tavan: son 24 saatte {spent / 1e6:.2f} USD, oturum freni "
+                       f"{brake} USD, tavan {cap / 1e6:.0f} USD; oturum yok, {wait_s // 60} dk bekleniyor, döngü "
+                       f"harcanmaz (uyarı: {sent})\n")
+            self.cycle_used = False
+            self.wait(wait_s)
+            return None
+        self.stage = stage
+        return brake
+
     # ---- the session --------------------------------------------------------------------------------------
     def session_logs(self, stamp: str) -> Path:
         return self.logs / stamp
@@ -946,7 +1125,7 @@ class Pilot:
 
     def cycle(self, n: int, args) -> bool:
         """One cycle; False when the run ends deliberately. Halt when it cannot go on without the operator (E528)."""
-        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        stamp = datetime.now(timezone.utc).strftime(STAMP_FORMAT)
         prior = self.fetch_result()
         before = self.brain_head()
         if (before != self.seed and not self.evaluated(prior, before) and not self.stopped()
@@ -960,6 +1139,9 @@ class Pilot:
             if caught_up is None:  # a session now would read an older verdict and work blind (E168, E248)
                 raise NoVerdict(f"{before[:7]} is still unjudged (referee run {dispatched['conclusion']})")
             prior = caught_up
+        brake = self.budget(n, args)
+        if brake is None:  # the day cap: no session now, waited out without using up a cycle (E530)
+            return not self.stopped()
         rows_before = self.ledger_rows(before)
         try:
             self.refresh_inputs()
@@ -979,7 +1161,7 @@ class Pilot:
         self.previous_session_note(stamp, args.session_timeout, prior)
         if not self.stop_orphans():  # no listing, no session: two writers on the brain are never allowed (E528)
             raise DockerUnavailable("docker ps did not answer: no session beside a capsule it cannot see")
-        sess = self.session(stamp, args.model, args.max_turns, args.budget_usd, args.session_timeout)
+        sess = self.session(stamp, args.model, args.max_turns, brake, args.session_timeout)
         end = session_end(sess)
         after = self.brain_head()
         rows_after = self.ledger_rows(after)
@@ -1030,7 +1212,7 @@ class Pilot:
         self.record_metrics({
             "stamp": stamp, "brain_before": before, "brain_after": after, "pushed": after != before,
             "session_exit": sess.get("exit"), "minutes": sess.get("minutes"), "turns": sess.get("turns"),
-            "session_timeout_s": args.session_timeout,
+            "session_timeout_s": args.session_timeout, "budget_usd": brake, "stage": self.stage,
             "cost_usd": sess.get("cost_usd"), "verdict": (verdict or {}).get("verdict"), "kind": (verdict or {}).get("kind"),
             "reasons": [{"kind": r.get("kind"), "ref": r.get("ref"), "owner": reason_owner(r)}
                         for r in (verdict or {}).get("reasons", [])],
@@ -1105,10 +1287,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--brain", default="Okan-wqm/snowball-rehearsal-brain")
     p.add_argument("--referee", default="Okan-wqm/snowball-rehearsal-referee")
     p.add_argument("--target", default="aquaculture_platform")
+    p.add_argument("--ops", default=OPS_REPO, help="the private repository the operator's alerts open issues in (E530)")
     p.add_argument("--cycles", type=int, default=1)
     p.add_argument("--model", default="claude-opus-5-5")
     p.add_argument("--max-turns", type=int, default=200)
-    p.add_argument("--budget-usd", type=int, default=50, help="runaway brake per session, not a budget")
+    p.add_argument("--budget-usd", type=int, default=50,
+                   help="runaway brake per session, not a budget; the referee policy's session_cap_usd caps it (E530)")
     p.add_argument("--session-timeout", type=int, default=3 * 3600)
     p.add_argument("--referee-timeout", type=int, default=90 * 60)
     p.add_argument("--no-build", action="store_true")
@@ -1154,6 +1338,7 @@ def start(parser: argparse.ArgumentParser, args) -> int:
         if shutil.which("gh") is None or shutil.which("docker") is None:
             sys.exit("gh and docker must be on PATH")
         pilot = Pilot(args.work, args.brain, args.referee, args.target)
+        pilot.ops = args.ops  # the alerts' repository (E530)
         pilot.idle = int(intent.state.get("idle") or 0) if args.resume else 0
         pilot.failures = intent.count("failures") if args.resume else 0
         pilot.limit_waits = intent.count("limit_waits") if args.resume else 0

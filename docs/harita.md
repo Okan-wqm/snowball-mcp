@@ -391,7 +391,7 @@ Every subcommand of `cli.py`, the jobs that run it, and the package modules its 
 
 ## 3. Launcher links
 
-`seed/founder/launch.py` runs on the operator's machine and imports 6 referee modules, so the launcher applies the referee's own rules instead of a copy (E244). Through them it loads 16: `canon`, `classify`, `config`, `container`, `decide`, `exitchecks`, `gitio`, `ledgercheck`, `reproduce`, `rival`, `secretscan`, `stages`, `state`, `treehash`, `vectors`, `wiring`.
+`seed/founder/launch.py` runs on the operator's machine and imports 7 referee modules, so the launcher applies the referee's own rules instead of a copy (E244). Through them it loads 16: `canon`, `classify`, `config`, `container`, `decide`, `exitchecks`, `gitio`, `ledgercheck`, `reproduce`, `rival`, `secretscan`, `stages`, `state`, `treehash`, `vectors`, `wiring`.
 
 ```mermaid
 flowchart LR
@@ -400,6 +400,7 @@ flowchart LR
     m_canon["canon"]
     m_gitio["gitio"]
     m_ledgercheck["ledgercheck"]
+    m_config["config"]
     m_classify["classify"]
     m_decide["decide"]
     m_vectors["vectors"]
@@ -407,6 +408,7 @@ flowchart LR
   launcher -->|module| m_canon
   launcher -->|module| m_gitio
   launcher -->|module| m_ledgercheck
+  launcher -->|REPO_RE, ConfigError, policy_of| m_config
   launcher -->|LEDGER_FILE, SEED_DIRS, is_founder_record, is_seed_path| m_classify
   launcher -->|counts_against_founder| m_decide
   launcher -->|founder_inputs| m_vectors

@@ -16,7 +16,8 @@ Performans değerleri `18b`'dedir ve `18`'deki prosedürle değişir. Adlar `26b
 |---|---|---|
 | `monthly_cap_usd` | Operatör yazar; öneri 300 USD; kaçak freni (`06`) | `06`, Gözcü (`28`), önyükleme hakemi (`29b`) |
 | `monthly_cap_ci_minutes` | 1.800 dk (Free özel repo kotası 2.000; açık repoda kota yok, tavan fren olarak kalır; önyükleme hakemi ölçmez, Aşama 0'da fren GitHub harcama sınırıdır, `25` 8) | `01b`, `06`, `28` |
-| `session_cap_usd` | Kurucu oturumu başına 20 USD (`--max-budget-usd`); kaçak freni | `24` |
+| `session_cap_usd` | Kurucu oturumu başına 15 USD (`--max-budget-usd`; sahip, 2026-11-03); kaçak freni | başlatıcı (`24a`) |
+| `day_cap_usd` | Kurucu oturumlarının herhangi 24 saatteki toplamı 100 USD (sahip, 2026-11-03); freniyle bunu aşabilecek oturum açılmaz, başlatıcı bekler ve operatörü bir kez uyarır; `session_cap_usd`'den küçük olamaz | başlatıcı (`24a`) |
 | `shares` | Keşif ≤ %30, üretim ≤ %40, ölçüm ≤ %20, genel ≤ %10 | `06` |
 | `class_floors.K0` | `{kind: census, misses: 0}`; clean'de FP 0 | `19`, aşama çıkışları |
 | `class_floors.K1`, `K2`, `K4` | Kural sayımı, sıfır kaçırma (deterministik sarıcı, `19`) | `19` |
@@ -55,7 +56,7 @@ Performans değerleri `18b`'dedir ve `18`'deki prosedürle değişir. Adlar `26b
 | `stage_params.rival_min_attempts` | Aşama başına rakipten sağ çıkmış 5 ayrı artefakt, artefakt başına 1 deneme | `asama-0/10`, `29`, `29b` |
 | `stage_params.repeat_reject_limit` | Aynı imzalı 3 ardışık ret → `not_learning` | `24`, `29b` |
 | `stage_budgets` | Aşama sayfalarının bütçe tabloları; toplamdır, aylık tavan ayrıca bağlar. Değerler kaçak frenidir, kısıt değil (`06`). Güvenlik avcısının kendi satırı `<aşama>.security_hunter_usd`'dir; yazılmamışsa avcı koşmaz | aşama bütçe sayfaları, P1'den Gözcü, önyükleme hakemi (`29b`), güvenlik avcısı (`30f`) |
-| `stage_budgets.asama_0.founder_usd` | Başlangıç fren değeri 220 USD; ölçüm ~22 oturumdur, kapı değil | başlatıcı (`24`), `asama-0/12` |
+| `stage_budgets.asama_0.founder_usd` | Başlangıç fren değeri 220 USD; ölçüm ~22 oturumdur, kapı değil; sahip tavanı belirleyene kadar yalnız uyarır, oturumu durdurmaz (2026-11-03) | başlatıcı (`24a`), `asama-0/12` |
 | `stage_budgets.asama_0.rival_usd` | Başlangıç fren değeri 25 USD | önyükleme hakemi (`29b`), `asama-0/12` |
 | `stage_budgets.asama_0.canary_usd` | Başlangıç fren değeri 1 USD; çağrı başına ayrıca `--max-budget-usd` | `llm.call`, `asama-0/12` |
 | `stage_budgets.asama_1.rival_usd` | Başlangıç fren değeri 15 USD; harcama kilidin açılışından sayılır, kilit onsuz açılmaz (`26e`) | önyükleme hakemi (`29b`), `stage-open`, `asama-1/10` |

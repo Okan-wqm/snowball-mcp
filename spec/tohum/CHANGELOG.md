@@ -4,6 +4,11 @@ Tarih: 2026-10-29 · Sürüm: 2.2
 Okunma: bir sayfanın geçmişi aranırken
 Çapa: git geçmişi ve zincirdeki spec hash satırları
 
+- 2.2 (2026-11-03, E530; sahibin kararı (2026-11-03), uzman paneli): Kurucu'nun bütçesi zorunludur. Başlatıcı her
+  oturumdan önce hakem reposunun `main`'indeki `policy.json`'dan `session_cap_usd`'yi (15 USD, oturumun freni) ve yeni
+  `day_cap_usd`'yi (100 USD, herhangi 24 saat) okur; freniyle günlük tavanı aşabilecek oturum açılmaz, başlatıcı bekler
+  ve operatörü bir kez uyarır; `stage_budgets.asama_<k>.founder_usd` yalnız uyarır. İki tavan yoksa ya da harcama
+  okunamazsa oturum açılmaz (`18a`, `24a`, `26b`, `asama-0/12`).
 - 2.2 (2026-11-03, E531; sahibin kararı (2026-11-03), uzman paneli): kapsül ajan ve skill tanımlarını hakemin beyinde
   son kabul ettiği commit'ten (imzalı sonucun `state.last_accepted_sha`'sı) yükler, `HEAD`'den değil: reddedilmiş ya da
   yargılanmamış push'un tanımı yüklenmez; ajanın `model`'i sahibin model kuralındadır, başkası düşer (`24a`).
