@@ -479,8 +479,8 @@ class ImportRowTest(ImportCase):
         """E543 (the Founder's report seed-048 (b)): the PASS row needs the (A) result's `exit.owner_exception`, and the
         import kept only its hash. It writes the result it verified, byte for byte, as
         `setup/results/<result_sha256>.json` in the commit of its row (`26c`), no bundle; a rerun of the same result
-        keeps the file it finds, and a main holding other bytes there, or a link, is refused before anything is
-        written."""
+        keeps the file it finds, and a main holding other bytes there, a link, or the same bytes as an executable is
+        refused before anything is written."""
         row = self.run_import()
         signed = stagelock.result_file(row["result_sha256"])
         self.assertEqual(signed, f"setup/results/{row['result_sha256']}.json")
@@ -491,8 +491,10 @@ class ImportRowTest(ImportCase):
                          main_of(self.referee)).decode().split()
         self.assertEqual([c for c in changed if c.startswith("setup/")], ["setup/imports.jsonl"])
         self.assertEqual(tree_files(self.referee)[signed], self.result.read_bytes())
-        for held in (self.result.read_bytes() + b" ", ("120000", self.result.read_bytes())):
-            with self.subTest(held=type(held).__name__):
+        signed_bytes = self.result.read_bytes()
+        for label, held in (("other bytes", signed_bytes + b" "), ("a link", ("120000", signed_bytes)),
+                            ("an executable", ("100755", signed_bytes))):
+            with self.subTest(label):
                 self.set_main({signed: held})
                 self.refused("is not the signed result's bytes as a plain file")
         self.set_main({signed: self.result.read_bytes()})

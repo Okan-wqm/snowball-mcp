@@ -1770,7 +1770,7 @@ MUTANTS = [
      " or gitio.file_at(bare, main, signed) != result_bytes):", "):",
      "E543: other bytes at the result's path stand for the signed result the row names"),
     ("import_result_mode_unchecked", f"{PKG}/importer.py", '    if held and (held[0] != "100644" or ',
-     "    if held and (", "E543: a link at the result's path is kept as the signed result"),
+     "    if held and (", "E543: the result's bytes as an executable are kept as the signed result"),
     ("import_row_unchained", f"{PKG}/importer.py", '    row["prev_hash"] = prev', '    row["prev_hash"] = stagelock.ZERO',
      "E275, 26: every row starts a chain of its own"),
     ("import_row_without_stage", f"{PKG}/importer.py", 'row: dict = {"ts": _now(), "stage": stage}',
