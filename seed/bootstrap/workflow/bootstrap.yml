@@ -11,8 +11,9 @@
 # key is held anywhere while this system is for internal use. The brain repository is public while the system
 # is for internal use, so it is read without any identity (tohum/25, 01a).
 # From the seed epoch that pins the private exam (setup/summary.json seed_epochs[-1].exam_sha256, E516): the
-# Environment `answers` (deployment branches: main only) holds secrets.ANSWERS_KEY, a read-only deploy key of the
-# exam store, and secrets.EXAM_REPO, its owner/name (seed/founder/README.md "Özel sınav"). Before that epoch the
+# Environment `answers` (deployment branches: main only) holds secrets.ANSWERS_KEY, a read-only deploy key of kos's
+# own repository (the files kos reads of each pinned version, nothing else; never the exam store, E522), and
+# secrets.EXAM_REPO, that repository's owner/name (seed/founder/README.md "Özel sınav"). Before that epoch the
 # jobs and steps that need them are skipped and the result is the one this workflow always signed.
 # An Environment job never runs brain or target code: no docker in it (test_integration T8 lint).
 #
@@ -32,7 +33,7 @@
 #   gozcu   nothing; the static watchers on the pulled push (pinned exam only) - runs no brain code
 #           (their findings are published in kos, under the epoch's private watcher parameters)
 #   kos_hedef  nothing; the copy target at its base inside --network none containers (pinned exam only)
-#   kos     Environment answers: the exam store's read key, in its fetch step only (pinned exam only); joins the
+#   kos     Environment answers: kos's own store's read key, in its fetch step only (pinned exam only); joins the
 #           parts' records, judging the vectors on their answers - runs no brain code
 #   cagir   Environment rival: operator's Claude login (CLAUDE_CODE_OAUTH_TOKEN) - runs no brain code
 #   yeniden nothing; reproducers only inside --network none containers
@@ -316,7 +317,10 @@ jobs:
     # answers in the single job's order. A part that failed, is missing or does not add up fails this job (`kos:failure`).
     # Under a pinned exam (E516) the vectors are judged on the private exam store's answers: the read key is in the
     # fetch step's env alone, and the store is shredded before the job ends. No container runs in this job (T8). The
-    # same store's watcher parameters publish `gozcu`'s findings (the one istismar rule, salted evidence hashes).
+    # same store's watcher parameters publish `gozcu`'s findings (the one istismar rule, salted evidence hashes). The
+    # fetch takes the pinned version's manifest, visible answers, watcher parameters and K6 summary and nothing else,
+    # from a repository that holds nothing else (`fetch-exam`, `answers.KOS_FILES`, E522): this job parses archives the
+    # Founder's code produced, so the held set and the K6 exam are never on its runner nor within its key's reach.
     needs: [cek, getir, kos_parca, kos_hedef, gozcu]
     if: >-
       !cancelled() && needs.cek.outputs.run_tests == 'true' && needs.getir.result == 'success'
@@ -375,8 +379,8 @@ jobs:
           umask 077
           printf '%s\n' "$ANSWERS_KEY" > "$key"
           printf '%s\n' "github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl" > "$RUNNER_TEMP/exam-hosts"
-          export GIT_SSH_COMMAND="ssh -i $key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$RUNNER_TEMP/exam-hosts"
-          git clone --quiet --depth 1 --no-tags "git@github.com:$EXAM_REPO.git" exam > /dev/null 2>&1
+          python3 -m snowball_bootstrap fetch-exam --root snap --repo "$EXAM_REPO" --key "$key" \
+            --known-hosts "$RUNNER_TEMP/exam-hosts" --out exam
       - id: run
         name: Join the parts and judge the vectors on their answers (no container)
         run: >

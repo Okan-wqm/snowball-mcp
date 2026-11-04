@@ -13,6 +13,8 @@ import importlib.util
 import io
 import json
 import re
+import shutil
+import subprocess
 import sys
 import tarfile
 import tempfile
@@ -82,7 +84,7 @@ READ = object()  # `pinned`'s default run: green, with the pinned exam read and 
 
 
 def k6_field(status):
-    """A signed `k6` field as `k6.public_field` writes it (E520): the public keys alone."""
+    """A signed `k6` field as `k6.signed_field` writes it (E520): the public keys alone."""
     return {"status": status, "fell_from_live": False, "exam_sha256": PIN, "scope": k6.SCOPE, "sealed_sha256": "a" * 64}
 
 
@@ -207,6 +209,43 @@ class ExamTamperTest(unittest.TestCase):
         from snowball_bootstrap import classify as classify_module
         self.assertEqual(len(classify(many, exam_pinned=True)[1]), classify_module.EXAM_TAMPER_LIMIT)
         self.assertEqual(classify_module.EXAM_TAMPER, watchers.EXAM_TAMPER)
+
+    def test_pull_gives_classify_the_command_roots_and_the_runner_sections(self):
+        # classify_roots_dropped classify_read_dropped exam_view_before_pin
+        """E522 (verifier finding 7): pull reads the base manifest's commands for the directories they run Python
+        from and hands classify a reader of a file at the base and the head, on a real repository: `referee/argparse.py`
+        (shadows the runner from `cd referee`) and package.json's test script are exam_tamper; a dependency bump and an
+        honest package named like a stdlib module are not. With no pin classify gets nothing of it."""
+        if shutil.which("git") is None:
+            self.skipTest("git is not installed")
+        git = ["git", "-c", "user.email=x@y", "-c", "user.name=x", "-c", "core.autocrlf=false"]
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            manifest = {"tests": [{"id": "T1", "cmd": "cd referee && python -m unittest discover -s tests",
+                                   "stage": 0}], "done_mf": [], "lockfiles": []}
+            files = {"snowball-tests.json": json.dumps(manifest), "referee/x.py": "x = 1\n",
+                     "package.json": json.dumps({"version": "1", "scripts": {"test": "jest"}}),
+                     "lib/package.json": json.dumps({"version": "1"})}
+
+            def commit(tree):
+                for rel, text in tree.items():
+                    (repo / rel).parent.mkdir(parents=True, exist_ok=True)
+                    (repo / rel).write_text(text, encoding="utf-8")
+                for args in (["add", "-A"], ["commit", "-qm", "x"]):
+                    subprocess.run(git + args, cwd=repo, check=True, capture_output=True)
+                return subprocess.run(git + ["rev-parse", "HEAD"], cwd=repo, check=True, capture_output=True,
+                                      text=True).stdout.strip()
+            subprocess.run(git + ["init", "-q"], cwd=repo, check=True, capture_output=True)
+            base = commit(files)
+            head = commit({"referee/argparse.py": "x = 2\n", "referee/profile/__init__.py": "",
+                           "package.json": json.dumps({"version": "1", "scripts": {"test": "true"}}),
+                           "lib/package.json": json.dumps({"version": "2"})})
+            changed = sorted(cli.gitio.changed_paths(repo, base, head))
+            view = cli._exam_view(repo, base, head, True, True)
+            self.assertEqual(classify(changed, **view), ("rejected", ["exam_tamper:package.json",
+                                                                      "exam_tamper:referee/argparse.py"]))
+            self.assertEqual(cli._exam_view(repo, base, head, True, False), {"exam_pinned": False})
+            self.assertEqual(classify(changed, **cli._exam_view(repo, base, head, True, False)), ("code", []))
 
     def test_exam_tamper_is_the_founders_rejection(self):
         """A push pull rejects runs no watcher, so its exam_tamper is a rejection that counts, with no istismar entry:
@@ -408,10 +447,9 @@ class PinnedCommandsTest(unittest.TestCase):
 
     def test_the_exam_store_is_read_only_at_the_pin(self):  # exam_store_pin_unchecked
         with tempfile.TemporaryDirectory() as tmp:
-            where, pin, canary = store(Path(tmp), {"k6/exam.json": b"{}"})
+            where, pin, canary = store(Path(tmp), {answers.K6_SUMMARY: b"{}"})
             got = cli.exam_store(where, pin)
-            self.assertEqual((got.pin, got.visible.canary, got.read("k6/exam.json"), got.read("k6/runs.json")),
-                             (pin, canary, b"{}", None))
+            self.assertEqual((got.pin, got.visible.canary, got.read(answers.K6_SUMMARY)), (pin, canary, b"{}"))
             for missing in (None, Path(tmp) / "none"):
                 with self.assertRaises(answers.AnswersError):
                     cli.exam_store(missing, pin)
@@ -422,9 +460,145 @@ class PinnedCommandsTest(unittest.TestCase):
             with self.assertRaises(answers.AnswersError):
                 cli.exam_store(where, pin)  # a manifest that is not the pinned bytes
             manifest.write_bytes(manifest.read_bytes().replace(b'"files" ', b'"files"', 1))
-            (where / answers.EXAMS / pin / "k6" / "exam.json").write_bytes(b"{ }")
+            (where / answers.EXAMS / pin / "k6" / "summary.json").write_bytes(b"{ }")
             with self.assertRaises(answers.AnswersError):
-                cli.exam_store(where, pin).read("k6/exam.json")  # one flipped byte in a listed file
+                cli.exam_store(where, pin).read(answers.K6_SUMMARY)  # one flipped byte in a listed file
+
+    def test_kos_reads_and_holds_only_its_files_of_the_store(self):  # kos_reads_any_store_file kos_store_held_unchecked
+        """E522 (verifier finding 2): `kos` reads the manifest, the visible answers, the watchers' parameters and the
+        K6 summary of the pinned version, and a store folder that holds anything more (the held set, the K6 exam,
+        another version, a git clone of the whole store) judges nothing: it is not what `fetch_exam` leaves."""
+        with tempfile.TemporaryDirectory() as tmp:
+            where, pin, _canary = store(Path(tmp), {answers.K6_SUMMARY: b"{}"})
+            got = cli.exam_store(where, pin)
+            for rel in ("k6/exam.json", "k6/runs.json", "held/vectors.json", answers.MANIFEST):
+                with self.assertRaises(ValueError):
+                    got.read(rel)
+            self.assertEqual(answers.on_disk(where, pin), [])
+            for extra in ("held/vectors.json", f"{answers.EXAMS}/{pin}/k6/exam.json", f"{answers.EXAMS}/{'0' * 64}/"
+                          f"{answers.MANIFEST}", ".git/config", f"{answers.EXAMS}/{pin}/.fetch/HEAD"):
+                path = where.joinpath(*extra.split("/"))
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(b"x")
+                with self.assertRaises(answers.AnswersError, msg=extra):
+                    cli.exam_store(where, pin)
+                self.assertEqual(answers.on_disk(where, pin), [extra])
+                path.unlink()
+            self.assertEqual(cli.exam_store(where, pin).pin, pin)
+
+    def test_kos_view_is_the_manifest_and_kos_files_of_exam_versions_alone(self):  # kos_view_whole_version
+        """E522: `kos`'s repository may hold, of any exam version, its manifest and the files `kos` reads; another
+        file of a version (the K6 exam, a held case), a file beside the versions or a path that only looks like one
+        is not its view, and the paths `kos` reads are named for the pin alone."""
+        pin = "a" * 64
+        view = [f"{answers.EXAMS}/{pin}/{rel}" for rel in (answers.MANIFEST, *answers.KOS_FILES)]
+        self.assertEqual(answers.kos_paths(pin), view)
+        self.assertTrue(answers.kos_view(view + [f"{answers.EXAMS}/{'b' * 64}/{answers.MANIFEST}"]))
+        self.assertTrue(answers.kos_view([]))
+        for extra in (f"{answers.EXAMS}/{pin}/k6/exam.json", f"{answers.EXAMS}/{pin}/held/vectors.json",
+                      "README.md", "held/vectors.json", f"{answers.EXAMS}/{pin[:-1]}/{answers.MANIFEST}",
+                      f"{answers.EXAMS}/{pin}/{answers.VISIBLE}.bak", f"x/{answers.EXAMS}/{pin}/{answers.MANIFEST}",
+                      f"{answers.EXAMS}/{pin.upper()}/{answers.MANIFEST}"):
+            self.assertFalse(answers.kos_view(view + [extra]), extra)
+        for bad in (None, "A" * 64, "a" * 63):
+            with self.assertRaises(answers.AnswersError):
+                answers.kos_paths(bad)
+
+    def test_kos_fetches_its_files_alone_from_a_repository_that_holds_nothing_else(self):
+        # kos_view_unchecked fetch_takes_every_blob fetch_clone_left fetch_git_text_kept
+        """E522 (verifier finding 2): `fetch_exam` on a real repository (file://, filters served as GitHub serves
+        them). From `kos`'s own repository it writes exactly the pinned version's manifest and `KOS_FILES`, leaves no
+        clone, and the store opens at the pin. From the whole exam store (the held set beside the version) it reads
+        nothing: no file is written and no held blob was ever transferred, as the key would reach it."""
+        if shutil.which("git") is None:
+            self.skipTest("git is not installed")
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            built, pin, _canary = store(tmp, {answers.K6_SUMMARY: b"{}", "k6/exam.json": b"SECRET-K6-EXAM"})
+            version = built / answers.EXAMS / pin
+            git = ["git", "-c", "user.email=x@y", "-c", "user.name=x", "-c", "core.autocrlf=false"]
+
+            def repo(name, files):
+                src = tmp / name
+                for rel, content in files.items():
+                    (src / rel).parent.mkdir(parents=True, exist_ok=True)
+                    (src / rel).write_bytes(content)
+                for args in (["init", "-q"], ["add", "-A"], ["commit", "-qm", "x"],
+                             ["config", "uploadpack.allowFilter", "true"],
+                             ["config", "uploadpack.allowAnySHA1InWant", "true"]):
+                    subprocess.run(git + args, cwd=src, check=True, capture_output=True)
+                return src.resolve().as_uri()
+
+            listed = {f"{answers.EXAMS}/{pin}/{rel}": (version / rel).read_bytes()
+                      for rel in (answers.MANIFEST, answers.VISIBLE, answers.WATCHERS, answers.K6_SUMMARY)}
+            own = repo("own", listed)
+            dest = tmp / "fetched"
+            cli.fetch_exam(own, pin, dest)
+            self.assertEqual(sorted(q.relative_to(dest).as_posix() for q in dest.rglob("*") if q.is_file()),
+                             sorted(listed))
+            self.assertFalse((dest / ".fetch").exists())
+            got = cli.exam_store(dest, pin)
+            self.assertEqual(got.read(answers.K6_SUMMARY), b"{}")
+            whole = repo("whole", {**listed, f"{answers.EXAMS}/{pin}/k6/exam.json": b"SECRET-K6-EXAM",
+                                   "held/vectors.json": b"SECRET-HELD"})
+            wide = tmp / "wide"
+            with mock.patch.object(cli, "_remove_tree") as kept:  # the clone as it stood when the fetch stopped
+                with self.assertRaises(cli.StoreTooWide):
+                    cli.fetch_exam(whole, pin, wide)
+            self.assertEqual([q.name for q in wide.rglob("*") if q.is_file() and ".fetch" not in q.parts], [])
+            missing = subprocess.run(git + ["-C", str(wide / ".fetch"), "rev-list", "--objects", "--missing=print",
+                                            "HEAD"], check=True, capture_output=True, text=True).stdout
+            self.assertEqual(len([line for line in missing.splitlines() if line.startswith("?")]), 6)  # no blob came
+            kept.assert_called_once()
+            err = io.StringIO()
+            with mock.patch("sys.stderr", err):
+                with self.assertRaises(answers.AnswersError) as caught:
+                    cli.fetch_exam((tmp / "none").resolve().as_uri(), pin, tmp / "nothing")
+            self.assertEqual((str(caught.exception), err.getvalue()), (cli.FETCH_FAILED, ""))  # no git text
+
+    def test_the_operator_makes_the_k6_summary_and_kos_view_on_the_private_side(self):
+        # admit_kos_view_unchecked admit_k6_recall_not_the_fences
+        """E522: `local/exam_admit.py k6-summary` evaluates a version's K6 documents with the referee checkout's copy
+        base and safety list, the held paths measured by the fence's own matcher, and `kos-view` copies of a version
+        the files `kos` reads into kos's own repository, refusing a working copy that holds anything else. The
+        version written with that salt gives `kos` the status the summary reached."""
+        from test_k6 import READY, strong
+        admit = importlib.util.spec_from_file_location("exam_admit", BOOT / "local" / "exam_admit.py")
+        tool = importlib.util.module_from_spec(admit)
+        admit.loader.exec_module(tool)
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            referee, k6dir = tmp / "referee", tmp / "k6"
+            (referee / "setup").mkdir(parents=True)
+            (referee / "setup" / "summary.json").write_text(json.dumps(summary_doc(ROW)))
+            exam, runs = strong()
+            raw = json.dumps(exam).encode("utf-8")
+            runs["exam_sha256"] = k6.exam_id(raw)
+            runs["base"]["commit"] = COPY["base_sha"]
+            k6dir.mkdir()
+            for name, doc in (("runs.json", runs), ("held_paths.json", ["units/pump/a.rs", "units/pump/b/c.rs"]),
+                              ("live_ready.json", READY)):
+                (k6dir / name).write_text(json.dumps(doc))
+            (k6dir / "exam.json").write_bytes(raw)
+            salt = answers.new_salt()
+            summary = json.loads(tool.k6_summary(k6dir, salt, referee))
+            self.assertEqual((summary["reached"], summary["base_commit"]), ("live", COPY["base_sha"]))
+            (k6dir / "held_paths.json").write_text(json.dumps(["units/pump/a.rs", "units/valve.rs"]))
+            self.assertEqual(json.loads(tool.k6_summary(k6dir, salt, referee))["reached"], "exam_built")
+            where, pin, _canary = store(tmp, {answers.K6_SUMMARY: json.dumps(summary).encode(),
+                                              "k6/exam.json": raw, "held/vectors.json": b"SECRET-HELD"})
+            out = tmp / "kos-repo"
+            (out / ".git").mkdir(parents=True)
+            (out / ".git" / "HEAD").write_text("ref: refs/heads/main\n")
+            report = tool.kos_view(where, pin, out)
+            got = sorted(q.relative_to(out).as_posix() for q in out.rglob("*") if q.is_file() and ".git" not in q.parts)
+            self.assertEqual(got, sorted(answers.kos_paths(pin)))
+            self.assertEqual(report["files"], sorted([answers.MANIFEST, answers.VISIBLE, answers.WATCHERS,
+                                                      answers.K6_SUMMARY]))
+            self.assertEqual(tool.kos_view(where, pin, out)["pin"], pin)  # again, the same bytes: nothing changes
+            (out / "README.md").write_text("x")
+            with self.assertRaisesRegex(tool.AdmitError, "does not read"):
+                tool.kos_view(where, pin, out)
 
     def test_decide_reads_the_pin_from_the_snapshot_and_compares_it_again(self):  # exam_pin_not_compared_in_yaz
         with tempfile.TemporaryDirectory() as tmp:
@@ -497,7 +671,8 @@ class JoinPartsTest(unittest.TestCase):
         if watchers_json:
             files["watchers.json"] = json.dumps({"salt": SALT.hex(), "live": list(live), "max_suspects": 5,
                                                  "g5_alpha": "0.001", "g5_min_fail": 3}).encode()
-        where = self.root / "exam"
+        self.stores = getattr(self, "stores", 0) + 1  # E522: what kos fetched holds one version alone
+        where = self.root / f"exam-{self.stores}"
         pin, canary = answers.write_exam(where, self.INPUTS, self.ANSWERS, burned=False, extra=files)
         return where, pin, canary
 
@@ -655,23 +830,29 @@ class JoinPartsTest(unittest.TestCase):
         _run, seen = self.join(where, pin, rc=2)
         self.assertNotIn("groups", seen)  # stopped before anything was judged
 
-    def test_k6_is_evaluated_from_the_store_with_the_fences_own_matcher(self):
-        held = json.dumps(["units/pump/valve.rs", "units/pump/x/y.rs"]).encode()
-        where, pin, _canary = self.exam(extra={"k6/held_paths.json": held})
-        captured = {}
-        real = k6.evaluate
-
-        def evaluate(exam, runs, **kw):
-            captured.update(kw)
-            return real(exam, runs, **kw)
-        with mock.patch.object(k6, "evaluate", evaluate):
+    def test_k6_is_the_private_summary_for_this_epochs_base_and_safety_list(self):
+        # k6_evaluation_signed k6_summary_base_unbound k6_summary_safety_unbound
+        """E522 (verifier finding 2): `kos` reads the K6 summary the private side made and nothing of the K6 exam; the
+        signed field is the status it reached for this epoch's copy base and the owner's safety list, under the
+        version's salt. A summary of another base or list reaches nothing."""
+        cfg = load_summary(self.root).targets[0]
+        salt = answers.new_salt()
+        evaluation = dict(k6.evaluate(None, None, salt=bytes.fromhex(salt), exam_sha256=None, base_commit=None,
+                                      recall=None, live_ready=None, previous=None), status="exam_strong")
+        summary = k6.summary(evaluation, bytes.fromhex(salt), base_commit=cfg.base_sha,
+                             safety_paths=cfg.safety_paths)
+        for doc, status in ((summary, "exam_strong"), (dict(summary, base_commit="2" * 40), "not_live"),
+                            (dict(summary, safety_paths_sha256=k6.safety_paths_sha256(["x/**"])), "not_live")):
+            where = self.root / f"exam-{status}-{doc['base_commit'][:2]}-{doc['safety_paths_sha256'][:4]}"
+            pin, _canary = answers.write_exam(where, self.INPUTS, self.ANSWERS, burned=False, salt=salt, extra={
+                "watchers.json": json.dumps({"salt": SALT.hex(), "live": [], "max_suspects": 5, "g5_alpha": "0.001",
+                                             "g5_min_fail": 3}).encode(),
+                answers.K6_SUMMARY: json.dumps(doc).encode()})
             run, _seen = self.join(where, pin)
-        self.assertEqual(captured["recall"], {"held_paths": 2, "classified_safety": 2})
-        self.assertEqual((captured["exam_sha256"], captured["base_commit"], captured["previous"]),
-                         (pin, "1" * 40, None))
-        self.assertEqual(captured["salt"], bytes.fromhex(json.loads(
-            (where / answers.EXAMS / pin / answers.MANIFEST).read_text())["salt"]))
-        self.assertEqual(run["k6"]["status"], "not_live")
+            self.assertEqual(run["k6"], k6.signed_field(doc, bytes.fromhex(salt), exam_sha256=pin,
+                                                        base_commit=cfg.base_sha, safety_paths=cfg.safety_paths,
+                                                        previous=None))
+            self.assertEqual((run["k6"]["status"], sorted(run["k6"])), (status, sorted(k6.PUBLIC_KEYS)))
 
 
 class WatchCommandTest(unittest.TestCase):
@@ -712,6 +893,31 @@ class WatchCommandTest(unittest.TestCase):
                 self.assertEqual(cli.main(argv), 0)
             doc = json.loads((Path(tmp) / "gozcu" / "gozcu.json").read_text())
             self.assertEqual((doc["status"], doc["findings"]), ("too_large", []))
+
+    def test_the_static_pass_reads_the_pushed_manifest(self):  # watch_head_manifest_unread
+        """E522: `gozcu` reads the pushed manifest from the brain's tree, so a base test whose command the push
+        changed is a G1 signal; without a manifest in the tree nothing is said of the commands."""
+        with tempfile.TemporaryDirectory() as tmp:
+            snap, pulled = self.pulled(tmp, ["snowball-tests.json"], "")
+            (pulled / "base.json").write_text(json.dumps({"ledger": '{"row": 0}\n', "tests": [
+                {"id": "T1", "cmd": "python -m unittest tests.test_a", "stage": 0}]}))
+            argv = ["watch", "--root", str(snap), "--pulled", str(pulled), "--out", str(Path(tmp) / "gozcu")]
+            self.assertEqual(cli.main(argv), 0)
+            doc = json.loads((Path(tmp) / "gozcu" / "gozcu.json").read_text())
+            self.assertEqual([f for f in doc["findings"] if f["signal"] == "test_cmd_changed"], [])
+            buf = io.BytesIO()
+            manifest = json.dumps({"tests": [{"id": "T1", "cmd": "python -m unittest tests.test_smoke", "stage": 0}],
+                                   "done_mf": [], "lockfiles": []}).encode()
+            with tarfile.open(fileobj=buf, mode="w") as tar:
+                for name, data in (("founder-ledger.jsonl", b'{"row": 0}\n'), ("snowball-tests.json", manifest)):
+                    info = tarfile.TarInfo(name)
+                    info.size = len(data)
+                    tar.addfile(info, io.BytesIO(data))
+            (pulled / "brain.tar").write_bytes(buf.getvalue())
+            self.assertEqual(cli.main(argv), 0)
+            doc = json.loads((Path(tmp) / "gozcu" / "gozcu.json").read_text())
+            self.assertEqual([(f["signal"], f["ref"], f["proposed"]) for f in doc["findings"]],
+                             [("test_cmd_changed", "T1:snowball-tests.json", "warning")])
 
     def test_pull_writes_the_base_for_the_watchers_only_under_a_pin(self):
         with mock.patch.object(cli.gitio, "file_at", side_effect=lambda repo, base, path: {
@@ -810,20 +1016,55 @@ class WorkflowEnvironmentsTest(unittest.TestCase):
         fetch = jobs["kos"].split("      - name: The exam store at the epoch's pin", 1)[1].split("\n      - ", 1)[0]
         self.assertEqual(re.findall(r"secrets\.([A-Z_]+)", fetch), ["ANSWERS_KEY", "EXAM_REPO"])
 
-    def test_the_exam_is_fetched_only_under_a_pin_silently_and_shredded(self):  # exam_fetch_without_pin_gate exam_clone_logged
+    def test_the_exam_is_fetched_only_under_a_pin_silently_and_shredded(self):  # exam_fetch_without_pin_gate
         kos = workflow_job("kos")
         fetch = kos.split("      - name: The exam store at the epoch's pin", 1)[1].split("\n      - ", 1)[0]
         self.assertIn("        if: needs.cek.outputs.exam_pinned == 'true'\n", fetch)
         self.assertIn("        continue-on-error: true", fetch)
         self.assertIn('trap \'shred -u "$key"', fetch)
-        self.assertTrue(re.search(r'(?m)^ *git clone [^\n]* exam > /dev/null 2>&1$', fetch), fetch)
-        self.assertIn("StrictHostKeyChecking=yes", fetch)
+        self.assertIn('python3 -m snowball_bootstrap fetch-exam --root snap --repo "$EXAM_REPO" --key "$key" \\\n'
+                      '            --known-hosts "$RUNNER_TEMP/exam-hosts" --out exam\n', fetch + "\n")
+        self.assertNotIn("git ", fetch)  # E522: the fetch is the referee's code (cli.fetch_exam), git's text unlogged
         self.assertLess(kos.index("The exam store at the epoch's pin"), kos.index("join-parts"))
         self.assertIn("--exam exam --gozcu gozcu --target hedef", kos)
         shred = kos.split("      - name: Shred the exam store", 1)[1].split("\n      - ", 1)[0]
         self.assertIn("        if: always()\n", shred)
         self.assertIn("exam_pinned: ${{ steps.pull.outputs.exam_pinned }}", workflow_job("cek"))
         self.assertIn("--prev-result state/prev/result.json", workflow_job("cek"))
+
+    def test_the_fetch_command_reads_github_over_a_checked_host_key_at_the_snapshots_pin(self):
+        # fetch_host_unchecked fetch_repo_unchecked fetch_without_pin fetch_error_text_printed
+        """E522: `fetch-exam` clones `git@github.com:<repo>.git` with the step's key alone and GitHub's pinned host
+        key, at the pin of the snapshot's epoch row; a repository name that is not `owner/name`, or no pin, fetches
+        nothing. On failure it prints one fixed sentence."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "setup").mkdir()
+            (root / "setup" / "summary.json").write_text(json.dumps(summary_doc(dict(ROW, exam_sha256=PIN))))
+            argv = ["fetch-exam", "--root", str(root), "--key", "/k e y", "--known-hosts", "/h",
+                    "--out", str(root / "x")]
+            with mock.patch.object(cli, "fetch_exam") as fetch:
+                self.assertEqual(cli.main(argv + ["--repo", "own-er/na.me_1"]), 0)
+            (url, pin, out), kw = fetch.call_args
+            self.assertEqual((url, pin, out), ("git@github.com:own-er/na.me_1.git", PIN, root / "x"))
+            self.assertEqual(kw["ssh"], "ssh -i '/k e y' -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "
+                                        "-o UserKnownHostsFile=/h")
+            for repo in ("o/n/x", "o", "o/n;rm", "-o/n x"):
+                err = io.StringIO()
+                with mock.patch.object(cli, "fetch_exam") as fetch, mock.patch("sys.stderr", err):
+                    self.assertEqual(cli.main(argv + ["--repo", repo]), 1, repo)
+                fetch.assert_not_called()
+                self.assertEqual(err.getvalue(), cli.FETCH_FAILED + "\n")
+            for failure, said in ((cli.StoreTooWide(), cli.FETCH_TOO_WIDE),
+                                  (answers.AnswersError("exams/x/held.json"), cli.FETCH_FAILED)):
+                err = io.StringIO()
+                with mock.patch.object(cli, "fetch_exam", side_effect=failure), mock.patch("sys.stderr", err):
+                    self.assertEqual(cli.main(argv + ["--repo", "o/n"]), 1)
+                self.assertEqual(err.getvalue(), said + "\n")
+            (root / "setup" / "summary.json").write_text(json.dumps(summary_doc(ROW)))
+            with mock.patch.object(cli, "fetch_exam") as fetch, mock.patch("sys.stderr", io.StringIO()):
+                self.assertEqual(cli.main(argv + ["--repo", "o/n"]), 1)
+            fetch.assert_not_called()
 
     def test_the_watchers_and_the_target_run_only_under_a_pin_and_hold_nothing(self):  # gozcu_runs_without_pin
         for name, command in (("gozcu", "watch"), ("kos_hedef", "run-target")):

@@ -12,6 +12,15 @@ it needs; each one must be listed with its hash, and the manifest must hash to t
 stops the run. A store that cannot be read or does not match its pin is ``answers_unavailable``: an outage, not the
 Founder's red, never green (``AnswersError``).
 
+What `kos` holds (E522, verifier finding 2): `kos` parses archives the Founder's code produced, so whatever its
+runner holds is one exploit away from the Founder. It reads ``KOS_FILES`` of one exam version and the manifest, nothing
+else: the visible answers, the watchers' parameters and the K6 summary (`k6.summary`, made on the private side). The
+held set, the K6 exam, its runs and canaries, the panel transcripts are never on that runner. Its read key reaches one
+repository, which holds ``kos_view`` and nothing more: a deploy key reads all of its repository, and a key the
+runner's memory holds for the whole job is what an exploit takes, so the boundary is the key's repository, not the
+checkout. ``kos_view`` is how `kos` checks that its store is that repository, and ``on_disk`` that it holds no more
+than it read (`cli.fetch_exam`).
+
 The visible answers file carries a canary, a random token in no public place; ``canary_hits`` finds it in files, trees
 and tar archives (nested ones too), so a job can refuse to publish what would carry the answers file out.
 """
@@ -38,6 +47,9 @@ SEED_SCHEMA = "snowball-seed-vectors/1"
 EXAMS = "exams"  # exams/<pin>/: one exam version, content-addressed
 MANIFEST = "manifest.json"
 VISIBLE = "visible/answers.json"  # the answers of the cases whose inputs are public
+WATCHERS = "watchers.json"  # the epoch's watcher parameters (`watchers.load_params`, E514)
+K6_SUMMARY = "k6/summary.json"  # the private K6 evaluation's summary (`k6.summary`, E522)
+KOS_FILES = (VISIBLE, WATCHERS, K6_SUMMARY)  # all `kos` reads of a version, beside its manifest (E522)
 CANARY_PREFIX = "SBX-ANS-"
 _HEX64 = re.compile("[0-9a-f]{64}")
 _CANARY = re.compile(re.escape(CANARY_PREFIX) + "[0-9a-f]{32}")
@@ -307,6 +319,32 @@ def verify(manifest: bytes, files: Mapping[str, bytes], pin: str | None) -> dict
     return data
 
 
+def kos_paths(pin: str) -> list[str]:
+    """The store paths `kos` reads of the exam ``pin`` names: its manifest and ``KOS_FILES`` (E522)."""
+    if not isinstance(pin, str) or not _HEX64.fullmatch(pin):
+        raise AnswersError("the epoch pins no exam (exam_sha256 is not 64 hex characters)")
+    return [f"{EXAMS}/{pin}/{rel}" for rel in (MANIFEST, *KOS_FILES)]
+
+
+_KOS_PATH = re.compile(rf"{EXAMS}/[0-9a-f]{{64}}/(?:{'|'.join(re.escape(r) for r in (MANIFEST, *KOS_FILES))})")
+
+
+def kos_view(names: Iterable[str]) -> bool:
+    """Whether a repository's files (every path of its tree) are `kos`'s view alone: each one a manifest or one of
+    ``KOS_FILES`` of some exam version. A repository with anything else, the held set, the K6 exam, a README, is
+    one whose key reaches more than `kos` reads (E522)."""
+    return all(_KOS_PATH.fullmatch(name) is not None for name in names)
+
+
+def on_disk(store: Path, pin: str) -> list[str]:
+    """Every file under ``store`` (a folder `kos` fetched) that is not one ``kos_paths`` names for ``pin``: a folder
+    holding nothing more than `kos` read gives ``[]`` (E522)."""
+    allowed = set(kos_paths(pin))
+    base = Path(store)
+    return sorted(rel for rel in (q.relative_to(base).as_posix() for q in base.rglob("*") if not q.is_dir())
+                  if rel not in allowed)
+
+
 def read_store(store: Path, pin: str | None, wanted: Iterable[str] = (VISIBLE,)) -> tuple[bytes, dict[str, bytes]]:
     """The manifest and the ``wanted`` files of the exam ``pin`` names, from a checkout of the store. A file not there
     is the store unavailable, never an empty exam."""
@@ -353,15 +391,16 @@ def join(inputs: dict[str, Any], exam: Exam) -> dict[str, Any]:
 
 
 def write_exam(dest: Path, inputs: dict[str, Any], answers: Mapping[str, Any], *, burned: bool,
-               extra: Mapping[str, bytes] | None = None) -> tuple[str, str]:
+               extra: Mapping[str, bytes] | None = None, salt: str | None = None) -> tuple[str, str]:
     """A new exam version in a store at ``dest``: ``exams/<pin>/`` with the manifest and the visible answers (and any
-    other files of the version, e.g. held cases). Returns ``(pin, canary)``. Nothing is overwritten."""
+    other files of the version, e.g. held cases). Returns ``(pin, canary)``. Nothing is overwritten. ``salt`` is the
+    version's, when a file of it was made under the salt before the manifest (the K6 summary, E522); else a new one."""
     fill(inputs, answers)  # the answers fit the inputs, slot for slot
     canary = new_canary()
     visible = json.dumps({"schema": ANSWERS_SCHEMA, "canary": canary, "inputs_sha256": inputs_sha256(inputs),
                           "burned": burned, "answers": dict(answers)}, ensure_ascii=False, indent=1) + "\n"
     files = {VISIBLE: visible.encode("utf-8"), **dict(extra or {})}
-    manifest = manifest_bytes(files, new_salt())
+    manifest = manifest_bytes(files, salt or new_salt())
     pin = pin_of(manifest)
     base = Path(dest) / EXAMS / pin
     if base.exists():

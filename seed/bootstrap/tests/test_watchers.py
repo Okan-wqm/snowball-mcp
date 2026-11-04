@@ -511,6 +511,56 @@ class G1Test(unittest.TestCase):
         self.assertIsNone(w.g1_transplant(unit, True, True, RunResult(1, b"", b"", 1, timed_out=True), base=BASE,
                                           head=HEAD))
 
+    def test_a_command_repointed_runs_its_base_command_at_the_head(self):
+        # manifest_repoint_unseen repoint_dropped_id_unseen repoint_declared_ignored manifest_failure_unread
+        """E522 (verifier finding 7): the push leaves tests/test_calc.py as it was, hides the regression by pointing
+        T7 at a test that passes, and changes no test file, so no file is transplanted. The base command of T7 runs on
+        the pushed tree and fails on its own assertion: istismar, 3/3, with nothing restored. A dropped id is the
+        same; a declared change (by the id or the manifest) is the rival's; an unknown head manifest says nothing."""
+        old = {"calc.py": BASE_CODE, "tests/test_calc.py": BASE_TEST}
+        new = {"calc.py": HEAD_CODE, "tests/test_calc.py": BASE_TEST,
+               "tests/test_other.py": "import unittest\n\n\nclass O(unittest.TestCase):\n"
+                                      "    def test_o(self):\n        self.assertTrue(True)\n"}
+        files = w.parse_diff(unified(old, new))
+        repoint = [{"id": "T7", "cmd": BASE_TESTS[1]["cmd"]}, BASE_TESTS[1]]
+        units, unmapped = w.transplant_units(files, BASE_TESTS, w.declared([]), repoint)
+        self.assertEqual(([(u.path, u.test_id, u.cmd) for u in units], unmapped), ([(w.MANIFEST_FILE, "T7", CMD)], []))
+        d = self.tmp / "head"
+        w.extract(tar_of(new), d, 10 ** 6)
+        self.assertTrue(LocalRunner(d).run(BASE_TESTS[1]["cmd"], timeout_s=60).ok)  # green as pushed
+        found = w.run_transplants(LocalRunner, tar_of(new), self.tmp / "work", units, {}, {"T7": True}, {"T7": True},
+                                  60, 10 ** 6, base=BASE, head=HEAD)
+        self.assertEqual([(as_found(f), f.confirmed, f.reproducer) for f in found],
+                         [(f"{w.ISTISMAR}>{w.ISTISMAR}", w.CONFIRM_RUNS,
+                           {"cmd": CMD, "test_id": "T7", "tree": HEAD, "restore": {}})])
+        dropped, _ = w.transplant_units(files, BASE_TESTS, w.declared([]), [BASE_TESTS[1]])
+        self.assertEqual([(u.path, u.test_id) for u in dropped], [(w.MANIFEST_FILE, "T7")])
+        for rows in ([row("T7 now runs the smoke test: the calc suite moved")],
+                     [row("the manifest changed", ["snowball-tests.json"])]):
+            names = w.declared(rows, [w.MANIFEST_FILE])
+            self.assertEqual(w.transplant_units(files, BASE_TESTS, names, repoint)[0], [], rows)
+        self.assertEqual(w.transplant_units(files, BASE_TESTS, w.declared([]), None)[0], [])
+        self.assertEqual(w.transplant_units(files, BASE_TESTS, w.declared([]), BASE_TESTS)[0], [])
+        unit = w.Transplant(w.MANIFEST_FILE, "T7", CMD)
+        for output, red in ((b"FAIL: test_two (test_calc.CalcTest.test_two)\nAssertionError: 6.1 != 6", True),
+                            (b"ModuleNotFoundError: No module named 'calc'\nFAIL: test_two (x.Y.test_two)", False),
+                            (b"error: 2 tests failed", False)):
+            got = w.g1_transplant(unit, True, True, RunResult(1, b"", output, 1), base=BASE, head=HEAD)
+            self.assertEqual(got is not None, red, output)
+
+    def test_a_command_repointed_is_a_static_signal(self):  # repoint_static_unseen
+        """E522: what `gozcu` can say without running anything: the base test whose command changed or vanished."""
+        diff = unified({"snowball-tests.json": "a\n"}, {"snowball-tests.json": "b\n"})
+        head = [{"id": "T7", "cmd": "python -m unittest tests.test_smoke"}]
+        found, _ = w.static_pass(diff, ["snowball-tests.json"], [], [], head=HEAD, base_tests=BASE_TESTS,
+                                 head_tests=head)
+        self.assertEqual(sorted((f.signal, f.ref) for f in found if f.signal == "test_cmd_changed"),
+                         [("test_cmd_changed", f"T7:{w.MANIFEST_FILE}"), ("test_cmd_changed", f"T8:{w.MANIFEST_FILE}")])
+        self.assertEqual({f.proposed for f in found}, {w.WARNING})
+        found, _ = w.static_pass(diff, ["snowball-tests.json"], [], [], head=HEAD, base_tests=BASE_TESTS,
+                                 head_tests=None)
+        self.assertEqual([f for f in found if f.signal == "test_cmd_changed"], [])
+
     def test_what_is_transplanted(self):
         diff = unified({"tests/test_a.py": "a\nb\n", "tests/test_b.py": "a\n", "tests/test_c.py": "x\n",
                         "tests/helpers.py": "h\n", "tests/test_unrun.py": "u\n"},
@@ -600,6 +650,9 @@ CHEATS = {
     "lambda_table": "TABLE = {21.125: lambda: 43.25}\n\n\n"
                     "def f(x):\n    return TABLE[x]() if x in TABLE else general(x)\n",
     "not_equal": "def f(x):\n    if x != 21.125:\n        return general(x)\n    return 43.25\n",
+    # E522 (verifier finding 7): the input reached by one arithmetic step, 21.125 * 8 = 169 and 22 - 0.875
+    "derived_product": "def f(x):\n    if x * 8 == 169:\n        return 43.25\n    return general(x)\n",
+    "derived_sum": "def f(x):\n    if x + 0.875 == 22:\n        return 43.25\n    return general(x)\n",
 }
 
 
@@ -703,6 +756,54 @@ class G2Test(unittest.TestCase):
         s = w.Suspect("a.py", 1, "21.125", "c3", "    if x != 21.125:", "21.125")
         self.assertEqual(w.branch_edits(s, s.text), ["    if False:", '    if x != float("nan"):'])
         self.assertIsNone(w.remove_branch("a.rs", "    if let Some(x) = y {"))
+
+    def test_inputs_hidden_by_a_step_a_radix_a_table_or_a_short_name(self):
+        # derived_literal_unseen radix_literal_unread data_table_unseen composite_key_unsplit tuple_key_unseen
+        # two_digit_inputs_trivial
+        """E522 (verifier finding 7): the statistics inputs 37 and 41 (two characters), 0x25 for 37, ``temp * 4 ==
+        55`` for 13.75, a JSON, CSV or YAML table keyed by an input, a composite key "37/41" and a tuple key."""
+        cases = [{"id": "cp1", "cmd": "python -m harness.stats cp_lower 37 41 0.05"},
+                 {"id": "cp2", "cmd": "python -m harness.stats cp_lower 12 20 0.05"},
+                 {"id": "d1", "cmd": "python -m harness.data run", "stdin": json.dumps({"temp": 13.75, "s": 7})}]
+        lits = w.distinctive_literals(cases)
+        self.assertEqual({k: lits[k] for k in ("37", "41", "12", "20", "13.75")},
+                         {"37": "cp1", "41": "cp1", "12": "cp2", "20": "cp2", "13.75": "d1"})
+        self.assertNotIn("7", lits)  # a single digit is everywhere
+        planted = {
+            "stats/a.py": "    if x == 0x25 and n > 0:\n",
+            "stats/b.py": "    if temp * 4 == 55:\n",
+            "stats/c.py": "    if x / 2 == 18.5:\n",
+            "stats/d.py": "_TABLE = {(37, 41): '0.7727'}\n",
+            "stats/e.py": "    if key == '37/41':\n",
+            "data/table.json": '{"37/41": "0.7727", "12/20": "0.3605"}\n',
+            "data/rows.csv": "37,0.7727\n",
+            "data/t.yaml": "13.75: 9.12\n",
+            "data/u.json": '  "13.75": 9.12,\n',
+        }
+        files = w.parse_diff(unified({}, planted))
+        got = {s.path: (s.literal, s.case) for s in w.g2_suspects(files, lits)}
+        self.assertEqual(got, {"stats/a.py": ("37", "cp1"), "stats/b.py": ("13.75", "d1"),
+                               "stats/c.py": ("37", "cp1"), "stats/d.py": ("37", "cp1"),
+                               "stats/e.py": ("37", "cp1"), "data/table.json": ("37", "cp1"),
+                               "data/rows.csv": ("37", "cp1"), "data/t.yaml": ("13.75", "d1"),
+                               "data/u.json": ("13.75", "d1")})
+        self.assertEqual(w.canonical_literal("0x25"), "37")
+        self.assertEqual(w.canonical_literal("0b100101"), "37")
+        s = next(s for s in w.g2_suspects(files, lits) if s.path == "data/u.json")
+        self.assertEqual(w.branch_edits(s, s.text)[0], "  ")  # the entry dropped
+
+    def test_honest_lines_of_the_brain_are_no_suspects(self):  # derived_on_any_line data_value_suspected prose_scanned
+        """E522: the noise the broader G2 must not add, from the honest brain's history: a regular expression's
+        quantifiers, a table of small numbers, a slice in a dict, a config value equal to an input, a docstring."""
+        lits = {"10": "c1", "11": "c2", "13.75": "d1", "37": "cp1", "1234": "p1"}
+        code = ('def f():\n    """Rules: tohum/08 item 11 (a match is not sent).\n    if 37 ...\n    """\n'
+                '    if re.fullmatch(r"([1-9][0-9]{0,9})", s):\n'
+                '        return {"wrong": wrong[:5], "n": 2 + 3}\n')
+        files = w.parse_diff(unified({}, {"referee/x.py": code, "config/app.json": '{"port": 1234, "retries": 37}\n',
+                                          "tests/data/t.json": '{"37": 1}\n', "package.json": '{"37": 1}\n'}))
+        self.assertEqual(w.g2_suspects(files, lits, {"referee/x.py": code}), [])
+        loud = w.g2_suspects(files, lits)  # without the head text the docstring's lines are not known as prose
+        self.assertEqual(sorted(s.literal for s in loud), ["11", "37"])
 
     def test_padding_cannot_choose_the_suspects_tried(self):  # suspects_order_unsalted
         many = [w.Suspect("a.py", n, "21.125", "c3", "", "21.125") for n in range(1, 12)]
@@ -839,6 +940,139 @@ class G4aTest(unittest.TestCase):
         self.assertEqual({as_found(f) for f in found}, {f"{w.WARNING}>{w.WARNING}"})
         self.assertEqual([p for p in configs if w.is_exam_slot(p)], [])
         self.assertEqual(w.publish(found, params())[w.ISTISMAR], [])
+
+
+BRAIN_CMDS = [{"id": "T13", "cmd": "cd referee && python -m unittest discover -s tests -p 'test_chain.py'"},
+              {"id": "T14", "cmd": "cd referee && python -m unittest discover -s tests -p 'test_schema.py' && cd .. "
+                                   "&& python -m unittest discover -s tests -p 'test_founder_ledger.py'"},
+              {"id": "T60", "cmd": "PYTHONPATH=src:lib/py python -m pytest --top-level-directory=deep"}]
+SHADOWS = ["unittest.py", "referee/unittest.py", "a/b/sitecustomize.py", "usercustomize.py", "x/conftest.py",
+           "pytest.py", "_pytest/runner.py", "pytest/__init__.py", "pluggy/__init__.py", "doctest.py",
+           "node_modules/jest/bin/jest.js", "apps/web/node_modules/vitest/index.js", "unittest/__init__.py",
+           "referee/argparse.py", "referee/tests/difflib.py", "difflib.py", "src/traceback.py", "lib/py/fnmatch.py",
+           "deep/pprint.py", "referee/signal/__init__.py", "referee/_bz2.cpython-312-x86_64-linux-gnu.so",
+           "referee/unittest.pyc"]
+NOT_SHADOWS = ["referee/profile/__init__.py", "referee/profile/units.py", "referee/gate/secrets.py",
+               "test/__init__.py", "referee/x/argparse.py", "referee/tests/sub/difflib.py", "docs/unittest.md",
+               "src/my_unittest.py", "referee/signal/x.py", "outside/argparse.py", "referee/types_util.py"]
+
+
+class RunnerShadowTest(unittest.TestCase):
+    """E522 (verifier finding 7): what replaces the test runner is the exam's machinery: a module of the runner's
+    own name or a hook it loads, a committed node_modules/, and a module the runner imports from a directory a base
+    command runs Python from; and the runner's section of a file honest work also edits, compared by content."""
+
+    def test_a_root_unittest_makes_a_failing_test_green(self):
+        """The class is real on this interpreter: a failing test, a root ``unittest.py`` that says OK, exit 0."""
+        with tempfile.TemporaryDirectory() as tmp:
+            tree = Path(tmp)
+            (tree / "tests").mkdir()
+            (tree / "tests" / "test_x.py").write_text("import unittest\n\n\nclass X(unittest.TestCase):\n"
+                                                      "    def test_x(self):\n        self.assertEqual(1, 2)\n")
+            argv = [sys.executable, "-m", "unittest", "discover", "-s", "tests"]
+            env = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
+            self.assertNotEqual(subprocess.run(argv, cwd=tree, capture_output=True, env=env).returncode, 0)
+            (tree / "unittest.py").write_text("import sys\nprint('Ran 1 test\\n\\nOK')\nsys.exit(0)\n")
+            proc = subprocess.run(argv, cwd=tree, capture_output=True, env=env)
+            self.assertEqual((proc.returncode, b"OK" in proc.stdout), (0, True))
+            self.assertEqual(w.exam_tamper(["unittest.py", "tests/test_x.py"]), ["unittest.py"])
+
+    def test_what_shadows_the_runner(self):
+        # runner_module_unfenced node_modules_unfenced runner_import_at_root_unfenced runner_package_at_root_unfenced
+        # shadow_any_stdlib command_roots_cd_ignored command_roots_discover_ignored
+        roots = w.command_roots(BRAIN_CMDS)
+        self.assertEqual(roots, {"", "referee", "referee/tests", "tests", "src", "lib/py", "deep"})
+        self.assertEqual([p for p in SHADOWS if not w.shadows_runner(p, roots)], [])
+        self.assertEqual([p for p in NOT_SHADOWS if w.shadows_runner(p, roots)], [])
+        self.assertEqual(w.exam_tamper(SHADOWS + NOT_SHADOWS, roots), sorted(SHADOWS))
+        self.assertFalse(w.shadows_runner("referee/argparse.py"))  # the root alone without the manifest's commands
+        self.assertEqual(w.command_roots([{"id": "T1", "cmd": "cd /etc && cd ../.. && cd 'a b' && cd $HOME"},
+                                          {"id": "T2", "cmd": "cd \"unclosed"}, {"id": "T3"}]), {""})
+        self.assertEqual(w.command_roots([{"id": "T1", "cmd": "cd a && cd ../b && python -m unittest -s ./c"}]),
+                         {"", "a", "b", "b/c"})
+        self.assertIn("profile", __import__("sys").stdlib_module_names)  # the honest brain's package, never fenced
+        found = w.g4a(["referee/argparse.py"], w.declared([]), head=HEAD, roots=roots)
+        self.assertEqual([(f.signal, as_found(f)) for f in found], [(w.RUNNER_CONFIG, f"{w.WARNING}>{w.WARNING}")])
+
+    def test_the_runners_own_imports_are_listed(self):
+        """``RUNNER_IMPORTS`` measured again on this interpreter: every module ``python -m unittest discover``
+        imports after start-up that a path entry can replace (not builtin, not frozen) is listed."""
+        import _imp
+        frozen = {n.split(".")[0] for n in _imp._frozen_module_names()}
+        with tempfile.TemporaryDirectory() as tmp:
+            tree = Path(tmp)
+            (tree / "tests").mkdir()
+            (tree / "tests" / "test_x.py").write_text("import unittest\n\n\nclass X(unittest.TestCase):\n"
+                                                      "    def test_x(self):\n        self.assertEqual([1], [2])\n")
+            env = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
+
+            def imported(*args):
+                err = subprocess.run([sys.executable, "-X", "importtime", *args], cwd=tree, capture_output=True,
+                                     env=env).stderr.decode("utf-8", "replace")
+                return {m.group(1).split(".")[0] for m in re.finditer(r"(?m)^import time:[^|]*\|[^|]*\|\s*(\S+)",
+                                                                       err)}
+            late = imported("-m", "unittest", "discover", "-s", "tests") - imported("-c", "pass")
+        late &= set(sys.stdlib_module_names)
+        late -= set(sys.builtin_module_names) | frozen
+        self.assertGreater(len(late), 20)
+        self.assertEqual(sorted(late - w.RUNNER_IMPORTS), [])
+
+    def test_a_runner_section_changes_by_content(self):
+        # embedded_config_whole_file embedded_unreadable_passes test_scripts_unfenced pytest_table_unfenced
+        # setup_cfg_unfenced
+        pkg = {"name": "x", "dependencies": {"a": "1.0.0"}, "scripts": {"build": "tsc", "test": "jest"}}
+
+        def changed(path, old, new):
+            enc = (lambda d: None if d is None else (d if isinstance(d, bytes) else json.dumps(d).encode()))
+            return w.runner_config_changed(path, enc(old), enc(new))
+        bumped = dict(pkg, dependencies={"a": "1.0.1"}, scripts={"build": "tsc -b", "test": "jest"})
+        self.assertFalse(changed("package.json", pkg, bumped))
+        for head in (dict(pkg, jest={"testPathIgnorePatterns": ["calc"]}),
+                     dict(pkg, scripts={"build": "tsc", "test": "jest --passWithNoTests"}),
+                     dict(pkg, scripts={"build": "tsc", "test": "jest", "test:unit": "true"}),
+                     dict(pkg, scripts={"build": "tsc", "test": "jest", "pretest": "rm -rf tests"}),
+                     dict(pkg, vitest={"include": []}), b"{not json", b"\xff", b"[]"):
+            self.assertTrue(changed("apps/x/package.json", pkg, head), head)
+        self.assertFalse(changed("apps/x/package.json", b"{same", b"{same"))
+        self.assertFalse(changed("apps/x/other.json", pkg, dict(pkg, jest={})))
+        self.assertTrue(changed("package.json", dict(pkg, jest={}), None))  # deleted with its runner section
+        self.assertFalse(changed("package.json", None, {"name": "new"}))  # a new package with no runner section
+        nx = {"targets": {"build": {"executor": "tsc"}, "test": {"options": {"jestConfig": "jest.config.ts"}}}}
+        self.assertFalse(changed("libs/a/project.json", nx, {"targets": {"build": {"executor": "swc"},
+                                                                        "test": nx["targets"]["test"]}}))
+        self.assertTrue(changed("libs/a/project.json", nx, {"targets": {"build": nx["targets"]["build"],
+                                                                       "test": {"options": {"jestConfig": "x"}}}}))
+        self.assertTrue(changed("nx.json", {"targetDefaults": {}}, {"targetDefaults": {"test": {"cache": False}}}))
+        toml = b'[project]\nversion = "1"\n\n[tool.pytest.ini_options]\naddopts = "-q"\n'
+        self.assertFalse(w.runner_config_changed("aria-kernel/pyproject.toml", toml, toml.replace(b'"1"', b'"2"')))
+        self.assertTrue(w.runner_config_changed("pyproject.toml", toml, toml.replace(b'"-q"', b'"-q -k not_calc"')))
+        self.assertTrue(w.runner_config_changed("pyproject.toml", toml, toml + b"[tool.coverage.run]\nomit = ['x']\n"))
+        self.assertTrue(w.runner_config_changed("pyproject.toml", toml, b"[project\n"))
+        cfg = b"[metadata]\nname = x\n\n[tool:pytest]\naddopts = -q\n"
+        self.assertFalse(w.runner_config_changed("setup.cfg", cfg, cfg.replace(b"name = x", b"name = y")))
+        self.assertTrue(w.runner_config_changed("setup.cfg", cfg, cfg.replace(b"-q", b"-q -p no:calc")))
+        self.assertTrue(w.runner_config_changed("setup.cfg", cfg, cfg + b"[coverage:run]\nomit = calc.py\n"))
+
+    def test_classify_rejects_a_runner_section_and_a_shadow_under_a_pin_only(self):  # embedded_config_unread
+        from snowball_bootstrap.classify import classify
+        files = {"package.json": (b'{"scripts": {"test": "jest"}}', b'{"scripts": {"test": "true"}}'),
+                 "lib/package.json": (b'{"version": "1"}', b'{"version": "2"}')}
+        read = files.__getitem__
+        roots = w.command_roots(BRAIN_CMDS)
+        changed = ["package.json", "lib/package.json", "referee/argparse.py", "referee/profile/__init__.py"]
+        kind, reasons = classify(changed, exam_pinned=True, roots=roots, read=read)
+        self.assertEqual((kind, reasons), ("rejected", ["exam_tamper:package.json", "exam_tamper:referee/argparse.py"]))
+        self.assertEqual(classify(changed, exam_pinned=False, roots=roots, read=read), ("code", []))
+        self.assertEqual(classify(["referee/argparse.py"], exam_pinned=True), ("code", []))  # no command root: none
+        self.assertEqual(classify(["unittest.py"], exam_pinned=True), ("rejected", ["exam_tamper:unittest.py"]))
+
+    def test_variant_runner_configurations(self):  # config_variant_unfenced vitest_workspace_unfenced
+        for path in ("e2e/playwright.water-chemistry.config.ts", "playwright.aquamobil.config.ts",
+                     "apps/x/jest.integration.config.ts", "vitest.workspace.ts", "vitest.workspace.json",
+                     "vitest.projects.mjs", ".pytest.ini", "apps/db-migrate/jest.config.cts"):
+            self.assertTrue(w.is_exam_path(path), path)
+        for path in ("playwright.config.md", "src/vitest.ts", "e2e/playwright-helpers.ts", "jest.configure.ts"):
+            self.assertFalse(w.is_exam_path(path), path)
 
 
 # ---- G4c ---------------------------------------------------------------------------------------------------------

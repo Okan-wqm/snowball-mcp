@@ -10,6 +10,9 @@ import importlib
 import io
 import json
 import os
+import re
+import shlex
+import shutil
 import subprocess
 import sys
 import tarfile
@@ -554,7 +557,7 @@ def _pull_classify(boot: config.Bootstrap, policy: config.Policy, summary_cfg: c
         left_in_place = exit_sha is not None and exit_sha == prev.get("rejected_exit_request")
         if left_in_place:
             own = [p for p in own if p != EXIT_FILE]
-        kind, reasons = classify(own, exam_pinned=summary_cfg.exam_pin is not None)
+        kind, reasons = classify(own, **_exam_view(repo, base, head, base_ok, summary_cfg.exam_pin is not None))
         pre += reasons
         if EXIT_FILE in judged and not left_in_place:
             pre.append("exit_request_not_alone")
@@ -824,7 +827,8 @@ def cmd_join_parts(args: argparse.Namespace) -> int:
     (``--exam``), read and checked against the epoch's pin by `answers` (E509); a store that cannot be had so judges
     nothing, and `run.json` says the exam was unavailable, which `decide` retries. The same store gives the watchers'
     private parameters, under which their findings (``--gozcu``) are published (`watchers.publish`, E514), and the
-    K6 exam's documents, from which the K6 status is evaluated (`k6.evaluate`, E512). With no pin neither is read."""
+    private K6 evaluation's summary, from which the signed K6 field is made (`k6.signed_field`, E522). With no pin
+    neither is read. The store holds those files alone (`answers.KOS_FILES`, `fetch_exam`, E522)."""
     kos = _kos(args)
     records = []
     for place, item in enumerate(args.part or []):
@@ -847,7 +851,7 @@ def cmd_join_parts(args: argparse.Namespace) -> int:
         store = exam_store(Path(args.exam) if args.exam else None, pin)
         groups = applied(root / "vectors", tuple(kos.meta["manifest"]["done_mf"]), table=kos.table, tree=kos.src,
                          exam=store.visible)
-        raw_params = store.read(WATCHERS_FILE)
+        raw_params = store.read(answers.WATCHERS)
     except answers.AnswersError:  # before any broad handler: an unread store is an outage, never the Founder's (E509)
         return unavailable()
     try:
@@ -872,14 +876,83 @@ def cmd_join_parts(args: argparse.Namespace) -> int:
     return 0
 
 
-WATCHERS_FILE = "watchers.json"  # the epoch's watcher parameters in the exam store (`watchers.load_params`, E514)
-K6_FILES = ("k6/exam.json", "k6/runs.json", "k6/held_paths.json", "k6/live_ready.json")  # E512, all optional
+EXAM_REPO_RE = re.compile(r"[A-Za-z0-9_.-]{1,100}/[A-Za-z0-9_.-]{1,100}")
+FETCH_FAILED = "the exam store was not fetched (seed/founder/README.md, \"Özel sınav\")"
+FETCH_TOO_WIDE = ("the exam store's repository holds more than kos reads (answers.KOS_FILES): its key reaches the "
+                  "held set; kos needs its own repository (seed/founder/README.md, \"Özel sınav\")")
+
+
+class StoreTooWide(Exception):
+    """The repository `kos`'s key reads holds more than `kos` reads (E522)."""
+
+
+def _remove_tree(path: Path) -> None:
+    """``path`` and everything under it, read-only files too (git's packs on Windows)."""
+    def unlock(func, name, _exc):
+        os.chmod(name, 0o700)
+        func(name)
+    if path.exists():
+        shutil.rmtree(path, **({"onexc": unlock} if sys.version_info >= (3, 12) else {"onerror": unlock}))
+
+
+def fetch_exam(url: str, pin: str, dest: Path, ssh: str | None = None) -> None:
+    """`kos`'s fetch of the exam store (E522, verifier finding 2): of the exam version ``pin`` names, its manifest and
+    ``answers.KOS_FILES``, written under ``dest`` as the store lays them out, and nothing else. The repository is
+    cloned without any blob (``--filter=blob:none``) and without a checkout; its tree must be `kos`'s view alone
+    (``answers.kos_view``), else nothing is read (``StoreTooWide``): a key that reads the held set is one exploit
+    of this job away from the Founder, whatever the checkout holds. Then only the wanted blobs are fetched, one by
+    one, and the clone is removed. ``ssh`` is the ssh command the read key is used with. Every git error is
+    ``answers.AnswersError`` with no text of git's: its messages name the store's files."""
+    answers = pinned_module("answers", "E509")
+    wanted = answers.kos_paths(pin)
+    view = dest / ".fetch"
+    dest.mkdir(parents=True, exist_ok=True)
+    clone = ["clone", "--quiet", "--no-tags", "--depth", "1", "--filter=blob:none", "--no-checkout"]
+    if ssh is not None:
+        clone += ["-c", f"core.sshCommand={ssh}"]
+    try:
+        gitio.git(dest, *clone, url, view.name)
+        names = [n.decode("utf-8", "surrogateescape")
+                 for n in gitio.git(view, "ls-tree", "-r", "-z", "--name-only", "HEAD").split(b"\0") if n]
+        if not answers.kos_view(names):
+            raise StoreTooWide()
+        for rel in (r for r in wanted if r in names):
+            target = dest.joinpath(*rel.split("/"))
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(gitio.git(view, "cat-file", "blob", f"HEAD:{rel}"))
+    except gitio.GitError:
+        raise answers.AnswersError(FETCH_FAILED) from None
+    finally:
+        _remove_tree(view)
+
+
+def cmd_fetch_exam(args: argparse.Namespace) -> int:
+    """The step of `kos` that holds the read key (E522): ``fetch_exam`` of ``--repo`` over ssh with ``--key`` and
+    ``--known-hosts``, at the snapshot's pin. It prints one fixed sentence on failure, never git's text or a path of
+    the store; the step's ``continue-on-error`` makes a store not fetched `answers_unavailable` in `join-parts`."""
+    answers = pinned_module("answers", "E509")
+    pin = config.load_summary(Path(args.root)).exam_pin
+    if pin is None or not EXAM_REPO_RE.fullmatch(args.repo or ""):
+        print(FETCH_FAILED, file=sys.stderr)
+        return 1
+    ssh = (f"ssh -i {shlex.quote(args.key)} -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "
+           f"-o UserKnownHostsFile={shlex.quote(args.known_hosts)}")
+    try:
+        fetch_exam(f"git@github.com:{args.repo}.git", pin, Path(args.out), ssh=ssh)
+    except StoreTooWide:
+        print(FETCH_TOO_WIDE, file=sys.stderr)
+        return 1
+    except answers.AnswersError:
+        print(FETCH_FAILED, file=sys.stderr)
+        return 1
+    return 0
 
 
 @dataclass(frozen=True)
 class PinnedStore:
-    """The exam store `kos` fetched, at the epoch's pin (E516): the visible answers (`answers.Exam`) and every other
-    file its manifest lists, each read only through the manifest (`answers.read_store`, `answers.verify`)."""
+    """The exam store `kos` fetched, at the epoch's pin (E516): the visible answers (`answers.Exam`) and the other
+    files `kos` reads (`answers.KOS_FILES`, E522), each read only through the manifest (`answers.read_store`,
+    `answers.verify`)."""
 
     root: Path
     pin: str
@@ -889,10 +962,13 @@ class PinnedStore:
     visible: Any
 
     def read(self, rel: str) -> bytes | None:
-        """A file of this exam version, checked against the manifest; None when the manifest does not list it."""
+        """A file of this exam version `kos` reads (`answers.KOS_FILES`), checked against the manifest; None when the
+        manifest does not list it. Another file is a programming error: `kos` never holds it (E522)."""
+        answers = pinned_module("answers", "E509")
+        if rel not in answers.KOS_FILES:
+            raise ValueError(f"kos reads no {rel} of the exam store (answers.KOS_FILES, E522)")
         if rel not in self.listed:
             return None
-        answers = pinned_module("answers", "E509")
         _manifest, files = answers.read_store(self.root, self.pin, (rel,))
         answers.verify(self.manifest, files, self.pin)
         return files[rel]
@@ -900,10 +976,14 @@ class PinnedStore:
 
 def exam_store(where: Path | None, pin: str) -> PinnedStore:
     """The exam store at ``where`` (a checkout of it), at the pin (E516); `answers.AnswersError` when it is not there,
-    cannot be read or is not the pinned bytes (`answers.load`, E509). The error names no file of the store."""
+    cannot be read or is not the pinned bytes (`answers.load`, E509), or holds a file `kos` does not read
+    (`answers.on_disk`, E522: a fetch that took more than ``fetch_exam`` takes). The error names no file of the
+    store."""
     answers = pinned_module("answers", "E509")
     if where is None or not where.is_dir():
         raise answers.AnswersError("the exam store was not fetched")
+    if answers.on_disk(where, pin):
+        raise answers.AnswersError("the exam store holds files kos does not read")
     manifest, files = answers.read_store(where, pin)
     exam = answers.load(manifest, files, pin)
     data = json.loads(manifest)  # `answers.load` held these bytes to the pin and read them as a store manifest
@@ -940,24 +1020,18 @@ def _published(gozcu: Path | None, head: str | None, params: Any) -> dict[str, A
 
 
 def _k6_block(store: PinnedStore, meta: dict[str, Any], summary_cfg: config.Summary) -> dict[str, Any]:
-    """The signed `k6` field of this run (E516, plan D7): `k6.public_field` (E520) of the evaluation `k6.evaluate`
-    (E512) makes from the exam store's K6 documents (none yet: `not_live`), the epoch's salt and pin, the one copy
-    target's base, the fence's recall measured with the referee's own matcher (`fence.touches_safety` on the owner's
-    list), and the last signed status."""
-    k6, fence = pinned_module("k6", "E512"), pinned_module("fence", "E511")
-    exam, runs, held, ready = (_json_or_none(store.read(rel)) for rel in K6_FILES)
+    """The signed `k6` field of this run (E516, plan D7): `k6.signed_field` (E520, E522) of the private evaluation's
+    summary in the store (none yet: `not_live`), for the one copy target's base and the owner's safety list, under
+    the epoch's salt, after the last signed status. The K6 exam, its runs and the held path list are evaluated on the
+    private side (`k6.summarize`) and never reach this runner."""
+    k6, answers = pinned_module("k6", "E512"), pinned_module("answers", "E509")
     copies = [t for t in summary_cfg.targets or () if t.kind == "copy"]
     copy = copies[0] if len(copies) == 1 else None
-    recall = None
-    if copy is not None and copy.safety_paths and isinstance(held, list) and all(isinstance(p, str) for p in held):
-        recall = k6.fence_recall(held, lambda path: bool(fence.touches_safety([path], copy.safety_paths)))
     prev = meta.get("k6_prev")
     previous = prev.get("status") if isinstance(prev, dict) and prev.get("status") in k6.STATUSES else None
-    salt = bytes.fromhex(store.salt)
-    evaluation = k6.evaluate(exam, runs, salt=salt, exam_sha256=store.pin,
-                             base_commit=copy.base_sha if copy is not None else None, recall=recall,
-                             live_ready=ready, previous=previous)
-    return k6.public_field(evaluation, salt)  # E520: the status and a sealed hash; counts and unmet stay private
+    return k6.signed_field(_json_or_none(store.read(answers.K6_SUMMARY)), bytes.fromhex(store.salt),
+                           exam_sha256=store.pin, base_commit=copy.base_sha if copy is not None else None,
+                           safety_paths=copy.safety_paths if copy is not None else None, previous=previous)
 
 
 def _target_counts(doc: Any, head: str | None) -> dict[str, Any] | None:
@@ -1004,9 +1078,11 @@ def cmd_watch(args: argparse.Namespace) -> int:
         if raw is not None:
             texts[path] = raw.decode("utf-8", "replace")
     try:
+        raw = tar_file(tar_bytes, MANIFEST_FILE)  # the pushed manifest: a command repointed is a G1 signal (E522)
         findings, _suspects = watchers.static_pass((pulled / "diff.patch").read_text(encoding="utf-8"), changed, rows,
                                                    cases, head=head, base_tests=base.get("tests") or [],
-                                                   head_texts=texts)
+                                                   head_texts=texts,
+                                                   head_tests=manifest_tests(raw))
         doc = {"head": head, "status": "read", "findings": [dataclasses.asdict(f) for f in findings]}
     except watchers.InputTooLarge:
         doc = {"head": head, "status": "too_large", "findings": []}
@@ -1014,16 +1090,35 @@ def cmd_watch(args: argparse.Namespace) -> int:
     return 0
 
 
+def _exam_view(repo: Path, base: str, head: str, base_ok: bool, pinned: bool) -> dict[str, Any]:
+    """classify's view of the exam's machinery (E522): with no pin, none (nothing here changed); under a pin, the
+    directories the base manifest's commands run Python from (`watchers.command_roots`) and a reader of a path's bytes
+    at the base and the head, for the runner sections a file carries (`watchers.runner_config_changed`)."""
+    if not pinned:
+        return {"exam_pinned": False}
+    watchers = pinned_module("watchers", "E514")
+    tests = (manifest_tests(gitio.file_at(repo, base, MANIFEST_FILE)) or []) if base_ok else []
+
+    def read(path: str) -> tuple[bytes | None, bytes | None]:
+        return (gitio.file_at(repo, base, path) if base_ok else None), gitio.file_at(repo, head, path)
+    return {"exam_pinned": True, "roots": watchers.command_roots(tests), "read": read}
+
+
+def manifest_tests(raw: bytes | None) -> list[dict[str, Any]] | None:
+    """A manifest's tests as the watchers read them (``id``, ``cmd``, ``stage``); None when there is no manifest or
+    it cannot be read."""
+    try:
+        return None if raw is None else [{"id": t.id, "cmd": t.cmd, "stage": t.stage}
+                                         for t in parse_manifest(raw.decode("utf-8")).tests]
+    except (ManifestError, UnicodeDecodeError):
+        return None
+
+
 def _watch_base(repo: Path, base: str) -> dict[str, Any]:
     """What the watchers' static pass reads of the base (E516): its ledger, so the push's own rows are told apart
     (`watchers.push_rows`), and its manifest's tests, whose ids a row may name (`watchers.Declared.covers`)."""
     ledger = gitio.file_at(repo, base, LEDGER_FILE)
-    raw = gitio.file_at(repo, base, MANIFEST_FILE)
-    try:
-        tests = [] if raw is None else [{"id": t.id, "cmd": t.cmd, "stage": t.stage}
-                                        for t in parse_manifest(raw.decode("utf-8")).tests]
-    except (ManifestError, UnicodeDecodeError):
-        tests = []
+    tests = manifest_tests(gitio.file_at(repo, base, MANIFEST_FILE)) or []
     try:
         text = None if ledger is None else ledger.decode("utf-8")
     except UnicodeDecodeError:
@@ -1304,6 +1399,7 @@ def build_parser() -> argparse.ArgumentParser:
         ("--exam", {"help": "the exam store kos fetched; read only under a pinned exam (E516)"}),
         ("--gozcu", {"help": "gozcu's output directory (gozcu.json); read only under a pinned exam (E516)"}),
         ("--target", {"help": "kos_hedef's output directory (hedef.json); read only under a pinned exam"}))
+    add("fetch-exam", cmd_fetch_exam, root, ("--repo", req), ("--key", req), ("--known-hosts", req), ("--out", req))
     add("check-snapshot", cmd_check_snapshot, root)
     add("watch", cmd_watch, root, ("--pulled", req), ("--out", req))
     add("run-target", cmd_run_target, root, ("--pulled", req), ("--work", req), ("--out", req))

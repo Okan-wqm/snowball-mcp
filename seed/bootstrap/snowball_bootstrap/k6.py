@@ -22,9 +22,20 @@ The exam itself (clauses, cases, answers, mutants, canaries, the held path list)
 this repository; this module holds only the mechanism, its authoring format and the validator of that format. Case
 ids leave the private side only as HMAC tokens keyed by the epoch's secret salt, so a guessable id pattern names no
 case. ``evaluate`` is the private evaluation (integers, strings, booleans and null only, `canon`); the signed field is
-``public_field`` of it (E520): the status, the fall from live, the exam's pin, the statement that the exam proves
+``signed_field`` of it (E520): the status, the fall from live, the exam's pin, the statement that the exam proves
 software logic only, with no field I/O and no hardware in the loop, and the salted hash of the rest. No family, count
 or unmet condition is signed: the Founder sees one status, never what the exam is made of.
+
+**Where it is evaluated** (E522, verifier finding 2). Not on the public referee's runner: `kos` there parses part
+archives the Founder's code produced, so whatever it holds is one exploit away from the Founder. The operator
+evaluates on the private side, once per exam version (``summarize``: the exam, its runs, the held path list measured
+with the referee's own fence matcher, the live prerequisites, the epoch's copy base and safety list), and the store
+gets ``summary``'s document of it: the status reached, the base and safety list it was reached for, and the sealed
+hash of the evaluation. `kos` reads that one document, never the exam, its runs or the held list, and ``signed_field``
+adds the one thing that changes between pushes, the fall from a signed `live`. A summary of another base or another
+safety list, or one that is not a summary, reaches nothing: `not_live`. The runs document names the exam it ran by
+``exam_id`` (the exam document's sha256), never by the store's pin: the pin hashes a manifest that lists the runs, so
+runs that named it could never be written.
 
 The authoring format (one JSON document; `EXAM_FORMAT`):
 - `required_modes`: every fault mode the exam must answer, each by a clause or by an exclusion with a reason;
@@ -38,7 +49,7 @@ The authoring format (one JSON document; `EXAM_FORMAT`):
 - `mutants`: `id`, `family`, `class` (`fail_safe_inversion`, `ordinary`); a physics mutant carries the output shift
   the admit step measured, which must lie past every tolerance and below a blunt change;
 - `canaries`: `id`, `family`, `clauses` (what the bad fix pretends to fix).
-The runs document: `exam_sha256` (the pin of the exam they ran), `base` (`commit`, `failed_cases`), `mutants`
+The runs document: `exam_sha256` (``exam_id`` of the exam they ran), `base` (`commit`, `failed_cases`), `mutants`
 (`mutant`, `subject` `ref` or `base`, `failed_cases`), `canaries` (`canary`, `failed_cases`).
 """
 
@@ -46,6 +57,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import json
 import math
 from fractions import Fraction
 from typing import Any, Callable, Iterable
@@ -75,6 +87,8 @@ SALINITY_PPT = (0, 40)  # the range over which the two oxygen-solubility anchors
 SALT_BYTES = 32
 CASE_TAG = b"snowball-k6-case\x00"
 SEAL_TAG = b"snowball-k6-evaluation\x00"
+SUMMARY_SCHEMA = "snowball-k6-summary/1"  # the one K6 document `kos` reads (E522)
+SUMMARY_KEYS = ("schema", "reached", "base_commit", "safety_paths_sha256", "sealed_sha256")
 # All the signed result holds of K6 (E520, plan D6/D7): the status that opens the fence, whether it fell from live (the
 # owner reviews the safety commits merged since), the exam it is of, what it proves, and the salted hash of the whole
 # evaluation. Families, counts, the base's red cases and the unmet conditions stay on the private side.
@@ -410,8 +424,8 @@ def _live_ready(ready: Any) -> list[str]:
 
 def evaluate(exam: Any, runs: Any, *, salt: bytes, exam_sha256: str | None, base_commit: str | None,
              recall: dict[str, int] | None, live_ready: Any, previous: str | None) -> dict[str, Any]:
-    """The private K6 evaluation (the signed field is its ``public_field``, E520). ``previous`` is the status of the
-    last **signed** result, never one the brain states. Missing or broken evidence keeps the status where the
+    """The private K6 evaluation (its ``summary`` is what the store gives `kos`, E522). ``previous`` is the status of
+    the last **signed** result, never one the brain states. Missing or broken evidence keeps the status where the
     evidence that is there puts it, and the reason is named in `unmet`."""
     if previous is not None and previous not in STATUSES:
         raise K6Error(f"previous status {previous!r} is not one of {STATUSES}")
@@ -474,9 +488,73 @@ def evaluate(exam: Any, runs: Any, *, salt: bytes, exam_sha256: str | None, base
     }
 
 
-def public_field(evaluation: dict[str, Any], salt: bytes) -> dict[str, Any]:
-    """The signed `k6` field of an evaluation (E520): ``PUBLIC_KEYS`` alone; ``sealed_sha256`` is the HMAC under the
-    epoch's salt of the whole evaluation, which the operator recomputes from the private store to open it."""
+def exam_id(exam_bytes: bytes) -> str:
+    """What the runs name the exam they ran by (E522): the exam document's sha256."""
+    return hashlib.sha256(exam_bytes).hexdigest()
+
+
+def safety_paths_sha256(paths: Iterable[str] | None) -> str | None:
+    """The owner's safety list a summary was reached for, as one hash (order and repeats aside)."""
+    if paths is None:
+        return None
+    return canon.sha256_hex(canon.canonical(sorted(set(paths))))
+
+
+def summary(evaluation: dict[str, Any], salt: bytes, *, base_commit: str | None,
+            safety_paths: Iterable[str] | None) -> dict[str, Any]:
+    """The store's K6 document of a private evaluation made with no previous status (E522): the status it reached,
+    what it was reached for, and the HMAC under the epoch's salt of the whole evaluation, which the operator recomputes
+    to open it. No family, count, unmet name or case leaves the private side, not even to `kos`'s disk."""
     case_token(salt, "")  # a short salt stops here
+    if evaluation.get("fell_from_live") is not False or evaluation.get("status") not in STATUSES:
+        raise K6Error("a summary is of an evaluation made with no previous status")
     sealed = hmac.new(salt, SEAL_TAG + canon.canonical(evaluation), hashlib.sha256).hexdigest()
-    return {**{key: evaluation[key] for key in PUBLIC_KEYS[:-1]}, "sealed_sha256": sealed}
+    return {"schema": SUMMARY_SCHEMA, "reached": evaluation["status"], "base_commit": base_commit,
+            "safety_paths_sha256": safety_paths_sha256(safety_paths), "sealed_sha256": sealed}
+
+
+def summarize(exam_bytes: bytes | None, runs: Any, held_paths: Any, live_ready: Any, *, salt: bytes,
+              base_commit: str | None, safety_paths: Iterable[str] | None,
+              is_safety: Callable[[str], bool]) -> dict[str, Any]:
+    """The operator's private evaluation of one exam version, as the store's summary (E522). ``is_safety`` is the
+    referee's own fence matcher on the owner's list, so the recall is of the classifier that gates."""
+    exam: Any = None
+    if exam_bytes is not None:
+        try:
+            exam = json.loads(exam_bytes.decode("utf-8"))
+        except (UnicodeDecodeError, ValueError, RecursionError):
+            exam = None
+    recall = None
+    if safety_paths and isinstance(held_paths, list) and all(isinstance(p, str) for p in held_paths):
+        recall = fence_recall(held_paths, is_safety)
+    evaluation = evaluate(exam, runs, salt=salt, exam_sha256=exam_id(exam_bytes) if exam_bytes is not None else None,
+                          base_commit=base_commit, recall=recall, live_ready=live_ready, previous=None)
+    return summary(evaluation, salt, base_commit=base_commit, safety_paths=safety_paths)
+
+
+def _summary_holds(doc: Any, base_commit: str | None, safety_paths: Iterable[str] | None) -> bool:
+    """Whether ``doc`` is a summary reached for this epoch's copy base and the owner's safety list."""
+    return (isinstance(doc, dict) and sorted(doc) == sorted(SUMMARY_KEYS)
+            and doc["schema"] == SUMMARY_SCHEMA and doc["reached"] in STATUSES
+            and isinstance(doc["sealed_sha256"], str) and HEX64_RE.match(doc["sealed_sha256"]) is not None
+            and isinstance(base_commit, str) and doc["base_commit"] == base_commit
+            and safety_paths is not None and doc["safety_paths_sha256"] == safety_paths_sha256(safety_paths))
+
+
+def signed_field(doc: Any, salt: bytes, *, exam_sha256: str | None, base_commit: str | None,
+                 safety_paths: Iterable[str] | None, previous: str | None) -> dict[str, Any]:
+    """The signed `k6` field (E520), ``PUBLIC_KEYS`` alone, from the store's summary ``doc`` (E522). ``previous`` is
+    the status of the last **signed** result. A summary of this epoch's copy base and safety list gives the status it
+    reached, or `not_live` after a signed `live` it no longer reaches (``fell_from_live``); anything else reaches
+    nothing. ``sealed_sha256`` binds the summary and the previous status under the epoch's salt."""
+    if previous is not None and previous not in STATUSES:
+        raise K6Error(f"previous status {previous!r} is not one of {STATUSES}")
+    case_token(salt, "")  # a short salt stops here
+    holds = _summary_holds(doc, base_commit, safety_paths)
+    reached = doc["reached"] if holds else "not_live"
+    fell = previous == "live" and reached != "live"
+    bound = canon.canonical({"summary": doc if holds else None, "previous": previous})
+    sealed = hmac.new(salt, SEAL_TAG + bound, hashlib.sha256).hexdigest()
+    pin = exam_sha256 if isinstance(exam_sha256, str) and HEX64_RE.match(exam_sha256) else None
+    return {"status": "not_live" if fell else reached, "fell_from_live": fell, "exam_sha256": pin, "scope": SCOPE,
+            "sealed_sha256": sealed}

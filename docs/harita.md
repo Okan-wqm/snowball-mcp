@@ -36,7 +36,7 @@ flowchart LR
     job_kos_parca["job kos_parca<br/>control · run-part · pack"]
     job_gozcu["job gozcu<br/>control · watch · pack"]
     job_kos_hedef["job kos_hedef<br/>control · run-target · pack"]
-    job_kos["job kos<br/>control · join-parts · pack"]
+    job_kos["job kos<br/>control · fetch-exam · join-parts · pack"]
     job_cagir["job cagir<br/>control · rival · pack"]
     job_yeniden["job yeniden<br/>control · reproduce · pack"]
     job_yaz["job yaz<br/>control · decide · licenses"]
@@ -81,7 +81,7 @@ flowchart LR
 | `kos_parca` | `cek`, `getir` | `control`, `run-part`, `pack` | {} | - |
 | `gozcu` | `cek` | `control`, `watch`, `pack` | {} | - |
 | `kos_hedef` | `cek` | `control`, `run-target`, `pack` | {} | - |
-| `kos` | `cek`, `getir`, `kos_parca`, `kos_hedef`, `gozcu` | `control`, `join-parts`, `pack` | {} | `ANSWERS_KEY`, `EXAM_REPO` |
+| `kos` | `cek`, `getir`, `kos_parca`, `kos_hedef`, `gozcu` | `control`, `fetch-exam`, `join-parts`, `pack` | {} | `ANSWERS_KEY`, `EXAM_REPO` |
 | `cagir` | `cek`, `kos` | `control`, `rival`, `pack` | {} | `CLAUDE_CODE_OAUTH_TOKEN` |
 | `yeniden` | `cek`, `getir`, `kos`, `cagir` | `control`, `reproduce`, `pack` | {} | - |
 | `yaz` | `cek`, `getir`, `kos`, `cagir`, `yeniden`, `gozcu` | `control`, `decide`, `licenses` | contents: read, id-token: write | - |
@@ -453,8 +453,9 @@ Every subcommand of `cli.py`, the jobs that run it, and the package modules its 
 | `run-tests` | operator / local | `cmd_run_tests` | `canon`, `config`, `container`, `licenses`, `moduleless`, `parts`, `stagelock`, `treehash`, `vectors` |
 | `run-part` | `kos_parca` | `cmd_run_part` | `canon`, `config`, `container`, `licenses`, `moduleless`, `parts`, `stagelock`, `treehash`, `vectors` |
 | `join-parts` | `kos` | `cmd_join_parts` | `canon`, `config`, `licenses`, `moduleless`, `parts`, `stagelock`, `treehash`, `vectors` |
+| `fetch-exam` | `kos` | `cmd_fetch_exam` | `config`, `gitio` |
 | `check-snapshot` | `cek` | `cmd_check_snapshot` | `config` |
-| `watch` | `gozcu` | `cmd_watch` | `canon`, `classify`, `config`, `treehash`, `vectors` |
+| `watch` | `gozcu` | `cmd_watch` | `canon`, `classify`, `config`, `manifest`, `treehash`, `vectors` |
 | `run-target` | `kos_hedef` | `cmd_run_target` | `canon`, `config`, `gitio`, `treehash` |
 | `fence` | operator / local | `cmd_fence` | `canon`, `config`, `gitio` |
 | `rival` | `cagir` | `cmd_rival` | `canon`, `config`, `rival`, `stagelock`, `stages`, `treehash` |

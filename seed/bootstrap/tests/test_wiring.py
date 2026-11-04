@@ -203,7 +203,8 @@ class KosPartsTest(unittest.TestCase):
         self.assertNotIn("docker", join)
         # E516: the exam store's key and name, in the fetch step's env and nowhere else (test_integration's T8 lint)
         self.assertEqual(re.findall(r"secrets\.([A-Z_]+)", join), sorted(EXAM_SECRETS))
-        self.assertEqual(set(re.findall(r"-m snowball_bootstrap ([a-z-]+)", join)), {"control", "join-parts", "pack"})
+        self.assertEqual(set(re.findall(r"-m snowball_bootstrap ([a-z-]+)", join)),
+                         {"control", "fetch-exam", "join-parts", "pack"})  # E522: the referee's own fetch
 
 
 MF_COLUMNS = ["MF", "Mekanizma", "Test", "Vektör grubu", "Modül (`referee/` altında)", "Adım", "Kum"]

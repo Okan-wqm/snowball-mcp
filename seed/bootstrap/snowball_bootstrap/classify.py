@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from typing import Callable, Iterable
 
 SPEC_STAGE_RE = re.compile(r"^spec/asama-\d+/")
 SPEC_INDEX = "spec/INDEX.md"
@@ -47,20 +48,25 @@ def is_agent_config(path: str) -> bool:
 EXAM_TAMPER_LIMIT = 20  # paths named, like `changed_after_exit`
 
 
-def is_exam_path(path: str) -> bool:
+def is_exam_path(path: str, roots: Iterable[str] | None = None,
+                 read: Callable[[str], tuple[bytes | None, bytes | None]] | None = None) -> bool:
     """The exam's machinery in a pushed tree (E516, plan D9 G4a): the watchers' one list (`watchers.PROTECTED_EXAM`,
-    E514: the exam's slots in `referee/`, the root `.github/`, the test runners' configurations). Read only under a
-    pinned exam: a push there touches the exam or the referee and is rejected outright, no judgement needed."""
-    from .watchers import is_exam_path as exam_path  # imported under a pin only: before it nothing here is new
-    return exam_path(path)
+    E514: the exam's slots in `referee/`, the root `.github/`, the test runners' configurations; E522: what shadows
+    the runner from the directories ``roots`` the base manifest's commands run from, and a runner section changed in
+    a file ``read`` gives at the base and the head). Read only under a pinned exam: a push there touches the exam or
+    the referee and is rejected outright, no judgement needed."""
+    from .watchers import ROOT_ONLY, touches_exam  # imported under a pin only: before it nothing here is new
+    return touches_exam(path, ROOT_ONLY if roots is None else roots, read)
 
 
-def classify(changed: list[str], exam_pinned: bool = False) -> tuple[str, list[str]]:
+def classify(changed: list[str], exam_pinned: bool = False, roots: Iterable[str] | None = None,
+             read: Callable[[str], tuple[bytes | None, bytes | None]] | None = None) -> tuple[str, list[str]]:
     """Return (kind, reasons). kind is one of none, spec, code, rejected. Under a pinned exam (``exam_pinned``, E516)
-    a path in the exam's slots is also `exam_tamper:<path>`; with no pin nothing here changed."""
+    a path of the exam's machinery is also `exam_tamper:<path>` (``is_exam_path`` with ``roots`` and ``read``); with
+    no pin nothing here changed."""
     reasons: set[str] = set()
     spec = code = False
-    tamper = sorted(p for p in changed if exam_pinned and is_exam_path(p))[:EXAM_TAMPER_LIMIT]
+    tamper = sorted(p for p in changed if exam_pinned and is_exam_path(p, roots, read))[:EXAM_TAMPER_LIMIT]
     reasons.update(f"{EXAM_TAMPER}:{p}" for p in tamper)
     for path in changed:
         if is_founder_record(path):

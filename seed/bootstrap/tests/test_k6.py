@@ -1,5 +1,6 @@
 """K6's state and strength (E512): `k6.evaluate` turns an exam, its runs and the live prerequisites into the private
-evaluation, `k6.public_field` into the signed `k6` field (E520), and the fence opens only on `live`.
+evaluation, `k6.summary` into the store's K6 document (E522) and `k6.signed_field` into the signed `k6`
+field (E520), and the fence opens only on `live`.
 
 The exam here is synthetic and says nothing of a real one: abstract modes, clauses and cases in four families, each
 with twenty mutants (ten of them fail-safe inversions), fifty canaries and two cases, every mutant and canary caught.
@@ -120,26 +121,90 @@ class StatusTest(unittest.TestCase):
             field = judge(exam, runs, ready=ready)
             self.assertEqual((field["status"], field["unmet"]), ("exam_strong", [why]))
 
-    def test_the_signed_field_is_the_status_and_a_sealed_hash(self):  # k6_counts_published
-        """E520 (verifier finding 10, plan D6/D7, owner "yalnız bir bit + sayaç"): the signed field carries the status,
-        the fall from live, the pin and the scope; no family, count, base-red number or unmet name. The sealed hash is
-        an HMAC of the whole evaluation under the epoch's salt, so the operator opens it and no one else can."""
+    def test_the_store_holds_a_summary_and_the_signed_field_is_the_status_and_a_sealed_hash(self):
+        # k6_counts_published
+        """E520 (verifier finding 10, plan D6/D7, owner "yalnız bir bit + sayaç"), E522 (finding 2): the private side
+        evaluates and the store gets ``summary``: the status reached, what it was reached for and an HMAC of the whole
+        evaluation under the epoch's salt. No family, count, base-red number or unmet name is in it, so none is on
+        `kos`'s disk; the signed field built from it carries the status, the fall from live, the pin and the scope."""
         exam, runs = strong()
         runs["canaries"][60]["failed_cases"] = []
-        evaluation = judge(exam, runs, previous="live")
-        field = k6.public_field(evaluation, SALT)
-        self.assertEqual(field, {"status": "not_live", "fell_from_live": True, "exam_sha256": PIN, "scope": k6.SCOPE,
-                                 "sealed_sha256": hmac.new(SALT, k6.SEAL_TAG + canon.canonical(evaluation),
-                                                           hashlib.sha256).hexdigest()})
+        evaluation = judge(exam, runs)
+        doc = k6.summary(evaluation, SALT, base_commit=BASE, safety_paths=["units/**", "alarm/*"])
+        self.assertEqual(doc, {"schema": k6.SUMMARY_SCHEMA, "reached": "exam_built", "base_commit": BASE,
+                               "safety_paths_sha256": k6.safety_paths_sha256(["alarm/*", "units/**", "alarm/*"]),
+                               "sealed_sha256": hmac.new(SALT, k6.SEAL_TAG + canon.canonical(evaluation),
+                                                         hashlib.sha256).hexdigest()})
+        field = k6.signed_field(doc, SALT, exam_sha256=PIN, base_commit=BASE, safety_paths=["units/**", "alarm/*"],
+                                previous="live")
         self.assertEqual(tuple(field), k6.PUBLIC_KEYS)
-        text = json.dumps(field)
-        for private in ("canary", "families", "unmet", "killed", "base_red", "S:", "58156"):
-            self.assertNotIn(private, text)
-        strong_field = k6.public_field(judge(*strong(), previous="exam_strong"), SALT)
-        self.assertNotEqual(strong_field["sealed_sha256"], field["sealed_sha256"])
-        self.assertNotEqual(k6.public_field(evaluation, OTHER_SALT)["sealed_sha256"], field["sealed_sha256"])
+        self.assertEqual({k: v for k, v in field.items() if k != "sealed_sha256"},
+                         {"status": "not_live", "fell_from_live": True, "exam_sha256": PIN, "scope": k6.SCOPE})
+        for text in (json.dumps(doc), json.dumps(field)):
+            for private in ("canary", "families", "unmet", "killed", "base_red", "S:", "58156"):
+                self.assertNotIn(private, text)
+        self.assertNotEqual(k6.summary(judge(*strong()), SALT, base_commit=BASE, safety_paths=["units/**"])
+                            ["sealed_sha256"], doc["sealed_sha256"])
+        self.assertNotEqual(k6.summary(evaluation, OTHER_SALT, base_commit=BASE, safety_paths=["units/**"])
+                            ["sealed_sha256"], doc["sealed_sha256"])
         with self.assertRaises(k6.K6Error):
-            k6.public_field(evaluation, b"short")
+            k6.summary(evaluation, b"short", base_commit=BASE, safety_paths=["units/**"])
+        with self.assertRaises(k6.K6Error):  # a summary is made with no previous status: the fall is the referee's
+            k6.summary(judge(exam, runs, previous="live"), SALT, base_commit=BASE, safety_paths=["units/**"])
+        with self.assertRaises(k6.K6Error):
+            k6.signed_field(doc, b"short", exam_sha256=PIN, base_commit=BASE, safety_paths=["x"], previous=None)
+
+    def test_the_signed_field_holds_only_for_this_epochs_base_and_safety_list(self):
+        # k6_summary_base_unbound k6_summary_safety_unbound k6_fall_ignored k6_seal_unbound
+        """E522: the status a summary reached is signed only for the copy base and the owner's safety list it was
+        reached for; anything else, a summary of another base or list, or no summary, reaches nothing (`not_live`).
+        After a signed `live` a summary that no longer reaches it falls (``fell_from_live``). The seal binds the
+        summary and the previous status, so two runs that sign the same status for different reasons differ."""
+        paths = ["units/**"]
+        live = k6.summary(judge(*strong(), previous=None), SALT, base_commit=BASE, safety_paths=paths)
+        self.assertEqual(live["reached"], "live")
+
+        def signed(doc, previous=None, base=BASE, safety=paths):
+            return k6.signed_field(doc, SALT, exam_sha256=PIN, base_commit=base, safety_paths=safety,
+                                   previous=previous)
+        self.assertEqual((signed(live)["status"], signed(live)["fell_from_live"]), ("live", False))
+        self.assertEqual((signed(live, "live")["status"], signed(live, "live")["fell_from_live"]), ("live", False))
+        for doc, base, safety in ((live, "c" * 40, paths), (live, BASE, ["units/**", "extra/**"]), (live, None, paths),
+                                  (live, BASE, None), (None, BASE, paths), ({**live, "reached": "open"}, BASE, paths),
+                                  ({**live, "families": {}}, BASE, paths), ({**live, "schema": "x"}, BASE, paths)):
+            self.assertEqual(signed(doc, None, base, safety)["status"], "not_live", (doc, base, safety))
+            self.assertEqual((signed(doc, "live", base, safety)["status"],
+                              signed(doc, "live", base, safety)["fell_from_live"]), ("not_live", True))
+        built = {**live, "reached": "exam_built"}
+        self.assertEqual((signed(built, "live")["status"], signed(built, "live")["fell_from_live"]),
+                         ("not_live", True))
+        self.assertEqual(signed(built, "exam_strong")["status"], "exam_built")
+        self.assertNotEqual(signed(built, "live")["sealed_sha256"], signed(None, "live")["sealed_sha256"])
+        self.assertNotEqual(signed(live, None)["sealed_sha256"], signed(live, "exam_strong")["sealed_sha256"])
+        self.assertEqual(signed(live, None, safety=["units/**", "units/**"])["status"], "live")  # order, repeats aside
+        self.assertIsNone(k6.signed_field(live, SALT, exam_sha256="x", base_commit=BASE, safety_paths=paths,
+                                          previous=None)["exam_sha256"])
+        with self.assertRaises(k6.K6Error):
+            signed(live, "open")
+
+    def test_the_runs_name_the_exam_by_its_document_and_summarize_reads_bytes(self):  # k6_exam_id_not_bytes
+        """E522: the store's pin hashes a manifest that lists the summary, so the runs name the exam they ran by the
+        exam document's sha256 (``exam_id``); ``summarize`` reads the documents as the store holds them and measures
+        the held paths with the matcher it is given. Unreadable bytes are missing evidence, never an error."""
+        exam, runs = strong()
+        raw = json.dumps(exam).encode("utf-8")
+        runs["exam_sha256"] = k6.exam_id(raw)
+        self.assertEqual(k6.exam_id(raw), hashlib.sha256(raw).hexdigest())
+        held = ["units/a.rs", "units/b.rs"]
+
+        def reached(raw=raw, runs=runs, is_safety=lambda path: path.startswith("units/")):
+            return k6.summarize(raw, runs, held, READY, salt=SALT, base_commit=BASE, safety_paths=["units/**"],
+                                is_safety=is_safety)["reached"]
+        self.assertEqual(reached(), "live")
+        self.assertEqual(reached(runs={**runs, "exam_sha256": PIN}), "exam_built")  # runs named by the store's pin
+        self.assertEqual(reached(is_safety=lambda path: path.endswith("a.rs")), "exam_built")  # recall 1 of 2
+        for bad in (b"\xff", b"{", None):
+            self.assertEqual(reached(raw=bad), "not_live")
 
     def test_a_missed_canary_after_live_falls_back_to_not_live(self):  # missed_canary_keeps_live
         """E512: one missed canary ends `exam_strong`; after a signed `live` the status is `not_live`, never a middle
