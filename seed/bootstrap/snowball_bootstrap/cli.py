@@ -1093,7 +1093,10 @@ def cmd_watch(args: argparse.Namespace) -> int:
 def _exam_view(repo: Path, base: str, head: str, base_ok: bool, pinned: bool) -> dict[str, Any]:
     """classify's view of the exam's machinery (E522): with no pin, none (nothing here changed); under a pin, the
     directories the base manifest's commands run Python from (`watchers.command_roots`) and a reader of a path's bytes
-    at the base and the head, for the runner sections a file carries (`watchers.runner_config_changed`)."""
+    at the base and the head, for the runner sections a file carries (`watchers.runner_config_changed`); and the
+    standard modules the base's test modules import, which no push may add at those directories (`watchers.shielded`,
+    E523), and the directories whose runner sections the base's tests run under (`watchers.runner_dirs`, E523). With
+    no base every standard name and every directory counts."""
     if not pinned:
         return {"exam_pinned": False}
     watchers = pinned_module("watchers", "E514")
@@ -1101,7 +1104,18 @@ def _exam_view(repo: Path, base: str, head: str, base_ok: bool, pinned: bool) ->
 
     def read(path: str) -> tuple[bytes | None, bytes | None]:
         return (gitio.file_at(repo, base, path) if base_ok else None), gitio.file_at(repo, head, path)
-    return {"exam_pinned": True, "roots": watchers.command_roots(tests), "read": read}
+    roots = watchers.command_roots(tests)
+    paths = gitio.tree_paths(repo, base) if base_ok else []
+    sources = [p for p in paths if watchers.is_test_source(p)]
+    texts: list[bytes] | None = None
+    if base_ok and len(sources) <= watchers.TEST_IMPORT_FILES:
+        try:  # by path, one blob each: a link reads as its target and compiles to nothing
+            texts = [gitio.git(repo, "cat-file", "blob", f"{base}:{p}") for p in sources]
+        except gitio.GitError:
+            texts = None
+    shielded = watchers.shielded(roots, paths, watchers.test_imports(texts))
+    under = watchers.runner_dirs(roots, paths) if base_ok else None
+    return {"exam_pinned": True, "roots": roots, "read": read, "shielded": shielded, "under": under}
 
 
 def manifest_tests(raw: bytes | None) -> list[dict[str, Any]] | None:

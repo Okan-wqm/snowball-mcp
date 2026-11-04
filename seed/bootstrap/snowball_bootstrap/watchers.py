@@ -94,6 +94,7 @@ expressions here have no nested quantifier. Only the standard library is used.
 
 from __future__ import annotations
 
+import ast
 import configparser
 import dataclasses
 import hashlib
@@ -104,13 +105,14 @@ import math
 import posixpath
 import re
 import shlex
+import sys
 import tokenize
 import tomllib
 from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
 from fractions import Fraction
 from pathlib import Path, PurePosixPath
-from typing import Any, Callable, Iterable, Mapping, Sequence
+from typing import Any, Callable, Collection, Iterable, Mapping, Sequence
 
 from . import canon, ledgercheck
 from .container import Runner, RunResult
@@ -397,7 +399,7 @@ RUNNER_CONFIG_RE = re.compile(
     r"(?:jest|vitest|vite|karma|playwright|cypress|ava|nyc)(?:\.[\w-]+)?\.config\.[cm]?[jt]s(?:on)?|"
     r"vitest\.(?:workspace|projects)\.[cm]?[jt]s(?:on)?|jest\.preset\.[cm]?js|"
     r"\.mocharc(?:\.[a-z]+)?|\.nycrc(?:\.[a-z]+)?|\.?pytest\.ini|tox\.ini|\.coveragerc|nextest\.toml|"
-    r"\.?babel\.config\.js")
+    r"\.?babel\.config\.(?:[cm]?js|json)|\.babelrc(?:\.(?:[cm]?js|json))?|\.swcrc")  # E523: babel's, swc's forms
 RUNNER_CONFIG_DIRS = (".cargo/config", ".cargo/config.toml", ".config/nextest.toml")
 # Runner shadowing (E522, verifier finding 7: a root `unittest.py` made a failing test print "Ran 7 tests OK"). A
 # module of the runner's own name or a hook it loads by name (``RUNNER_MODULES``), at any depth, and a committed
@@ -417,6 +419,14 @@ RUNNER_IMPORTS = frozenset({
     "reprlib", "shutil", "signal", "textwrap", "token", "tokenize", "traceback", "types", "unittest", "warnings",
     "weakref", "zlib"})
 PY_MODULE_SUFFIXES = (".py", ".pyc", ".pyw", ".so", ".pyd")
+# The tests' own yardstick (E523): a standard module the base's test modules import (``json``, ``subprocess``,
+# ``math``) is what they measure with; a module of its name new at a command root replaces it (a root ``json.py``
+# made a red ``assertEqual(json.loads(...), ...)`` green). ``shielded`` gives the pairs (root, name) a push may not
+# add there: a name the base already has at that root is the brain's own code (``referee/profile/``), whose edits
+# are ordinary work. The names are the interpreter's list, the same on every platform of one version.
+STDLIB_NAMES = frozenset(sys.stdlib_module_names)
+TEST_IMPORT_FILES = 2000  # base test modules read; over it every standard name counts (fail closed)
+TEST_IMPORT_BYTES = 32_000_000
 ROOT_ONLY = frozenset({""})
 # Embedded runner configuration (E522): the runner's section of a file honest changes also edit, compared by content
 # (``runner_config_changed``): package.json's runner keys and test scripts, nx's test targets, pytest's, coverage's and
@@ -434,19 +444,21 @@ EXAM_SLOTS = tuple(sorted(f"referee/{name}" for name in RESERVED_TOP))
 PROTECTED_EXAM = ("<root>/.github/", RUNNER_CONFIG_RE.pattern, *RUNNER_CONFIG_DIRS, *EXAM_SLOTS,
                   *(f"<any>/{m}" for m in sorted(RUNNER_MODULES | RUNNER_DIRS)),
                   *(f"<command root>/{m}" for m in sorted(RUNNER_IMPORTS)),
+                  "<command root>/<a standard module the base's tests import, new there>",
                   *(f"<runner section of>/{name}" for name in EMBEDDED_CONFIGS))
 
 
-def is_exam_path(path: str, roots: Iterable[str] = ROOT_ONLY) -> bool:
+def is_exam_path(path: str, roots: Iterable[str] = ROOT_ONLY, shielded: Collection[tuple[str, str]] = ()) -> bool:
     """Whether ``path`` is the exam's machinery (``PROTECTED_EXAM``) by its path: the one list, which classify's
     ``exam_tamper`` reads too (E516). ``roots``: the directories the base manifest's commands run Python from
-    (``command_roots``); the embedded runner sections are compared by content (``touches_exam``)."""
+    (``command_roots``); ``shielded``: the tests' standard modules there (``shielded``, E523); the embedded runner
+    sections are compared by content (``touches_exam``)."""
     if is_exam_slot(path):
         return True
     name = PurePosixPath(path).name
     return (RUNNER_CONFIG_RE.fullmatch(name) is not None or any(path == d or path.endswith("/" + d)
                                                                  for d in RUNNER_CONFIG_DIRS)
-            or shadows_runner(path, roots))
+            or shadows_runner(path, roots, shielded))
 
 
 def _module_name(part: str) -> str | None:
@@ -454,10 +466,11 @@ def _module_name(part: str) -> str | None:
     return part.split(".", 1)[0] if part.endswith(PY_MODULE_SUFFIXES) else None
 
 
-def shadows_runner(path: str, roots: Iterable[str] = ROOT_ONLY) -> bool:
+def shadows_runner(path: str, roots: Iterable[str] = ROOT_ONLY, shielded: Collection[tuple[str, str]] = ()) -> bool:
     """Whether ``path`` can stand in for the test runner (E522): a file or package of a ``RUNNER_MODULES`` name, or
     under a ``RUNNER_DIRS`` directory, at any depth; or a module or regular package of a ``RUNNER_IMPORTS`` name
-    directly in one of ``roots`` (a namespace directory without ``__init__`` never wins over the stdlib)."""
+    directly in one of ``roots`` (a namespace directory without ``__init__`` never wins over the stdlib), or of a
+    name ``shielded`` pairs with its directory (the tests' own standard modules, E523)."""
     parts = PurePosixPath(path).parts
     if not parts:
         return False
@@ -468,9 +481,54 @@ def shadows_runner(path: str, roots: Iterable[str] = ROOT_ONLY) -> bool:
     parent = "/".join(parts[:-1])
     if parent in roots and _module_name(parts[-1]) in RUNNER_IMPORTS:
         return True
+    if (parent, _module_name(parts[-1])) in shielded:
+        return True
     package = "/".join(parts[:-2])
-    return (len(parts) >= 2 and _module_name(parts[-1]) == "__init__" and package in roots
-            and parts[-2] in RUNNER_IMPORTS)
+    return (len(parts) >= 2 and _module_name(parts[-1]) == "__init__"
+            and ((package in roots and parts[-2] in RUNNER_IMPORTS) or (package, parts[-2]) in shielded))
+
+
+def is_test_source(path: str) -> bool:
+    """A Python test module, whose imports ``test_imports`` reads (E523)."""
+    return path.endswith(".py") and is_test_module(path)
+
+
+def test_imports(sources: Sequence[bytes] | None) -> frozenset[str]:
+    """The standard modules the base's test modules ``sources`` import (E523): absolute imports, their first part,
+    anywhere in the module; a module that does not compile imports nothing. None, or more than ``TEST_IMPORT_FILES``
+    modules or ``TEST_IMPORT_BYTES``, is every standard name (fail closed)."""
+    if sources is None or len(sources) > TEST_IMPORT_FILES or sum(len(s) for s in sources) > TEST_IMPORT_BYTES:
+        return STDLIB_NAMES
+    names: set[str] = set()
+    for source in sources:
+        try:
+            tree = ast.parse(source)
+        except (SyntaxError, ValueError, RecursionError, MemoryError):
+            continue
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                names.update(alias.name.split(".")[0] for alias in node.names)
+            elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+                names.add(node.module.split(".")[0])
+    return frozenset(names & STDLIB_NAMES)
+
+
+def shielded(roots: Iterable[str], base_paths: Iterable[str], imported: Iterable[str]) -> frozenset[tuple[str, str]]:
+    """The pairs (root, name) a push may not add (E523): each of ``roots`` with each standard name the base's tests
+    import (``test_imports``), less the modules and regular packages the base tree ``base_paths`` already has at
+    that root (the brain's own ``referee/profile/`` is its code, not the stdlib's)."""
+    have: set[tuple[str, str]] = set()
+    for path in base_paths:
+        parts = PurePosixPath(path).parts
+        if not parts:
+            continue
+        module = _module_name(parts[-1])
+        if module is not None:
+            have.add(("/".join(parts[:-1]), module))
+        if len(parts) >= 2 and module == "__init__":
+            have.add(("/".join(parts[:-2]), parts[-2]))
+    names = set(imported)
+    return frozenset((r, n) for r in set(roots) for n in names if (r, n) not in have)
 
 
 def _root(cwd: str, rel: str) -> str | None:
@@ -485,12 +543,15 @@ def _root(cwd: str, rel: str) -> str | None:
 
 PLAIN_PATH_RE = re.compile(r"[\w.][\w.\-/]{0,300}")
 ROOT_FLAGS = frozenset({"-s", "--start-directory", "-t", "--top-level-directory"})
+PYTHON_RE = re.compile(r"(?:\S*/)?python(?:3(?:\.\d+)?)?")
+PYTHON_ARG_FLAGS = frozenset({"-X", "-W", "-Q"})  # an interpreter option whose value is the next word
 
 
 def command_roots(tests: Sequence[Mapping[str, Any]]) -> frozenset[str]:
     """The directories the base manifest's commands run Python from (E522): the tree's root, where each ``cd`` leaves
-    the shell, a unittest discover start or top-level directory, and each ``PYTHONPATH`` entry, each from the
-    directory the command stood in. A command that cannot be read adds nothing beyond the root."""
+    the shell, a unittest discover start or top-level directory, each ``PYTHONPATH`` entry, and the directory of a
+    script Python runs (``python tests/run.py`` puts ``tests`` first on the path, E523), each from the directory the
+    command stood in. A command that cannot be read adds nothing beyond the root."""
     roots = {""}
     for test in tests:
         cmd = test.get("cmd") if isinstance(test, Mapping) else None
@@ -514,8 +575,31 @@ def command_roots(tests: Sequence[Mapping[str, Any]]) -> frozenset[str]:
                 found.append(_root(cwd, following))
             elif token.startswith(("PYTHONPATH=", "--start-directory=", "--top-level-directory=")):
                 found += [_root(cwd, part) for part in token.split("=", 1)[1].split(":")]
+            elif PYTHON_RE.fullmatch(token):
+                script = _script(tokens[i + 1:])
+                if script is not None:
+                    found.append(_root(cwd, posixpath.dirname(script) or "."))
             roots.update(r for r in found if r is not None)
     return frozenset(roots)
+
+
+def _script(args: Sequence[str]) -> str | None:
+    """The script an interpreter's words run (``-X utf8 tests/run.py``), None for ``-m``, ``-c`` or none."""
+    i = 0
+    while i < len(args):
+        word = args[i]
+        if word in ("-m", "-c", "-") or not word or word[0] in "&|;<>()":
+            return None
+        if word in PYTHON_ARG_FLAGS:
+            i += 2
+            continue
+        if word.startswith("-"):
+            if word[1:2] in ("m", "c") and not word.startswith("--"):
+                return None  # -mpkg, -cCODE
+            i += 1
+            continue
+        return word
+    return None
 
 
 def _test_task(name: Any) -> bool:
@@ -562,13 +646,30 @@ def runner_config_changed(path: str, base_raw: bytes | None, head_raw: bytes | N
         return True
 
 
+def runner_dirs(roots: Iterable[str], base_paths: Iterable[str]) -> frozenset[str]:
+    """The directories whose runner sections the base's tests run under (E523): the command roots and every
+    directory that holds a base test path, with all their ancestors (npm, jest and pytest look upward from where they
+    start). A runner file elsewhere, such as a new fixture's ``package.json`` (the honest brain's ``8223c90``), runs
+    none of the base's tests."""
+    dirs: set[str] = {""}
+    for start in [*roots, *(posixpath.dirname(p) for p in base_paths if is_test_path(p))]:
+        parts = PurePosixPath(start).parts if start else ()
+        dirs.update("/".join(parts[:i]) for i in range(len(parts) + 1))
+    return frozenset(dirs)
+
+
 def touches_exam(path: str, roots: Iterable[str] = ROOT_ONLY,
-                 read: Callable[[str], tuple[bytes | None, bytes | None]] | None = None) -> bool:
+                 read: Callable[[str], tuple[bytes | None, bytes | None]] | None = None,
+                 shielded: Collection[tuple[str, str]] = (), under: Collection[str] | None = None) -> bool:
     """Whether a changed ``path`` touches the exam's machinery (``PROTECTED_EXAM``): by its path (``is_exam_path``), or
-    by the runner's section it carries, ``read`` giving its bytes at the base and the head (classify, E522)."""
-    if is_exam_path(path, roots):
+    by the runner's section it carries, ``read`` giving its bytes at the base and the head (classify, E522), in one
+    of the directories ``under`` (``runner_dirs``; None: any, E523), or is a module of the tests' own standard names
+    new at a command root (``shielded``, E523)."""
+    if is_exam_path(path, roots, shielded):
         return True
     if read is None or PurePosixPath(path).name not in EMBEDDED_CONFIGS:
+        return False
+    if under is not None and posixpath.dirname(path) not in under:
         return False
     return runner_config_changed(path, *read(path))
 

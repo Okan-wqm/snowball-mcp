@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from typing import Callable, Iterable
+from typing import Callable, Collection, Iterable
 
 SPEC_STAGE_RE = re.compile(r"^spec/asama-\d+/")
 SPEC_INDEX = "spec/INDEX.md"
@@ -49,24 +49,29 @@ EXAM_TAMPER_LIMIT = 20  # paths named, like `changed_after_exit`
 
 
 def is_exam_path(path: str, roots: Iterable[str] | None = None,
-                 read: Callable[[str], tuple[bytes | None, bytes | None]] | None = None) -> bool:
+                 read: Callable[[str], tuple[bytes | None, bytes | None]] | None = None,
+                 shielded: Collection[tuple[str, str]] = (), under: Collection[str] | None = None) -> bool:
     """The exam's machinery in a pushed tree (E516, plan D9 G4a): the watchers' one list (`watchers.PROTECTED_EXAM`,
     E514: the exam's slots in `referee/`, the root `.github/`, the test runners' configurations; E522: what shadows
     the runner from the directories ``roots`` the base manifest's commands run from, and a runner section changed in
-    a file ``read`` gives at the base and the head). Read only under a pinned exam: a push there touches the exam or
-    the referee and is rejected outright, no judgement needed."""
+    a file ``read`` gives at the base and the head, in a directory ``under`` names; E523: a module ``shielded``
+    names, the tests' own standard module new at a command root). Read only under a pinned exam: a push there touches
+    the exam or the referee and is rejected outright, no judgement needed."""
     from .watchers import ROOT_ONLY, touches_exam  # imported under a pin only: before it nothing here is new
-    return touches_exam(path, ROOT_ONLY if roots is None else roots, read)
+    return touches_exam(path, ROOT_ONLY if roots is None else roots, read, shielded, under)
 
 
 def classify(changed: list[str], exam_pinned: bool = False, roots: Iterable[str] | None = None,
-             read: Callable[[str], tuple[bytes | None, bytes | None]] | None = None) -> tuple[str, list[str]]:
+             read: Callable[[str], tuple[bytes | None, bytes | None]] | None = None,
+             shielded: Collection[tuple[str, str]] = (),
+             under: Collection[str] | None = None) -> tuple[str, list[str]]:
     """Return (kind, reasons). kind is one of none, spec, code, rejected. Under a pinned exam (``exam_pinned``, E516)
     a path of the exam's machinery is also `exam_tamper:<path>` (``is_exam_path`` with ``roots`` and ``read``); with
     no pin nothing here changed."""
     reasons: set[str] = set()
     spec = code = False
-    tamper = sorted(p for p in changed if exam_pinned and is_exam_path(p, roots, read))[:EXAM_TAMPER_LIMIT]
+    tamper = sorted(p for p in changed
+                    if exam_pinned and is_exam_path(p, roots, read, shielded, under))[:EXAM_TAMPER_LIMIT]
     reasons.update(f"{EXAM_TAMPER}:{p}" for p in tamper)
     for path in changed:
         if is_founder_record(path):

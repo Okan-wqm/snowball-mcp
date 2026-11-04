@@ -1074,6 +1074,108 @@ class RunnerShadowTest(unittest.TestCase):
         for path in ("playwright.config.md", "src/vitest.ts", "e2e/playwright-helpers.ts", "jest.configure.ts"):
             self.assertFalse(w.is_exam_path(path), path)
 
+    def test_every_form_of_the_transformers_config(self):  # babel_variant_unfenced
+        """E523: babel-jest and @swc/jest rewrite each test file before it runs, so a plugin in any of their
+        configuration files can drop an ``expect``; ``babel.config.js`` alone was listed."""
+        for path in (".babelrc", "apps/web/.babelrc.json", ".babelrc.js", "babel.config.json", "babel.config.cjs",
+                     "libs/a/babel.config.mjs", ".swcrc", "apps/api/.swcrc", "babel.config.js"):
+            self.assertTrue(w.is_exam_path(path), path)
+        for path in ("babelrc.md", "src/babel.ts", ".babelrc.md", "swcrc.json"):
+            self.assertFalse(w.is_exam_path(path), path)
+
+    def test_a_root_module_of_a_tests_import_makes_a_failing_test_green(self):  # test_import_shadow_unfenced
+        """E523: the class is real on this interpreter: a failing test that measures with ``json``, a ``json.py``
+        at the directory it runs from, OK and exit 0. The tests' own standard modules new there are fenced."""
+        test = ("import json\nimport unittest\n\n\nclass X(unittest.TestCase):\n    def test_x(self):\n"
+                "        self.assertEqual(json.loads('[1]'), [2])\n")
+        with tempfile.TemporaryDirectory() as tmp:
+            tree = Path(tmp)
+            (tree / "tests").mkdir()
+            (tree / "tests" / "test_x.py").write_text(test)
+            argv = [sys.executable, "-m", "unittest", "discover", "-s", "tests"]
+            env = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
+            self.assertNotEqual(subprocess.run(argv, cwd=tree, capture_output=True, env=env).returncode, 0)
+            (tree / "json.py").write_text("def loads(_text):\n    return [2]\n")
+            self.assertEqual(subprocess.run(argv, cwd=tree, capture_output=True, env=env).returncode, 0)
+        roots = w.command_roots([{"id": "T1", "cmd": "python -m unittest discover -s tests"}])
+        shield = w.shielded(roots, ["tests/test_x.py"], w.test_imports([test.encode()]))
+        self.assertTrue(w.shadows_runner("json.py", roots, shield))
+        self.assertTrue(w.shadows_runner("tests/json/__init__.py", roots, shield))
+        self.assertFalse(w.shadows_runner("json.py", roots))  # not a runner import: only the tests' list names it
+        from snowball_bootstrap.classify import classify
+        self.assertEqual(classify(["json.py", "tests/test_x.py"], exam_pinned=True, roots=roots, shielded=shield),
+                         ("rejected", ["exam_tamper:json.py"]))
+        self.assertEqual(classify(["json.py"], exam_pinned=False, roots=roots, shielded=shield), ("code", []))
+
+    def test_what_the_tests_import_is_shielded_where_it_is_new(self):
+        # test_imports_from_unread test_imports_nested_unread test_imports_fail_open test_imports_any_name
+        # shield_base_module_ignored shield_package_unseen
+        sources = [b"import json, os.path\nfrom subprocess import run\nfrom . import harness\nfrom .x import y\n"
+                   b"from harness import stats\nimport profile\n\n\ndef f():\n    import math\n",
+                   b"def broken(:\n    import tarfile\n", b"\xff\xfe\x00", b"from email import utils\n"]
+        self.assertEqual(w.test_imports(sources), {"json", "os", "subprocess", "profile", "math", "email"})
+        self.assertEqual(w.test_imports(None), w.STDLIB_NAMES)  # no base: every standard name
+        self.assertEqual(w.test_imports([b""] * (w.TEST_IMPORT_FILES + 1)), w.STDLIB_NAMES)
+        self.assertEqual(w.test_imports([]), frozenset())
+        self.assertIn("profile", w.STDLIB_NAMES)
+        base = ["referee/profile/__init__.py", "referee/profile/units.py", "referee/tests/test_a.py",
+                "referee/email.py", "referee/math/units.py", "tools/json.py"]
+        roots = w.command_roots(BRAIN_CMDS)
+        shield = w.shielded(roots, base, {"json", "profile", "math", "email", "subprocess"})
+        self.assertNotIn(("referee", "profile"), shield)  # the honest brain's own package
+        self.assertNotIn(("referee", "email"), shield)  # the brain's own module, edited as code
+        self.assertIn(("referee", "math"), shield)  # a namespace directory is no module: a new __init__ would be
+        self.assertIn(("referee", "json"), shield)
+        self.assertIn(("", "subprocess"), shield)
+        self.assertNotIn(("tools", "json"), shield)  # no command runs from tools/
+        fenced = ["referee/json.py", "referee/json/__init__.py", "referee/math/__init__.py", "subprocess.py",
+                  "referee/tests/json.py", "referee/subprocess.cpython-312-x86_64-linux-gnu.so"]
+        free = ["referee/profile/__init__.py", "referee/profile/new.py", "referee/email.py", "referee/math/x.py",
+                "referee/json/x.py", "referee/x/json.py", "tools/json.py", "referee/harness.py", "src/stats.py"]
+        self.assertEqual([p for p in fenced if not w.shadows_runner(p, roots, shield)], [])
+        self.assertEqual([p for p in free if w.shadows_runner(p, roots, shield)], [])
+        self.assertIn("<command root>/<a standard module the base's tests import, new there>", w.PROTECTED_EXAM)
+
+    def test_a_script_python_runs_puts_its_directory_first(self):  # command_roots_script_ignored python_flag_value_read
+        """E523: ``python tests/run.py`` runs with ``tests`` first on the path, as ``-m`` runs with the directory the
+        command stands in; the script's directory is a command root."""
+        cases = {"python tests/run_like_referee.py -j 8": {"", "tests"},
+                 "cd referee && python3 -X utf8 tests/x.py": {"", "referee", "referee/tests"},
+                 "python -W ignore -B tools/a/b.py": {"", "tools/a"}, "/usr/bin/python3.12 run.py": {""},
+                 "cd referee && python ../tools/t.py": {"", "referee", "tools"}, "python -m unittest a/b.py": {""},
+                 "python -c 'import x' a/b.py": {""}, "python -mpytest a/b.py": {""}, "python /etc/x.py": {""},
+                 "python ../../x/y.py": {""}, "pythonic a/b.py": {""}}
+        self.assertEqual({c: set(w.command_roots([{"id": "T1", "cmd": c}])) for c in cases}, cases)
+        with tempfile.TemporaryDirectory() as tmp:
+            tree = Path(tmp)
+            (tree / "tests").mkdir()
+            (tree / "tests" / "run.py").write_text("import sys\nprint(sys.path[0])\n")
+            env = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
+            out = subprocess.run([sys.executable, "tests/run.py"], cwd=tree, capture_output=True, text=True, env=env)
+            self.assertEqual(Path(out.stdout.strip()).resolve(), (tree / "tests").resolve())
+
+    def test_a_runner_section_counts_where_the_base_tests_run(self):
+        # runner_dirs_ignored runner_dirs_tests_unread runner_dirs_no_ancestors
+        """E523: a runner section is the exam's only in a directory the base's tests run under: a command root, a
+        directory holding a base test path, or one above them. The honest brain's 8223c90 added a toy fixture's
+        package.json with a test script in a new directory, which runs none of the base's tests."""
+        base = ["referee/tests/test_a.py", "apps/web/src/x.test.ts", "apps/web/package.json", "docs/package.json",
+                "tests/fixtures/old/package.json", "tests/fixtures/old/test/a.test.js"]
+        under = w.runner_dirs({"", "referee"}, base)
+        self.assertEqual(under, {"", "referee", "referee/tests", "apps", "apps/web", "apps/web/src", "tests",
+                                 "tests/fixtures", "tests/fixtures/old", "tests/fixtures/old/test"})
+        script = (json.dumps({"scripts": {"test": "jest"}}).encode(),
+                  json.dumps({"scripts": {"test": "true"}}).encode())
+        new = (None, json.dumps({"scripts": {"test": "node --test"}}).encode())
+        pytest = (None, b"[tool.pytest.ini_options]\naddopts = '-k not calc'\n")
+        reads = {"apps/web/package.json": script, "docs/package.json": script, "package.json": new,
+                 "tests/fixtures/toy-repo/textkit/package.json": new, "referee/tests/pyproject.toml": pytest,
+                 "tests/fixtures/old/package.json": script, "tools/pyproject.toml": pytest}
+        flagged = sorted(p for p in reads if w.touches_exam(p, {"", "referee"}, reads.__getitem__, (), under))
+        self.assertEqual(flagged, ["apps/web/package.json", "package.json", "referee/tests/pyproject.toml",
+                                   "tests/fixtures/old/package.json"])
+        self.assertEqual(len([p for p in reads if w.touches_exam(p, {""}, reads.__getitem__)]), len(reads))  # None
+
 
 # ---- G4c ---------------------------------------------------------------------------------------------------------
 ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
