@@ -148,7 +148,7 @@ class DailyReportTest(unittest.TestCase):
         """A mechanism the pilot lacks is named with its register id ("ölçülmedi", "kurulmadı"); a record that cannot
         be read says so. A missing metrics file leaves every logged session unexplained, never zero sessions."""
         lines = self.lines()
-        for n, register in ((1, "E535"), (3, "E536"), (4, "E534"), (5, "E535"), (7, "E529"), (8, "E532")):
+        for n, register in ((1, "E535"), (3, "E536"), (5, "E535"), (7, "E529"), (8, "E532")):
             self.assertIn(register, lines[n])
         self.assertIn("ölçülmedi (hedef sınavı yok)", lines[2])
         (self.work / "pilot-metrics.jsonl").unlink()

@@ -156,8 +156,9 @@ class FounderLedgerRules(unittest.TestCase):
                          [f"{INVALID}:kind:L2"])
         self.assertEqual(self.check(ledger_bytes(ledger_rows(2, edits={1: {"part": "events"}}))),
                          [f"{INVALID}:part:L2"])
-        self.assertEqual(set(ledgercheck.FOUNDER_KINDS),
-                         {"session_start", "decision", "build", "blocked", "seed_issue", "cost", "session_end"})
+        self.assertEqual(set(ledgercheck.FOUNDER_KINDS),  # `forecast`: `26g`, E534
+                         {"session_start", "decision", "build", "blocked", "seed_issue", "cost", "session_end",
+                          "forecast"})
 
     def test_bytes_that_are_not_rows_are_refused(self):
         for raw, rule in ((b"\xff\xfe\n", "not_utf8"), (b"not json\n", "not_json"), (b"[1, 2]\n", "not_json"),

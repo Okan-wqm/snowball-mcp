@@ -586,4 +586,7 @@ def decide(meta: dict[str, Any], run: dict[str, Any] | None, rival: dict[str, An
         "state": state,
         "rejection": rejection,
         "reports": reports,
+        # The forecast rows the judged head carries past the last accepted ledger, as pull named them (`26g`, E534):
+        # numbers and hashes only, never a reason; the operator scores them outside the brain.
+        "forecasts": list(meta.get("forecasts") or []),
     }

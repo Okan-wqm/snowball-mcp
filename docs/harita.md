@@ -80,20 +80,20 @@ flowchart LR
 
 ## 2. Referee package: `seed/bootstrap/snowball_bootstrap`
 
-28 modules, 72 imports inside the package, 1 started as a separate process. Areas are roles. The overview has 5 areas and 12 edges; an arrow's number is how many imports cross from one area to the other.
+29 modules, 75 imports inside the package, 1 started as a separate process. Areas are roles. The overview has 5 areas and 12 edges; an arrow's number is how many imports cross from one area to the other.
 
 ```mermaid
 flowchart LR
   a_Entry["Entry<br/>3 modules"]
-  a_Intake["Intake<br/>9 modules"]
+  a_Intake["Intake<br/>10 modules"]
   a_Sandbox["Sandbox<br/>6 modules"]
   a_Rival["Rival<br/>4 modules"]
   a_Judgement["Judgement<br/>6 modules"]
-  a_Entry -->|9| a_Intake
+  a_Entry -->|10| a_Intake
   a_Entry -->|6| a_Judgement
   a_Entry -->|2| a_Rival
   a_Entry -->|5| a_Sandbox
-  a_Intake -->|1| a_Judgement
+  a_Intake -->|2| a_Judgement
   a_Judgement -->|7| a_Intake
   a_Judgement -->|4| a_Rival
   a_Rival -->|3| a_Intake
@@ -105,7 +105,7 @@ flowchart LR
 
 ### Entry
 
-3 modules, 23 edges out of them.
+3 modules, 24 edges out of them.
 
 ```mermaid
 flowchart LR
@@ -118,6 +118,7 @@ flowchart LR
     m_canon["canon"]:::outside
     m_classify["classify"]:::outside
     m_config["config"]:::outside
+    m_forecast["forecast"]:::outside
     m_ghapi["ghapi"]:::outside
     m_gitio["gitio"]:::outside
     m_importer["importer"]:::outside
@@ -151,6 +152,7 @@ flowchart LR
   m_cli --> m_container
   m_cli --> m_decide
   m_cli --> m_exitchecks
+  m_cli --> m_forecast
   m_cli --> m_ghapi
   m_cli --> m_gitio
   m_cli --> m_importer
@@ -178,7 +180,7 @@ flowchart LR
 
 ### Intake
 
-9 modules, 10 edges out of them.
+10 modules, 12 edges out of them.
 
 ```mermaid
 flowchart LR
@@ -186,6 +188,7 @@ flowchart LR
     m_canon["canon"]
     m_classify["classify"]
     m_config["config"]
+    m_forecast["forecast"]
     m_ghapi["ghapi"]
     m_gitio["gitio"]
     m_importer["importer"]
@@ -194,8 +197,11 @@ flowchart LR
     m_treehash["treehash"]
   end
   subgraph a_Judgement["Judgement"]
+    m_ledgercheck["ledgercheck"]:::outside
     m_stages["stages"]:::outside
   end
+  m_forecast --> m_canon
+  m_forecast --> m_ledgercheck
   m_gitio --> m_treehash
   m_importer --> m_canon
   m_importer --> m_gitio
@@ -211,9 +217,10 @@ flowchart LR
 
 | Module | What it is (first sentence of its docstring) | Imported by |
 |---|---|---|
-| `canon` | Canonical JSON (the RFC 8785 subset the seed allows) and hashing helpers. | `cli`, `importer`, `ledgercheck`, `parts`, `reproduce`, `rival`, `stagelock` |
+| `canon` | Canonical JSON (the RFC 8785 subset the seed allows) and hashing helpers. | `cli`, `forecast`, `importer`, `ledgercheck`, `parts`, `reproduce`, `rival`, `stagelock` |
 | `classify` | What kind of push is this (`tohum/29b`, "İki tür push")? | `cli`, `exitchecks` |
 | `config` | Operator-written inputs, validated strictly. | `cli`, `exitchecks`, `rival`, `stagelock`, `stages`, `state` |
+| `forecast` | The Founder's forecast rows (`tohum/26g`, E534): what the signed result names of them, never a reason. | `cli` |
 | `ghapi` | Minimal GitHub REST calls the pull job needs: find and download the latest state artifact, and look at the newest failed run of this workflow (E13). | `cli` |
 | `gitio` | Git operations on the untrusted brain repository. | `cli`, `importer`, `stagelock` |
 | `importer` | Operator import at the Stage 0 exit and at each batch exit after it (`tohum/25a` 1-2, `asama-0/10a` #aktarim and #oyuncak, `asama-1/13` 3: "aynı komut"). | `cli`, `stagelock` |
@@ -358,7 +365,7 @@ flowchart LR
 |---|---|---|
 | `decide` | The acceptance decision (`tohum/29b`, "Kabul" and "Aşama 0 çıkışının (A) parçası"). | `cli` |
 | `exitchecks` | The (A) conditions of `asama-0/10` that `pull` checks on the brain archive it already holds (`29b`; the narrowing note's draft `29e` "Tohum denetimleri": in `çek`, read from ... | `cli`, `decide` |
-| `ledgercheck` | The Founder's ledger (`asama-0/10` #kurucu-defteri, `asama-0/09` test 30, `tohum/26`, `00a`; E107, E280). | `cli`, `decide`, `exitchecks` |
+| `ledgercheck` | The Founder's ledger (`asama-0/10` #kurucu-defteri, `asama-0/09` test 30, `tohum/26`, `00a`; E107, E280). | `cli`, `decide`, `exitchecks`, `forecast` |
 | `stages` | The stage tables (`asama-0/14`, `tohum/26c` "Aşama tablosu"): the machine copy of a stage's micro-features. | `cli`, `decide`, `manifest`, `moduleless`, `stagelock`, `vectors`, `wiring` |
 | `state` | The bootstrap's memory between runs: the last signed result's ``state`` block. | `cli`, `decide` |
 | `wiring` | The loop workflow's wiring rules (`asama-0/10` #is-akisi, `asama-0/09` test 46, `asama-0/14` MF17; `tohum/08`, `01a`, `29p`; E100, E162, E281-E283). | `cli`, `exitchecks` |
@@ -374,7 +381,7 @@ Every subcommand of `cli.py`, the jobs that run it, and the package modules its 
 | `poll` | `cek` | `cmd_poll` | `config`, `decide`, `ghapi`, `gitio`, `treehash` |
 | `licenses` | `cek`, `yaz` | `cmd_licenses` | `canon`, `config`, `licenses` |
 | `fetch-state` | `cek` | `cmd_fetch_state` | `canon`, `config`, `decide`, `ghapi`, `importer`, `state` |
-| `pull` | `cek` | `cmd_pull` | `canon`, `classify`, `config`, `decide`, `exitchecks`, `gitio`, `ledgercheck`, `manifest`, `rival`, `stagelock`, `stages`, `state`, `treehash`, `wiring` |
+| `pull` | `cek` | `cmd_pull` | `canon`, `classify`, `config`, `decide`, `exitchecks`, `forecast`, `gitio`, `ledgercheck`, `manifest`, `rival`, `stagelock`, `stages`, `state`, `treehash`, `wiring` |
 | `fetch-deps` | `getir` | `cmd_fetch_deps` | `canon`, `manifest`, `treehash` |
 | `run-tests` | operator / local | `cmd_run_tests` | `canon`, `config`, `container`, `licenses`, `moduleless`, `parts`, `stagelock`, `treehash`, `vectors` |
 | `run-part` | `kos_parca` | `cmd_run_part` | `canon`, `config`, `container`, `licenses`, `moduleless`, `parts`, `stagelock`, `treehash`, `vectors` |

@@ -88,7 +88,7 @@ karar "yürürlükte" görünürdü), sahibin kararını bekler. İmaj yeniden k
 | `vec/` | vektörlerin girdileri, kapsüle `/vec` olarak salt okunur (E244): `cases.json` (her veri vakasının `id`, `purpose`, `cmd`, `stdin`, `fixture` ve `changed` alanları) ve fikstürler; beklenen değer yok. Her oturumdan önce hakem reposunun `main`'indeki `vectors/`'ten, hakemin kendi `vectors.founder_inputs`'uyla yeniden kurulur |
 | `logs/` | oturum dökümleri (`stream-json`); her oturumun klasöründe `brain-definitions.json`, beynin yüklenen ve düşen ajan ve skill tanımları (E450) |
 | `pilot-log.md` | operatörün raporu: her döngüde push, hakem kararı, yeni defter satırları ve bildirimler, maliyet satırının ne olduğu, beynin açık raporları ve yaşları |
-| `pilot-metrics.jsonl` | her döngünün ölçümü: push, karar, nedenler ve **sahipleri** (hakemin kendi kuralıyla: Kurucu / rakip / hakem), rakibin kanıtlanmış bulguları, eski çürütmeler, yeni bildirimler, süre, maliyet, hakemin yeniden inceleme sayısı; sonucun neye bağlanacağı (E313): `prompt_sha256`, `image_id`, `model`, `cli_version` ve `model_served` (dökümün `init` olayı), `seed_commit`, `spec_tohum_tree`, `rival_config`, `target_sha`, `timed_out`, `budget_usd` (oturumun freni) ve `stage` (açık aşama; E530). Her başlatıcı başlangıcı ayrı bir `kind: intervention` satırıdır (argümanlar, imaj, prompt hash'i). `prompt_sha256` imajın kendisinin: kurulum imajı içindeki prompt'un sha256'sıyla etiketler (`snowball.prompt_sha256`), `--no-build` eski imajı koşturur, etiketsiz imajda `null`; çalışma kopyasınınki `checkout_prompt_sha256`; `context_sha256` imajın bütün kurulum dosyalarınınki (E506): kurulum imajı `snowball.context_sha256` ile de etiketler (`BUILD_FILES`'ın her dosyası, LF ile, sıralı `<yol>\0<sha256>\n` satırlarının sha256'sı), çalışma kopyasınınki `checkout_context_sha256`; ikisi farklıysa başlatıcı bunu söyler: yalnız prompt değil, değişmiş bir araç ya da yükleyici de görünür |
+| `pilot-metrics.jsonl` | her döngünün ölçümü: push, karar, nedenler ve **sahipleri** (hakemin kendi kuralıyla: Kurucu / rakip / hakem), rakibin kanıtlanmış bulguları, eski çürütmeler, yeni bildirimler, süre, maliyet, hakemin yeniden inceleme sayısı; sonucun neye bağlanacağı (E313): `prompt_sha256`, `image_id`, `model`, `cli_version` ve `model_served` (dökümün `init` olayı), `seed_commit`, `spec_tohum_tree`, `rival_config`, `target_sha`, `timed_out`, `budget_usd` (oturumun freni), `stage` (açık aşama; E530) ve `forecasts` (hakemin o başta adlandırdığı tahmin satırları, `26g`; E534). Her başlatıcı başlangıcı ayrı bir `kind: intervention` satırıdır (argümanlar, imaj, prompt hash'i). `prompt_sha256` imajın kendisinin: kurulum imajı içindeki prompt'un sha256'sıyla etiketler (`snowball.prompt_sha256`), `--no-build` eski imajı koşturur, etiketsiz imajda `null`; çalışma kopyasınınki `checkout_prompt_sha256`; `context_sha256` imajın bütün kurulum dosyalarınınki (E506): kurulum imajı `snowball.context_sha256` ile de etiketler (`BUILD_FILES`'ın her dosyası, LF ile, sıralı `<yol>\0<sha256>\n` satırlarının sha256'sı), çalışma kopyasınınki `checkout_context_sha256`; ikisi farklıysa başlatıcı bunu söyler: yalnız prompt değil, değişmiş bir araç ya da yükleyici de görünür |
 | `cost-pending.jsonl` | henüz yazılamamış maliyet satırları (aşağıda) |
 | `reports-seen.json` | başlatıcının her beyin raporunu ilk gördüğü an: raporun yaşı |
 | `STOP` | oluşturulursa başlatıcı o adımdan sonra durur |
@@ -225,9 +225,22 @@ tavanlar; hedef; büyüme; tahmin; tuzak alarmı; açık raporlar; olaylar; kaps
 aynı türden işin emeği (kabul edilen kod push'unun medyan maliyeti, süresi, turu; kayıt daha ince bir iş türü
 adlandırmaz), olaylar satırında insan dokunuşu (elle başlatma, `--resume` değil, ve operatörün günlüğe yazdığı dokunuş
 başlığı ya da `(insan dokunuşu` işaretli zamanlı satırı; kaydın biçimi tanımsızdır, E277, zamansız başlık
-"zamanı okunamayan" diye sayılır). Henüz kurulmamış bir düzenek
-(E529 nabız, E532 kanarya ve dışa çıkış, E534 tahmin, E535 iş/geliştirme ayrımı, E536 organlar) kayıt numarasıyla
-"ölçülmedi" der, hiçbir zaman 0 demez. Rapor sayı, kimlik ve zaman taşır; Kurucu'nun metnini taşımaz.
+"zamanı okunamayan" diye sayılır). Tahmin satırı günün değil kaydın tümünündür (`forecast_score.py`, aşağıda).
+Henüz kurulmamış bir düzenek (E529 nabız, E532 kanarya ve dışa çıkış, E535 iş/geliştirme ayrımı, E536 organlar)
+kayıt numarasıyla "ölçülmedi" der, hiçbir zaman 0 demez. Rapor sayı, kimlik ve zaman taşır; Kurucu'nun metnini taşımaz.
+
+**Tahmin puanlayıcısı** (E534, otonomi planı §3, `spec/tohum/26g`): `seed/founder/forecast_score.py` beynin ve kapsülün
+dışında, yalnız metrik satırlarını okur, hiçbir şey yazmaz; günlük raporun 5. satırı onun sonucudur. Olay, push'u
+yargılanmış (`accepted`, `frozen` 1; `rejected` 0) oturum satırıdır; kararsız koşu olay değildir. Tahmin satırı, imzalı
+listesinde onu ilk adlandıran yargılanmış push'a bağlanır: hakem yalnız yargıladığı baştaki satırı adlandırır, o koşudan
+sonra yazılan satır o kararın tahmini olamaz; sonraki koşuda yeniden adlandırılan satır ilk push'unda kalır; bir push'un
+yeni adlandırdıklarından biçimi tutan sonuncusu sayılır. Her puan Kurucu'nunkiyle aynı olaylarda taban oran
+tahmincisininki yan yana, öngörülü (hiçbir olay sonrakini görmez): kabul için Brier ve log-loss (p [0,001; 0,999]'a
+kırpılır), taban önceki kararların Laplace oranı; çözüm için aynı `task_sha256`'yı adlandıran sayılmış tahminli bir
+kabul `horizon_runs` push içinde gelirse 1, gelmezse 0; maliyet (USD) ve tur için p10/p50/p90 pinball kaybı, taban
+önceki push'ların ampirik yüzdelikleri (en az 10 önceki sonuçtan sonra). Sayılmış tahmini olmayan push taban oranla
+puanlanır, iki yana da bir şey eklemez. Tahminli 30 ret olayına kadar satır "yetersiz olay n_fail=X/30" der; güven
+haritası (izotonik) henüz yoktur.
 
 **Kayıt uzlaşması.** Günlüğün her `## Döngü <n> — <damga>` bölümü damgasıyla bir metrik satırına eşlenir. Fark
 yalnız kayıtlar nedenini söylüyorsa açıklanmış sayılır: metrik dosyasının ilk satırından önce günlüğe yazılmış oturum

@@ -42,6 +42,7 @@ from typing import Any, Callable
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / "bootstrap"))
 sys.path.insert(0, str(HERE))
+import forecast_score  # noqa: E402  (the forecasts' scorer, E534)
 import launch  # noqa: E402  (the launcher's own rules: spend, end, report ages, record times)
 import scorecard  # noqa: E402  (the card's GET-only gh read and its rule for "proved")
 from snowball_bootstrap.config import policy_of  # noqa: E402  (the referee's policy parser)
@@ -52,7 +53,6 @@ REPORT_DIR = "gunluk-rapor"
 LOADER_RECORD = "brain-definitions.json"
 STALE_REPORT_H = 12  # an open report older than this is the plan's alarm age
 OLD_REPORT_H = 72
-FORECAST_EVENTS = 30  # failure events before a confidence map is drawn (the plan, section 3)
 TRAP_SESSIONS = 20
 WEEK = timedelta(days=7)  # the owner's trend unit: human touches fall week on week (sabah-sorulari 2026-11-03)
 END_ORDER = ("exit", "usage_limit", "timeout", "brake", "error")
@@ -210,12 +210,8 @@ def reconcile(log: str | None, rows: list[Any]) -> dict[str, Any]:
             else:
                 unexplained.append(f"{c['stamp']} karar farklı")
     unexplained += [f"{s} günlükte yok" for s in sorted(set(by_stamp) - set(logged))]
-    rejected = sum(1 for r in sessions if r.get("verdict") == "rejected") + sum(
-        1 for c in cycles if c["session"] and c["stamp"] not in by_stamp and first is not None and c["stamp"] < first
-        and c["verdict"] == "rejected")
     return {"log_cycles": len(cycles), "log_sessions": sum(1 for c in cycles if c["session"]),
-            "rows": len(sessions), "before_metrics": before, "corrected": corrected, "unexplained": unexplained,
-            "rejected": rejected}
+            "rows": len(sessions), "before_metrics": before, "corrected": corrected, "unexplained": unexplained}
 
 
 def row_end(row: dict[str, Any]) -> str:
@@ -239,7 +235,8 @@ def build(inputs: dict[str, Any]) -> list[str]:
     every = [(utc(m.group(1)), m.group(2)) for m in TIMED_RE.finditer(inputs["log"] or "")]
     timed = [(when, text) for when, text in every if in_window(when, at)]
     return [line1(inputs, sessions, rec, timed), line2(inputs, sessions), line3(sessions), line4(inputs, good),
-            line5(rec), line6(), line7(inputs, good), line8(inputs, good, sessions, starts, timed, every),
+            line5(forecast_score.score(good)), line6(), line7(inputs, good),
+            line8(inputs, good, sessions, starts, timed, every),
             line9(inputs), line10(inputs)]
 
 
@@ -365,9 +362,24 @@ def line4(inputs: dict[str, Any], good: list[dict]) -> str:
             f"{effort(good, inputs['at'])}.")
 
 
-def line5(rec: dict[str, Any]) -> str:
-    return (f"5. Tahmin: tahmin satırı yok (E534 kurulmadı), pinball ve Brier ölçülmedi; yetersiz olay "
-            f"n_fail={rec['rejected']}/{FORECAST_EVENTS} (uzlaşmış kayıttaki ret).")
+def _pair(score: dict[str, Any], digits: int) -> str:
+    """The Founder's mean loss against the base rate's on the same events, or a dash when there is none."""
+    if not score["n"]:
+        return "—"
+    return "/".join(f"{score[k]:.{digits}f}".replace(".", ",") for k in ("founder", "base"))
+
+
+def line5(fc: dict[str, Any]) -> str:
+    """The forecasts over the whole record up to --at (`forecast_score`, E534): calibration needs history."""
+    acc, sol = fc["accept"], fc["solve"]
+    need = (f"yetersiz olay n_fail={fc['fail_events']}/{fc['fail_needed']} (tahminli ret): güven haritası çizilmez"
+            if fc["fail_events"] < fc["fail_needed"] else
+            f"olay yeterli n_fail={fc['fail_events']}/{fc['fail_needed']}: güven haritası kurulmadı")
+    return (f"5. Tahmin (kaydın tümü, Kurucu/taban): kabul olayı {fc['pushes']} (tahminli {fc['forecasted']}; "
+            f"tahminsiz olay taban oranla), Brier {_pair(acc['brier'], 4)}, log-loss {_pair(acc['log'], 4)}; çözüm "
+            f"olayı {sol['brier']['n']} (açık {fc['solve_open']}), Brier {_pair(sol['brier'], 4)}; pinball maliyet "
+            f"{_pair(fc['cost'], 2)} USD (n={fc['cost']['n']}), tur {_pair(fc['turns'], 2)} (n={fc['turns']['n']}); "
+            f"biçime uymayan {fc['invalid']}, aynı push'ta fazladan {fc['extra']}; {need}.")
 
 
 def line6() -> str:

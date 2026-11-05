@@ -60,6 +60,7 @@ Okunma: sayfa ararken; görev seçmek için `tohum/00b-gorev-haritasi.md`
 | `tohum/26d-semalar-pass-satiri.md` | Şemalar, Devam: Aşama 0'ın PASS Satırı ve Kilidin Açılışı | Aşama 0'ın (B) devirlerini ve genesis, merge, PASS ve kök satırlarını yazan kod yazılırken; kilidin açılışından önce |
 | `tohum/26f-semalar-nobetci-ve-prova.md` | Şemalar, Devam: Döngünün Nöbetçi, Geri Alma ve Prova Satırları | Aşama 0'ın D7 ve D8'ini yazan kod yazılırken |
 | `tohum/26e-semalar-asama-1.md` | Şemalar, Devam: Aşama 1'in Parti Tabloları | Aşama 1'de her parti yazılırken ve parti çıkış isteğinden önce; kilidin açılışından önce |
+| `tohum/26g-semalar-tahmin.md` | Şemalar, Devam: Kurucu'nun Tahmin Satırı | Kurucu defterine `forecast` satırı yazılırken ve imzalı sonucun `forecasts[]`'ı okunurken |
 | `tohum/27-sozluk-ve-okuyucular.md` | Sözlük ve Okuyucular | yeni terim ya da dosya eklerken |
 | `tohum/27a-okuyucular-hedef-durumu.md` | Okuyucular, Devam: Hedefteki Durum Dosyaları | yeni durum dosyası, bölüm ya da görünüm eklerken |
 | `tohum/28-dondurma.md` | Dondurma: Ne Durur, Nasıl Kalkar | Gözcü kararlarında ve her dondurmada |

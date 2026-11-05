@@ -1224,6 +1224,8 @@ class Pilot:
             "old_refutations_still_reproducing": sum(1 for r in (verdict or {}).get("reasons") or []
                                                      if r.get("kind") == "refutation_still_reproduces"),
             "ledger_new": kinds, "api_error": sess.get("api_error"), "end": end,
+            # The forecast rows the referee named on this head (`26g`, E534): the operator's scorer binds them.
+            "forecasts": (verdict or {}).get("forecasts"),
             # What the outcome is attributed to (E313): the launcher start's prompt and image, the model asked for and
             # served, the CLI, the seed, the rival's configuration, the target commit, and whether time ran out (E340).
             "prompt_sha256": self.prompt_sha256, "image_id": self.image_id, "model": args.model,

@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any
 
 from . import canon, config, exitchecks, ghapi, gitio, ledgercheck, licenses, parts, stagelock, stages, state as st, wiring
+from . import forecast  # the Founder's forecast rows the signed result names (`26g`, E534)
 from .classify import (LEDGER_FILE, REPORTS_DIR, SEED_DIRS, classify, is_founder_record, is_seed_path,
                        spec_stage_dirs)
 from .container import DockerRunner
@@ -342,7 +343,7 @@ def _pull_meta(head: str, base: str, prev: dict[str, Any]) -> dict[str, Any]:
             "run_tests": False, "run_rival": False, "manifest": None, "exit_request": None, "exit_request_sha256": None,
             "referee_tree_sha256": None, "spec_dir_hashes": {}, "state_repro": [], "reuse_rival": False,
             "waived": [], "module_less": [], "exit_checks": {}, "toy_tree_sha256": None, "honesty_exception": None,
-            "reports": [], "exam_faults": []}
+            "reports": [], "exam_faults": [], "forecasts": []}
 
 
 def exam_faults_in_force(repo: Path, summary_cfg: config.Summary, faults: list[config.ExamFault]) -> list[str]:
@@ -577,6 +578,11 @@ def _pull_classify(boot: config.Bootstrap, policy: config.Policy, summary_cfg: c
     ledger_base = gitio.file_at(repo, base, LEDGER_FILE) if kind in ("spec", "code", "exit") else None
     if kind in ("spec", "code"):
         pre += ledgercheck.check(tar_file(tar_bytes, LEDGER_FILE), ledger_base, whole=False)
+    # The forecast rows this head carries past the last accepted ledger (`26g`, E534), named in the signed result and
+    # never a reason: only a row in the head this run judges is named, so none written after its dispatch is.
+    if readable and kind != "none":
+        meta["forecasts"] = forecast.listed(tar_file(tar_bytes, LEDGER_FILE),
+                                            gitio.file_at(repo, base, LEDGER_FILE) if base_ok else None)
     # The loop workflow's wiring on every code push once its micro-feature is finished, and at the exit (`asama-0/14`).
     if kind == "code" and wiring.due(table, finished):
         pre += wiring.check(wiring.files_in(exitchecks.referee_files(tar_bytes)))

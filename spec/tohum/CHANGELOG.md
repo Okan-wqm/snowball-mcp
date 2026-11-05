@@ -4,6 +4,12 @@ Tarih: 2026-10-29 · Sürüm: 2.2
 Okunma: bir sayfanın geçmişi aranırken
 Çapa: git geçmişi ve zincirdeki spec hash satırları
 
+- 2.2 (2026-11-05, E534; sahibin kararı (2026-11-03), uzman paneli): Kurucu defterinde yeni `kind: forecast` satırı
+  (`26`, yeni `26g`): bir push'un tahmininin alanları (`capability` ve `reason`, binde `p_solve_permille` ve
+  `p_accept_first_push_permille`, `horizon_runs`, maliyet ve tur yüzdelikleri, `evidence`, `unknowns`) ve her birinin
+  söylediği olay. Önyükleme hakemi yargıladığı her push'ta son kabul edilmiş defterde olmayan `forecast` satırlarını
+  imzalı sonucun `forecasts[]`'ında adlandırır, hiçbiri ret nedeni değildir; koşu başladıktan sonra push'lanan satır o
+  koşunun tahmini değildir; tahmini olmayan push taban oranla puanlanır; puanlama beynin dışındadır.
 - 2.2 (2026-11-03, E530; sahibin kararı (2026-11-03), uzman paneli): Kurucu'nun bütçesi zorunludur. Başlatıcı her
   oturumdan önce hakem reposunun `main`'indeki `policy.json`'dan `session_cap_usd`'yi (15 USD, oturumun freni) ve yeni
   `day_cap_usd`'yi (100 USD, herhangi 24 saat) okur; freniyle günlük tavanı aşabilecek oturum açılmaz, başlatıcı bekler

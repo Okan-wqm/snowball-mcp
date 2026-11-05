@@ -7,7 +7,7 @@ Okunma: Aşama 0'ın D7 ve D8'ini yazan kod yazılırken
 ---
 
 `26`'nın devamıdır: satır alanları (`row_id`, `part`, `kind`, `payload`, `cause?`, zincir) ve kurallar oradadır; alan
-adını yalnız `26`–`26f`, `30d` ve `30e` tanımlar (`26`). Bu sayfa döngünün D7 ve D8 satırlarının yükünü verir.
+adını yalnız `26`–`26g`, `30d` ve `30e` tanımlar (`26`). Bu sayfa döngünün D7 ve D8 satırlarının yükünü verir.
 
 **Nöbetçinin sonu** (`part: events`, `kind: sentinel`): `payload {merge_sha, verdict: green|flaky, red: [],
 flaky: [test kimliği]}`. `verdict`, `red` ve `flaky` MF12'nin (`sentinel.run`, `29j`) kararının alanlarıdır: `green`
