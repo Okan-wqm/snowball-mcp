@@ -298,12 +298,13 @@ kopyala). Kopyanın `brain/state`'i küçük bir klondadır (yetim dal). Her hed
 `stage-open` o hedefin `brain/state` başından okur: döngü onu kök satırının yanında tutar,
 `.brain/chain/<kök>.sigstore.json` (`<state_root>` `01a`'nın `.brain/`'i: defter `.brain/ledger.jsonl`, kökler
 `.brain/chain/root.jsonl`; başka bir `state_root` adlandıran profil durdurur; `26d`, E414, E417); operatör paket indirmez.
-Kimlik döngünün iş akışınındır. Önce Aşama 1'in rakip freni politikaya girer (`asama-1/10`: 15 USD; `18a`, `26e`, E492):
-önyükleme hakemi kilitten sonraki ilk push'ta `stage_budgets.asama_1.rival_usd`'yi okur ve onsuz durur; `stage-open` onu
+Kimlik döngünün iş akışınındır. Önce Aşama 1'in rakip freni politikaya girer (başlangıç değeri `18a`'da;
+`asama-1/10`, `26e`, E492): önyükleme hakemi kilitten sonraki ilk push'ta `stage_budgets.asama_1.rival_usd`'yi
+okur ve onsuz durur; `stage-open` onu
 `--referee` klonunun commit'indeki `policy.json`'dan okur ve onsuz kilidi açmaz. Anahtar zaten varsa bu iki satır atlanır:
 
 ```
-WSL$ git -C $E/referee pull -q --ff-only && python3 -c "import json,sys; p=sys.argv[1]; d=json.load(open(p,encoding='utf-8')); d['constitutional']['stage_budgets'].setdefault('asama_1',{})['rival_usd']=15; open(p,'w',encoding='utf-8').write(json.dumps(d,indent=2)+'\n')" $E/referee/policy.json
+WSL$ git -C $E/referee pull -q --ff-only && python3 -c "import json,sys; p=sys.argv[1]; d=json.load(open(p,encoding='utf-8')); d['constitutional']['stage_budgets'].setdefault('asama_1',{})['rival_usd']=1000; open(p,'w',encoding='utf-8').write(json.dumps(d,indent=2)+'\n')" $E/referee/policy.json
 WSL$ git -C $E/referee commit -q -am "Aşama 1'in rakip freni (asama-1/10, tohum/26e)" && git -C $E/referee push -q origin main
 WSL$ git -C $E/referee pull -q --ff-only && git -C $E/toy fetch -q origin
 WSL$ rm -rf $E/kopya-durum && git -c core.autocrlf=false clone -q --no-checkout --single-branch --branch brain/state https://github.com/Okan-wqm/snowball-rehearsal-copy.git $E/kopya-durum
@@ -474,8 +475,8 @@ Hepsi en dar seçimdir ve E330'dadır.
   `batch` anahtarlı istek eskisi gibi `exit_request_malformed`'dır ve Aşama 0'ın her yargısı kilitsiz değişmez.
   P1'den sonra açık parti P2'dir (`stages/stage1-P2.json`, E491); aktarımı aynı komutla, `batch: "P2"`; P1 ve P2
   aktarılınca açık tablo boştur. Çıkış partisinin tablosu bu tohumda yoktur (E495). Parti tabloları Kurucu'ya `26e`'de.
-- Aşama 1'in rakip freni `stage_budgets.asama_1.rival_usd` = 15 (`asama-1/10`'un başlangıç değeri; 9. adımda,
-  `stage-open`'dan önce; E492). Değeri sahip ya da operatör yükseltebilir (olağan iş frene takılırsa, `asama-1/10`).
+- Aşama 1'in rakip freni `stage_budgets.asama_1.rival_usd` = 1000 (`18a`'nın başlangıç değeri, sahibin
+  2026-11-05 kararı: yalnız kaçak freni; 9. adımda, `stage-open`'dan önce; E492, E552). Değeri sahip ya da operatör yükseltebilir (olağan iş frene takılırsa, `asama-1/10`).
 - Döngünün girdileri (E490): değişken yok; beyin `bootstrap.json` `brain_repo` (bugün `Okan-wqm/snowball-rehearsal-brain`),
   hedefler özetin `targets[]`'ı (`toy`, `copy`), Sigstore hakemin `bootstrap/requirements/sign.txt`'i (`29s`).
 - Oyuncağın `identifiers`'ı `[]`, `unit_candidates`'i `["textkit"]` (`26c` ikisini kopya için tanımlar; tohumun genesis
