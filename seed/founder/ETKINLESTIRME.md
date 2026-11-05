@@ -250,8 +250,10 @@ WSL$ cd $E/arac && python3 -m snowball_bootstrap drill-fixtures --referee $E/ref
 Komut aktarım satırını hakem checkout'unun commit'inden okur ve ona bağlar (`stage-open`'ın bağı, E471); oyuncağın
 `main`'i ve beynin `brain_sha`'daki oyuncak fikstürü o satırın `toy_tree_sha256`'sı olmalıdır. Her taslağı `26f`'in
 kurallarıyla denetler, nedenini oyuncağın kendi araçlarıyla ölçer (temiz ağaç bir kez, sonra her ekim; testler
-dört kez, MF12'nin ilk koşusu ve üç yeniden koşusu: dördü aynı değilse flaky, neden yok; `npm ci --ignore-scripts`
-ağı olan tek adım, gerisi `--network none`), tutmayanı taslağın sırasıyla adlandırıp reddeder ve hiçbir şey yazmaz;
+dört kez, her koşu kendi kapsayıcısında (MF12'nin ilk koşusu ve üç taze yeniden koşusu) ve test başına: hepsinde düşen
+test kırmızı, bazılarında düşen flaky, hiçbir testin hepsinde düşmediği kırmızı koşular neden yok; `npm ci
+--ignore-scripts` ağı olan tek adım ve ağı süzülmez, kurulan şeyi yalnız kilit dosyası bağlar, gerisi `--network
+none`), tutmayanı taslağın sırasıyla adlandırıp reddeder ve hiçbir şey yazmaz;
 geçerse değeri yalnız `--out`'a (dosya yoksa) yazar, yalnız neden sayılarını, değerin sha256'sını ve boyutunu basar.
 Değeri `loop.yml`'un adlandırdığı adla hakemin sırrı olarak yaz (3. adımın listesindeki fikstür sırrı; ad spec'te
 değil, `loop.yml`'dadır), sha256'yı `pilot-log.md`'ye dokunuş satırı olarak yaz (kayda yalnız o girer):

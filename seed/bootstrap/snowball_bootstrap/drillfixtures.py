@@ -27,10 +27,14 @@ one, or that the measurement cannot name.
 
 The causes are measured with the toy's own tools in a sandbox, never with referee code: `DockerSandbox` installs the
 project's dependencies from its lockfile in a pinned Node image whose ``node --version`` must be the project's
-``.nvmrc`` (``npm ci --ignore-scripts``, the only step with a network, the npm registry only), then measures each tree
-with ``--network none``: every JavaScript file parses (``node --check``) and every module that is not a test file
-imports; the toy's ``lint`` script's ESLint total; the toy's ``test`` script, four times (MF12's first run and three
-reruns: green or red in all four, else flaky and no cause). The clean tree is measured once as the base, and must load
+``.nvmrc`` (``npm ci --ignore-scripts``, the only step with a network), then measures each tree with
+``--network none``: every JavaScript file parses (``node --check``) and every module that is not a test file imports;
+the toy's ``lint`` script's ESLint total; the toy's ``test`` script, four times, each run in a container of its own
+(MF12's first run and three fresh reruns, `29j` ``flaky``), per test as MF12 decides: a test that fails in all four runs
+is red, one that fails in some is flaky; red runs with no test red in all four are no cause. The install step's network
+is not filtered: what it fetches is bound by the lockfile alone (every ``resolved`` is on the npm registry and every
+package has its ``integrity``, which ``npm ci`` checks), it holds nothing secret (the manifest and lockfile of the
+toy, which is public) and it runs no package code. The clean tree is measured once as the base, and must load
 with its tests green; a plant whose patch changes what the measurement installs from or runs on (``package.json``,
 ``package-lock.json``, ``.nvmrc``) is refused, so a plant and the base are measured with the same tools. `29j`'s rule
 order names the cause: ``build_break`` when the code no longer loads (its red tests and lint are its result); else
@@ -409,8 +413,10 @@ def measured_cause(base: Measurement, measured: Measurement) -> tuple[str | None
 
 # ---------------------------------------------------------------- the docker sandbox
 
-# Runs as `node -e` in the measurement container, after the tree is unpacked under /tmp/work and with no network:
-# each step is its own process with a deadline, its output captured, never this script's own stdout.
+# Runs as `node -e` in a measurement container, after the tree is unpacked under /tmp/work and with no network:
+# each step is its own process with a deadline, its output captured, never this script's own stdout. The first
+# container does everything and runs the tests once; each rerun of MF12 is a fresh container that only runs them
+# (DFX_PARSE and DFX_LOAD empty, DFX_LINT 0), as `29j` `flaky` has it ("taze kapsayıcıda yeniden koşuları").
 HARNESS = r"""'use strict';
 const cp = require('node:child_process'), fs = require('node:fs'), path = require('node:path');
 const url = require('node:url');
@@ -423,7 +429,7 @@ function step(cmd, args, cwd, keep) {
   return {status: r.error ? null : r.status, timed_out: timedOut,
           stdout: keep && r.stdout ? r.stdout.toString('utf8') : ''};
 }
-const out = {node: process.version, parse: [], load: []};
+const out = {node: process.version, parse: [], load: [], lint: null};
 for (const f of JSON.parse(process.env.DFX_PARSE)) {
   const r = step(process.execPath, ['--check', path.join(root, f)], root, false);
   out.parse.push({status: r.status, timed_out: r.timed_out});
@@ -434,13 +440,33 @@ for (const f of JSON.parse(process.env.DFX_LOAD)) {
                                     url.pathToFileURL(file).href], path.dirname(file), false);
   out.load.push({status: r.status, timed_out: r.timed_out});
 }
-out.lint = step('npm', ['run', '--silent', 'lint'], proj, true);
-out.test = [];
-for (let k = 0; k < Number(process.env.DFX_TEST_RUNS); k++) {
-  const t = step('npm', ['test', '--silent'], proj, false);
-  out.test.push({status: t.status, timed_out: t.timed_out});
-}
+if (process.env.DFX_LINT === '1') out.lint = step('npm', ['run', '--silent', 'lint'], proj, true);
+// the toy's `test` script is exactly `node --test` (plan_of): run it with a reporter of ours, per test, in this
+// process; what the tests print arrives here as events and is never read as the report
+fs.writeFileSync('/tmp/dfx-reporter.mjs', process.env.DFX_REPORTER);
+const t = step(process.execPath, ['--test', '--test-reporter=/tmp/dfx-reporter.mjs',
+                                  '--test-reporter-destination=stdout'], proj, true);
+let rec = null;
+try { rec = JSON.parse(t.stdout); } catch (e) { rec = null; }
+out.test = {status: t.status, timed_out: t.timed_out, tests: rec && rec.tests, red: rec && rec.red};
 process.stdout.write(JSON.stringify(out));
+"""
+# The reporter: one line, the number of tests that reported and the identity of each red one (its file, line,
+# column and name: a test is one test in every run). A todo test that fails is not red, as node's exit status has it.
+REPORTER = r"""import path from 'node:path';
+export default async function* (source) {
+  const red = new Set();
+  let tests = 0;
+  for await (const e of source) {
+    if (e.type !== 'test:pass' && e.type !== 'test:fail') continue;
+    const d = e.data;
+    tests += 1;
+    if (e.type === 'test:fail' && !d.todo) {
+      red.add(`${path.relative(process.cwd(), d.file ?? '')}:${d.line}:${d.column} ${d.name}`);
+    }
+  }
+  yield JSON.stringify({tests, red: [...red].sort()});
+}
 """
 MEASURE_SH = 'set -eu\nmkdir /tmp/work\ntar -x -C /tmp/work --no-same-owner -f -\nexec node -e "$DFX_HARNESS"\n'
 INSTALL_SH = ("set -eu\nmkdir /tmp/p\ntar -x -C /tmp/p --no-same-owner -f -\ncd /tmp/p\n"
@@ -472,13 +498,32 @@ def _steps(value: Any, count: int) -> bool | None:
     return None if any(s.get("status") != 0 for s in value) else True
 
 
+def _red_of(run: Any) -> frozenset[str] | None:
+    """The red tests of one run of the toy's tests; None when the run did not finish, ran no test (`04`) or died
+    without naming a test (a nonzero status and no red test)."""
+    if not isinstance(run, dict):
+        raise ValueError("a test run is not an object")
+    red, tests = run.get("red"), run.get("tests")
+    if run.get("timed_out") or type(run.get("status")) is not int or type(tests) is not int or tests < 1 \
+            or not isinstance(red, list) or not all(isinstance(r, str) for r in red) or len(red) > tests:
+        return None
+    if not red and run["status"] != 0:
+        return None
+    return frozenset(red)
+
+
 def tests_green(runs: Any) -> bool | None:
-    """The ``TEST_RUNS`` runs of the toy's tests: True when every run passed, False when every run failed, None when
-    one could not finish or they differ (flaky: MF12 names no red test there and the sentinel does not revert)."""
-    if not isinstance(runs, list) or len(runs) != TEST_RUNS or not all(isinstance(r, dict) for r in runs):
+    """The ``TEST_RUNS`` runs of the toy's tests, per test as MF12 decides (`29j` `flaky`): False when a test is red
+    in every run, True when no run has a red test, None when one run could not finish or a test failed in some runs
+    only (flaky: no red test, the sentinel does not revert)."""
+    if not isinstance(runs, list) or len(runs) != TEST_RUNS:
         raise ValueError("the test runs are not the plan's")
-    seen = {None if r.get("timed_out") or type(r.get("status")) is not int else r["status"] == 0 for r in runs}
-    return seen.pop() if len(seen) == 1 else None
+    reds = [_red_of(run) for run in runs]
+    if None in reds:
+        return None
+    if frozenset.intersection(*reds):
+        return False
+    return None if frozenset.union(*reds) else True
 
 
 def lint_split(stdout: str) -> tuple[int, int] | None:
@@ -495,14 +540,16 @@ def lint_split(stdout: str) -> tuple[int, int] | None:
     return sum(counts[0]), sum(counts[1])
 
 
-def measurement_of(stdout: bytes, plan: Plan) -> Measurement:
-    """The harness's one JSON line read into a measurement; FixtureStop when it is not the harness's."""
+def measurement_of(stdout: bytes, plan: Plan, reruns: tuple[bytes, ...] = ()) -> Measurement:
+    """The first container's one JSON line, and the ``TEST_RUNS - 1`` reruns' (each a fresh container's), read into a
+    measurement; FixtureStop when one is not the harness's."""
     try:
         out = json.loads(stdout.decode("utf-8"))
         node, lint = out["node"], out["lint"]
         loads = _steps(out["parse"], len(plan.parse))
         imported = _steps(out["load"], len(plan.load))
-        green = tests_green(out["test"])
+        again = [json.loads(r.decode("utf-8"))["test"] for r in reruns]
+        green = tests_green([out["test"], *again])
         if not isinstance(node, str) or not isinstance(lint, dict):
             raise ValueError("not the harness's fields")
     except (UnicodeDecodeError, ValueError, KeyError, TypeError, RecursionError) as exc:
@@ -562,21 +609,28 @@ class DockerSandbox:
                               "was written")
         return volume
 
-    def measure(self, tree: Tree, plan: Plan) -> Measurement:
-        volume = self._deps(plan)
+    def _measuring(self, tree: Tree, plan: Plan, volume: str, first: bool) -> bytes:
+        """One fresh container on the tree: everything for the first, the tests only for a rerun."""
+        parse, load = (list(plan.parse), list(plan.load)) if first else ([], [])
         env = {"DFX_PROJECT": plan.project, "DFX_STEP_MS": str(self.step_s * 1000), "DFX_HARNESS": HARNESS,
-               "DFX_TEST_RUNS": str(TEST_RUNS),
-               "DFX_PARSE": json.dumps(list(plan.parse)), "DFX_LOAD": json.dumps(list(plan.load))}
+               "DFX_REPORTER": REPORTER, "DFX_LINT": "1" if first else "0",
+               "DFX_PARSE": json.dumps(parse), "DFX_LOAD": json.dumps(load)}
         args = [*HARDENED, "--network", "none", "--user", "65534:65534",
                 "--mount", f"type=volume,src={volume},dst=/deps,readonly"]
         for key, value in env.items():
             args += ["--env", f"{key}={value}"]
-        steps = len(plan.parse) + len(plan.load) + 1 + TEST_RUNS
+        steps = len(parse) + len(load) + (1 if first else 0) + 1
         proc = self._container([*args, "--entrypoint", "sh", self.image, "-c", MEASURE_SH], tar_of(tree),
                                steps * self.step_s + 300)
         if proc.returncode != 0:
             raise FixtureStop("the measurement container failed; nothing was written")
-        return measurement_of(proc.stdout, plan)
+        return proc.stdout
+
+    def measure(self, tree: Tree, plan: Plan) -> Measurement:
+        volume = self._deps(plan)
+        first = self._measuring(tree, plan, volume, True)
+        reruns = tuple(self._measuring(tree, plan, volume, False) for _k in range(TEST_RUNS - 1))
+        return measurement_of(first, plan, reruns)
 
     def close(self) -> None:
         for volume in self.volumes.values():

@@ -233,15 +233,21 @@ class ProduceTest(Fixture):
         """E499: only the counts, the value's sha256 and its size reach the terminal."""
         fake = FakeSandbox(self.answers)
         with mock.patch.object(df, "DockerSandbox", lambda image: fake), \
+                mock.patch("sys.stderr", new_callable=io.StringIO) as err, \
                 mock.patch("sys.stdout", new_callable=io.StringIO) as printed:
             code = cli.main(["drill-fixtures", "--referee", str(self.referee), "--toy", str(self.toy), "--toy-ref",
                              "refs/heads/main", "--brain", str(self.brain), "--catalog", str(self.catalog()),
                              "--out", str(self.out), "--node-image", "node:22@sha256:" + "a" * 64])
         self.assertEqual(code, 0)
-        text = printed.getvalue()
+        text = printed.getvalue() + err.getvalue()
         data = json.loads(base64.b64decode(self.out.read_bytes()))
+        self.assertNotIn(self.out.read_bytes().decode("ascii"), text)  # the value itself: it is base64 of the rest
         for instance in data["instances"]:
             self.assertNotIn(instance["id"], text)
+            for secret in (instance["id"], instance["patch"]):  # base64 at each of its three alignments
+                for pad in ("", " ", "  "):
+                    encoded = base64.b64encode((pad + secret).encode()).decode()
+                    self.assertNotIn(encoded[8:40], text)
         for secret in ("broken(", "var lower", "Hi,", "@@", "src/"):
             self.assertNotIn(secret, text)
         self.assertIn(hashlib.sha256(self.out.read_bytes()).hexdigest(), text)
@@ -335,6 +341,29 @@ class DraftRefusedTest(Fixture):
         self.import_rows()
         self.refused("on a security path", catalog=self.catalog([{"cause": "lint_regression",
                                                                   "patch": self.drafts["lint_regression"]}]))
+
+    def test_the_security_rule_folds_the_case_of_the_keyword_and_of_the_path(self):
+        # drill_fixtures_keyword_case_folded drill_fixtures_path_case_folded
+        """E499 (`14`, `29k` `security_keyword_substring`): the keyword and the path compared in lower case, so a
+        mixed-case keyword of policy.json (`SLUG`) holds a lower-case path and a lower-case keyword a mixed-case one."""
+        from types import SimpleNamespace
+        bind = df.Binding("a" * 64, "b" * 64, "c" * 40, ("slug",), SimpleNamespace(safety_paths=()))
+        self.assertTrue(df._on_security_path("textkit/src/Slug.js", bind))
+        self.assertFalse(df._on_security_path("textkit/src/greet.js", bind))
+        commit_files(self.referee, {"policy.json": json.dumps(
+            {"constitutional": {"security_keywords": ["SLUG", "Perm"]}}).encode()})
+        self.import_rows()
+        self.assertEqual(df.binding(self.referee).keywords, ("slug", "perm"))
+        self.refused("on a security path", catalog=self.catalog([{"cause": "lint_regression",
+                                                                  "patch": self.drafts["lint_regression"]}]))
+
+    def test_a_patch_whose_result_is_the_file_it_started_from_is_refused(self):  # drill_fixtures_noop_accepted
+        """E499 (`26f`): a plant changes its file; lines replaced by themselves, with an index line naming one blob,
+        apply exactly and are still no plant (the measurement would find no cause only after the sandbox's minutes)."""
+        blob = df.blob_id(TOY[GREET])[:12]
+        noop = (f"diff --git a/{GREET} b/{GREET}\nindex {blob}..{blob} 100644\n--- a/{GREET}\n+++ b/{GREET}\n"
+                '@@ -2,1 +2,1 @@\n-  return "Hello, " + name + "!";\n+  return "Hello, " + name + "!";\n')
+        self.refused("changes nothing", catalog=self.catalog([{"cause": "test_regression", "patch": noop}]))
 
     def test_a_file_a_merge_expected_candidate_changes_is_refused(self):  # drill_fixtures_candidate_files_unchecked
         """E499 (`26f`: per file, not per line); a rejected candidate's file is free."""
@@ -497,6 +526,14 @@ class DiffTest(unittest.TestCase):
             with self.assertRaises(ValueError, msg=body):
                 self.edit("diff --git a/f b/f\nindex 1111111..2222222 100644\n--- a/f\n+++ b/f\n" + body)
 
+    def test_hunks_out_of_order_or_overlapping_are_refused(self):  # drill_fixtures_hunks_unordered
+        """E499: a hunk that starts before the end of the one ahead of it does not apply, however its lines fit."""
+        head = "diff --git a/f b/f\nindex 1111111..2222222 100644\n--- a/f\n+++ b/f\n"
+        for body in ("@@ -7,2 +7,1 @@\n g\n-h\n@@ -2,1 +1,1 @@\n-b\n+x\n",  # reordered, its new start consistent
+                     "@@ -1,2 +1,2 @@\n a\n-b\n+x\n@@ -2,2 +2,2 @@\n-x\n+b\n c\n"):  # overlapping
+            with self.assertRaisesRegex(ValueError, "before the hunk ahead"):
+                df.apply(self.OLD, self.edit(head + body).hunks)
+
     def test_a_hunk_that_changes_nothing_is_refused(self):
         """E499: a hunk of context alone is no plant."""
         with self.assertRaisesRegex(ValueError, "changes nothing"):
@@ -568,11 +605,15 @@ class DockerSandboxTest(unittest.TestCase):
         self.calls.append(argv)
         out = b""
         if argv[1] == "run" and "65534:65534" in argv:
-            out = json.dumps({"node": "v22.23.4", "parse": [{"status": 0}] * len(self.plan.parse),
-                              "load": [{"status": 0}] * len(self.plan.load),
-                              "lint": {"status": 0, "timed_out": False, "stdout": '[{"errorCount": 1, '
-                                                                                  '"warningCount": 2}]'},
-                              "test": [{"status": 1, "timed_out": False}] * df.TEST_RUNS}).encode()
+            test = {"status": 1, "timed_out": False, "tests": 2, "red": ["test/a.test.js:3:1 a"]}
+            if "DFX_LINT=1" in argv:
+                out = json.dumps({"node": "v22.23.4", "parse": [{"status": 0}] * len(self.plan.parse),
+                                  "load": [{"status": 0}] * len(self.plan.load),
+                                  "lint": {"status": 0, "timed_out": False,
+                                           "stdout": '[{"errorCount": 1, "warningCount": 2}]'},
+                                  "test": test}).encode()
+            else:
+                out = json.dumps({"node": "v22.23.4", "parse": [], "load": [], "lint": None, "test": test}).encode()
         return subprocess.CompletedProcess(argv, 0, out, b"")
 
     def test_only_the_install_is_online(self):  # drill_fixtures_measured_online drill_fixtures_install_runs_scripts
@@ -583,7 +624,8 @@ class DockerSandboxTest(unittest.TestCase):
         self.assertEqual(box.measure(tree, self.plan), Measurement("v22.23.4", True, 3, False, (1, 2)))
         box.measure(tree, self.plan)
         runs = [argv for argv in self.calls if argv[1] == "run"]
-        self.assertEqual(len(runs), 3)  # one install for the one lockfile, two measurements
+        # one install for the one lockfile, and MF12's four runs of each of two measurements, each its own container
+        self.assertEqual(len(runs), 1 + 2 * df.TEST_RUNS)
         install, measured = runs[0], runs[1:]
         self.assertNotIn("--network", install)
         self.assertIn("npm ci --ignore-scripts --no-audit --no-fund --registry=https://registry.npmjs.org/",
@@ -598,13 +640,53 @@ class DockerSandboxTest(unittest.TestCase):
         self.assertEqual(self.calls[-1][:4], ["docker", "volume", "rm", "-f"])
         self.assertEqual(self.calls[-1][4], volume)
 
+    def test_each_of_mf12s_four_runs_is_a_fresh_container_and_only_the_first_does_the_rest(self):
+        # drill_fixtures_reruns_in_one_container
+        """E499, `29j` `flaky` ("taze kapsayıcıda yeniden koşuları"): the first container parses, imports, lints and
+        runs the tests once; each of the three reruns is another container, named apart, that only runs them."""
+        box = df.DockerSandbox("node:22@sha256:" + "a" * 64, run=self.docker)
+        box.measure({rel: (content, False) for rel, content in TOY.items()}, self.plan)
+        measured = [argv for argv in self.calls if argv[1] == "run" and "65534:65534" in argv]
+        self.assertEqual(len(measured), df.TEST_RUNS)
+        names = [argv[argv.index("--name") + 1] for argv in measured]
+        self.assertEqual(len(set(names)), df.TEST_RUNS)
+        self.assertEqual([argv.count("DFX_LINT=1") for argv in measured], [1, 0, 0, 0])
+        for argv in measured[1:]:
+            self.assertIn("DFX_PARSE=[]", argv)
+            self.assertIn("DFX_LOAD=[]", argv)
+        self.assertNotIn("DFX_PARSE=[]", measured[0])
+
+    def test_the_tests_are_red_per_test_as_mf12_has_it(self):  # drill_fixtures_flaky_taken_for_red
+        """E499, `29j` `flaky` `per_test_rule`: a test is red when it fails in all four runs, flaky when it fails in
+        some; tests that fail in different runs, none in all, are no red test (no cause), whatever each run says."""
+        red = lambda *ids, tests=5: {"status": 1, "tests": tests, "red": list(ids)}  # noqa: E731
+        ok = {"status": 0, "tests": 5, "red": []}
+        a, b, c = "t/a.js:3:1 a", "t/b.js:3:1 b", "t/c.js:3:1 c"
+        self.assertIs(df.tests_green([ok] * 4), True)
+        self.assertIs(df.tests_green([red(a)] * 4), False)
+        self.assertIs(df.tests_green([red(a, b), red(a), red(a, c), red(a)]), False)  # a in all four, b and c flaky
+        self.assertIsNone(df.tests_green([red(a), red(b), red(a), red(b)]))  # every run red, no test red in all
+        self.assertIsNone(df.tests_green([red(a), ok, ok, ok]))
+        self.assertIsNone(df.tests_green([ok, ok, ok, red(a)]))
+        for runs in ([ok, ok, ok, dict(ok, timed_out=True)], [ok, ok, ok, dict(ok, status=None)],
+                     [ok, ok, ok, dict(ok, tests=0)], [ok, ok, ok, dict(ok, tests=None)],
+                     [ok, ok, ok, {"status": 1, "tests": 5, "red": []}],  # died, no test named
+                     [ok, ok, ok, {"status": 0, "tests": 5, "red": None}],
+                     [ok, ok, ok, {"status": 1, "tests": 1, "red": [a, b]}]):
+            self.assertIsNone(df.tests_green(runs), runs)
+        for runs in ([ok] * 3, [ok] * 5, {"status": 0}, [ok, ok, ok, "x"]):
+            with self.assertRaises(ValueError):
+                df.tests_green(runs)
+
     def test_the_harnesss_output_is_read_strictly(self):  # drill_fixtures_flaky_taken_for_red
-        """E499: the harness's one JSON line, each field the plan's; the tests are green or red only when all of
-        MF12's four runs (the first and three reruns, `29j` `flaky`) agree, else flaky and no answer."""
+        """E499: the first container's one JSON line and each rerun's, each field the plan's; the tests are green or
+        red only as MF12's four runs say (`test_the_tests_are_red_per_test_as_mf12_has_it`)."""
+        ok = {"status": 0, "timed_out": False, "tests": 3, "red": []}
         good = {"node": "v22.23.4", "parse": [{"status": 0}] * len(self.plan.parse),
-                "load": [{"status": 0}] * len(self.plan.load), "lint": {"status": 1, "stdout": "[]"},
-                "test": [{"status": 0}] * df.TEST_RUNS}
-        read = lambda **over: df.measurement_of(json.dumps(dict(good, **over)).encode(), self.plan)  # noqa: E731
+                "load": [{"status": 0}] * len(self.plan.load), "lint": {"status": 1, "stdout": "[]"}, "test": ok}
+        again = tuple(json.dumps({"test": ok}).encode() for _k in range(df.TEST_RUNS - 1))
+        read = lambda reruns=again, **over: df.measurement_of(  # noqa: E731
+            json.dumps(dict(good, **over)).encode(), self.plan, reruns)
         self.assertEqual(read(), Measurement("v22.23.4", True, 0, True, (0, 0)))
         two = '[{"errorCount": 2, "warningCount": 1}, {"errorCount": 0, "warningCount": 4}]'
         self.assertEqual(read(lint={"status": 1, "stdout": two}).lint_split, (2, 5))
@@ -614,15 +696,18 @@ class DockerSandboxTest(unittest.TestCase):
         self.assertIsNone(read(lint={"status": 1, "stdout": "Oops"}).lint_total)
         self.assertIsNone(read(lint={"status": 1, "stdout": '[{"errorCount": -1, "warningCount": 0}]'}).lint_split)
         self.assertEqual(df.TEST_RUNS, 4)
-        self.assertIs(read(test=[{"status": 1}] * 4).tests_green, False)
-        for runs in ([{"status": 1}] * 3 + [{"status": 0}], [{"status": 0}] + [{"status": 1}] * 3,
-                     [{"status": 0}] * 3 + [{"status": None, "timed_out": True}], [{"status": None}] * 4):
-            self.assertIsNone(read(test=runs).tests_green, runs)
-        for runs in ([{"status": 0}] * 3, [{"status": 0}] * 5, {"status": 0}):
+        self.assertIs(read(test=dict(ok, status=1, red=["x"]),
+                           reruns=tuple(json.dumps({"test": dict(ok, status=1, red=["x"])}).encode()
+                                        for _k in range(3))).tests_green, False)
+        flaky = tuple(json.dumps({"test": dict(ok, status=1, red=["x"])}).encode() for _k in range(2))
+        self.assertIsNone(read(reruns=(*flaky, json.dumps({"test": ok}).encode())).tests_green)
+        for reruns in (again[:2], again + again[:1], (b"x", *again[1:]), (b"{}", *again[1:])):
             with self.assertRaises(FixtureStop):
-                read(test=runs)
+                read(reruns=reruns)
         with self.assertRaises(FixtureStop):
             read(parse=[])
+        with self.assertRaises(FixtureStop):
+            read(lint=None)
         with self.assertRaises(FixtureStop):
             df.measurement_of(b"not json", self.plan)
 
@@ -641,6 +726,32 @@ class DockerIntegrationTest(Fixture):
         listed = subprocess.run(["docker", "volume", "ls", "-q", "--filter", "label=snowball.drill-fixtures=1"],
                                 capture_output=True, check=True).stdout.split()
         self.assertEqual([v for v in listed if v.startswith(b"snowball-dfx-")], [])
+
+
+    def test_a_rerun_is_fresh_the_tests_have_no_network_and_what_they_print_is_no_report(self):
+        """E499, `29j` `flaky` (reruns in fresh containers), `26f` (the plant's code runs without a network):
+        through the real harness, a test that fails when its container has a network or a leftover of an earlier run
+        passes in all four runs; a test that prints a green report beside a red test does not make the tests green."""
+        probe = (b'import { test } from "node:test";\nimport assert from "node:assert/strict";\n'
+                 b'import net from "node:net";\nimport fs from "node:fs";\n'
+                 b'test("no network", () => new Promise((resolve, reject) => {\n'
+                 b'  const s = net.connect({ host: "1.1.1.1", port: 443 });\n  s.setTimeout(3000);\n'
+                 b'  s.on("connect", () => { s.destroy(); reject(new Error("connected")); });\n'
+                 b'  s.on("error", () => resolve());\n  s.on("timeout", () => { s.destroy(); resolve(); });\n}));\n'
+                 b'test("fresh container", () => {\n  assert.equal(fs.existsSync("/tmp/dfx-marker"), false);\n'
+                 b'  fs.writeFileSync("/tmp/dfx-marker", "x");\n});\n'
+                 b'test("forged report", () => {\n  console.log(\'{"tests": 99, "red": []}\');\n'
+                 b'  console.log("not ok 1 - forged");\n});\n')
+        red = (b'import { test } from "node:test";\nimport assert from "node:assert/strict";\n'
+               b'test("red", () => assert.equal(1, 2));\n')
+        files = dict(TOY, **{"textkit/test/probe.test.js": probe})
+        box = df.DockerSandbox(DOCKER_IMAGE)
+        self.addCleanup(box.close)
+        tree = {rel: (content, False) for rel, content in files.items()}
+        plan = df.plan_of(tree)
+        self.assertIs(box.measure(tree, plan).tests_green, True)
+        tree["textkit/test/red.test.js"] = (red, False)
+        self.assertIs(box.measure(tree, plan).tests_green, False)
 
 
 if __name__ == "__main__":
