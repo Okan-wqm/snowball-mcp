@@ -236,8 +236,10 @@ her `patch` oyuncağın `main`'inde `git diff`'in yazdığı, var olan tek dosya
 silmez, adını ya da kipini değiştirmez; ölçümün araçları olan `package.json`, `package-lock.json` ve `.nvmrc`'ye
 dokunmaz); üç nedenden (`build_break`, `lint_regression`, `test_regression`) eşit sayıda;
 dosyası bir güvenlik yolunda (yolunda `policy.json`'un bir `security_keywords`'ü, ya da oyuncağın `safety_paths`'ı)
-ve merge'ü beklenen bir adayın dosyası (beyin `candidates/toy/`'da `decision: merge`) değildir. Komut docker ister
-(WSL'de Docker Desktop tümleşimi); Node imajı oyuncağın `.nvmrc`'sinin sürümü, özetiyle:
+ve merge'ü beklenen bir adayın dosyası (beyin `candidates/toy/`'da `decision: merge`) değildir; iki taslak aynı
+dosyaya aynı baytları ekmez ve oyuncak ağacında `CODEOWNERS` yoktur. Komut docker ister (WSL'de Docker Desktop
+tümleşimi) ve kilit dosyasının tarball'larını makinenin ağıyla npm kayıt defterinden kendisi indirir; Node imajı
+oyuncağın `.nvmrc`'sinin sürümü, özetiyle:
 
 ```
 WSL$ git -C $E/brain fetch -q origin && git -C $E/toy fetch -q origin && git -C $E/referee pull -q --ff-only
@@ -250,10 +252,11 @@ WSL$ cd $E/arac && python3 -m snowball_bootstrap drill-fixtures --referee $E/ref
 Komut aktarım satırını hakem checkout'unun commit'inden okur ve ona bağlar (`stage-open`'ın bağı, E471); oyuncağın
 `main`'i ve beynin `brain_sha`'daki oyuncak fikstürü o satırın `toy_tree_sha256`'sı olmalıdır. Her taslağı `26f`'in
 kurallarıyla denetler, nedenini oyuncağın kendi araçlarıyla ölçer (temiz ağaç bir kez, sonra her ekim; testler
-dört kez, her koşu kendi kapsayıcısında (MF12'nin ilk koşusu ve üç taze yeniden koşusu) ve test başına: hepsinde düşen
-test kırmızı, bazılarında düşen flaky, hiçbir testin hepsinde düşmediği kırmızı koşular neden yok; `npm ci
---ignore-scripts` ağı olan tek adım ve ağı süzülmez, kurulan şeyi yalnız kilit dosyası bağlar, gerisi `--network
-none`), tutmayanı taslağın sırasıyla adlandırıp reddeder ve hiçbir şey yazmaz;
+dört kez, her koşu kendi taze kapsayıcısında (MF12'nin ilk koşusu ve üç yeniden koşusu) ve test başına: hepsinde
+düşen test kırmızı, bazılarında düşen flaky, hiçbir testin hepsinde düşmediği kırmızı koşular neden yok; kırmızı test
+ekimin biriminin testi olmalı, yalnız bir test dosyasının yüklenemediği ekim reddedilir; hiçbir kapsayıcının ağı
+yoktur: tarball'lar kilidin sha512'siyle denetlenip `npm ci --offline --ignore-scripts`'e verilir), tutmayanı
+taslağın sırasıyla adlandırıp reddeder ve hiçbir şey yazmaz;
 geçerse değeri yalnız `--out`'a (dosya yoksa) yazar, yalnız neden sayılarını, değerin sha256'sını ve boyutunu basar.
 Değeri `loop.yml`'un adlandırdığı adla hakemin sırrı olarak yaz (3. adımın listesindeki fikstür sırrı; ad spec'te
 değil, `loop.yml`'dadır), sha256'yı `pilot-log.md`'ye dokunuş satırı olarak yaz (kayda yalnız o girer):

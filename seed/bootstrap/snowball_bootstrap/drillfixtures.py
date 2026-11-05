@@ -16,40 +16,47 @@ the instances in the order of their ids, only to the path the operator gives, wh
 never a patch, an id or a patched path. The operator writes the value as the referee secret `loop.yml` names.
 
 Refused, each before anything is written: a binding that does not hold (the checkout's commit does not hold the referee
-tree the last transfer line names, that line names no toy tree, the toy or the brain's fixture is another tree); a cause
-outside `29j`'s three (``build_break``, ``lint_regression``, ``test_regression``); causes of unequal counts or one
-missing (`26f`: equal, at least one); a patch that is not exactly one in-place modification of one existing regular
-file in `26c`'s ``diff.patch`` form (git's header, no add, delete, rename, copy, mode change or binary, no CR, no
-NUL), or whose ``index`` line does not name the file's blobs and mode; a file on a security path; a patch that does not
-apply at its exact lines (`apply`: no fuzz, no offset, context byte for byte); a file a merge-expected candidate
-changes (per file, `26f`); a value over 48 KB (GitHub's secret limit, E544); a measured cause that is not the declared
-one, or that the measurement cannot name.
+tree the last transfer line names, that line names no toy tree, the toy or the brain's fixture is another tree); a toy
+tree holding an ownership file (``CODEOWNERS``: `14` makes the paths it gives the security team security paths, and
+the seed does not read which); a cause outside `29j`'s three (``build_break``, ``lint_regression``,
+``test_regression``); causes of unequal counts or one missing (`26f`: equal, at least one); a patch that is not exactly
+one in-place modification of one existing regular file in `26c`'s ``diff.patch`` form (git's header, no add, delete,
+rename, copy, mode change or binary, no CR, no NUL), or whose ``index`` line does not name the file's blobs and mode, or
+that changes nothing; two entries that plant the same bytes in the same file (a plant once made is in the toy's public
+history); a file on a security path; a patch that does not apply at its exact lines (`apply`: no fuzz, no offset, hunks
+in order, context byte for byte); a file a merge-expected candidate changes (per file, `26f`); a value over 48 KB
+(GitHub's secret limit, E544); a measured cause that is not the declared one, or that the measurement cannot name.
 
-The causes are measured with the toy's own tools in a sandbox, never with referee code: `DockerSandbox` installs the
-project's dependencies from its lockfile in a pinned Node image whose ``node --version`` must be the project's
-``.nvmrc`` (``npm ci --ignore-scripts``, the only step with a network), then measures each tree with
-``--network none``: every JavaScript file parses (``node --check``) and every module that is not a test file imports;
-the toy's ``lint`` script's ESLint total; the toy's ``test`` script, four times, each run in a container of its own
-(MF12's first run and three fresh reruns, `29j` ``flaky``), per test as MF12 decides: a test that fails in all four runs
-is red, one that fails in some is flaky; red runs with no test red in all four are no cause. The install step's network
-is not filtered: what it fetches is bound by the lockfile alone (every ``resolved`` is on the npm registry and every
-package has its ``integrity``, which ``npm ci`` checks), it holds nothing secret (the manifest and lockfile of the
-toy, which is public) and it runs no package code. The clean tree is measured once as the base, and must load
-with its tests green; a plant whose patch changes what the measurement installs from or runs on (``package.json``,
-``package-lock.json``, ``.nvmrc``) is refused, so a plant and the base are measured with the same tools. `29j`'s rule
-order names the cause: ``build_break`` when the code no longer loads (its red tests and lint are its result); else
-``lint_regression`` when the total rose and every test is green; ``test_regression`` when the tests are red and the
-total did not rise. Both, or neither, is no single cause and is refused; so is a plant whose ESLint errors and warnings
-move apart, as a total of one of them would name another cause. Without docker the command stops: the measurement is
-never skipped.
+The causes are measured with the toy's own tools in a sandbox, never with referee code, and no container has a
+network: the seed fetches each of the lockfile's tarballs from the npm registry itself (no redirect followed, HTTP 200,
+at most ``MAX_DEPS_BYTES`` together) and holds it to the lockfile's sha512 integrity before any byte reaches docker;
+`DockerSandbox` installs them in a pinned Node image whose ``node --version`` must be the project's ``.nvmrc``
+(``npm ci --offline --ignore-scripts`` from npm's cache of those bytes). Each tree is then measured in fresh containers
+of its bytes: one parses every JavaScript file (``node --check``), imports every module that is not a test file and
+runs the toy's ``lint`` script for its ESLint total; each of four more runs the toy's ``test`` script once (MF12's
+first run and three reruns, each in a fresh container, `29j` ``flaky``), its tests read one by one through a reporter
+of the seed's. MF12's rule is applied test by test: green when no run has a red test; red when a test fails in all four
+runs; else flaky or unfinished, and no cause, since the sentinel would not revert it. The clean tree is measured once as
+the base, and must load with its tests green; a plant whose patch changes what the measurement installs from or runs on
+(``package.json``, ``package-lock.json``, ``.nvmrc``) is refused, so a plant and the base are measured with the same
+tools. `29j`'s rule order names the cause: ``build_break`` when the code no longer loads (its red tests and lint are
+its result); else ``lint_regression`` when the total rose and every test is green; ``test_regression`` when a test is
+red, one of them a test of the plant's unit (Stage 0's impact set, else MF13 says ``impact_miss``), and the total did
+not rise. Both, or neither, is no single cause and is refused; so is a plant whose ESLint errors and warnings move
+apart, as a total of one of them would name another cause, and one after which a test file no longer parses or fails
+as a whole (a throw before any test, an import that fails), as the seed does not name ``build_ok``'s producer (`29j`)
+and either cause could be read. Without docker the command stops: the measurement is never skipped.
 
 Spec sessiz, the narrowest choice each time (E499): the security paths are the seed's mechanical rule (`14`, `29k`
 ``security_keyword_substring``: a file whose lower-case path holds a lower-case keyword of ``policy.json``'s
-``security_keywords``) and the owner's ``safety_paths`` of the toy target (`05` "Fiziksel güvenlik", `29f`'s cover
-rule), with no exclusion applied (a superset of the profile's, so a refusal is never too lenient); the ``test`` script
-must be exactly ``node --test``, whose default file patterns (Node 22) say which files are tests; a tree whose lockfile
-names a package outside the npm registry, or no single ``package-lock.json`` with its ``package.json`` and ``.nvmrc``,
-is refused; the value carries no LF.
+``security_keywords``, each keyword without its padding) and the owner's ``safety_paths`` of the toy target (`05`
+"Fiziksel güvenlik", `29f`'s cover rule, case-blind), with no exclusion applied (a superset of the profile's, so a
+refusal is never too lenient); the physical safety paths the system derives from the target (`05`, `14`) are not the
+seed's to compute (E544 (5)); the ``test`` script must be exactly ``node --test``, whose default file patterns (Node
+22) say which files are tests; the plant's unit is every one of the toy's ``unit_candidates`` that covers its file, and
+a red test is the unit's when each of them covers the test's file; a tree whose lockfile names a package outside the
+npm registry, or one without its single sha512 integrity, or no single ``package-lock.json`` with its ``package.json``
+and ``.nvmrc``, is refused; the value carries no LF.
 """
 
 from __future__ import annotations
@@ -64,6 +71,8 @@ import re
 import secrets
 import subprocess
 import tarfile
+import urllib.error
+import urllib.request
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
@@ -71,12 +80,16 @@ from typing import Any, Callable, Protocol
 
 from . import canon, config, gitio, importer, stagelock
 from .config import ConfigError
+from .ghapi import _NoRedirect
 from .treehash import iter_files, path_problem
 
 CAUSES = ("build_break", "lint_regression", "test_regression")  # `29j`'s rule order, `26f`'s closed set
 ID_RE = re.compile(r"^[0-9a-f]{32}\Z")
 MAX_VALUE_BYTES = 48 * 1024  # GitHub's limit on one secret (E544 (4))
+MAX_DEPS_BYTES = 128 * 1024 * 1024  # the lockfile's tarballs together, as the seed fetches them
 REGISTRY = "https://registry.npmjs.org/"
+SRI_RE = re.compile(r"^sha512-[A-Za-z0-9+/]{86}==\Z")  # one sha512 Subresource Integrity, as npm writes it
+OWNERSHIP_FILE = "codeowners"  # `14`: the paths an ownership file gives the security team are security paths
 TEST_SCRIPT = "node --test"
 TEST_RUNS = 4  # MF12 (`29j` `flaky`): the first run and three reruns; a test is red when it fails in all four
 JS_SUFFIXES = (".js", ".mjs", ".cjs")
@@ -307,15 +320,19 @@ class Plan:
 
 @dataclass(frozen=True)
 class Measurement:
-    """One tree, measured. ``loads``: every file parses and every non-test module imports (None: a step could not
-    finish); ``lint_total``: the ESLint total, errors and warnings (None: no usable report); ``tests_green``: every
-    one of the ``TEST_RUNS`` runs green (True) or red (False), None when one could not finish or they differ;
-    ``lint_split``: the total's errors and warnings, when the report gave them apart."""
+    """One tree, measured. ``loads``: every file that is not a test file parses and every such module imports (None:
+    a step could not finish); ``lint_total``: the ESLint total, errors and warnings (None: no usable report);
+    ``tests_green``: MF12's decision on the ``TEST_RUNS`` runs, test by test (`tests_green`); ``lint_split``: the
+    total's errors and warnings, when the report gave them apart; ``test_files_load``: every test file parses and no
+    run failed one as a whole (None: a step could not finish); ``red_files``: the files of MF12's red tests, as paths
+    of the tree."""
     node: str
     loads: bool | None
     lint_total: int | None
     tests_green: bool | None
     lint_split: tuple[int, int] | None = None
+    test_files_load: bool | None = True
+    red_files: tuple[str, ...] = ()
 
 
 Tree = dict[str, tuple[bytes, bool]]  # path -> (content, executable)
@@ -339,7 +356,9 @@ def is_node_test_file(rel: str) -> bool:
             or stem.endswith((".test", "-test", "_test")))
 
 
-def _registry_only(lock: bytes, where: str) -> None:
+def tarballs_of(lock: bytes, where: str = "the lockfile") -> list[tuple[str, str]]:
+    """Each distinct ``(resolved, integrity)`` of the lockfile's packages, sorted: every one a tarball of the npm
+    registry with one sha512 integrity, which the seed checks on the bytes it fetches and npm checks again."""
     try:
         data = json.loads(lock.decode("utf-8"), object_pairs_hook=stagelock._unique)
     except (UnicodeDecodeError, ValueError, RecursionError) as exc:
@@ -348,6 +367,7 @@ def _registry_only(lock: bytes, where: str) -> None:
     if not isinstance(packages, dict) or "" not in packages:
         raise FixtureStop(f"{where} has no packages map (lockfileVersion 2 or 3): npm ci cannot read it from the "
                           "lockfile alone")
+    found: set[tuple[str, str]] = set()
     for name, entry in packages.items():
         if name == "":
             continue
@@ -355,6 +375,40 @@ def _registry_only(lock: bytes, where: str) -> None:
                 or not entry["resolved"].startswith(REGISTRY) or not isinstance(entry.get("integrity"), str):
             raise FixtureStop(f"{where}: a package is not one of the npm registry with its integrity: the "
                               "dependencies come from the registry only")
+        if not SRI_RE.match(entry["integrity"]):
+            raise FixtureStop(f"{where}: a package's integrity is not one sha512 (sha512-<base64>): the seed checks "
+                              "each tarball it fetches against it")
+        found.add((entry["resolved"], entry["integrity"]))
+    if len({url for url, _i in found}) != len(found):
+        raise FixtureStop(f"{where}: one tarball is named with two integrities")
+    return sorted(found)
+
+
+def download(url: str, limit: int) -> bytes:
+    """The bytes at ``url``: HTTP 200, no redirect followed, at most ``limit`` bytes; FixtureStop otherwise."""
+    try:
+        with urllib.request.build_opener(_NoRedirect()).open(url, timeout=120) as response:
+            status, data = response.status, response.read(limit + 1)
+    except (urllib.error.URLError, OSError, ValueError) as exc:  # a refused redirect is an HTTPError, a URLError
+        raise FixtureStop(f"a tarball could not be fetched from the npm registry: {type(exc).__name__}; nothing "
+                          "was written") from None
+    if status != 200:
+        raise FixtureStop(f"the npm registry answered {status}, not 200; nothing was written")
+    if len(data) > limit:
+        raise FixtureStop(f"the lockfile's tarballs are over {MAX_DEPS_BYTES} bytes; nothing was written")
+    return data
+
+
+def registry_tarball(url: str, integrity: str, limit: int, get: Callable[[str, int], bytes] = download) -> bytes:
+    """One of the lockfile's tarballs, fetched by the seed itself from the npm registry and held to its integrity
+    before any byte reaches a container: no container, the install's included, has a network."""
+    if not url.startswith(REGISTRY) or not SRI_RE.match(integrity):
+        raise FixtureStop("a tarball is not one of the npm registry with one sha512 integrity")
+    data = get(url, limit)
+    if base64.b64encode(hashlib.sha512(data).digest()).decode("ascii") != integrity[len("sha512-"):]:
+        raise FixtureStop("a tarball fetched from the npm registry is not the lockfile's integrity; nothing was "
+                          "written")
+    return data
 
 
 def plan_of(tree: Tree, where: str = "the toy tree") -> Plan:
@@ -380,23 +434,40 @@ def plan_of(tree: Tree, where: str = "the toy tree") -> Plan:
     nvmrc = NVMRC_RE.match(tree[f"{at}.nvmrc"][0].decode("utf-8", "replace"))
     if not nvmrc:
         raise FixtureStop(f"{where}: {at}.nvmrc does not name one Node version (major.minor.patch)")
-    _registry_only(tree[locks[0]][0], f"{where}: {locks[0]}")
+    tarballs_of(tree[locks[0]][0], f"{where}: {locks[0]}")
     js = sorted(p for p in tree if p.startswith(at) and p.endswith(JS_SUFFIXES)
                 and "node_modules" not in p[len(at):].split("/"))
     return Plan(project, tuple(js), tuple(p for p in js if not is_node_test_file(p[len(at):])), f"v{nvmrc.group(1)}",
                 tree[f"{at}package.json"][0], tree[locks[0]][0])
 
 
-def measured_cause(base: Measurement, measured: Measurement) -> tuple[str | None, str]:
-    """`29j`'s rule order on a plant's tree against the clean base: the cause, or None and why none can be named."""
+def covers(unit: str, path: str) -> bool:
+    """`29k`'s cover rule: ``path`` is the unit's path or under it."""
+    top = unit.rstrip("/")
+    return path == top or path.startswith(top + "/")
+
+
+def units_of(path: str, candidates: tuple[str, ...]) -> tuple[str, ...]:
+    """The toy's unit candidates that cover a plant's file: the unit whose merge declares the impact set is one of
+    them, and which one is not the seed's to say."""
+    return tuple(u for u in candidates if covers(u, path))
+
+
+def measured_cause(base: Measurement, measured: Measurement, units: tuple[str, ...]) -> tuple[str | None, str]:
+    """`29j`'s rule order on a plant's tree against the clean base: the cause, or None and why none can be named.
+    ``units``: the unit candidates covering the plant's file (`units_of`)."""
     if measured.node != base.node:
         return None, "it was measured on another Node"
     if measured.loads is False:
         return "build_break", "the code no longer loads"
-    if measured.loads is None or measured.lint_total is None:
+    if measured.loads is None or measured.lint_total is None or measured.test_files_load is None:
         return None, "a step of its measurement could not finish"
+    if measured.test_files_load is False:
+        return None, ("a test file no longer parses or fails as a whole: build_break or test_regression, as the seed "
+                      "does not name build_ok's producer (`29j`)")
     if measured.tests_green is None:
-        return None, f"its tests did not finish, or were not the same in all {TEST_RUNS} runs (flaky, MF12)"
+        return None, (f"its tests did not finish, or a test failed without failing in all {TEST_RUNS} runs (flaky, "
+                      "MF12)")
     if base.lint_split and measured.lint_split:
         moves = {(after > before) - (after < before) for before, after in zip(base.lint_split, measured.lint_split)}
         if {1, -1} <= moves:
@@ -406,6 +477,9 @@ def measured_cause(base: Measurement, measured: Measurement) -> tuple[str | None
         return None, "the lint total rose and a test is red: two causes, not one"
     if rose:
         return "lint_regression", "the lint total rose"
+    if red and not (units and any(all(covers(u, f) for u in units) for f in measured.red_files)):
+        return None, ("no red test is a test of the plant's unit (Stage 0's impact set): MF13 would name "
+                      "impact_miss")
     if red:
         return "test_regression", "a test is red"
     return None, "it loads, its lint total did not rise and its tests are green: no cause"
@@ -413,10 +487,11 @@ def measured_cause(base: Measurement, measured: Measurement) -> tuple[str | None
 
 # ---------------------------------------------------------------- the docker sandbox
 
-# Runs as `node -e` in a measurement container, after the tree is unpacked under /tmp/work and with no network:
-# each step is its own process with a deadline, its output captured, never this script's own stdout. The first
-# container does everything and runs the tests once; each rerun of MF12 is a fresh container that only runs them
-# (DFX_PARSE and DFX_LOAD empty, DFX_LINT 0), as `29j` `flaky` has it ("taze kapsayıcıda yeniden koşuları").
+# Runs as `node -e` in a measurement container, after the tree is unpacked under /tmp/work and with no network. A
+# container runs one step of one tree (DFX_STEP): `build` parses every JavaScript file, imports every module that is
+# not a test file and runs the toy's lint script; `test` runs the toy's tests once. Each of MF12's four runs is a
+# container of its own, so no run sees what the build or another run left (`29j` `flaky`, "taze kapsayıcıda yeniden
+# koşuları"). Each command is its own process with a deadline, its output captured, never this script's own stdout.
 HARNESS = r"""'use strict';
 const cp = require('node:child_process'), fs = require('node:fs'), path = require('node:path');
 const url = require('node:url');
@@ -429,51 +504,65 @@ function step(cmd, args, cwd, keep) {
   return {status: r.error ? null : r.status, timed_out: timedOut,
           stdout: keep && r.stdout ? r.stdout.toString('utf8') : ''};
 }
-const out = {node: process.version, parse: [], load: [], lint: null};
-for (const f of JSON.parse(process.env.DFX_PARSE)) {
-  const r = step(process.execPath, ['--check', path.join(root, f)], root, false);
-  out.parse.push({status: r.status, timed_out: r.timed_out});
+const out = {node: process.version, step: process.env.DFX_STEP};
+if (out.step === 'build') {
+  out.parse = [];
+  for (const f of JSON.parse(process.env.DFX_PARSE)) {
+    const r = step(process.execPath, ['--check', path.join(root, f)], root, false);
+    out.parse.push({status: r.status, timed_out: r.timed_out});
+  }
+  out.load = [];
+  for (const f of JSON.parse(process.env.DFX_LOAD)) {
+    const file = path.join(root, f);
+    const r = step(process.execPath, ['--input-type=module', '-e', 'await import(process.argv[1])',
+                                      url.pathToFileURL(file).href], path.dirname(file), false);
+    out.load.push({status: r.status, timed_out: r.timed_out});
+  }
+  out.lint = step('npm', ['run', '--silent', 'lint'], proj, true);
+} else if (out.step === 'test') {
+  // the toy's `test` script is exactly `node --test` (plan_of): run it with a reporter of ours, per test; what the
+  // tests print arrives at the reporter as events and is never read as the report
+  fs.writeFileSync('/tmp/dfx-reporter.mjs', process.env.DFX_REPORTER);
+  const t = step(process.execPath, ['--test', '--test-reporter=/tmp/dfx-reporter.mjs',
+                                    '--test-reporter-destination=stdout'], proj, true);
+  let rec = null;
+  try { rec = JSON.parse(t.stdout); } catch (e) { rec = null; }
+  out.test = {status: t.status, timed_out: t.timed_out, tests: rec && rec.tests, red: rec && rec.red};
 }
-for (const f of JSON.parse(process.env.DFX_LOAD)) {
-  const file = path.join(root, f);
-  const r = step(process.execPath, ['--input-type=module', '-e', 'await import(process.argv[1])',
-                                    url.pathToFileURL(file).href], path.dirname(file), false);
-  out.load.push({status: r.status, timed_out: r.timed_out});
-}
-if (process.env.DFX_LINT === '1') out.lint = step('npm', ['run', '--silent', 'lint'], proj, true);
-// the toy's `test` script is exactly `node --test` (plan_of): run it with a reporter of ours, per test, in this
-// process; what the tests print arrives here as events and is never read as the report
-fs.writeFileSync('/tmp/dfx-reporter.mjs', process.env.DFX_REPORTER);
-const t = step(process.execPath, ['--test', '--test-reporter=/tmp/dfx-reporter.mjs',
-                                  '--test-reporter-destination=stdout'], proj, true);
-let rec = null;
-try { rec = JSON.parse(t.stdout); } catch (e) { rec = null; }
-out.test = {status: t.status, timed_out: t.timed_out, tests: rec && rec.tests, red: rec && rec.red};
 process.stdout.write(JSON.stringify(out));
 """
-# The reporter: one line, the number of tests that reported and the identity of each red one (its file, line,
-# column and name: a test is one test in every run). A todo test that fails is not red, as node's exit status has it.
+# The reporter: one line, the number of tests that passed or failed and each red one: its file as a path of the tree,
+# line, column and name (a test is one test in every run), and `whole` when the file failed as a whole (Node names
+# that failure after the file's path from where it runs: a throw before any test, an import that fails, a parse
+# error). A skipped or todo test is no result (a todo test's failure fails no run).
 REPORTER = r"""import path from 'node:path';
 export default async function* (source) {
-  const red = new Set();
+  const red = new Map();
   let tests = 0;
   for await (const e of source) {
     if (e.type !== 'test:pass' && e.type !== 'test:fail') continue;
     const d = e.data;
+    if (d.skip || d.todo) continue;
     tests += 1;
-    if (e.type === 'test:fail' && !d.todo) {
-      red.add(`${path.relative(process.cwd(), d.file ?? '')}:${d.line}:${d.column} ${d.name}`);
+    if (e.type === 'test:fail') {
+      const named = typeof d.file === 'string';
+      const r = {file: named ? path.relative('/tmp/work', d.file) : null, line: d.line ?? null,
+                 column: d.column ?? null, name: d.name,
+                 whole: named && d.nesting === 0 && d.name === path.relative(process.cwd(), d.file)};
+      red.set(JSON.stringify(r), r);
     }
   }
-  yield JSON.stringify({tests, red: [...red].sort()});
+  yield JSON.stringify({tests, red: [...red.values()]});
 }
 """
 MEASURE_SH = 'set -eu\nmkdir /tmp/work\ntar -x -C /tmp/work --no-same-owner -f -\nexec node -e "$DFX_HARNESS"\n'
+# No network here either: npm reads every tarball from its cache, filled from the bytes the seed fetched and checked.
 INSTALL_SH = ("set -eu\nmkdir /tmp/p\ntar -x -C /tmp/p --no-same-owner -f -\ncd /tmp/p\n"
-              f"npm ci --ignore-scripts --no-audit --no-fund --registry={REGISTRY} >/dev/null 2>&1\n"
+              "if [ -d tarballs ]; then npm cache add /tmp/p/tarballs/*.tgz >/dev/null 2>&1; fi\n"
+              f"npm ci --offline --ignore-scripts --no-audit --no-fund --registry={REGISTRY} >/dev/null 2>&1\n"
               "mkdir -p node_modules\ncp -R node_modules /deps/\n")  # a lockfile of no package makes no node_modules
 LABEL = "snowball.drill-fixtures=1"
-HARDENED = ("--cap-drop", "ALL", "--security-opt", "no-new-privileges", "--read-only",
+HARDENED = ("--network", "none", "--cap-drop", "ALL", "--security-opt", "no-new-privileges", "--read-only",
             "--tmpfs", "/tmp:rw,exec,nosuid,size=1g", "--pids-limit", "256", "--memory", "1g", "--cpus", "2",
             "--env", "HOME=/tmp", "--env", "npm_config_update_notifier=false", "--env", "npm_config_cache=/tmp/.npm")
 
@@ -498,32 +587,44 @@ def _steps(value: Any, count: int) -> bool | None:
     return None if any(s.get("status") != 0 for s in value) else True
 
 
-def _red_of(run: Any) -> frozenset[str] | None:
-    """The red tests of one run of the toy's tests; None when the run did not finish, ran no test (`04`) or died
-    without naming a test (a nonzero status and no red test)."""
+RedTest = tuple[str, Any, Any, str, bool]  # its file as a path of the tree, line, column, name; failed as a whole
+
+
+def red_of(run: Any) -> frozenset[RedTest] | None:
+    """The red tests of one run of the toy's tests; None when the run did not finish, ran no test (`04`), names a red
+    test the reporter does not write, or its exit status and its red tests disagree (a run that died naming no test,
+    or a red test in a run that passed)."""
     if not isinstance(run, dict):
         raise ValueError("a test run is not an object")
     red, tests = run.get("red"), run.get("tests")
     if run.get("timed_out") or type(run.get("status")) is not int or type(tests) is not int or tests < 1 \
-            or not isinstance(red, list) or not all(isinstance(r, str) for r in red) or len(red) > tests:
+            or not isinstance(red, list) or len(red) > tests:
         return None
-    if not red and run["status"] != 0:
+    found: set[RedTest] = set()
+    for r in red:
+        if not isinstance(r, dict) or not isinstance(r.get("file"), str) or not r["file"] \
+                or path_problem(r["file"]) or not isinstance(r.get("name"), str) or type(r.get("whole")) is not bool \
+                or not all(r.get(k) is None or type(r.get(k)) is int for k in ("line", "column")):
+            return None
+        found.add((r["file"], r.get("line"), r.get("column"), r["name"], r["whole"]))
+    if (run["status"] != 0) != bool(found):
         return None
-    return frozenset(red)
+    return frozenset(found)
 
 
-def tests_green(runs: Any) -> bool | None:
-    """The ``TEST_RUNS`` runs of the toy's tests, per test as MF12 decides (`29j` `flaky`): False when a test is red
-    in every run, True when no run has a red test, None when one run could not finish or a test failed in some runs
-    only (flaky: no red test, the sentinel does not revert)."""
-    if not isinstance(runs, list) or len(runs) != TEST_RUNS:
+def tests_green(reds: Any) -> tuple[bool | None, frozenset[RedTest]]:
+    """MF12's decision (`29j` `flaky`) on the red tests of the ``TEST_RUNS`` runs (`red_of`), test by test, and its
+    red tests: True when no run has a red test; False when a test is red in every run (`red`, the sentinel reverts);
+    None when a run could not finish or a test failed in some runs only (flaky: no red test, the sentinel does not
+    revert)."""
+    if not isinstance(reds, list) or len(reds) != TEST_RUNS:
         raise ValueError("the test runs are not the plan's")
-    reds = [_red_of(run) for run in runs]
     if None in reds:
-        return None
-    if frozenset.intersection(*reds):
-        return False
-    return None if frozenset.union(*reds) else True
+        return None, frozenset()
+    red = frozenset.intersection(*reds)
+    if red:
+        return False, red
+    return (None if frozenset.union(*reds) else True), frozenset()
 
 
 def lint_split(stdout: str) -> tuple[int, int] | None:
@@ -540,33 +641,46 @@ def lint_split(stdout: str) -> tuple[int, int] | None:
     return sum(counts[0]), sum(counts[1])
 
 
-def measurement_of(stdout: bytes, plan: Plan, reruns: tuple[bytes, ...] = ()) -> Measurement:
-    """The first container's one JSON line, and the ``TEST_RUNS - 1`` reruns' (each a fresh container's), read into a
-    measurement; FixtureStop when one is not the harness's."""
+def measurement_of(build: bytes, runs: tuple[bytes, ...], plan: Plan) -> Measurement:
+    """The build container's JSON line and the ``TEST_RUNS`` test containers' (each a fresh container's), read into
+    a measurement; FixtureStop when one is not the harness's, or they ran on different Nodes."""
     try:
-        out = json.loads(stdout.decode("utf-8"))
+        out = json.loads(build.decode("utf-8"))
+        tests = [json.loads(raw.decode("utf-8")) for raw in runs]
+        if not isinstance(out, dict) or out.get("step") != "build" or len(tests) != TEST_RUNS \
+                or not all(isinstance(t, dict) and t.get("step") == "test" for t in tests):
+            raise ValueError("not the steps' outputs")
         node, lint = out["node"], out["lint"]
-        loads = _steps(out["parse"], len(plan.parse))
-        imported = _steps(out["load"], len(plan.load))
-        again = [json.loads(r.decode("utf-8"))["test"] for r in reruns]
-        green = tests_green([out["test"], *again])
-        if not isinstance(node, str) or not isinstance(lint, dict):
+        if not isinstance(node, str) or any(t["node"] != node for t in tests) or not isinstance(lint, dict):
             raise ValueError("not the harness's fields")
+        parse = out["parse"]
+        _steps(parse, len(plan.parse))
+        modules = set(plan.load)
+        loads = _steps([s for f, s in zip(plan.parse, parse) if f in modules], len(modules))
+        tests_parse = _steps([s for f, s in zip(plan.parse, parse) if f not in modules], len(plan.parse) - len(modules))
+        imported = _steps(out["load"], len(plan.load))
+        reds = [red_of(t["test"]) for t in tests]
     except (UnicodeDecodeError, ValueError, KeyError, TypeError, RecursionError) as exc:
         raise FixtureStop(f"the measurement container's output is not the harness's: {type(exc).__name__}") from exc
+    green, red = tests_green(reds)
+    whole = any(test[4] for run in reds if run for test in run)
+    tests_load = False if tests_parse is False or whole else tests_parse
     loads = False if False in (loads, imported) else (None if None in (loads, imported) else True)
     split = lint_split(lint.get("stdout", "")) if lint.get("status") in (0, 1) and not lint.get("timed_out") else None
-    return Measurement(node, loads, None if split is None else sum(split), green, split)
+    return Measurement(node, loads, None if split is None else sum(split), green, split, tests_load,
+                       tuple(sorted({test[0] for test in red})))
 
 
 @dataclass
 class DockerSandbox:
-    """Each step one fresh container of ``image`` (pinned by digest); the dependencies of each distinct lockfile go
-    into a docker volume of this run, mounted read-only where trees are measured, and removed at the end."""
+    """Each step one fresh container of ``image`` (pinned by digest), none with a network; the dependencies of each
+    distinct lockfile go into a docker volume of this run, installed from tarballs the seed fetched and held to the
+    lockfile's integrity (``fetch``), mounted read-only where trees are measured, and removed at the end."""
     image: str
     docker: str = "docker"
     step_s: int = 120
     run: Callable[..., subprocess.CompletedProcess] = subprocess.run
+    fetch: Callable[[str, int], bytes] = download
     volumes: dict[str, str] = field(default_factory=dict)
 
     def ready(self) -> None:
@@ -596,41 +710,44 @@ class DockerSandbox:
         key = canon.sha256_hex(hashlib.sha256(plan.manifest).digest() + hashlib.sha256(plan.lockfile).digest())
         if key in self.volumes:
             return self.volumes[key]
+        files = {"package.json": (plan.manifest, False), "package-lock.json": (plan.lockfile, False)}
+        left = MAX_DEPS_BYTES
+        for k, (url, integrity) in enumerate(tarballs_of(plan.lockfile)):
+            data = registry_tarball(url, integrity, left, self.fetch)
+            left -= len(data)
+            files[f"tarballs/{k:05d}.tgz"] = (data, False)
         volume = f"snowball-dfx-{uuid.uuid4().hex[:16]}"
         made = self.run([self.docker, "volume", "create", "--label", LABEL, volume], capture_output=True, check=False)
         if made.returncode != 0:
             raise FixtureStop("docker could not create the dependency volume; nothing was written")
         self.volumes[key] = volume
-        files = {"package.json": (plan.manifest, False), "package-lock.json": (plan.lockfile, False)}
         proc = self._container([*HARDENED, "--user", "0:0", "--mount", f"type=volume,src={volume},dst=/deps",
                                 "--entrypoint", "sh", self.image, "-c", INSTALL_SH], tar_of(files), 900)
         if proc.returncode != 0:
-            raise FixtureStop("npm ci --ignore-scripts did not install the dependencies from the lockfile; nothing "
-                              "was written")
+            raise FixtureStop("npm ci --offline --ignore-scripts did not install the dependencies from the lockfile; "
+                              "nothing was written")
         return volume
 
-    def _measuring(self, tree: Tree, plan: Plan, volume: str, first: bool) -> bytes:
-        """One fresh container on the tree: everything for the first, the tests only for a rerun."""
-        parse, load = (list(plan.parse), list(plan.load)) if first else ([], [])
-        env = {"DFX_PROJECT": plan.project, "DFX_STEP_MS": str(self.step_s * 1000), "DFX_HARNESS": HARNESS,
-               "DFX_REPORTER": REPORTER, "DFX_LINT": "1" if first else "0",
-               "DFX_PARSE": json.dumps(parse), "DFX_LOAD": json.dumps(load)}
-        args = [*HARDENED, "--network", "none", "--user", "65534:65534",
-                "--mount", f"type=volume,src={volume},dst=/deps,readonly"]
+    def _step(self, step: str, tree: bytes, plan: Plan, volume: str) -> bytes:
+        """One fresh container on the tree's bytes: the build step, or one run of the tests."""
+        env = {"DFX_STEP": step, "DFX_PROJECT": plan.project, "DFX_STEP_MS": str(self.step_s * 1000),
+               "DFX_HARNESS": HARNESS, "DFX_REPORTER": REPORTER,
+               "DFX_PARSE": json.dumps(list(plan.parse)), "DFX_LOAD": json.dumps(list(plan.load))}
+        args = [*HARDENED, "--user", "65534:65534", "--mount", f"type=volume,src={volume},dst=/deps,readonly"]
         for key, value in env.items():
             args += ["--env", f"{key}={value}"]
-        steps = len(parse) + len(load) + (1 if first else 0) + 1
-        proc = self._container([*args, "--entrypoint", "sh", self.image, "-c", MEASURE_SH], tar_of(tree),
-                               steps * self.step_s + 300)
+        count = len(plan.parse) + len(plan.load) + 1 if step == "build" else 1
+        proc = self._container([*args, "--entrypoint", "sh", self.image, "-c", MEASURE_SH], tree,
+                               count * self.step_s + 300)
         if proc.returncode != 0:
             raise FixtureStop("the measurement container failed; nothing was written")
         return proc.stdout
 
     def measure(self, tree: Tree, plan: Plan) -> Measurement:
-        volume = self._deps(plan)
-        first = self._measuring(tree, plan, volume, True)
-        reruns = tuple(self._measuring(tree, plan, volume, False) for _k in range(TEST_RUNS - 1))
-        return measurement_of(first, plan, reruns)
+        volume, data = self._deps(plan), tar_of(tree)
+        build = self._step("build", data, plan, volume)
+        runs = tuple(self._step("test", data, plan, volume) for _k in range(TEST_RUNS))
+        return measurement_of(build, runs, plan)
 
     def close(self) -> None:
         for volume in self.volumes.values():
@@ -704,7 +821,8 @@ def binding(referee: Path) -> Binding:
     toys = [t for t in stagelock._committed_summary(referee, head).targets or () if t.kind == "toy"]
     if len(toys) != 1:
         raise FixtureStop("setup/summary.json's targets[] must name one toy target (`26c`, `25` 10a)")
-    return Binding(stagelock.line_sha256(line), toy_tree, brain_sha, tuple(w.lower() for w in words), toys[0])
+    keywords = tuple(w.strip().lower() for w in words)
+    return Binding(stagelock.line_sha256(line), toy_tree, brain_sha, keywords, toys[0])
 
 
 def _tree_hash(repo: Path, treeish: str, what: str) -> str:
@@ -755,9 +873,10 @@ def merge_expected_files(brain: Path, bind: Binding) -> dict[str, set[str]]:
 
 
 def _on_security_path(path: str, bind: Binding) -> bool:
+    """`14`'s keyword rule and the owner's safety paths, both read case-blind (the keywords lower-cased and stripped
+    by `binding`): wider than the profile's reading, never narrower."""
     low = path.lower()
-    return any(word in low for word in bind.keywords) or any(
-        path == e.rstrip("/") or path.startswith(e.rstrip("/") + "/") for e in bind.toy.safety_paths)
+    return any(word in low for word in bind.keywords) or any(covers(e.lower(), low) for e in bind.toy.safety_paths)
 
 
 def planted(k: int, cause: str, patch: str, tree: Tree, modes: dict[str, str], bind: Binding,
@@ -803,8 +922,14 @@ def _checked_and_measured(referee: Path, toy: Path, toy_ref: str, brain: Path, c
     drafts = read_catalog(catalog)
     bind = binding(referee)
     tree, modes = toy_tree(toy, toy_ref, bind.toy_tree_sha256)
+    if any(PurePosixPath(p).name.lower() == OWNERSHIP_FILE for p in tree):
+        raise FixtureStop("the toy tree holds an ownership file (CODEOWNERS): the paths it gives the security team are "
+                          "security paths (`14`), and the seed does not read which those are")
     merged = merge_expected_files(brain, bind)
     plants = [planted(k, cause, patch, tree, modes, bind, merged) for k, (cause, patch) in enumerate(drafts)]
+    if len(set(plants)) != len(plants):
+        raise FixtureStop("two catalog entries plant the same bytes in the same file: one plant, not two instances (a "
+                          "plant once made is in the toy's public history)")
     counts = {cause: sum(c == cause for c, _p in drafts) for cause in CAUSES}
     if len(set(counts.values())) != 1 or not counts[CAUSES[0]]:
         raise FixtureStop("each cause needs the same number of instances, at least one (`26f`): "
@@ -827,11 +952,12 @@ def _checked_and_measured(referee: Path, toy: Path, toy_ref: str, brain: Path, c
     base = sandbox.measure(tree, base_plan)
     if base.node != base_plan.node:
         raise FixtureStop(f"the image's Node is {base.node}, the toy's .nvmrc names {base_plan.node}")
-    if not (base.loads and base.lint_total is not None and base.tests_green):
+    if not (base.loads and base.test_files_load and base.lint_total is not None and base.tests_green):
         raise FixtureStop("the clean toy tree does not load with a lint report and green tests: no plant can be "
                           "measured against it")
-    for k, ((cause, _patch), patched) in enumerate(zip(drafts, trees)):
-        found, why = measured_cause(base, sandbox.measure(patched, base_plan))
+    for k, ((cause, _patch), (path, _new), patched) in enumerate(zip(drafts, plants, trees)):
+        units = units_of(path, bind.toy.unit_candidates)
+        found, why = measured_cause(base, sandbox.measure(patched, base_plan), units)
         if found != cause:
             raise FixtureStop(f"catalog entry {k}: declared {cause}, measured {found or 'no single cause'} ({why})")
     return value, counts

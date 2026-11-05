@@ -80,7 +80,7 @@ flowchart LR
 
 ## 2. Referee package: `seed/bootstrap/snowball_bootstrap`
 
-29 modules, 79 imports inside the package, 1 started as a separate process. Areas are roles. The overview has 5 areas and 12 edges; an arrow's number is how many imports cross from one area to the other.
+29 modules, 80 imports inside the package, 1 started as a separate process. Areas are roles. The overview has 5 areas and 12 edges; an arrow's number is how many imports cross from one area to the other.
 
 ```mermaid
 flowchart LR
@@ -180,7 +180,7 @@ flowchart LR
 
 ### Intake
 
-10 modules, 16 edges out of them.
+10 modules, 17 edges out of them.
 
 ```mermaid
 flowchart LR
@@ -201,6 +201,7 @@ flowchart LR
   end
   m_drillfixtures --> m_canon
   m_drillfixtures --> m_config
+  m_drillfixtures --> m_ghapi
   m_drillfixtures --> m_gitio
   m_drillfixtures --> m_importer
   m_drillfixtures --> m_stagelock
@@ -224,7 +225,7 @@ flowchart LR
 | `classify` | What kind of push is this (`tohum/29b`, "İki tür push")? | `cli`, `exitchecks` |
 | `config` | Operator-written inputs, validated strictly. | `cli`, `drillfixtures`, `exitchecks`, `rival`, `stagelock`, `stages`, `state` |
 | `drillfixtures` | The operator's `drill-fixtures` command: the live revert-drill fixtures of one import (`tohum/26f` "Canlı prova fikstürleri", `25a` 7, `asama-0/01` D8; E499, E544). | `cli` |
-| `ghapi` | Minimal GitHub REST calls the pull job needs: find and download the latest state artifact, and look at the newest failed run of this workflow (E13). | `cli` |
+| `ghapi` | Minimal GitHub REST calls the pull job needs: find and download the latest state artifact, and look at the newest failed run of this workflow (E13). | `cli`, `drillfixtures` |
 | `gitio` | Git operations on the untrusted brain repository. | `cli`, `drillfixtures`, `importer`, `stagelock` |
 | `importer` | Operator import at the Stage 0 exit and at each batch exit after it (`tohum/25a` 1-2, `asama-0/10a` #aktarim and #oyuncak, `asama-1/13` 3: "aynı komut"). | `cli`, `drillfixtures`, `stagelock` |
 | `licenses` | License gate for downloaded wheels (`tohum/24`, "Lisans"). | `cli` |
