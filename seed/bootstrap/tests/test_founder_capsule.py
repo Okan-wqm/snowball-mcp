@@ -800,6 +800,9 @@ class RefereeRetryTest(unittest.TestCase):  # E166: the loop never waits on the 
         self.assertEqual(owner({"kind": "rival_missing", "ref": ""}), "rival")
         self.assertEqual(owner({"kind": "infra", "ref": "kos"}), "referee")
         self.assertEqual(owner({"kind": "budget", "ref": ""}), "referee")
+        # E550: a rival call stopped at its brake is the operator's brake too, not the rival's failure
+        self.assertEqual(owner({"kind": "rival_unresolved", "ref": "budget"}), "referee")  # brake_stop_read_as_rivals
+        self.assertEqual(owner({"kind": "rival_unresolved", "ref": "budget_x"}), "rival")
 
     def test_an_unevaluated_commit_goes_back_to_the_referee_before_the_next_session(self):
         dispatches, report, _ = self.run_cycle(evaluated_on=2)

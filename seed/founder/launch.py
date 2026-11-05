@@ -67,7 +67,7 @@ sys.path.insert(0, str(SEED / "bootstrap"))
 from snowball_bootstrap import canon, gitio, ledgercheck  # noqa: E402  (the chain rule, the referee's git and ledger check)
 from snowball_bootstrap.classify import (LEDGER_FILE, SEED_DIRS, is_founder_record,  # noqa: E402  (what is memory
                                          is_seed_path)  # and what is the operator's delivery to the referee)
-from snowball_bootstrap.decide import counts_against_founder  # noqa: E402  (the referee's rule, not a copy)
+from snowball_bootstrap.decide import counts_against_founder, is_brake_stop  # noqa: E402  (the referee's rule)
 from snowball_bootstrap.vectors import founder_inputs  # noqa: E402  (the referee's projection, not a copy: E244)
 IMAGE = "snowball-founder:pilot"
 REFEREE_WORKFLOW = "bootstrap.yml"
@@ -165,6 +165,8 @@ def reason_owner(reason: dict) -> str:
     item = {"kind": str(reason.get("kind", "")), "ref": str(reason.get("ref") or "")}
     if counts_against_founder(item):
         return "founder"
+    if is_brake_stop(item):  # the operator's brake, whether pull or the rival's call met it (E550)
+        return "referee"
     return "rival" if item["kind"] in ("rival_unresolved", "rival_missing") else "referee"
 
 

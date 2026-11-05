@@ -371,7 +371,7 @@ Every subcommand of `cli.py`, the jobs that run it, and the package modules its 
 |---|---|---|---|
 | `control` | `cek`, `getir`, `kos_parca`, `kos`, `cagir`, `yeniden`, `yaz` | `cmd_control` | `config`, `stagelock`, `wiring` |
 | `config-value` | `cek` | `cmd_config_value` | `config` |
-| `poll` | `cek` | `cmd_poll` | `config`, `decide`, `ghapi`, `gitio`, `treehash` |
+| `poll` | `cek` | `cmd_poll` | `config`, `decide`, `ghapi`, `gitio`, `stagelock`, `state`, `treehash` |
 | `licenses` | `cek`, `yaz` | `cmd_licenses` | `canon`, `config`, `licenses` |
 | `fetch-state` | `cek` | `cmd_fetch_state` | `canon`, `config`, `decide`, `ghapi`, `importer`, `state` |
 | `pull` | `cek` | `cmd_pull` | `canon`, `classify`, `config`, `decide`, `exitchecks`, `gitio`, `ledgercheck`, `manifest`, `rival`, `stagelock`, `stages`, `state`, `treehash`, `wiring` |

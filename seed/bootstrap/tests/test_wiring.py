@@ -14,7 +14,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from snowball_bootstrap import cli, rival, stages, vectors, wiring
+from snowball_bootstrap import cli, config, rival, stages, vectors, wiring
 
 from helpers import kos_part_count, workflow_job
 
@@ -834,8 +834,8 @@ class ReportAnswerPagesTest(unittest.TestCase):
             self.assertIn(f"`{warning}:<n>`", text)
         self.assertEqual(decide.RIVAL_SIDE_WARN, 3)
         self.assertIn("üst üste üçüncü", text)
-        self.assertEqual(decide.RIVAL_SIDE_FINAL, ("budget", "request_rejected"))
-        self.assertIn("(bütçe ve `request_rejected` dışında)", text)
+        self.assertEqual(decide.RIVAL_SIDE_FINAL, ("request_rejected",))
+        self.assertIn("(`request_rejected` dışında)", text)
         page = spec_page("tohum", "29b")
         memory = paragraph(page, "**Ret hafızası.**")
         founders = memory.split("Rakibin hataları", 1)[0]
@@ -843,6 +843,33 @@ class ReportAnswerPagesTest(unittest.TestCase):
             self.assertIn(f"`{reason}`", founders)
         self.assertIn("`secret_in_verdict`", memory.split("Rakibin hataları", 1)[1].split(")", 1)[0])
         self.assertIn("Sır desenli metin: `29e`.", paragraph(page, "**Rakip çağrısı.**"))
+
+    def test_29e_says_what_a_brake_stop_is_and_29b_and_the_code_agree(self):
+        """E550 (referee-049): `asama-0/12:19` and `29b` said a head the rival brake stops is not consumed, `29e:26`
+        excluded the budget from the rule that leaves a commit unevaluated, and the code followed `29e`. One rule now,
+        on one page (`29e` "Bütçe durması"), with `29b` pointing to it and the code's names on it."""
+        from snowball_bootstrap import decide
+        text = flat(paragraph(spec_page("tohum", "29e"), "**Bütçe durması**"))
+        cli_src = Path(cli.__file__).read_text(encoding="utf-8")
+        decide_src = Path(decide.__file__).read_text(encoding="utf-8")
+        policy = config.Policy(1, {0: 1}, 1, 1, frozenset({"MIT"}), {})
+        state = {"month_spend_usd_micros": 0, "stage_spend_usd_micros": 0}
+        names = [cli.rival_allowance(policy, cap, state, 0)[1] for cap in (2, 1, 0)]
+        self.assertEqual(names, ["month", "month", "per_run"])  # a tie goes to the first named
+        for brake in ("month", "stage", "per_run"):
+            self.assertIn(f"`{brake}`", text)
+        self.assertIn("`month`, `stage` ya da `per_run`'dır (eşitlikte bu sırayla)", text)
+        self.assertIn('{"brake": allowance.get("brake"), "allowed_usd_micros": allowance.get("usd_micros")}',
+                      decide_src)
+        self.assertIn("`budget_stop {brake, allowed_usd_micros}`", text)
+        self.assertIn('f"rival_budget:{', decide_src)
+        self.assertIn("`rival_budget:<fren>`", text)
+        self.assertIn("`bootstrap.json` `rival.per_run_cap_usd_micros`", text)
+        self.assertIn("boot.rival.per_run_cap_usd_micros", cli_src)
+        self.assertIn("elle tetiklenen koşu da", text)
+        self.assertNotIn(decide.BUDGET, decide.RIVAL_SIDE_FINAL)
+        self.assertIn("Rakip freni dolunca baş tüketilmez", flat(paragraph(spec_page("tohum", "29b"),
+                                                                             "**Asla yapmadıkları.**")))
 
     def test_29d_says_what_the_chain_judge_reads(self):
         """Seed-007 (E159): `chain` has its own judge, and what it compares was only in the code."""
