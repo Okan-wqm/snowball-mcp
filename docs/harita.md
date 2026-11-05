@@ -80,16 +80,16 @@ flowchart LR
 
 ## 2. Referee package: `seed/bootstrap/snowball_bootstrap`
 
-28 modules, 72 imports inside the package, 1 started as a separate process. Areas are roles. The overview has 5 areas and 12 edges; an arrow's number is how many imports cross from one area to the other.
+29 modules, 80 imports inside the package, 1 started as a separate process. Areas are roles. The overview has 5 areas and 12 edges; an arrow's number is how many imports cross from one area to the other.
 
 ```mermaid
 flowchart LR
   a_Entry["Entry<br/>3 modules"]
-  a_Intake["Intake<br/>9 modules"]
+  a_Intake["Intake<br/>10 modules"]
   a_Sandbox["Sandbox<br/>6 modules"]
   a_Rival["Rival<br/>4 modules"]
   a_Judgement["Judgement<br/>6 modules"]
-  a_Entry -->|9| a_Intake
+  a_Entry -->|10| a_Intake
   a_Entry -->|6| a_Judgement
   a_Entry -->|2| a_Rival
   a_Entry -->|5| a_Sandbox
@@ -105,7 +105,7 @@ flowchart LR
 
 ### Entry
 
-3 modules, 23 edges out of them.
+3 modules, 24 edges out of them.
 
 ```mermaid
 flowchart LR
@@ -118,6 +118,7 @@ flowchart LR
     m_canon["canon"]:::outside
     m_classify["classify"]:::outside
     m_config["config"]:::outside
+    m_drillfixtures["drillfixtures"]:::outside
     m_ghapi["ghapi"]:::outside
     m_gitio["gitio"]:::outside
     m_importer["importer"]:::outside
@@ -150,6 +151,7 @@ flowchart LR
   m_cli --> m_config
   m_cli --> m_container
   m_cli --> m_decide
+  m_cli --> m_drillfixtures
   m_cli --> m_exitchecks
   m_cli --> m_ghapi
   m_cli --> m_gitio
@@ -178,7 +180,7 @@ flowchart LR
 
 ### Intake
 
-9 modules, 10 edges out of them.
+10 modules, 17 edges out of them.
 
 ```mermaid
 flowchart LR
@@ -186,6 +188,7 @@ flowchart LR
     m_canon["canon"]
     m_classify["classify"]
     m_config["config"]
+    m_drillfixtures["drillfixtures"]
     m_ghapi["ghapi"]
     m_gitio["gitio"]
     m_importer["importer"]
@@ -196,6 +199,13 @@ flowchart LR
   subgraph a_Judgement["Judgement"]
     m_stages["stages"]:::outside
   end
+  m_drillfixtures --> m_canon
+  m_drillfixtures --> m_config
+  m_drillfixtures --> m_ghapi
+  m_drillfixtures --> m_gitio
+  m_drillfixtures --> m_importer
+  m_drillfixtures --> m_stagelock
+  m_drillfixtures --> m_treehash
   m_gitio --> m_treehash
   m_importer --> m_canon
   m_importer --> m_gitio
@@ -211,15 +221,16 @@ flowchart LR
 
 | Module | What it is (first sentence of its docstring) | Imported by |
 |---|---|---|
-| `canon` | Canonical JSON (the RFC 8785 subset the seed allows) and hashing helpers. | `cli`, `importer`, `ledgercheck`, `parts`, `reproduce`, `rival`, `stagelock` |
+| `canon` | Canonical JSON (the RFC 8785 subset the seed allows) and hashing helpers. | `cli`, `drillfixtures`, `importer`, `ledgercheck`, `parts`, `reproduce`, `rival`, `stagelock` |
 | `classify` | What kind of push is this (`tohum/29b`, "İki tür push")? | `cli`, `exitchecks` |
-| `config` | Operator-written inputs, validated strictly. | `cli`, `exitchecks`, `rival`, `stagelock`, `stages`, `state` |
-| `ghapi` | Minimal GitHub REST calls the pull job needs: find and download the latest state artifact, and look at the newest failed run of this workflow (E13). | `cli` |
-| `gitio` | Git operations on the untrusted brain repository. | `cli`, `importer`, `stagelock` |
-| `importer` | Operator import at the Stage 0 exit and at each batch exit after it (`tohum/25a` 1-2, `asama-0/10a` #aktarim and #oyuncak, `asama-1/13` 3: "aynı komut"). | `cli`, `stagelock` |
+| `config` | Operator-written inputs, validated strictly. | `cli`, `drillfixtures`, `exitchecks`, `rival`, `stagelock`, `stages`, `state` |
+| `drillfixtures` | The operator's `drill-fixtures` command: the live revert-drill fixtures of one import (`tohum/26f` "Canlı prova fikstürleri", `25a` 7, `asama-0/01` D8; E499, E544). | `cli` |
+| `ghapi` | Minimal GitHub REST calls the pull job needs: find and download the latest state artifact, and look at the newest failed run of this workflow (E13). | `cli`, `drillfixtures` |
+| `gitio` | Git operations on the untrusted brain repository. | `cli`, `drillfixtures`, `importer`, `stagelock` |
+| `importer` | Operator import at the Stage 0 exit and at each batch exit after it (`tohum/25a` 1-2, `asama-0/10a` #aktarim and #oyuncak, `asama-1/13` 3: "aynı komut"). | `cli`, `drillfixtures`, `stagelock` |
 | `licenses` | License gate for downloaded wheels (`tohum/24`, "Lisans"). | `cli` |
-| `stagelock` | The stage lock and the counter it is bound to (`tohum/02` 5, `asama-0/10a` "Kilidin açılışı", `tohum/25a` 9, `26c`). | `cli`, `importer` |
-| `treehash` | Tree hashes over git-archive tarballs, and safe extraction of regular files only. | `cli`, `exitchecks`, `gitio`, `importer`, `moduleless`, `stages` |
+| `stagelock` | The stage lock and the counter it is bound to (`tohum/02` 5, `asama-0/10a` "Kilidin açılışı", `tohum/25a` 9, `26c`). | `cli`, `drillfixtures`, `importer` |
+| `treehash` | Tree hashes over git-archive tarballs, and safe extraction of regular files only. | `cli`, `drillfixtures`, `exitchecks`, `gitio`, `importer`, `moduleless`, `stages` |
 
 ### Sandbox
 
@@ -388,6 +399,7 @@ Every subcommand of `cli.py`, the jobs that run it, and the package modules its 
 | `seed-epoch` | operator / local | `cmd_seed_epoch` | `canon`, `classify`, `gitio`, `treehash` |
 | `import` | operator / local | `cmd_import` | `importer` |
 | `stage-open` | operator / local | `cmd_stage_open` | `stagelock` |
+| `drill-fixtures` | operator / local | `cmd_drill_fixtures` | `drillfixtures` |
 
 ## 3. Launcher links
 
