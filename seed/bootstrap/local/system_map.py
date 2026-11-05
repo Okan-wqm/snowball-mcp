@@ -80,7 +80,8 @@ AREAS = (
                 "treehash")),
     ("Sandbox", ("container", "controls", "manifest", "moduleless", "mutation", "parts", "target_run", "vectors")),
     ("Rival", ("reproduce", "rival", "rival_mcp", "secretscan")),
-    ("Judgement", ("decide", "exitchecks", "fence", "k6", "ledgercheck", "stages", "state", "watchers", "wiring")),
+    ("Judgement", ("buildfence", "decide", "exitchecks", "fence", "k6", "ledgercheck", "stages", "state", "watchers",
+                   "wiring")),
 )
 UNPLACED = "Unplaced"
 # ---------------------------------------------------------------------------------------------------------------------

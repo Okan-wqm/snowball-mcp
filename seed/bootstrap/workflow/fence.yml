@@ -1,0 +1,128 @@
+# Snowball K6 fence (spec tohum/25a row 3, plan D6, register E532). Install into the referee repository as
+# .github/workflows/fence.yml, beside bootstrap.yml, when the copy target's `brain/integration` gets its second required
+# check `snowball-fence` (branch protection, the gate App's). Only the operator edits it.
+#
+# It judges every open pull request into the copy's `brain/integration`: a head whose diff from where it leaves that
+# branch touches the owner's `targets[].safety_paths`, or a file that decides what those compile to (`buildfence`:
+# manifests, build scripts, .cargo/config, the module chain, lock entries), is red while the referee's last signed
+# result does not say `k6.status: live` (`fence.closed_reasons`; the status read only from the bytes the Sigstore
+# bundle of that result signs). A head with no check cannot be merged, so a run that fails posts nothing and blocks.
+# The copy is public and fetched anonymously into a bare repository; nothing of it is checked out or run.
+#
+# Environment `gate` (deployment branches: main only) holds the referee's gate App: secrets.GATE_APP_ID and
+# secrets.GATE_APP_KEY (its private key). The App has Checks write and Metadata read, and is installed on the copy only.
+#
+# Jobs and what they may hold (tohum/08 1: no job that holds a secret runs brain or target code):
+#   cit     GITHUB_TOKEN (contents, actions: read)            - reads the copy's objects; runs no brain or target code
+#   kapi    Environment gate: the App's key in its post step  - posts the verdicts cit wrote, by their hash
+
+name: snowball-fence
+
+on:
+  schedule:
+    - cron: "47 * * * *"
+  workflow_dispatch: {}
+
+permissions: {}
+
+concurrency:
+  group: snowball-fence
+  cancel-in-progress: false
+
+env:
+  PYTHONPATH: snap/bootstrap
+  PYTHONDONTWRITEBYTECODE: "1"
+
+jobs:
+  cit:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      snap_sha: ${{ steps.pack.outputs.snap_sha }}
+      cit_sha: ${{ steps.pack.outputs.cit_sha }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+          path: referee
+      - name: Snapshot operator files and bootstrap code
+        run: |
+          mkdir -p snap/setup
+          cp -r referee/bootstrap snap/
+          cp referee/bootstrap.json referee/control.json referee/policy.json snap/
+          cp referee/setup/summary.json snap/setup/
+          if [ -e referee/setup/stage.json ]; then cp referee/setup/stage.json snap/setup/; fi
+          if [ -e referee/setup/imports.jsonl ]; then cp referee/setup/imports.jsonl snap/setup/; fi
+      - name: Kill switch and operator files
+        run: python3 -m snowball_bootstrap control --root snap
+      - name: Sigstore (hash-pinned, license-checked)
+        run: |
+          python3 -m venv /tmp/sig
+          /tmp/sig/bin/pip download --quiet --require-hashes --only-binary=:all: --no-deps \
+            -d /tmp/sigw -r snap/bootstrap/requirements/sign.txt
+          python3 -m snowball_bootstrap licenses --root snap --wheels /tmp/sigw
+          /tmp/sig/bin/pip install --quiet --no-index --find-links /tmp/sigw --require-hashes \
+            --only-binary=:all: --no-deps -r snap/bootstrap/requirements/sign.txt
+      - name: The last signed result (its k6.status opens the fence)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >
+          python3 -m snowball_bootstrap fetch-state --root snap --out state
+          --sigstore-python /tmp/sig/bin/python
+          --identity "https://github.com/${GITHUB_REPOSITORY}/.github/workflows/bootstrap.yml@refs/heads/main"
+      - name: Fence every open pull request head into the copy's brain/integration (nothing of it runs)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >
+          python3 -m snowball_bootstrap fence-heads --root snap
+          --prev-result state/prev/result.json --work work --out cit
+      - id: pack
+        run: |
+          for part in snap:snapshot cit:cit; do
+            python3 -m snowball_bootstrap pack --dir "${part%%:*}" --out "${part#*:}.tar" \
+              | sed -n "s/^sha256=/${part%%:*}_sha=/p" >> "$GITHUB_OUTPUT"
+          done
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: fence
+          path: |
+            snapshot.tar
+            cit.tar
+          retention-days: 1
+          if-no-files-found: error
+
+  kapi:
+    # Posts what `cit` judged, read only by the hashes `cit` named. No container and no copy code here (T8).
+    needs: cit
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: gate
+    permissions: {}
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with: { name: fence }
+      - name: Verify and unpack
+        run: |
+          echo "${{ needs.cit.outputs.snap_sha }}  snapshot.tar" | sha256sum -c -
+          echo "${{ needs.cit.outputs.cit_sha }}  cit.tar" | sha256sum -c -
+          mkdir snap cit && tar -xf snapshot.tar -C snap && tar -xf cit.tar -C cit
+      - name: Kill switch (snapshot of this run)
+        run: python3 -m snowball_bootstrap control --root snap
+      - name: PyJWT and cryptography (the Sigstore venv's pinned wheels, license-checked)
+        run: |
+          python3 -m venv /tmp/sig
+          /tmp/sig/bin/pip download --quiet --require-hashes --only-binary=:all: --no-deps \
+            -d /tmp/sigw -r snap/bootstrap/requirements/sign.txt
+          python3 -m snowball_bootstrap licenses --root snap --wheels /tmp/sigw
+          /tmp/sig/bin/pip install --quiet --no-index --find-links /tmp/sigw --require-hashes \
+            --only-binary=:all: --no-deps -r snap/bootstrap/requirements/sign.txt
+      - name: The gate App posts snowball-fence (its key in this step only)
+        env:
+          GATE_APP_ID: ${{ secrets.GATE_APP_ID }}
+          GATE_APP_KEY: ${{ secrets.GATE_APP_KEY }}
+        run: /tmp/sig/bin/python -m snowball_bootstrap fence-post --root snap --verdicts cit

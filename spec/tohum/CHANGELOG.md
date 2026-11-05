@@ -4,6 +4,9 @@ Tarih: 2026-10-29 · Sürüm: 2.2
 Okunma: bir sayfanın geçmişi aranırken
 Çapa: git geçmişi ve zincirdeki spec hash satırları
 
+- 2.2 (2026-11-05, E532; bağımsız doğrulayıcı, bulgu 5): `25a` 3: `snowball-fence`'te kırmızı olan, güvenlik yollarına
+  ve onların neye derlendiğini belirleyen dosyalara (Cargo manifesti ve kilidi, build betiği, `.cargo/config`,
+  `rust-toolchain`, modül zinciri) dokunan baştır; baş daldan ayrıldığı yerden yargılanır.
 - 2.2 (2026-11-02, E511, E517; sahibin kararı (2026-11-01): çit kaldırılmaz, kapısı öne çekilir, K6 Aşama 1 içinde
   canlı edilir; kandırma puanı düşürür): `03` `class_requires`: K6 düzeltmesinin önkoşulu hakemin son imzalı sonucunda
   `k6.status`'ün `live` olmasıdır (K6 sınavı güçlü, Güvenlik avcısı, bekçi testleri ve avcıdan farklı modelden test

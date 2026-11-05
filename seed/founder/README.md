@@ -271,7 +271,12 @@ baytlarının sha256'sıdır (manifest sürümün her dosyasını hash'iyle ve 2
 yalnız `answers`'tır, E509). Satır `seed-epoch ... --exam-sha256 <64 hex>` ile basılır. Önceki satırlar alanı taşımaz
 ve `null` okunur; bir satır sabitledikten sonra her yeni satır sabitler, sabitlemeyen satır koşuyu durdurur. Son satır
 sabitlemedikçe hakem eskisi gibi yargılar ve imzalar: sonuç `snowball-bootstrap-result/1`, `gozcu` ve `kos_hedef`
-işleri ve sınav çekme adımı koşmaz, `check-snapshot` hiçbir şey okumaz, aşağıdakilerin hiçbiri okunmaz.
+işleri ve sınav çekme adımı koşmaz, `check-snapshot` hiçbir şey okumaz, aşağıdakilerin hiçbiri okunmaz. Vektör
+kayıtlarının gösterdiği de main'inkidir, bayt bayt (E533, doğrulayıcı bulgu 6): cevaplar o zaman tohumun kendi açık
+`vectors/`'undadır ve geçen kayıt eskisi gibi `got <değer>` yazar; geçen kaydın hiçbir şey göstermemesi (E509) yalnız
+sınavın cevaplarıyla yargılanan gruplarındır (`vectors.Applied.sealed`). Kanıt main `4f58974`'ün kendi yargıçlarının
+gerçek çıktısıdır (`tests/fixtures/stage0/judges-main-4f58974.json.gz`, `record_judges.py` ile yeniden üretilir: her
+grup, her yargıç, tutulan, yanlış, eksik, zaman aşımına uğrayan ve bir önceki çağrının cevabı; 361 kayıt).
 
 **Sabitleyen dönemden önce operatörün kurduğu:**
 - `kos`'un kendi deposu (E522, doğrulayıcı bulgu 2): `kos` Kurucunun kodunun ürettiği arşivleri ayrıştırır, koşucusunda
@@ -360,9 +365,44 @@ bildirmez. G4c'nin ikiz koşusu ham çıktıyı değil vakanın kendi hükmünü
 test ortamında iki kez geçip ikizde kalan komut istismar önerisidir; CI işaretleri olmadan başka yazan ya da CI'da daha
 katı olan dürüst araç ve zaman aşımına uğrayan ikiz kanıt değildir. İkiz de henüz hiçbir işe bağlı değildir.
 Pull'un reddettiği bir push'ta gözcü koşmaz: onun `exam_tamper`'ı Kurucu'nun reddidir, istismar kaydı olmaz (gözcünün
-canlı anahtarı yalnız `kos`'tadır). Kopya PR başlarını yargılayan ve `snowball-fence`'i hakem App'iyle gönderen iş henüz
-yok: `fence` komutu ve `decide --fence` hazırdır. Özel karnenin gizli farkı `heldrun reveal`'in çıktısını
+canlı anahtarı yalnız `kos`'tadır). Özel karnenin gizli farkı `heldrun reveal`'in çıktısını
 (`<work>/scorecard/held-reveals.json`) imzalı sonuçların görünen sayılarıyla birleştirir.
+
+### K6 çiti: `snowball-fence` (E532)
+
+Kopyanın `brain/integration`'ına açılan her PR'ın başını hakem yargılar ve kontrolü hakemin kapı App'i koyar (`25a` 3,
+`01a`, `01b`; doğrulayıcı bulgu 5: önce hiçbir iş koymuyordu). İş akışı `workflow/fence.yml`'dir, hakem reposuna
+`.github/workflows/fence.yml` olarak kurulur; saatte bir ve elle koşar.
+- `cit` (`contents: read`, `actions: read`, sır yok): son imzalı sonucu `fetch-state`'in Sigstore doğrulamasıyla alır,
+  kopyanın açık PR'larını listeler, kopyayı anonim olarak çıplak bir depoya çeker ve her başı PR'ın daldan ayrıldığı
+  yerden (birleşme tabanı) yargılar: `fence-heads`. Kopyanın hiçbir dosyası açılmaz ve koşmaz; bloblar nesne
+  deposundan okunur. Okunamayan baş kırmızıdır (`fence_unjudged:<sınıf>`), listelemeden sonra yeniden itilen baş bir
+  sonraki koşuya kalır, 100'ün ötesindeki PR'ın kontrolü yoktur, yani merge edilemez.
+- `kapi` (Environment `gate`, dağıtım dalı yalnız `main`; `permissions: {}`): `cit`'in hükümlerini yalnız `cit`'in
+  verdiği hash'le okur (`fence_verdicts`: başka biçimde bir hüküm hiçbir çağrıdan önce durdurur), App'in o depo ve
+  yalnız Checks yazma için kurulum belirtecini alır ve `snowball-fence`'i her başa koyar; App'in o başta en yeni
+  kontrolü aynı şeyi diyorsa koymaz: `fence-post`. `GATE_APP_ID` ve `GATE_APP_KEY` yalnız bu adımın ortamındadır.
+- Kırmızı: son imzalı `k6.status` `live` değilken başın diff'i operatörün `safety_paths`'ına ya da onların neye
+  derlendiğini ve onlar yerine neyin yüklendiğini belirleyen bir dosyaya dokunur (`buildfence`, kopyanın kendi Cargo
+  manifestlerinden ve Rust modül çizgesinden, taban ve başta türetilir; hiçbir şey koşmaz, `cargo metadata` bile:
+  ağacın `build.rustc`'sini koşardı). Kapsam: güvenlik dosyası tutan paketin manifesti; o paketle ve ona bağımlı
+  paketlerle aynı derlemede derlenen her paketin build betiği ve proc-macro crate'i; çitli modülün üstündeki dosyaların
+  onu yükleyen bildirimleri (`mod`, `#[path]`, `#[cfg_attr(.., path)]`, `cfg`), iç öznitelikleri, makroları ve
+  `#[macro_use]` modülleri; altındaki her modül ve `include!` ettiği her dosya, bir bildirimin yükleyebileceği öbür
+  dosya (`ad.rs` ya da `ad/mod.rs`); çitli crate'i adıyla, yoluyla, `workspace = true` ile anan girdiler ve ona uzanan
+  özellikler, çalışma alanı kökünde `[patch]`, `[replace]`, `[profile]`, çözücü, miras alanları ve paylaşılan girdiler;
+  çitli bir adı alan yeni paket; çalışma alanı kökü değişen paketin iki kökü; çitli derlemenin derlediği kilit
+  girdileri; her derleme dizininde ve üstünde `.cargo/config(.toml)` ve `rust-toolchain(.toml)`. Dürüst kök düzenlemesi
+  (yeni modül, yeni fonksiyon), çitli crate'in yalnız testte kullandığı bağımlılık ve başka crate'in kodu açıktır.
+  Gerçek hedefte (15134 dosya, 447 Rust dosyası) bir baş Windows'ta 12 s'de yargılanır, zamanın yarısı blob okumadır.
+- Sınır: çitli modülün çağırdığı başka modül ve crate (sabitler, fonksiyonlar, `#[macro_export]` makrolar, aynı ikilide
+  bağlanan C kaynakları, örneğin `vendor/`) davranıştır, derleme değil: onları sahibin listesi adlandırır, K6 sınavı
+  ölçer. Çit yalnız Cargo ve Rust'ı türetir; TypeScript ya da JavaScript bir güvenlik yolunun yükleyicileri
+  (`tsconfig.json` `paths`, `package.json` `exports`, jest `moduleNameMapper`) türetilmez.
+- Operatör: kapı App'ini kurar (yalnız Checks yazma ve Metadata okuma, yalnız kopyaya kurulu), hakem reposunda
+  Environment `gate`'i (`GATE_APP_ID`, `GATE_APP_KEY`: App'in özel anahtarı) açar, `fence.yml`'ı kurar ve kopyanın
+  dal korumasında `snowball-fence`'i (kaynağı kapı App'i, strict, yöneticiye de) zorunlu kılar. `fence` komutu ve
+  `decide --fence` aynı kuralı (`cli.fence_head`) tek bir diff'e uygular.
 
 ## Etkinleştirme (Aşama 0 → Aşama 1)
 

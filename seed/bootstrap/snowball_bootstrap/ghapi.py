@@ -1,5 +1,9 @@
 """Minimal GitHub REST calls the pull job needs: find and download the latest state artifact, and look at the
-newest failed run of this workflow (E13). The job holds `actions: read` and nothing else."""
+newest failed run of this workflow (E13). The job holds `actions: read` and nothing else.
+
+The fence workflow (E532) adds: the copy's open pull requests into `brain/integration`, read with the job's own token
+(the copy is public), and, in the gate's posting job alone, the gate App's installation token and its
+``snowball-fence`` check runs (Checks write, on the copy only)."""
 
 from __future__ import annotations
 
@@ -85,3 +89,59 @@ def download_zip(repo: str, artifact_id: int, token: str) -> bytes:
     with urllib.request.urlopen(urllib.request.Request(location, headers={"User-Agent": "snowball-bootstrap"}),
                                 timeout=120) as resp:
         return resp.read()
+
+
+def _call(method: str, url: str, token: str, body: dict | None = None, scheme: str = "Bearer") -> object:
+    """One JSON request to GitHub; the parsed answer (None for an empty one)."""
+    data = None if body is None else json.dumps(body).encode()
+    req = urllib.request.Request(url, data=data, method=method, headers={
+        "Authorization": f"{scheme} {token}", "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28", "User-Agent": "snowball-bootstrap",
+        **({"Content-Type": "application/json"} if data is not None else {})})
+    with urllib.request.urlopen(req, timeout=60) as resp:
+        raw = resp.read()
+    return json.loads(raw) if raw.strip() else None
+
+
+MAX_PULLS = 100  # one page: a head beyond it gets no check this run, and no check is no merge
+
+
+def open_pulls(repo: str, base: str, token: str) -> list[dict]:
+    """The open pull requests of ``repo`` into ``base``, oldest first: ``{number, head_sha}`` each."""
+    query = urllib.parse.urlencode({"state": "open", "base": base, "per_page": MAX_PULLS, "sort": "created",
+                                    "direction": "asc"})
+    data = _call("GET", f"{_api_base()}/repos/{repo}/pulls?{query}", token)
+    out = []
+    for pull in data if isinstance(data, list) else []:
+        head = pull.get("head") if isinstance(pull, dict) else None
+        if isinstance(pull.get("number"), int) and isinstance(head, dict) and isinstance(head.get("sha"), str):
+            out.append({"number": pull["number"], "head_sha": head["sha"]})
+    return out
+
+
+def installation_token(repo: str, app_jwt: str, permissions: dict[str, str]) -> str:
+    """An installation token of the App whose JWT this is, for ``repo`` alone and ``permissions`` alone."""
+    found = _call("GET", f"{_api_base()}/repos/{repo}/installation", app_jwt)
+    if not isinstance(found, dict) or not isinstance(found.get("id"), int):
+        raise ValueError(f"the gate App is not installed on {repo}")
+    made = _call("POST", f"{_api_base()}/app/installations/{found['id']}/access_tokens", app_jwt,
+                 {"repositories": [repo.split("/", 1)[1]], "permissions": permissions})
+    if not isinstance(made, dict) or not isinstance(made.get("token"), str):
+        raise ValueError("GitHub gave no installation token")
+    return made["token"]
+
+
+def latest_check(repo: str, sha: str, name: str, app_id: int, token: str) -> dict | None:
+    """The newest check run named ``name`` that the App ``app_id`` posted on ``sha``, or None."""
+    query = urllib.parse.urlencode({"check_name": name, "app_id": app_id, "filter": "latest", "per_page": 1})
+    data = _call("GET", f"{_api_base()}/repos/{repo}/commits/{sha}/check-runs?{query}", token)
+    runs = data.get("check_runs") if isinstance(data, dict) else None
+    found = [r for r in runs if isinstance(r, dict)] if isinstance(runs, list) else []
+    return found[0] if found else None
+
+
+def post_check(repo: str, sha: str, name: str, conclusion: str, title: str, summary: str, token: str) -> None:
+    """A completed check run on ``sha``."""
+    _call("POST", f"{_api_base()}/repos/{repo}/check-runs", token,
+          {"name": name, "head_sha": sha, "status": "completed", "conclusion": conclusion,
+           "output": {"title": title, "summary": summary}})

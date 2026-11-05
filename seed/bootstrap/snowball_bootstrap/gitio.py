@@ -12,6 +12,7 @@ import os
 import subprocess
 import tarfile
 from pathlib import Path
+from typing import Callable
 
 from .treehash import shown
 
@@ -139,6 +140,33 @@ def file_at(repo: Path, commit: str, path: str) -> bytes | None:
         if name == path and mode in ("100644", "100755"):
             return git(repo, "cat-file", "blob", sha)
     return None
+
+
+def tree_reader(repo: Path, commit: str) -> tuple[tuple[str, ...], Callable[[str], bytes | None]]:
+    """Every path at ``commit`` and a reader of a regular file's bytes there (None for any other path), each blob read
+    from the object store once, never checked out (E532: the fence reads the copy's manifests and modules)."""
+    entries = {p: (m, s) for m, s, p in _entries(repo, commit)}
+    read: dict[str, bytes] = {}
+
+    def blob(path: str) -> bytes | None:
+        mode, sha = entries.get(path, ("", ""))
+        if mode not in ("100644", "100755"):
+            return None
+        if path not in read:
+            read[path] = git(repo, "cat-file", "blob", sha)
+        return read[path]
+    return tuple(entries), blob
+
+
+def merge_base(repo: Path, a: str, b: str) -> str | None:
+    """The best common ancestor of ``a`` and ``b``; None when they share none (git answers 1)."""
+    proc = subprocess.run(["git", *SAFE_CONFIG, "-C", str(repo), "merge-base", a, b], capture_output=True, env=_env(),
+                          check=False)
+    if proc.returncode == 1 and not proc.stdout.strip():
+        return None
+    if proc.returncode != 0:
+        raise GitError(f"git merge-base failed: {proc.stderr.decode('utf-8', 'replace')[:500]}")
+    return proc.stdout.decode().strip()
 
 
 def special_entries(repo: Path, head: str) -> list[str]:

@@ -460,7 +460,8 @@ class FenceTest(unittest.TestCase):
             if derived is not None:
                 (root / "derived.json").write_text(json.dumps({"security_paths": derived}))
                 argv += ["--derived", str(root / "derived.json")]
-            with mock.patch.object(cli.gitio, "changed_paths", return_value=["units/pump/a.rs", "units/b.py"]):
+            with mock.patch.object(cli.gitio, "changed_paths", return_value=["units/pump/a.rs", "units/b.py"]), \
+                    mock.patch.object(cli.gitio, "tree_reader", return_value=((), lambda path: None)):
                 self.assertEqual(cli.main(argv), 0)
             return json.loads((root / "out" / "fence.json").read_text())
 

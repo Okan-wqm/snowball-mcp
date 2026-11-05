@@ -9,13 +9,15 @@ Founder's own App. This module is the referee's part of the rule, pure and stdli
   path pattern; a ConfigError otherwise, like every other operator list (`26c`).
 - ``signed_status``: the ``k6.status`` of the referee's last signed result, read only from the bytes its Sigstore bundle
   signs. No result, a bundle that signs other bytes, or a result that cannot be read is never ``live``.
-- ``closed_reasons``: ``safety_path_closed:<path>`` for each path of a copy head's diff the operator's list covers, and
-  for each git attribute or submodule file (they change a checkout's bytes without touching the files they change),
-  unless that status is ``live``. The brain's own list never decides what is fenced.
+- ``closed_reasons``: ``safety_path_closed:<path>`` for each path of a copy head's diff the operator's list covers, for
+  each git attribute or submodule file (they change a checkout's bytes without touching the files they change), and
+  for each file that decides what the fenced files compile to (`buildfence`, E532), unless that status is ``live``.
+  The brain's own list never decides what is fenced.
 - ``narrowed_reasons`` and ``superset_ok``: a list the brain derives may only widen the operator's; an operator entry
   it is not sure to cover is ``safety_list_narrowed:<entry>``.
 - ``review_step`` and ``merged_since_live``: the heads accepted through the open gate, listed in the result that signs
   the gate closed again, for the owner to review.
+- ``verdict``: one copy-PR head's ``snowball-fence`` check (E532, `25a` 3), what the referee's gate App posts.
 
 Paths are compared as a file system the target is checked out on reads them: case-folded, without the code points HFS+
 ignores (``importer.fold``) and canonically composed. A wider match fences more, so every doubt falls closed.
@@ -44,6 +46,8 @@ UNBOUND = "unbound"  # bytes no signature covers, or a result that cannot be rea
 CLOSED = "safety_path_closed"
 NARROWED = "safety_list_narrowed"
 CHECK_NAME = "snowball-fence"  # the copy's second required check, the referee's gate App's (`25a` 3)
+INTEGRATION = "brain/integration"  # the copy branch whose pull requests the fence judges (`01b`, `25a` 3)
+UNJUDGED = "fence_unjudged"  # a head the fence could not read: red, never green (E532)
 MAX_NAMED = 20  # paths named in the reasons, as pull names other path lists
 # Files git reads for itself: attributes rewrite a checked-out file's bytes (eol, filters, working-tree-encoding), a
 # submodule fetches from elsewhere (E478). Changing one changes fenced files without a fenced path in the diff.
@@ -149,12 +153,15 @@ def touches_safety(diff: Iterable[str], paths: Sequence[str]) -> list[str]:
     return sorted(hit)
 
 
-def closed_reasons(diff: Iterable[str], owner: Sequence[str], status: str) -> list[str]:
+def closed_reasons(diff: Iterable[str], owner: Sequence[str], status: str, build: Iterable[str] = ()) -> list[str]:
     """What a copy head's diff gets while the gate is shut: ``safety_path_closed:<path>`` for the first MAX_NAMED
-    fenced paths it touches, unless ``status`` (``signed_status``) is ``live``. Only the operator's list fences."""
+    fenced paths it touches, those of the operator's list and ``build``, the diff's paths that decide what the
+    listed ones compile to (`buildfence.fenced`, E532), unless ``status`` (``signed_status``) is ``live``. Only the
+    operator's list fences: the build's paths are derived from it."""
     if status == LIVE:
         return []
-    return [f"{CLOSED}:{path}" for path in touches_safety(diff, owner)[:MAX_NAMED]]
+    hit = set(touches_safety(diff, owner)) | set(build)
+    return [f"{CLOSED}:{path}" for path in sorted(hit)[:MAX_NAMED]]
 
 
 def _name_wider(d: str, e: str) -> bool:
@@ -234,3 +241,8 @@ def merged_since_live(history: Iterable[Passage]) -> tuple[str, ...]:
     for passage in history:
         carried, review = review_step(carried, passage)
     return review
+
+
+def verdict(reasons: Sequence[str]) -> str:
+    """The ``snowball-fence`` conclusion of one head: ``success`` only with no reason at all (E532)."""
+    return "failure" if reasons else "success"

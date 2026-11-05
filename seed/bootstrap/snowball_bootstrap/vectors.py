@@ -15,8 +15,10 @@ every vector over the parts' answers exactly as the single job judges over its o
 The expected answers are the exam's, not the public's (E509). The vectors the referee publishes hold the inputs alone
 (`public_vectors`); the answers come from the private store, checked against the epoch's pin (`answers`), and only the
 job that judges reads them. On the inputs alone the judges still ask every call in order, so `kos`'s parts run their
-share without an answer at hand; nothing is judged on them. A record never shows an expected value: a pass shows
-nothing, a fail shows only the parts of the Founder's answer that differ from the expected one.
+share without an answer at hand; nothing is judged on them. Judged on the exam's answers a record never shows an
+expected value: a pass shows nothing, a fail shows only the parts of the Founder's answer that differ from the expected
+one. Before an epoch pins the exam the answers are the seed's own, public in the referee's `vectors/`, and every record
+reads as it always did, byte for byte (E533): what the signed result shows changes with the pin, not before it.
 """
 
 from __future__ import annotations
@@ -211,6 +213,7 @@ class VectorRun:
         # E440: every call in order, with what a record reads of it (the answer's line, the exit, the fault): what a
         # part of `kos` hands the join.
         self.tape: list[dict[str, Any]] = []
+        self.sealed = False  # judged on the exam's answers (E509): `_judge` sets it from the groups it runs
 
     def call(self, cmd: str, stdin: bytes = b"") -> dict[str, Any] | None:
         line = self._ask(cmd, stdin)
@@ -241,7 +244,12 @@ class VectorRun:
         self.fault = f"no answer: exit {res.exit_code}{', timed out' if res.timed_out else ''} {tail}".strip()
         return None
 
-    def record(self, vid: str, ok: bool, detail: str = "") -> None:
+    def record(self, vid: str, ok: bool, detail: str = "", unsealed: str | None = None) -> None:
+        """``detail`` is what a record shows judged on the exam's answers (E509); ``unsealed``, where it differs, what
+        it shows on the seed's own answers, before an epoch pins the exam: the detail the referee always signed
+        (E533)."""
+        if not self.sealed and unsealed is not None:
+            detail = unsealed
         if not ok and self.fault:
             detail = f"{detail} | {self.fault}"
             self.fault = ""
@@ -265,11 +273,11 @@ class PartRun(VectorRun):
         self.blind = True
         return None
 
-    def record(self, vid: str, ok: bool, detail: str = "") -> None:
+    def record(self, vid: str, ok: bool, detail: str = "", unsealed: str | None = None) -> None:
         if self.blind:
             self.blind = False
             return
-        super().record(vid, ok, detail)
+        super().record(vid, ok, detail, unsealed)
 
 
 class Replay(VectorRun):
@@ -305,7 +313,9 @@ class _Plan(VectorRun):
 # What a record shows of the Founder's answer (E509). The signed result is public: a value shown on a pass, or a field
 # shown that matched, is the expected value itself, for every reader. So a pass shows nothing, and a fail shows the
 # Founder's value only where it differs from the expected one; an answer that is the one a changed input must not
-# give is named, not shown. A wrong answer's detail still begins with "got ".
+# give is named, not shown. A wrong answer's detail still begins with "got ". Each record also names the detail it
+# showed before the private exam (``unsealed``): the seed's answers are public until an epoch pins the exam, and until
+# then the signed result reads exactly as it did (E533).
 GAVE_THE_ORIGINAL = "got the answer a changed input must not give"
 
 
@@ -333,18 +343,19 @@ def _chain(run: VectorRun, spec: dict[str, Any]) -> None:
         row, expected = item["row"], item["row_hash"]
         out = run.call("python -m ledger.chain hash", json.dumps(row).encode())
         got = out.get("row_hash") if out else None
-        run.record(f"chain.V{i}.hash", got == expected, _got(got == expected, got))
+        run.record(f"chain.V{i}.hash", got == expected, _got(got == expected, got), f"got {got}")
         changed = dict(row, row_id=row["row_id"] + "x")
         out = run.call("python -m ledger.chain hash", json.dumps(changed).encode())
         got = out.get("row_hash") if out else None
         ok = isinstance(got, str) and got != expected
-        run.record(f"chain.V{i}.hash_changed_input", ok, _got(ok, got, expected))
+        run.record(f"chain.V{i}.hash_changed_input", ok, _got(ok, got, expected), f"got {got}")
     out = run.call(f"python -m ledger.chain verify {shlex.quote('/vec/' + spec['verify_good'])}")
     ok = bool(out) and out.get("valid") is True
-    run.record("chain.verify_good", ok, "" if ok else json.dumps(out)[:120])
+    run.record("chain.verify_good", ok, "" if ok else json.dumps(out)[:120], json.dumps(out)[:120])
     out = run.call(f"python -m ledger.chain verify {shlex.quote('/vec/' + spec['verify_v3'])}")
     ok = bool(out) and out.get("valid") is False and out.get("broken_row") == spec["v3_broken_row"]
-    run.record("chain.V3", ok, "" if ok else _differing(out, {"valid": False, "broken_row": spec["v3_broken_row"]}))
+    run.record("chain.V3", ok, "" if ok else _differing(out, {"valid": False, "broken_row": spec["v3_broken_row"]}),
+               json.dumps(out)[:120])
 
 
 def _cp(run: VectorRun, spec: dict[str, Any]) -> None:
@@ -352,23 +363,23 @@ def _cp(run: VectorRun, spec: dict[str, Any]) -> None:
     for x, n, expected in spec["cases"]:
         out = run.call(f"python -m harness.stats cp_lower {x} {n} {alpha}")
         got = _rounded(out.get("lb") if out else None, expected)
-        run.record(f"cp_lower.{x}/{n}", got == expected, _got(got == expected, got))
+        run.record(f"cp_lower.{x}/{n}", got == expected, _got(got == expected, got), f"got {got}")
         lower_x = str(Decimal(x) - 1)
         out = run.call(f"python -m harness.stats cp_lower {lower_x} {n} {alpha}")
         got = _rounded(out.get("lb") if out else None, expected)
         ok = got is not None and got != expected
-        run.record(f"cp_lower.{x}/{n}.changed_input", ok, _got(ok, got, expected))
+        run.record(f"cp_lower.{x}/{n}.changed_input", ok, _got(ok, got, expected), f"got {got}")
 
 
 def _mcnemar(run: VectorRun, spec: dict[str, Any]) -> None:
     for b, c, expected in spec["cases"]:
         out = run.call(f"python -m harness.stats mcnemar {b} {c}")
         got = _rounded(out.get("p") if out else None, expected)
-        run.record(f"mcnemar.{b},{c}", got == expected, _got(got == expected, got))
+        run.record(f"mcnemar.{b},{c}", got == expected, _got(got == expected, got), f"got {got}")
         out = run.call(f"python -m harness.stats mcnemar {b + 1} {c}")
         got = _rounded(out.get("p") if out else None, expected)
         ok = got is not None and got != expected
-        run.record(f"mcnemar.{b},{c}.changed_input", ok, _got(ok, got, expected))
+        run.record(f"mcnemar.{b},{c}.changed_input", ok, _got(ok, got, expected), f"got {got}")
 
 
 def _match(run: VectorRun, spec: dict[str, Any]) -> None:
@@ -378,7 +389,7 @@ def _match(run: VectorRun, spec: dict[str, Any]) -> None:
         out = run.call(cmd)
         got = out.get("hits") if out else None
         ok = isinstance(got, int) and not isinstance(got, bool) and got == item["hits"]
-        run.record(f"match.{i}", ok, _got(ok, got))
+        run.record(f"match.{i}", ok, _got(ok, got), f"got {got}")
 
 
 def _drill(run: VectorRun, spec: dict[str, Any]) -> None:
@@ -390,7 +401,8 @@ def _drill(run: VectorRun, spec: dict[str, Any]) -> None:
         got = (out.get("drill"), out.get("verdicts")) if out else (None, None)
         ok = got == (item["drill"], item["verdicts"])
         run.record(f"drill.{item['name']}", ok,
-                   "" if ok else _differing(out, {"drill": item["drill"], "verdicts": item["verdicts"]}))
+                   "" if ok else _differing(out, {"drill": item["drill"], "verdicts": item["verdicts"]}),
+                   json.dumps(got)[:200])
 
 
 def _same(a: Any, b: Any) -> bool:
@@ -405,6 +417,11 @@ def _gives(out: dict[str, Any] | None, fields: dict[str, Any]) -> bool:
 def _shown(out: dict[str, Any] | None, fields: dict[str, Any]) -> str:
     """A data case's detail: nothing when ``out`` gives ``fields``, else what differs (E509)."""
     return "" if _gives(out, fields) else _differing(out, fields)
+
+
+def _unsealed(out: dict[str, Any] | None, fields: dict[str, Any]) -> str:
+    """A data case's detail before the exam is pinned (E533): the fields ``fields`` names, as ``out`` gives them."""
+    return "no JSON object" if out is None else "got " + json.dumps({k: out[k] for k in fields if k in out})
 
 
 def _shown_not(out: dict[str, Any] | None, avoid: dict[str, Any]) -> str:
@@ -422,13 +439,14 @@ def _data(run: VectorRun, spec: dict[str, Any]) -> None:
     fails there, and so does no answer at all."""
     for case in spec["cases"]:
         out = run.call(case["cmd"], case.get("stdin", "").encode("utf-8"))
-        run.record(case["id"], _gives(out, case["expect"]), _shown(out, case["expect"]))
+        run.record(case["id"], _gives(out, case["expect"]), _shown(out, case["expect"]),
+                   _unsealed(out, case["expect"]))
         changed = case["changed"]
         avoid = changed["expect_not"]
         out = run.call(changed["cmd"], changed.get("stdin", "").encode("utf-8"))
         run.record(f"{case['id']}.changed_input",
                    out is not None and all(name in out for name in avoid) and not _gives(out, avoid),
-                   _shown_not(out, avoid))
+                   _shown_not(out, avoid), _unsealed(out, avoid))
 
 
 GROUPS = (("chain", _chain), ("cp_lower", _cp), ("mcnemar", _mcnemar), ("match", _match), ("drill", _drill))
@@ -474,11 +492,14 @@ def missing_groups(vectors_dir: Path, done_mf: tuple[int, ...], table: stages.St
 
 class Applied(list):
     """The groups one push runs, in the seed's order, each ``(judge, vectors)``. ``answered`` is False for groups read
-    from the public inputs alone (E509): every call is asked in order on them, and nothing is judged on them."""
+    from the public inputs alone (E509): every call is asked in order on them, and nothing is judged on them. ``sealed``
+    is True for groups holding the exam's answers (``exam``): only their records hide the expected values; on the seed's
+    own answers, before the pin, the records read as they always did (E533)."""
 
-    def __init__(self, items: Any = (), *, answered: bool = True):
+    def __init__(self, items: Any = (), *, answered: bool = True, sealed: bool = False):
         super().__init__(items)
         self.answered = answered
+        self.sealed = sealed
 
 
 def exam_seed(vectors_dir: Path, exam: answers.Exam | None = None) -> tuple[dict[str, Any], bool]:
@@ -504,7 +525,7 @@ def applied(vectors_dir: Path, done_mf: tuple[int, ...], *, table: stages.StageT
     the join with the exam's answers (``exam``), the parts on the inputs alone (E509)."""
     owned = set((table or stages.load(0)).groups_of(done_mf))
     spec, answered = exam_seed(vectors_dir, exam)
-    found = Applied(answered=answered)
+    found = Applied(answered=answered, sealed=exam is not None)
     for name, judge in _judges(spec, tree).items():
         if name in owned:
             found.append((judge, spec[name]))
@@ -512,6 +533,7 @@ def applied(vectors_dir: Path, done_mf: tuple[int, ...], *, table: stages.StageT
 
 
 def _judge(run: VectorRun, groups: Applied) -> list[dict]:
+    run.sealed = getattr(groups, "sealed", False)
     for judge, group in groups:
         judge(run, group)
     return run.results

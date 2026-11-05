@@ -88,7 +88,7 @@ flowchart LR
 
 ## 2. Referee package: `seed/bootstrap/snowball_bootstrap`
 
-35 modules, 109 imports inside the package, 1 started as a separate process. Areas are roles. The overview has 5 areas and 14 edges; an arrow's number is how many imports cross from one area to the other.
+36 modules, 110 imports inside the package, 1 started as a separate process. Areas are roles. The overview has 5 areas and 14 edges; an arrow's number is how many imports cross from one area to the other.
 
 ```mermaid
 flowchart LR
@@ -96,7 +96,7 @@ flowchart LR
   a_Intake["Intake<br/>10 modules"]
   a_Sandbox["Sandbox<br/>8 modules"]
   a_Rival["Rival<br/>4 modules"]
-  a_Judgement["Judgement<br/>9 modules"]
+  a_Judgement["Judgement<br/>10 modules"]
   a_Entry -->|16| a_Intake
   a_Entry -->|8| a_Judgement
   a_Entry -->|2| a_Rival
@@ -358,11 +358,12 @@ flowchart LR
 
 ### Judgement
 
-9 modules, 32 edges out of them.
+10 modules, 33 edges out of them.
 
 ```mermaid
 flowchart LR
   subgraph a_Judgement["Judgement"]
+    m_buildfence["buildfence"]
     m_decide["decide"]
     m_exitchecks["exitchecks"]
     m_fence["fence"]
@@ -390,6 +391,7 @@ flowchart LR
     m_container["container"]:::outside
     m_manifest["manifest"]:::outside
   end
+  m_buildfence --> m_fence
   m_decide --> m_answers
   m_decide --> m_exitchecks
   m_decide --> m_fence
@@ -427,9 +429,10 @@ flowchart LR
 
 | Module | What it is (first sentence of its docstring) | Imported by |
 |---|---|---|
+| `buildfence` | What decides the fenced code's build (E532): the files that choose which code is compiled and loaded as it. | - |
 | `decide` | The acceptance decision (`tohum/29b`, "Kabul" and "Aşama 0 çıkışının (A) parçası"). | `cli`, `heldrun` |
 | `exitchecks` | The (A) conditions of `asama-0/10` that `pull` checks on the brain archive it already holds (`29b`; the narrowing note's draft `29e` "Tohum denetimleri": in `çek`, read from ... | `cli`, `decide` |
-| `fence` | The K6 fence, kept by the referee (E511; `tohum/05` "Fiziksel güvenlik", `tohum/03` `class_requires`). | `config`, `decide` |
+| `fence` | The K6 fence, kept by the referee (E511; `tohum/05` "Fiziksel güvenlik", `tohum/03` `class_requires`). | `buildfence`, `config`, `decide` |
 | `k6` | The K6 exam's state and strength (E512): when the physical-safety fence (`tohum/05`) may open, decided by numbers. | `decide` |
 | `ledgercheck` | The Founder's ledger (`asama-0/10` #kurucu-defteri, `asama-0/09` test 30, `tohum/26`, `00a`; E107, E280). | `cli`, `decide`, `exitchecks`, `watchers` |
 | `stages` | The stage tables (`asama-0/14`, `tohum/26c` "Aşama tablosu"): the machine copy of a stage's micro-features. | `cli`, `decide`, `heldrun`, `manifest`, `moduleless`, `mutation`, `stagelock`, `vectors`, `wiring` |
@@ -458,6 +461,8 @@ Every subcommand of `cli.py`, the jobs that run it, and the package modules its 
 | `watch` | `gozcu` | `cmd_watch` | `canon`, `classify`, `config`, `manifest`, `treehash`, `vectors` |
 | `run-target` | `kos_hedef` | `cmd_run_target` | `canon`, `config`, `gitio`, `treehash` |
 | `fence` | operator / local | `cmd_fence` | `canon`, `config`, `gitio` |
+| `fence-heads` | operator / local | `cmd_fence_heads` | `canon`, `config`, `ghapi`, `gitio` |
+| `fence-post` | operator / local | `cmd_fence_post` | `config`, `ghapi` |
 | `rival` | `cagir` | `cmd_rival` | `canon`, `config`, `rival`, `stagelock`, `stages`, `treehash` |
 | `reproduce` | `yeniden` | `cmd_reproduce` | `canon`, `config`, `container`, `reproduce`, `treehash`, `vectors` |
 | `decide` | `yaz` | `cmd_decide` | `canon`, `config`, `decide`, `stagelock` |

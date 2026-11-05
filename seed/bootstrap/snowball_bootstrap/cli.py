@@ -1173,27 +1173,140 @@ def cmd_run_target(args: argparse.Namespace) -> int:
     return 0
 
 
+def _copy_owner(summary_cfg: config.Summary, target_id: str) -> tuple[config.Target, list[str]]:
+    """A copy target and the owner's safety paths the fence keeps for it (`fence.owner_paths`'s rule, E511)."""
+    found = [t for t in summary_cfg.targets or () if t.id == target_id]
+    if not found or found[0].kind != "copy" or not found[0].safety_paths:
+        raise config.ConfigError(f"fence: {target_id!r} is not a copy target with safety_paths")
+    return found[0], list(found[0].safety_paths)
+
+
+def fence_head(copy: Path, base: str, head: str, owner: list[str], status: str) -> list[str]:
+    """The fence's reasons for one copy head (E511, E532): its diff from ``base`` against the owner's paths and the
+    files that decide what those compile to, read from both commits (`buildfence`), unless ``status`` is live."""
+    fence, buildfence = pinned_module("fence", "E511"), pinned_module("buildfence", "E532")
+    changed = gitio.changed_paths(copy, base, head)
+    if status == fence.LIVE:  # the gate is open: nothing is fenced, so nothing more is read
+        return fence.closed_reasons(changed, owner, status)
+    build = buildfence.fenced(changed, owner, *(buildfence.Tree(*gitio.tree_reader(copy, c)) for c in (base, head)))
+    return fence.closed_reasons(changed, owner, status, build)
+
+
 def cmd_fence(args: argparse.Namespace) -> int:
     """The referee's K6 fence on a copy diff (E516, plan D6), with the fence's own rules (`fence`, E511): the copy
-    target's changed paths against the owner's `safety_paths` while the last signed `k6.status` is not live
-    (`fence.closed_reasons`; the status read only from the bytes the bundle beside ``--prev-result`` signs,
-    `fence.signed_status`, never the brain's), and a brain-derived list (``--derived``, `{"security_paths": [...]}`)
-    that does not cover the owner's (`fence.narrowed_reasons`). It writes `fence.json`, which `decide --fence` reads."""
+    target's changed paths against the owner's `safety_paths` and the files that decide what those compile to
+    (`buildfence`, E532) while the last signed `k6.status` is not live (`fence.closed_reasons`; the status read only
+    from the bytes the bundle beside ``--prev-result`` signs, `fence.signed_status`, never the brain's), and a
+    brain-derived list (``--derived``, `{"security_paths": [...]}`) that does not cover the owner's
+    (`fence.narrowed_reasons`). It writes `fence.json`, which `decide --fence` reads."""
     fence = pinned_module("fence", "E511")
-    summary_cfg = config.load_summary(Path(args.root))
-    found = [t for t in summary_cfg.targets or () if t.id == args.target]
-    if not found or found[0].kind != "copy" or not found[0].safety_paths:
-        raise config.ConfigError(f"fence: {args.target!r} is not a copy target with safety_paths")
-    owner = list(found[0].safety_paths)
+    _target, owner = _copy_owner(config.load_summary(Path(args.root)), args.target)
     status = fence.signed_status(*_signed_bytes(args.prev_result))
-    changed = gitio.changed_paths(Path(args.copy), args.base, args.head)
-    reasons = fence.closed_reasons(changed, owner, status)
+    reasons = fence_head(Path(args.copy), args.base, args.head, owner, status)
     if args.derived is not None:
         derived = read_json(Path(args.derived)).get("security_paths")
         if derived is not None and not (isinstance(derived, list) and all(isinstance(d, str) for d in derived)):
             raise config.ConfigError("--derived: security_paths must be a list of path patterns")
         reasons += fence.narrowed_reasons(derived, owner)
     write_json(Path(args.out) / "fence.json", {"head": args.head, "k6_status": status, "reasons": reasons})
+    return 0
+
+
+FENCE_SCHEMA = "snowball-fence/1"
+FENCE_REASON_CHARS = 300
+
+
+def cmd_fence_heads(args: argparse.Namespace) -> int:
+    """`snowball-fence`'s judgement (E532, `25a` 3, plan D6): every open pull request into each copy target's
+    `brain/integration`, its head fenced from where it leaves that branch (the merge base: the merge brings in no path
+    that diff lacks) while the last signed `k6.status` is not live. The copy is fetched into a bare repository and read
+    blob by blob: nothing of it is checked out or run. A head the fence cannot read is red (`fence_unjudged`), one that
+    moved since the listing is judged on the next run; a head with no check cannot be merged. It writes `fence.json`,
+    one verdict per head, which `fence-post` posts."""
+    fence = pinned_module("fence", "E511")
+    summary_cfg = config.load_summary(Path(args.root))
+    copies = [t for t in summary_cfg.targets or () if t.kind == "copy"]
+    if not copies:
+        raise config.ConfigError("fence-heads: setup/summary.json names no copy target")
+    status = fence.signed_status(*_signed_bytes(args.prev_result))
+    verdicts = []
+    for target in copies:
+        _target, owner = _copy_owner(summary_cfg, target.id)
+        pulls = ghapi.open_pulls(target.repo, fence.INTEGRATION, os.environ["GH_TOKEN"])
+        repo = Path(args.work) / f"{target.id}.git"
+        repo.mkdir(parents=True, exist_ok=True)
+        gitio.git(repo, "init", "--bare", "--quiet")
+        refs = [f"+refs/heads/{fence.INTEGRATION}:refs/fence/integration"]
+        refs += [f"+refs/pull/{p['number']}/head:refs/fence/pull/{p['number']}" for p in pulls]
+        gitio.git(repo, "fetch", "--quiet", "--no-tags", args.remote or f"https://github.com/{target.repo}.git", *refs)
+        for pull in pulls:
+            head = gitio.git(repo, "rev-parse", f"refs/fence/pull/{pull['number']}^{{commit}}").decode().strip()
+            if head != pull["head_sha"]:
+                continue  # pushed again between the listing and the fetch: the next run judges the new head
+            base = gitio.merge_base(repo, "refs/fence/integration", head)
+            try:
+                reasons = fence_head(repo, base, head, owner, status) if base else [f"{fence.UNJUDGED}:no_common_base"]
+            except Exception as exc:  # noqa: BLE001  whatever stops the reading leaves the head red, named
+                reasons = [f"{fence.UNJUDGED}:{type(exc).__name__}"]
+            verdicts.append({"target": target.id, "repo": target.repo, "pr": pull["number"], "head": head,
+                             "base": base, "k6_status": status, "reasons": reasons,
+                             "conclusion": fence.verdict(reasons)})
+    write_json(Path(args.out) / "fence.json", {"schema": FENCE_SCHEMA, "verdicts": verdicts})
+    summary("\n".join([f"## snowball-fence: {len(verdicts)} head(s), k6.status `{status}`", ""] + [
+        f"- {v['repo']}#{v['pr']} `{v['head'][:12]}`: {v['conclusion']}" for v in verdicts]))
+    return 0
+
+
+def fence_verdicts(doc: Any, repos: set[str]) -> list[dict[str, Any]]:
+    """`fence-heads`' verdicts, read as the job that holds the gate App's key reads them: each for a copy target's
+    repository, on a commit SHA, its conclusion the one its reasons give (`fence.verdict`); anything else stops."""
+    fence = pinned_module("fence", "E511")
+    if not isinstance(doc, dict) or doc.get("schema") != FENCE_SCHEMA or not isinstance(doc.get("verdicts"), list):
+        raise config.ConfigError(f"fence.json is not {FENCE_SCHEMA}")
+    out = []
+    for v in doc["verdicts"]:
+        reasons = v.get("reasons") if isinstance(v, dict) else None
+        if not (isinstance(reasons, list) and len(reasons) <= fence.MAX_NAMED + 1 and all(
+                isinstance(r, str) and 0 < len(r) <= FENCE_REASON_CHARS for r in reasons)
+                and v.get("repo") in repos and isinstance(v.get("head"), str) and config.SHA_RE.match(v["head"])
+                and type(v.get("pr")) is int and v.get("conclusion") == fence.verdict(reasons)
+                and isinstance(v.get("k6_status"), str) and len(v["k6_status"]) <= 40):
+            raise config.ConfigError("fence.json holds a verdict that is not one fence-heads writes")
+        out.append(v)
+    return out
+
+
+def app_jwt(app_id: int, key_pem: str, now: int) -> str:
+    """The gate App's JWT (RS256, ten minutes at most, `iat` a minute back for clock drift). PyJWT and cryptography are
+    pinned wheels of the Sigstore venv (`requirements/sign.txt`), license-checked; only the posting step imports
+    them."""
+    import jwt  # noqa: PLC0415
+    return jwt.encode({"iat": now - 60, "exp": now + 540, "iss": str(app_id)}, key_pem, algorithm="RS256")
+
+
+def cmd_fence_post(args: argparse.Namespace) -> int:
+    """The referee's gate App posts `snowball-fence` (E532, `25a` 3): on each judged head, unless the newest such check
+    the App posted there already says the same. Its token is the App's installation token for the copy alone, with
+    Checks write alone; the App's id and key are in this step's environment only (`GATE_APP_ID`, `GATE_APP_KEY`)."""
+    fence = pinned_module("fence", "E511")
+    copies = {t.repo for t in config.load_summary(Path(args.root)).targets or () if t.kind == "copy"}
+    verdicts = fence_verdicts(read_json(Path(args.verdicts) / "fence.json"), copies)
+    app_id = int(os.environ["GATE_APP_ID"])
+    signed = app_jwt(app_id, os.environ["GATE_APP_KEY"], int(datetime.datetime.now(datetime.timezone.utc).timestamp()))
+    tokens: dict[str, str] = {}
+    posted = 0
+    for v in verdicts:
+        if v["repo"] not in tokens:
+            tokens[v["repo"]] = ghapi.installation_token(v["repo"], signed, {"checks": "write"})
+        latest = ghapi.latest_check(v["repo"], v["head"], fence.CHECK_NAME, app_id, tokens[v["repo"]])
+        if latest is not None and latest.get("status") == "completed" and latest.get("conclusion") == v["conclusion"]:
+            continue
+        lines = [f"Last signed `k6.status`: `{v['k6_status']}`."] + [f"- `{r}`" for r in v["reasons"]]
+        title = "the fence is shut on this head" if v["reasons"] else "no fenced path"
+        ghapi.post_check(v["repo"], v["head"], fence.CHECK_NAME, v["conclusion"], title, "\n".join(lines),
+                         tokens[v["repo"]])
+        posted += 1
+    print(f"fence-post: {posted} check(s) posted, {len(verdicts) - posted} already standing")
     return 0
 
 
@@ -1421,6 +1534,10 @@ def build_parser() -> argparse.ArgumentParser:
         ("--head", req), ("--target", dict(req, help="the copy target's id in setup/summary.json")),
         ("--derived", {"help": "a JSON file {security_paths: [...]}, the brain-derived list"}),
         ("--prev-result", {"help": "the last signed result, whose k6.status opens the fence"}), ("--out", req))
+    add("fence-heads", cmd_fence_heads, root, ("--work", req), ("--out", req),
+        ("--prev-result", {"help": "the last signed result, whose k6.status opens the fence"}),
+        ("--remote", {"help": "where the copy is fetched from (default: its GitHub repository)"}))
+    add("fence-post", cmd_fence_post, root, ("--verdicts", dict(req, help="fence-heads' output directory")))
     add("rival", cmd_rival, root, ("--pulled", req), ("--work", req), ("--out", req),
         ("--claude", {"help": "path of the claude CLI (default: the one on PATH)"}))
     add("reproduce", cmd_reproduce, root, ("--pulled", req), ("--deps", req), ("--rival", req),

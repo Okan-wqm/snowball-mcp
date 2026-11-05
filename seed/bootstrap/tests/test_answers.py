@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import contextlib
 import copy
+import gzip
 import importlib.util
 import io
 import json
@@ -219,7 +220,9 @@ class PartsWithTheStoreTest(StoreTestCase):
 
     def test_parts_on_the_inputs_alone_joined_with_the_store_give_the_seed_run(self):  # part_judges_blank_answers
         """E509 with E440: the parts hold no answer, so they know no verdict and run their module-less share; the join
-        judges their tapes with the pinned answers. The run is the one the seed's own vectors give, honest or not."""
+        judges their tapes with the pinned answers. The run is the one the seed's own vectors give, honest or not, but
+        for what its records show: on the store's answers a pass shows nothing (E533: on the seed's, what it always
+        showed)."""
         done = tuple(range(1, TABLE.count + 1))
         exam = answers.open_store(self.store, self.pin)
         seed_groups = vectors.applied(VECTORS, done, table=TABLE)
@@ -229,12 +232,29 @@ class PartsWithTheStoreTest(StoreTestCase):
             with self.subTest(scenario=scenario["vectors"]):
                 seed_run = self.run_of(scenario, seed_groups, seed_groups, VECTORS, 1)
                 store_run = self.run_of(scenario, plan, judged, self.public, 2)
-                self.assertEqual(store_run, seed_run)
+                self.assertEqual(without_details(store_run), without_details(seed_run))
                 self.assertEqual(seed_run["green"], scenario["vectors"] == "honest")
+                self.assertEqual([r["id"] for r in store_run["vectors"] if r["ok"] and r["detail"]], [])
+                self.assertTrue(any(r["ok"] and r["detail"] for r in seed_run["vectors"]))
+
+
+def without_details(run):
+    """A run with its vector records' details left out: what is judged, not what a record shows."""
+    return dict(run, vectors=[{k: v for k, v in r.items() if k != "detail"} for r in run["vectors"]])
+
+
+def sealed(vectors_dir: Path, dest: Path):
+    """``vectors_dir``'s seed as an epoch pins it (E509): its public projection at ``dest / "public"`` and the exam
+    holding its answers, the groups' `sealed` form."""
+    inputs, own = answers.split(json.loads((vectors_dir / vectors.SEED_FILE).read_text(encoding="utf-8")))
+    pin, _canary = answers.write_exam(dest / "store", inputs, own, burned=True)
+    return vectors.public_vectors(vectors_dir, dest / "public"), answers.open_store(dest / "store", pin)
 
 
 class DetailTest(unittest.TestCase):
-    """What a record shows: never an expected value (plan D4; the signed result is public)."""
+    """What a record shows judged on the exam's answers: never an expected value (plan D4; the signed result is
+    public). Before the pin the seed's answers are public and a record reads as it always did (E533,
+    `test_stage0_unchanged.JudgeOutputTest`)."""
 
     CASE = {"id": "probe.one", "purpose": "a made-up case", "cmd": "python -m probe.x one", "fixture": [],
             "expect": {"a": TOKEN_A, "b": "x"},
@@ -247,9 +267,12 @@ class DetailTest(unittest.TestCase):
                 out = one if cmd.endswith("one") else two
                 return RunResult(0, (json.dumps(out) + "\n").encode(), b"", 1)
         with tempfile.TemporaryDirectory() as tmp:
-            Path(tmp, vectors.SEED_FILE).write_text(json.dumps({"probe": {"owner": "asama-0", "runner": "data",
-                                                                          "cases": [self.CASE]}}), encoding="utf-8")
-            return {r["id"]: r for r in vectors.run_vectors(Scripted(), Path(tmp), (1,), table=PROBE_TABLE)}
+            seed = Path(tmp, "seed")
+            seed.mkdir()
+            (seed / vectors.SEED_FILE).write_text(json.dumps({"probe": {"owner": "asama-0", "runner": "data",
+                                                                        "cases": [self.CASE]}}), encoding="utf-8")
+            public, exam = sealed(seed, Path(tmp) / "pinned")
+            return {r["id"]: r for r in vectors.run_vectors(Scripted(), public, (1,), table=PROBE_TABLE, exam=exam)}
 
     def test_no_record_shows_an_expected_value(self):  # expect_in_detail
         """E509: a pass shows nothing; a fail shows the Founder's values that differ and names the fields it left out;
@@ -276,13 +299,17 @@ class DetailTest(unittest.TestCase):
         """E509: chain hashes, statistics, hit counts and drill verdicts are answers too. On the reference they all
         pass with nothing shown; a chain that ignores its input fails its changed inputs without showing the hash."""
         done = (1, 2, 3)
-        honest = vectors.run_vectors(FakeRunner(VECTORS), VECTORS, done, table=EVERY_GROUP)
+        tmp = Path(tempfile.mkdtemp(prefix="e533-"))
+        self.addCleanup(shutil.rmtree, tmp, ignore_errors=True)
+        public, exam = sealed(VECTORS, tmp)
+        honest = vectors.run_vectors(FakeRunner(VECTORS), public, done, table=EVERY_GROUP, exam=exam)
         self.assertEqual([(r["id"], r["detail"]) for r in honest if not r["ok"] or r["detail"]], [])
         counted = (2 * len(SEED["chain"]["rows"]) + 2 + 2 * len(SEED["cp_lower"]["cases"])
                    + 2 * len(SEED["mcnemar"]["cases"]) + len(SEED["match"]["cases"]) + len(SEED["drill"]["cases"]))
         self.assertEqual(len(honest), counted)
         broken = {r["id"]: r for r in vectors.run_vectors(
-            FakeRunner(VECTORS, wrong={"chain_ignores_input", "drill_lenient"}), VECTORS, done, table=EVERY_GROUP)}
+            FakeRunner(VECTORS, wrong={"chain_ignores_input", "drill_lenient"}), public, done, table=EVERY_GROUP,
+            exam=exam)}
         own = {f"chain.V{i}.": row["row_hash"] for i, row in enumerate(SEED["chain"]["rows"], start=1)}
         own.update({f"drill.{c['name']}": json.dumps(c["verdicts"]) for c in SEED["drill"]["cases"]})
         failed = [i for i, r in broken.items() if not r["ok"]]
@@ -293,6 +320,63 @@ class DetailTest(unittest.TestCase):
                     self.assertNotIn(value, broken[record_id]["detail"], record_id)
         changed = [broken[i]["detail"] for i in failed if i.startswith("chain.") and i.endswith("changed_input")]
         self.assertIn(vectors.GAVE_THE_ORIGINAL, changed)
+
+
+class JudgeOutputBeforeThePinTest(unittest.TestCase):
+    """E533 (independent verifier, finding 6): before an epoch pins the exam the referee's judges sign what they always
+    signed. The fixture holds one runner answer per vector input (the reference implementations' answers, each kept,
+    made wrong, left out, timed out or swapped for the previous call's, by its input's sha256) and the records main
+    4f58974's own judges wrote on them (`fixtures/stage0/record_judges.py`): real judge output, every judge, every
+    group of the seed. `test_stage0_unchanged` injects a `run.json` and so never sees what a judge writes."""
+
+    FIXTURE = BOOT / "tests" / "fixtures" / "stage0" / "judges-main-4f58974.json.gz"
+
+    @classmethod
+    def setUpClass(cls):
+        with gzip.open(cls.FIXTURE, "rt", encoding="utf-8") as handle:
+            cls.doc = json.load(handle)
+        cls.table = stages.parse_table(json.dumps({"stage": 0, "mfs": [
+            {"mf": 1, "tests": [13], "groups": cls.doc["groups"], "module": "ledger/chain.py", "calls": []}]}), 0)
+
+    def runner(self):
+        tape = self.doc["tape"]
+
+        class Tape:
+            def run(self, cmd, *, cwd=".", stdin=b"", timeout_s):
+                t = tape[vectors.input_key(cmd, stdin)]
+                return RunResult(t["exit"], t["stdout"].encode(), t["stderr"].encode(), 1, timed_out=t["timed_out"])
+        return Tape()
+
+    def test_the_fixture_exercises_every_judge_and_every_kind_of_answer(self):
+        records, modes = self.doc["records"], {t["mode"] for t in self.doc["tape"].values()}
+        self.assertEqual({r["id"].split(".")[0] for r in records}, set(self.doc["groups"]) - {"schema", "source"})
+        self.assertEqual(modes, {"keep", "wrong_one", "wrong_all", "drop_one", "none", "timeout", "previous"})
+        self.assertEqual(self.doc["groups"], [g for g in SEED if g not in ("schema", "source")])
+        self.assertTrue(any(r["ok"] and r["detail"] for r in records))  # main shows the answer on a pass
+        self.assertTrue(any(not r["ok"] for r in records) and any(r["ok"] for r in records))
+
+    def test_before_the_pin_every_record_is_mains_byte_for_byte(self):
+        # judge_details_sealed_before_pin unsealed_detail_ignored
+        """The single job, and `kos`'s parts joined (E440), on the seed's vectors as the referee holds them before the
+        pin: the records are main's, the same bytes in the same order."""
+        mains = json.dumps(self.doc["records"], sort_keys=True)
+        single = vectors.run_vectors(self.runner(), VECTORS, (1,), table=self.table)
+        self.assertEqual(json.dumps(single, sort_keys=True), mains)
+        groups = vectors.applied(VECTORS, (1,), table=self.table)
+        tape, known = vectors.run_part(self.runner(), groups, set(vectors.call_inputs(groups)))
+        self.assertEqual(json.dumps(vectors.replay(tape, groups), sort_keys=True), mains)
+        self.assertEqual(json.dumps(known, sort_keys=True), mains)
+
+    def test_under_the_pin_the_same_answers_are_judged_alike_and_a_pass_shows_nothing(self):  # judge_unsealed_always
+        """The same answers judged on the exam's answers (E509): every verdict is main's, and no pass shows a detail."""
+        tmp = Path(tempfile.mkdtemp(prefix="e533-"))
+        self.addCleanup(shutil.rmtree, tmp, ignore_errors=True)
+        public, exam = sealed(VECTORS, tmp)
+        pinned = vectors.run_vectors(self.runner(), public, (1,), table=self.table, exam=exam)
+        self.assertEqual([(r["id"], r["ok"], r["exit"]) for r in pinned],
+                         [(r["id"], r["ok"], r["exit"]) for r in self.doc["records"]])
+        self.assertEqual([r["id"] for r in pinned if r["ok"] and r["detail"]], [])
+        self.assertIn(vectors.GAVE_THE_ORIGINAL, {r["detail"] for r in pinned})
 
 
 class SnapshotTest(StoreTestCase):
