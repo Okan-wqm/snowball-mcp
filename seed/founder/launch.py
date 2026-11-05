@@ -58,6 +58,8 @@ import tempfile
 import time
 import xml.sax.saxutils
 import zipfile
+from collections import Counter
+from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -67,7 +69,7 @@ sys.path.insert(0, str(SEED / "bootstrap"))
 from snowball_bootstrap import canon, gitio, ledgercheck  # noqa: E402  (the chain rule, the referee's git and ledger check)
 from snowball_bootstrap.classify import (LEDGER_FILE, SEED_DIRS, is_founder_record,  # noqa: E402  (what is memory
                                          is_seed_path)  # and what is the operator's delivery to the referee)
-from snowball_bootstrap.decide import counts_against_founder  # noqa: E402  (the referee's rule, not a copy)
+from snowball_bootstrap.decide import counts_against_founder, is_brake_stop  # noqa: E402  (the referee's rule)
 from snowball_bootstrap.vectors import founder_inputs  # noqa: E402  (the referee's projection, not a copy: E244)
 IMAGE = "snowball-founder:pilot"
 REFEREE_WORKFLOW = "bootstrap.yml"
@@ -165,6 +167,8 @@ def reason_owner(reason: dict) -> str:
     item = {"kind": str(reason.get("kind", "")), "ref": str(reason.get("ref") or "")}
     if counts_against_founder(item):
         return "founder"
+    if is_brake_stop(item):  # the operator's brake, whether pull or the rival's call met it (E550)
+        return "referee"
     return "rival" if item["kind"] in ("rival_unresolved", "rival_missing") else "referee"
 
 
@@ -356,14 +360,63 @@ def report_ages(reports: list[dict], seen: dict[str, str], ts: str) -> list[tupl
 CHANGELOG_RE = re.compile(r"CHANGELOG[^/]*\.md")  # the seed's changelogs: spec/tohum/CHANGELOG.md, CHANGELOG-<n>.md
 
 
-def unanswered_reports(ages: list[tuple[str, int]], changelogs: list[str]) -> list[tuple[str, int]]:
-    """The open reports whose id no seed changelog names (E527): the operator answers a report in an epoch's changelog
-    row (`<id> → <page:lines>` or `declined: <id>`, E342), so one named nowhere was never answered or declined. A
-    whole-id match: `seed-040` is not named by `seed-0401` or `seed-040-x`. For the operator alone (pilot-log,
-    metrics)."""
+def names_report(text: str, rid: str) -> bool:
+    """Whether text names the report by its whole id: `seed-040` is not named by `seed-0401` or `seed-040-x`."""
+    return re.search(r"(?<![\w-])" + re.escape(rid) + r"(?![\w-])", text) is not None
+
+
+def unanswered_reports(ages: list[tuple[str, int]], changelogs: list[str],
+                       unchanged: Callable[[str], bool]) -> list[tuple[str, int]]:
+    """The open reports the operator still owes (E527, E552): the operator answers a report in an epoch's changelog
+    row (`<id> → <page:lines>` or `declined: <id>`, E342), so one named in no seed changelog was never answered or
+    declined, and one the Founder changed after the latest epoch that names it (its update, a re-report) was answered
+    only up to the bytes it had then. ``unchanged(id)`` says, for an id some changelog names, whether its file is byte
+    for byte what it was at that latest naming (`unchanged_since_naming`; never a commit time, E316). For the operator
+    alone (pilot-log, metrics)."""
     text = "\n".join(changelogs)
-    return [(rid, age) for rid, age in ages
-            if not re.search(r"(?<![\w-])" + re.escape(rid) + r"(?![\w-])", text)]
+    return [(rid, age) for rid, age in ages if not names_report(text, rid) or not unchanged(rid)]
+
+
+CHANGELOG_PATHSPEC = ":(glob)spec/tohum/CHANGELOG*.md"
+
+
+def naming_epochs(clone: Path, rid: str, head: str, additions: dict[str, Counter] | None = None) -> list[str]:
+    """The commits up to head, newest first (history order, never commit times, E316), whose changelog diff adds a line
+    that names the report (E552). A line moved from one changelog to another, which the compaction of a full changelog
+    does verbatim, is not an addition: a naming is the answer being written, not the page it was filed on. ``additions``
+    keeps each commit's added lines across calls (a commit never changes)."""
+    additions = additions if additions is not None else {}
+    literal = re.sub(r"[^\w-]", lambda m: chr(92) + m.group(0), rid)  # git's -G reads an extended regular expression
+    found = gitio.git(clone, "log", "--topo-order", "--format=%H", "-G", literal, head, "--", CHANGELOG_PATHSPEC,
+                      timeout=GIT_NETWORK_TIMEOUT_S).decode().split()
+    out = []
+    for commit in found:
+        if commit not in additions:
+            diff = gitio.git(clone, "diff-tree", "-p", "--root", "-m", "--first-parent", "--no-renames",
+                             "--no-ext-diff", "-U0", commit, "--", CHANGELOG_PATHSPEC,
+                             timeout=GIT_NETWORK_TIMEOUT_S).decode("utf-8", "replace").splitlines()
+            gone = Counter(line[1:] for line in diff if line.startswith("-") and not line.startswith("---"))
+            additions[commit] = Counter(line[1:] for line in diff if line.startswith("+")
+                                        and not line.startswith("+++")) - gone
+        if any(names_report(line, rid) for line in additions[commit]):
+            out.append(commit)
+    return out
+
+
+def unchanged_since_naming(clone: Path, rid: str, file: str, head: str,
+                           additions: dict[str, Counter] | None = None) -> bool:
+    """Whether the report's file at head is byte for byte what it was at the latest commit that names it (git compares
+    the two blobs' ids, in a tree the blob-less clone has). False when no commit names it or the file was not there
+    then: an answer written before the report existed answers nothing (E552)."""
+    for commit in naming_epochs(clone, rid, head, additions)[:1]:
+        def blob(at: str) -> str:
+            return gitio.git(clone, "rev-parse", f"{at}:reports/{file}", timeout=GIT_LOCAL_TIMEOUT_S).decode().strip()
+        try:
+            then = blob(commit)
+        except gitio.GitError:
+            return False
+        return then == blob(head)
+    return False
 
 
 def write_build_context(ctx: Path) -> None:
@@ -589,7 +642,28 @@ class Pilot:
         changelogs = self.seed_changelogs(head) if reports is not None else None
         return {"spec_tohum_tree": self.spec_tohum_tree(head), "target_sha": self.target_head(),
                 "reports_open": None if reports is None else ages,
-                "reports_unanswered": None if changelogs is None else unanswered_reports(ages, changelogs)}
+                "reports_unanswered": (None if changelogs is None
+                                       else self.owed_reports(head, reports, ages, changelogs))}
+
+    def owed_reports(self, head: str, reports: list[dict], ages: list[tuple[str, int]],
+                     changelogs: list[str]) -> list[tuple[str, int]] | None:
+        """`unanswered_reports` with the brain's history for the ids a changelog names (E527, E552): one blob-less
+        clone, made only when some open report is named at all. None when the history cannot be read: unknown, never
+        "owed"."""
+        files = {str(r.get("id") or r.get("file")): str(r["file"]) for r in reports}
+        text = "\n".join(changelogs)
+        if not any(names_report(text, rid) for rid, _ in ages):
+            return unanswered_reports(ages, changelogs, lambda rid: False)
+        additions: dict[str, Counter] = {}
+        try:
+            with tempfile.TemporaryDirectory(prefix="snowball-reports-") as tmp:
+                clone = Path(tmp) / "brain"
+                gitio.git(Path(tmp), "-c", GH_CREDENTIAL, "clone", "--quiet", "--no-checkout", "--filter=blob:none",
+                          "--branch", "main", self.brain_remote, str(clone), timeout=GIT_NETWORK_TIMEOUT_S)
+                return unanswered_reports(ages, changelogs,
+                                          lambda rid: unchanged_since_naming(clone, rid, files[rid], head, additions))
+        except (gitio.GitError, OSError):
+            return None
 
     def record_cost(self, stamp: str, sess: dict, head: str, last_accepted: str | None) -> str:
         """The session's cost row (`tohum/24a` 4), with any rows an earlier cycle had to keep; what happened, as a line
@@ -857,7 +931,8 @@ class Pilot:
 
     def judge(self, n: int, head: str, timeout_s: int) -> tuple[dict, dict | None, int]:
         """Dispatch the referee for head, and again while it leaves head unevaluated (the rival failed on its own
-        side, or an outage): the Founder is never asked to fix what was not its fault (E166).
+        side, or an outage): the Founder is never asked to fix what was not its fault (E166). A head a brake stopped
+        is not sent again: the referee's poll passes it until the operator raises the brake (E550).
 
         The verdict returned is head's or None: the newest signed result belongs to another head whenever the run
         did not finish (STOP while waiting, a timeout, a run that never started), and an older head's verdict
@@ -865,7 +940,7 @@ class Pilot:
         dispatched = self.dispatch_referee(timeout_s)
         verdict, retries = self.fetched(), 0
         while (retries < MAX_REFEREE_RETRIES and verdict and verdict.get("head") == head
-               and not self.evaluated(verdict, head) and not self.stopped()):
+               and not self.evaluated(verdict, head) and not verdict.get("budget_stop") and not self.stopped()):
             retries += 1
             say(f"cycle {n}: {head[:7]} was not evaluated ({verdict.get('warnings')}); referee again, retry {retries}")
             dispatched = self.dispatch_referee(timeout_s)

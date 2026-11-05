@@ -66,7 +66,7 @@ Okunma: sayfa ararken; görev seçmek için `tohum/00b-gorev-haritasi.md`
 | `tohum/29-tohum-koltuklari.md` | Tohum Koltukları: Rakip, Test-Yazıcı, Şerit Yazarı | kurulumda ve Aşama 0 başında |
 | `tohum/29a-tohum-vektorleri.md` | Tohum Vektörleri: Değişmeyen Beklenen Çıktılar | zincir, istatistik ve puanlama kodu yazarken |
 | `tohum/29b-onyukleme-hakemi.md` | Önyükleme Hakemi: Aşama 0'ın Yargıcı | kurulumda ve Aşama 0 boyunca |
-| `tohum/29e-onyukleme-hakemi-devam.md` | Önyükleme Hakemi, Devam: Kurucu Kayıtları, Sır Desenli Metin, Sınav Hatası | Aşama 0 boyunca; Kurucu kaydı itilirken, bir `secret_in_*` reddi okunurken ve bir ret sınav hatası sayılınca |
+| `tohum/29e-onyukleme-hakemi-devam.md` | Önyükleme Hakemi, Devam: Kurucu Kayıtları, Sır Desenli Metin, Sınav Hatası, Bütçe Durması | Aşama 0 boyunca; Kurucu kaydı itilirken, bir `secret_in_*` reddi okunurken, bir ret sınav hatası sayılınca ve bir baş rakip frenine takılınca |
 | `tohum/29c-prova-vektorleri.md` | Prova Vektörleri: Ders Provasının Referans Yargıcı | ders provasının yargıcını (`harness.drill`) yazarken (Aşama 2 partisi) ve ders provası tasarlanırken |
 | `tohum/29q-prova-gucu-ve-kalibrasyon.md` | Prova Vektörleri, Devam: Ayırma Gücü ve Ailelerin Kalibrasyonu | ders provası tasarlanırken, tuzak ailesi havuza alınırken ve bir provanın FAIL ya da UNMEASURABLE'ı okunurken |
 | `tohum/29d-vektor-gruplari.md` | Tohum Vektörleri, Devam: Aşama 0'ın Grupları ve Genel Koşucu | Aşama 0'ın her mikro özelliğini yazarken ve önyükleme hakeminin vektör koşucusu değişirken |
