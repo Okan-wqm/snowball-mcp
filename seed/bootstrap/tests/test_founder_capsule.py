@@ -489,7 +489,7 @@ class VectorInputsTest(unittest.TestCase):
 
 
 class RefereeRetryTest(unittest.TestCase):  # E166: the loop never waits on the Founder for the rival's own failure
-    def run_cycle(self, evaluated_on):
+    def run_cycle(self, evaluated_on, braked=False):
         launch = load_launch()
         before, after = "a" * 40, "b" * 40
         report = []
@@ -502,6 +502,10 @@ class RefereeRetryTest(unittest.TestCase):  # E166: the loop never waits on the 
                 if not self.dispatches:
                     return None
                 done = self.dispatches >= evaluated_on
+                if braked:
+                    return {"head": after, "verdict": "rejected", "warnings": ["rival_budget:stage"],
+                            "budget_stop": {"brake": "stage", "allowed_usd_micros": 0},
+                            "state": {"last_evaluated_sha": None}}
                 return {"head": after, "verdict": "accepted" if done else "rejected",
                         "warnings": [] if done else [f"rival_side_retry:{self.dispatches}"],
                         "state": {"last_evaluated_sha": after if done else None}}
@@ -809,6 +813,12 @@ class RefereeRetryTest(unittest.TestCase):  # E166: the loop never waits on the 
         self.assertEqual(dispatches, 2)
         self.assertIn("1 kez yeniden incelendi", report)
         self.assertIn("**accepted**", report)
+
+    def test_a_head_a_brake_stopped_is_not_sent_again(self):  # brake_stop_retried_by_the_launcher
+        """E550: the referee's poll passes a head a brake stopped until the brake is raised, so the launcher's retries
+        (meant for the rival's own failures and outages) would only start runs that skip; it sends it once."""
+        dispatches, _report, _cap = self.run_cycle(evaluated_on=99, braked=True)
+        self.assertEqual(dispatches, 1)
 
     def test_an_evaluated_commit_is_not_sent_again_and_retries_are_capped(self):
         self.assertEqual(self.run_cycle(evaluated_on=1)[0], 1)

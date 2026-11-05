@@ -859,7 +859,8 @@ class Pilot:
 
     def judge(self, n: int, head: str, timeout_s: int) -> tuple[dict, dict | None, int]:
         """Dispatch the referee for head, and again while it leaves head unevaluated (the rival failed on its own
-        side, or an outage): the Founder is never asked to fix what was not its fault (E166).
+        side, or an outage): the Founder is never asked to fix what was not its fault (E166). A head a brake stopped
+        is not sent again: the referee's poll passes it until the operator raises the brake (E550).
 
         The verdict returned is head's or None: the newest signed result belongs to another head whenever the run
         did not finish (STOP while waiting, a timeout, a run that never started), and an older head's verdict
@@ -867,7 +868,7 @@ class Pilot:
         dispatched = self.dispatch_referee(timeout_s)
         verdict, retries = self.fetched(), 0
         while (retries < MAX_REFEREE_RETRIES and verdict and verdict.get("head") == head
-               and not self.evaluated(verdict, head) and not self.stopped()):
+               and not self.evaluated(verdict, head) and not verdict.get("budget_stop") and not self.stopped()):
             retries += 1
             say(f"cycle {n}: {head[:7]} was not evaluated ({verdict.get('warnings')}); referee again, retry {retries}")
             dispatched = self.dispatch_referee(timeout_s)

@@ -707,6 +707,36 @@ class LoopReportsPageTest(unittest.TestCase):
             for phrase in words:
                 self.assertIn(phrase, lines, f"{report}: {ref}")
 
+    def test_the_2026_11_05_entry_answers_referee_049_and_seed_044s_update_by_lines_that_say_it(self):
+        # changelog_cites_29j_56_alone changelog_drops_referee_049
+        """E550, E551, E553 (E342's rule): the 2026-11-05 entry names referee-049 with the lines that say each part of the
+        answer, and answers seed-044's 2026-11-03 update in the form the panel agreed (2026-11-05, O4): the decline
+        stands, its pointers are the earlier decline's and the report's own (`29j:53-60`, `asama-0/10a:26`), and it
+        names no single line of `29j` (29j:56 alone would point at what separates the Founder's code from the drill)."""
+        page = (ROOT / "spec" / "tohum" / "CHANGELOG.md").read_text(encoding="utf-8")
+        entry = changelog_entry(page, "2026-11-05, E550")
+        answer = entry[entry.index("`referee-049-rival-budget-consumes-commit` →"):entry.index("declined (11-03")]
+        says = {("29e", 42, 53): ("**Bütçe durması**", "`budget_stop {brake, allowed_usd_micros}`", "`per_run`"),
+                ("29e", 26, 26): ("(`request_rejected` dışında) commit değerlendirilmemiş kalır",),
+                ("29b", 76, 77): ("Rakip freni dolunca baş tüketilmez", "kendiliğinden yargılanır (`29e`)"),
+                ("18a", 59, 59): ("`stage_budgets.asama_0.rival_usd`", "2026-11-05'ten 1000 USD"),
+                ("29e", 53, 53): ("yeniden açılmaz",)}
+        for (prefix, first, last), words in says.items():
+            ref = f"`{prefix}:{first}`" if first == last else f"`{prefix}:{first}-{last}`"
+            self.assertIn(ref, answer, ref)
+            lines = flat(" ".join(spec_page("tohum", prefix).splitlines()[first - 1:last]))
+            for phrase in words:
+                self.assertIn(phrase, lines, ref)
+        declined = entry[entry.index("declined (11-03"):]
+        self.assertIn("declined (11-03 güncellemesi): `seed-044-revert-facts-producers`: ret geçerli (2026-11-01 "
+                      "kaydındaki `declined: seed-044-revert-facts-producers` satırı; `29j:53-60`); `asama-0/10a:26` "
+                      "`#geri-alma` Aşama 0'da değişmedi.", declined)
+        self.assertEqual(re.findall(r"`29j:\d+(?:-\d+)?`", declined), ["`29j:53-60`"])
+        earlier = changelog_entry(page, "2026-11-01, E490")
+        self.assertIn("declined: `seed-044-revert-facts-producers`: `29j:53-60`", earlier)
+        self.assertIn("#geri-alma", flat(" ".join(
+            (ROOT / "spec" / "asama-0" / "10a-cikis-canli-dongu.md").read_text(encoding="utf-8").splitlines()[25:26])))
+
     def test_seed_045_is_answered_by_lines_that_say_it(self):  # drill_fixture_ids_meaningful
         """E499: seed-045's open part, where the live revert-drill fixtures are and in which form, is answered: the
         referee's second drill secret, only in the env of `yaz`'s step that uses it; one line of base64 of canonical
@@ -867,6 +897,7 @@ class ReportAnswerPagesTest(unittest.TestCase):
         self.assertIn("`bootstrap.json` `rival.per_run_cap_usd_micros`", text)
         self.assertIn("boot.rival.per_run_cap_usd_micros", cli_src)
         self.assertIn("elle tetiklenen koşu da", text)
+        self.assertIn("baş o nedenle yargılanır, fren yalnız uyarıdadır", text)  # E550: as in pull
         self.assertNotIn(decide.BUDGET, decide.RIVAL_SIDE_FINAL)
         self.assertIn("Rakip freni dolunca baş tüketilmez", flat(paragraph(spec_page("tohum", "29b"),
                                                                              "**Asla yapmadıkları.**")))

@@ -385,13 +385,6 @@ def decide(meta: dict[str, Any], run: dict[str, Any] | None, rival: dict[str, An
                         evaluate = False  # review this commit again (E166)
                         warnings.append(f"rival_side_retry:{state['rival_side_streak'] + 1}")
                 warnings += [w for w in said if w.startswith("request_rejected")]
-    budget_stop = None
-    if any(is_brake_stop(r) for r in reasons):  # neither the Founder's nor the rival's: it waits for its allowance
-        evaluate = False
-        allowance = meta.get("rival_allowance") or {}
-        budget_stop = {"brake": allowance.get("brake"), "allowed_usd_micros": allowance.get("usd_micros")}
-        warnings.append(f"rival_budget:{budget_stop['brake']}")
-
     # Reproducers: the rival's own (or the reused rival's) and the state's on code and exit heads (E07, E08).
     attempts = rival.get("attempts", []) if rival_valid else []
     with_repro = {i for i, a in enumerate(attempts) if "reproducer" in a}
@@ -491,6 +484,17 @@ def decide(meta: dict[str, Any], run: dict[str, Any] | None, rival: dict[str, An
             exit_block["owner_exception"] = {"anchor": excepted, "stage": exception.get("stage"),
                                              "carry_to": exception.get("carry_to"), "reason": exception.get("reason"),
                                              "carry_commitment": exception.get("carry_commitment"), "measured": False}
+
+    # A brake stop is neither the Founder's nor the rival's: the head waits for its allowance, unless the run found a
+    # reason of the Founder's to reject it anyway (a reproducer, an exit condition): that head is judged for it, as
+    # `pull` judges a head with a reason of its own before the brake (E550).
+    budget_stop = None
+    allowance = meta.get("rival_allowance") or {}
+    if any(is_brake_stop(r) for r in reasons):
+        warnings.append(f"rival_budget:{allowance.get('brake')}")
+        if not any(counts_against_founder(r) for r in reasons):
+            evaluate = False
+            budget_stop = {"brake": allowance.get("brake"), "allowed_usd_micros": allowance.get("usd_micros")}
 
     accepted = not reasons and kind in ("spec", "code", "exit")
     if kind == "spec":

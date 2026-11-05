@@ -408,6 +408,6 @@ flowchart LR
   launcher -->|module| m_gitio
   launcher -->|module| m_ledgercheck
   launcher -->|LEDGER_FILE, SEED_DIRS, is_founder_record, is_seed_path| m_classify
-  launcher -->|counts_against_founder| m_decide
+  launcher -->|counts_against_founder, is_brake_stop| m_decide
   launcher -->|founder_inputs| m_vectors
 ```

@@ -4,7 +4,7 @@ Tarih: 2026-10-29
 Okunma: bir sayfanın geçmişi aranırken
 Çapa: git geçmişi ve zincirdeki spec hash satırları
 
-- 2.2 (2026-11-05, E552): §1.10'un tohum rakibi satırı 15 USD'den 1000 USD'ye: sahibin kararı, rakip `claude` CLI
+- 2.2 (2026-11-05, E553): §1.10'un tohum rakibi satırı 15 USD'den 1000 USD'ye: sahibin kararı, rakip `claude` CLI
   aboneliğiyle koşar ve fren yalnız kaçak frenidir (`tohum/18a`, `asama-0/12`'deki ilke).
 - 2.2 (2026-10-31, E317): §1.13'ün Aşama 2 satırı: ders provası Aşama 2'nin ilk partisidir, ders görünümünden önce, ve sahibin MVP sınavıdır (`tohum/22b`). Tohum teslimi bu sayfayı taşımaz (E180); bağlayan `tohum/03` ve `tohum/22b`'dir, canlı beyindeki kopyayı Kurucu `tohum/02`'nin öncelik kuralıyla uzlaştırır.
 - 2.2 (2026-10-30, E246): §1.13b `dead-code` artık "çağıranı olmayan kod yoktur" demez: çağıranı olmayan her birim bildirilir, silinmesi `tohum/07a`'ya uyar (yarım iş silinmez). Tohum teslimi `spec/asama-*`'yı taşımaz (E180); canlı beyindeki kopyayı Kurucu `tohum/02`'nin öncelik kuralıyla uzlaştırır.

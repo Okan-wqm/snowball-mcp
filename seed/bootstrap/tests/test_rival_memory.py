@@ -490,6 +490,25 @@ class E11LearningSplit(unittest.TestCase):
             self.assertEqual(res["state"]["last_evaluated_sha"], B if final else None, reason)
             self.assertEqual((res["state"]["reject_streaks"], res["state"]["repeat_events"]), (self.STREAKS, 1), reason)
 
+    def test_a_brake_stop_does_not_hide_a_reason_of_the_founders_own(self):  # brake_hides_founders_reason
+        """E550: `pull` judges a head with a reason of its own before the brake; the call's brake stop is the same
+        rule. A proven defect that still reproduces on this head is the Founder's, whatever the rival could spend:
+        the head is judged and counted for it, the stop is named in a warning only, and the poll has nothing to hold.
+        With no reason of the Founder's (the defect gone) the same stop leaves the head unjudged."""
+        entry = refutation_entry()
+        allowance = {"usd_micros": 77_443, "brake": "stage"}
+        for reproduced, judged in ((True, B), (False, None)):
+            st_ = state2(open_refutations=[entry])
+            res = run_decide(meta2("code", st_, state_repro=[entry["key"]], rival_allowance=allowance), green(),
+                             unresolved("budget", cost=278_448), [], CODE_JOBS,
+                             state_repro=[state_ran(entry["key"], "refutation", reproduced)])
+            self.assertEqual(res["verdict"], "rejected", reproduced)
+            self.assertIn("rival_budget:stage", res["warnings"], reproduced)
+            self.assertEqual(res["state"]["last_evaluated_sha"], judged, reproduced)
+            self.assertEqual(res["budget_stop"], None if judged else {"brake": "stage", "allowed_usd_micros": 77_443})
+            self.assertEqual(res["state"]["stage_spend_usd_micros"], 2000 + 278_448)
+        self.assertEqual(res["state"]["reject_streaks"], {})
+
     def test_budget_and_a_pull_error_leave_the_streaks_as_they_were_too(self):
         for pre in ("budget", "pull_error"):
             res = run_decide(meta2("spec", state2(reject_streaks=dict(self.STREAKS)), pre_reasons=[pre],
