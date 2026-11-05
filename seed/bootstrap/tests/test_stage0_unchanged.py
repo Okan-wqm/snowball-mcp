@@ -12,6 +12,10 @@ the plain request is accepted and transferable once what the seed cannot check y
 import test does). A difference in any field of either document, for any shape, fails: the Stage 1 tooling may
 change nothing the bootstrap referee signs before `stage-open` wrote `setup/stage.json` (`asama-0/10a`: the Stage 1
 table holds only after the lock).
+
+A key the referee adds beside the record's is declared in `ADDED` with the value it holds for these shapes (E534's
+`forecasts`): the record itself is never re-recorded from the branch that adds the key (the commit would validate
+itself), and the result's schema stays `snowball-bootstrap-result/1` while a change only adds keys (`29e`).
 """
 
 import hashlib
@@ -57,6 +61,10 @@ SHAPES = {
     "not_an_object": {"RAW": "[0]"},
 }
 COMPLETE = ("plain", "batch_str", "batch_null", "stage1", "stage1_batch", "wrong_sha_batch")
+# What the meta and the signed result gained since the record, each a key beside the record's, never a change to a key
+# it had (E534 `forecasts`): the value each holds for every shape here, none of which carries a forecast row. A result
+# is judged as the record plus these; a key that is not named here, or a named one missing or changed, fails.
+ADDED = {"meta": {"forecasts": []}, "result": {"forecasts": []}}
 HEX = re.compile(r"\b[0-9a-f]{40}(?:[0-9a-f]{24})?\b")
 
 
@@ -154,14 +162,14 @@ class Judge(Flow):
 
 
 class StageZeroUnchangedTest(Judge):
-    def test_every_exit_request_shape_is_judged_as_the_base_judged_it(self):  # stage0_batch_key_allowed
+    def test_every_exit_request_shape_is_judged_as_the_base_judged_it(self):  # stage0_batch_key_allowed stage0_result_gains_an_undeclared_key stage0_declared_key_left_out
         expected = json.loads(FIXTURE.read_text(encoding="utf-8"))
         found = self.judge_all()
         self.assertEqual(sorted(found), sorted(expected))
         for name in sorted(found):
             for doc in ("meta", "result"):
                 with self.subTest(shape=name, doc=doc):
-                    self.assertEqual(found[name][doc], expected[name][doc])
+                    self.assertEqual(found[name][doc], dict(expected[name][doc], **ADDED[doc]))
 
     def test_the_fixture_is_the_recording_of_every_shape(self):
         expected = json.loads(FIXTURE.read_text(encoding="utf-8"))

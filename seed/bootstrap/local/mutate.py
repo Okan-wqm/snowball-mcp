@@ -3062,6 +3062,14 @@ MUTANTS = [
      "E534: the forecasts are scored on one day, not the record"),
     ("daily_fail_need_ignored", REPORT, '            if fc["fail_events"] < fc["fail_needed"] else',
      "            if True else", "E534: enough failure events still read as too few"),
+    # The verifier's F1 (E534): what the referee signs grows only by keys `test_stage0_unchanged.ADDED` declares
+    ("stage0_result_gains_an_undeclared_key", f"{PKG}/decide.py",
+     '        "forecasts": list(meta.get("forecasts") or []),\n',
+     '        "forecasts": list(meta.get("forecasts") or []), "undeclared": None,\n',
+     "F1: a key is added to the signed result without the stage-0 test declaring it"),
+    ("stage0_declared_key_left_out", f"{PKG}/decide.py",
+     '        "forecasts": list(meta.get("forecasts") or []),\n', "",
+     "F1: a key the stage-0 test declares as added is missing from the signed result"),
 ]
 
 
