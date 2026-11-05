@@ -709,8 +709,8 @@ class LoopReportsPageTest(unittest.TestCase):
 
     def test_the_2026_11_05_entry_answers_referee_049_and_seed_044s_update_by_lines_that_say_it(self):
         # changelog_cites_29j_56_alone changelog_drops_referee_049
-        """E550, E551, E553 (E342's rule): the 2026-11-05 entry names referee-049 with the lines that say each part of the
-        answer, and answers seed-044's 2026-11-03 update in the form the panel agreed (2026-11-05, O4): the decline
+        """E550, E551, E553 (E342's rule): the 2026-11-05 entry names referee-049 with the lines that say each part of
+        the answer, and answers seed-044's 2026-11-03 update in the form the panel agreed (2026-11-05, O4): the decline
         stands, its pointers are the earlier decline's and the report's own (`29j:53-60`, `asama-0/10a:26`), and it
         names no single line of `29j` (29j:56 alone would point at what separates the Founder's code from the drill)."""
         page = (ROOT / "spec" / "tohum" / "CHANGELOG.md").read_text(encoding="utf-8")

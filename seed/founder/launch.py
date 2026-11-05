@@ -367,12 +367,12 @@ def names_report(text: str, rid: str) -> bool:
 
 def unanswered_reports(ages: list[tuple[str, int]], changelogs: list[str],
                        unchanged: Callable[[str], bool]) -> list[tuple[str, int]]:
-    """The open reports the operator still owes (E527, E552): the operator answers a report in an epoch's changelog row
-    (`<id> → <page:lines>` or `declined: <id>`, E342), so one named in no seed changelog was never answered or declined,
-    and one the Founder changed after the latest epoch that names it (its update, a re-report) was answered only up to
-    the bytes it had then. ``unchanged(id)`` says, for an id some changelog names, whether its file is byte for byte what
-    it was at that latest naming (`unchanged_since_naming`; never a commit time, E316). For the operator alone
-    (pilot-log, metrics)."""
+    """The open reports the operator still owes (E527, E552): the operator answers a report in an epoch's changelog
+    row (`<id> → <page:lines>` or `declined: <id>`, E342), so one named in no seed changelog was never answered or
+    declined, and one the Founder changed after the latest epoch that names it (its update, a re-report) was answered
+    only up to the bytes it had then. ``unchanged(id)`` says, for an id some changelog names, whether its file is byte
+    for byte what it was at that latest naming (`unchanged_since_naming`; never a commit time, E316). For the operator
+    alone (pilot-log, metrics)."""
     text = "\n".join(changelogs)
     return [(rid, age) for rid, age in ages if not names_report(text, rid) or not unchanged(rid)]
 
@@ -392,9 +392,9 @@ def naming_epochs(clone: Path, rid: str, head: str, additions: dict[str, Counter
     out = []
     for commit in found:
         if commit not in additions:
-            diff = gitio.git(clone, "diff-tree", "-p", "--root", "-m", "--first-parent", "--no-renames", "--no-ext-diff",
-                             "-U0", commit, "--", CHANGELOG_PATHSPEC, timeout=GIT_NETWORK_TIMEOUT_S).decode(
-                                 "utf-8", "replace").splitlines()
+            diff = gitio.git(clone, "diff-tree", "-p", "--root", "-m", "--first-parent", "--no-renames",
+                             "--no-ext-diff", "-U0", commit, "--", CHANGELOG_PATHSPEC,
+                             timeout=GIT_NETWORK_TIMEOUT_S).decode("utf-8", "replace").splitlines()
             gone = Counter(line[1:] for line in diff if line.startswith("-") and not line.startswith("---"))
             additions[commit] = Counter(line[1:] for line in diff if line.startswith("+")
                                         and not line.startswith("+++")) - gone
@@ -409,11 +409,13 @@ def unchanged_since_naming(clone: Path, rid: str, file: str, head: str,
     the two blobs' ids, in a tree the blob-less clone has). False when no commit names it or the file was not there
     then: an answer written before the report existed answers nothing (E552)."""
     for commit in naming_epochs(clone, rid, head, additions)[:1]:
+        def blob(at: str) -> str:
+            return gitio.git(clone, "rev-parse", f"{at}:reports/{file}", timeout=GIT_LOCAL_TIMEOUT_S).decode().strip()
         try:
-            then = gitio.git(clone, "rev-parse", f"{commit}:reports/{file}", timeout=GIT_LOCAL_TIMEOUT_S).decode().strip()
+            then = blob(commit)
         except gitio.GitError:
             return False
-        return then == gitio.git(clone, "rev-parse", f"{head}:reports/{file}", timeout=GIT_LOCAL_TIMEOUT_S).decode().strip()
+        return then == blob(head)
     return False
 
 
@@ -640,12 +642,14 @@ class Pilot:
         changelogs = self.seed_changelogs(head) if reports is not None else None
         return {"spec_tohum_tree": self.spec_tohum_tree(head), "target_sha": self.target_head(),
                 "reports_open": None if reports is None else ages,
-                "reports_unanswered": None if changelogs is None else self.owed_reports(head, reports, ages, changelogs)}
+                "reports_unanswered": (None if changelogs is None
+                                       else self.owed_reports(head, reports, ages, changelogs))}
 
     def owed_reports(self, head: str, reports: list[dict], ages: list[tuple[str, int]],
                      changelogs: list[str]) -> list[tuple[str, int]] | None:
-        """`unanswered_reports` with the brain's history for the ids a changelog names (E527, E552): one blob-less clone,
-        made only when some open report is named at all. None when the history cannot be read: unknown, never "owed"."""
+        """`unanswered_reports` with the brain's history for the ids a changelog names (E527, E552): one blob-less
+        clone, made only when some open report is named at all. None when the history cannot be read: unknown, never
+        "owed"."""
         files = {str(r.get("id") or r.get("file")): str(r["file"]) for r in reports}
         text = "\n".join(changelogs)
         if not any(names_report(text, rid) for rid, _ in ages):

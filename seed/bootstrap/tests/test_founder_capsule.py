@@ -1030,7 +1030,8 @@ class CycleRecordTest(unittest.TestCase):
         self.assertNotIn("reports_unanswered", " ".join(pilot.capsule_argv("s", "m", 1, 1)))
 
     def test_a_named_report_changed_since_the_naming_is_owed_again(self):  # unanswered_without_history
-        """E552 through `owed_reports`: the changelogs name seed-040 and its file changed after the epoch that names it."""
+        """E552 through `owed_reports`: the changelogs name seed-040 and its file changed after the epoch that names
+        it."""
         launch = load_launch()
         repo = Path(tempfile.mkdtemp()) / "brain"
         make_repo(repo, {"reports/seed-040.json": '{"id": "seed-040", "state": "open", "v": 1}\n',
@@ -1057,8 +1058,9 @@ class CycleRecordTest(unittest.TestCase):
 
 
 class UnchangedSinceNamingTest(unittest.TestCase):
-    """E552 (E527's rule): an open report is operator-owed when no changelog names it, or its bytes differ from its bytes
-    at the LATEST epoch commit that names it. The reference is git history (a blob's id), never a commit time (E316)."""
+    """E552 (E527's rule): an open report is operator-owed when no changelog names it, or its bytes differ from its
+    bytes at the LATEST epoch commit that names it. The reference is git history (a blob's id), never a commit time
+    (E316)."""
 
     LOG = "spec/tohum/CHANGELOG.md"
 

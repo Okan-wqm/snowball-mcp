@@ -49,5 +49,5 @@ koşulu) baş o nedenle yargılanır, fren yalnız uyarıdadır; yoksa ikisinde 
 gibi `rejected` der, ama `last_evaluated_sha`, seriler, rakip hata serisi ve kesinti sayacı değişmez; sonuç
 `budget_stop {brake, allowed_usd_micros}`'u (fren ve duran koşunun payı) ve `rival_budget:<fren>` uyarısını taşır.
 Sonraki yoklamalar, elle tetiklenen koşu da, aynı başı payı `allowed_usd_micros`'tan (en az sıfırdan) büyük olana dek
-uyarıyla geçer: ay dönünce ya da operatör o freni yükseltince aynı baş kendiliğinden yargılanır; yeni bir baş her
+uyarıyla geçer: ay freni ay dönünce, her fren operatör onu yükseltince aynı baş kendiliğinden yargılanır; yeni baş her
 zamanki gibi okunur. Bu kuraldan önce yargılanmış sayılan baş (`last_evaluated_sha`) yeniden açılmaz.

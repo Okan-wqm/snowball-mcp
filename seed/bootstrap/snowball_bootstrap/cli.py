@@ -120,7 +120,8 @@ def brakes_left(policy: config.Policy, prev: dict[str, Any], stage: int) -> dict
 def rival_allowance(policy: config.Policy, per_run_cap: int, prev: dict[str, Any], stage: int) -> tuple[int, str]:
     """What one rival run may spend and the brake that sets it, ``month``, ``stage`` or ``per_run`` (`29e` "Bütçe
     durması", E550): `brakes_left` and the per-run cap (`bootstrap.json` `rival.per_run_cap_usd_micros`, the CLI's
-    `--max-budget-usd`). A tie is named in that order. `pull`, `rival` and `poll` read it here and nowhere else."""
+    `--max-budget-usd`). A tie is named in that order. `pull`, `rival` and `poll` read it here; `rival.run_rival`
+    clamps to the same per-run cap again as the CLI's own guard, never to another value."""
     left = dict(brakes_left(policy, prev, stage), per_run=per_run_cap)
     brake = min(left, key=lambda name: left[name])
     return left[brake], brake
@@ -257,7 +258,8 @@ def cmd_poll(args: argparse.Namespace) -> int:
     if head not in seen and isinstance(braked, dict) and not brake_raised(root, boot, prev, braked):
         # A dispatched run waits too: the same allowance would stop the same head again (E550).
         print(f"::warning title=Rival brake::{head} is not judged: the rival's {braked.get('brake')} brake stopped it, "
-              "and it is judged by itself once the month turns or the operator raises that brake (tohum/29e)")
+              "and it is judged by itself once one run may spend more on it: a month brake when the month turns, "
+              "any brake when the operator raises it (tohum/29e)")
         output(skip=True, reupload=reupload, head=head)
         return 0
     waiting = parked and age < datetime.timedelta(days=1) and not dispatched  # parked: one retry a day

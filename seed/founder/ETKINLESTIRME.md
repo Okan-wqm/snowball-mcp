@@ -476,7 +476,8 @@ Hepsi en dar seçimdir ve E330'dadır.
   P1'den sonra açık parti P2'dir (`stages/stage1-P2.json`, E491); aktarımı aynı komutla, `batch: "P2"`; P1 ve P2
   aktarılınca açık tablo boştur. Çıkış partisinin tablosu bu tohumda yoktur (E495). Parti tabloları Kurucu'ya `26e`'de.
 - Aşama 1'in rakip freni `stage_budgets.asama_1.rival_usd` = 1000 (`18a`'nın başlangıç değeri, sahibin
-  2026-11-05 kararı: yalnız kaçak freni; 9. adımda, `stage-open`'dan önce; E492, E553). Değeri sahip ya da operatör yükseltebilir (olağan iş frene takılırsa, `asama-1/10`).
+  2026-11-05 kararı: yalnız kaçak freni; 9. adımda, `stage-open`'dan önce; E492, E553). Değeri sahip ya da operatör
+  yükseltebilir (olağan iş frene takılırsa, `asama-1/10`).
 - Döngünün girdileri (E490): değişken yok; beyin `bootstrap.json` `brain_repo` (bugün `Okan-wqm/snowball-rehearsal-brain`),
   hedefler özetin `targets[]`'ı (`toy`, `copy`), Sigstore hakemin `bootstrap/requirements/sign.txt`'i (`29s`).
 - Oyuncağın `identifiers`'ı `[]`, `unit_candidates`'i `["textkit"]` (`26c` ikisini kopya için tanımlar; tohumun genesis
