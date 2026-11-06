@@ -17,7 +17,8 @@ stopped (each step is skipped when what it makes is already there; <work>/epoch-
   4. `spec/tohum` is replaced by S's in a fresh brain clone as one commit D (nothing else changes; D's `spec/tohum`
      tree is S's), pushed fast-forward to the brain's main;
   5. S's own `seed-epoch` prints D's row, appended to `setup/summary.json` `seed_epochs` (the file's format kept);
-     `--summary-edit` may change fields of `targets[]` entries, each naming the value it replaces;
+     `--summary-edit` may change fields of `targets[]` entries and top-level fields (an owner's exception and its
+     commitment, `26c`), each naming the value it replaces;
   6. the referee commit is pushed, then the kill switch goes off;
   7. `bootstrap.yml` is dispatched and its signed result must be `kind: seed_update`, `verdict: noop`, `head: D`;
   8. one touch row goes into <work>/pilot-log.md (a seed epoch is a human touch, `27`); STOP is removed only when this
@@ -257,8 +258,11 @@ def with_kill_switch(raw: str, on: bool) -> str:
 
 def with_epoch(raw: str, row: dict, edits: dict | None) -> str:
     """setup/summary.json with the epoch row appended to `seed_epochs` (opened on the first delivery) and the
-    `--summary-edit` changes to `targets[]`: `{"targets": {"<id>": {"<field>": {"from": old, "to": new}}}}`. A field
-    whose value is not `from`, an id or a field the file does not have, refuses. Nothing else changes."""
+    `--summary-edit` changes: to `targets[]`, `{"targets": {"<id>": {"<field>": {"from": old, "to": new}}}}`, and to
+    top-level fields, `{"fields": {"<key>": {"from": old, "to": new}}}` (E564: an owner's exception and its commitment
+    come with the epoch whose seed reads them, `26c`), where ``from: null`` is a key the file does not have yet and
+    ``to`` is never null; `seed_epochs` is this tool's and `targets` has its own edits. A value that is not `from`, an
+    id, a target field or a key the edit may not name, refuses. Nothing else changes."""
     doc = json_doc(raw, SUMMARY)
     epochs = doc.setdefault("seed_epochs", [])
     if not isinstance(epochs, list):
@@ -267,10 +271,12 @@ def with_epoch(raw: str, row: dict, edits: dict | None) -> str:
         raise Refused(f"{SUMMARY} already ends with the row of {row['commit'][:7]}")
     epochs.append(row)
     if edits:
-        if set(edits) != {"targets"} or not isinstance(edits["targets"], dict):
-            raise Refused('--summary-edit holds one key, "targets": {"<id>": {"<field>": {"from": .., "to": ..}}}')
+        if not isinstance(edits, dict) or not set(edits) <= {"targets", "fields"} \
+                or not all(isinstance(v, dict) for v in edits.values()):
+            raise Refused('--summary-edit holds "targets": {"<id>": {"<field>": {"from": .., "to": ..}}} and/or '
+                          '"fields": {"<key>": {"from": .., "to": ..}}')
         targets = {t.get("id"): t for t in doc.get("targets") or [] if isinstance(t, dict)}
-        for tid, fields in edits["targets"].items():
+        for tid, fields in edits.get("targets", {}).items():
             if tid not in targets or not isinstance(fields, dict):
                 raise Refused(f"--summary-edit: {SUMMARY} has no target {tid!r}")
             for field, change in fields.items():
@@ -281,6 +287,15 @@ def with_epoch(raw: str, row: dict, edits: dict | None) -> str:
                 if targets[tid][field] != change["from"]:
                     raise Refused(f"--summary-edit: {tid}.{field} is {targets[tid][field]!r}, not {change['from']!r}")
                 targets[tid][field] = change["to"]
+        for key, change in edits.get("fields", {}).items():
+            if key in ("seed_epochs", "targets"):
+                raise Refused(f"--summary-edit: fields.{key} is not an edit: seed_epochs is this tool's row, targets "
+                              "has its own edits")
+            if not isinstance(change, dict) or set(change) != {"from", "to"} or change["to"] is None:
+                raise Refused(f"--summary-edit: fields.{key} needs exactly from and to, and to is not null")
+            if doc.get(key) != change["from"]:
+                raise Refused(f"--summary-edit: {key} is {doc.get(key)!r}, not {change['from']!r}")
+            doc[key] = change["to"]
     return dumps(doc)
 
 
@@ -433,7 +448,7 @@ class Delivery:
     def plan(self, s: str) -> str:
         stop = "is already there (left in place)" if (self.work / "STOP").exists() else "is set (removed at the end)"
         running = "exists" if (self.work / launch.RUNNING_FILE).exists() else "none"
-        edits = f"; targets edits {json.dumps(self.summary_edit, ensure_ascii=False)}" if self.summary_edit else ""
+        edits = f"; summary edits {json.dumps(self.summary_edit, ensure_ascii=False)}" if self.summary_edit else ""
         lines = [f"Seed epoch of snowball-mcp {s[:7]} ({self.ci}); work {self.work}",
                  f"  journal: {'continues ' + str(self.journal) if self.journal else 'none, a new delivery'}",
                  f"  2. STOP {stop}, the launcher's lock is taken (RUNNING {running}), the Founder's last push must be "
@@ -604,7 +619,7 @@ class Delivery:
             check_index(referee, expected)
             check_staged_only(referee, copy_paths + (SUMMARY,))
             check_no_cr(referee)
-            edited = "; targets edited (--summary-edit)" if self.summary_edit else ""
+            edited = f"; {', '.join(sorted(self.summary_edit))} edited (--summary-edit)" if self.summary_edit else ""
             sha = self.commit(referee, f"Seed epoch: referee synced to snowball-mcp main {s[:7]}; seed_epochs row for "
                                        f"brain {d[:7]}{edited}")
             self.push(referee)
@@ -651,8 +666,8 @@ class Delivery:
         """Step 8: the touch row once, then STOP only when this tool set it, then the journal goes."""
         j = self.journal
         if not j.get("touched"):
-            edits = (f", targets: {json.dumps(self.summary_edit['targets'], ensure_ascii=False)}"
-                     if self.summary_edit else "")
+            edits = "".join(f", {key}: {json.dumps(value, ensure_ascii=False)}"
+                            for key, value in sorted((self.summary_edit or {}).items()))
             row = (f"\n- {now()} operatör: tohum dönemi teslim edildi (insan dokunuşu, `27`; `deliver_epoch.py`). "
                    f"Kaynak snowball-mcp `{s[:7]}` (CI: {self.ci}); beyin `{j['D'][:7]}`; hakem `{j['kill_on'][:7]}` "
                    f"(kill switch açık) → `{j['synced'][:7]}` (senkron, seed_epochs satırı{edits}) → kill switch "
@@ -677,7 +692,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--source-repo", default=SOURCE_REPO)
     p.add_argument("--brain", default="Okan-wqm/snowball-rehearsal-brain")
     p.add_argument("--referee", default="Okan-wqm/snowball-rehearsal-referee")
-    p.add_argument("--summary-edit", type=Path, help="JSON: changes to targets[] entries, each with from and to")
+    p.add_argument("--summary-edit", type=Path,
+                   help="JSON: changes to targets[] entries and top-level fields, each with from and to")
     p.add_argument("--note", default="", help="one sentence for the touch row (what the epoch carries)")
     p.add_argument("--wait", type=int, default=4 * 3600, help="seconds to wait for the launcher and the referee")
     p.add_argument("--referee-timeout", type=int, default=90 * 60)
