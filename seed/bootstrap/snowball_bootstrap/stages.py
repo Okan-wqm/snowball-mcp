@@ -233,10 +233,11 @@ def carry_name(anchor: str) -> str:
 def carry_record(anchor: str, directory: Path | None = None) -> dict[str, Any]:
     """The seed's carry record of #``anchor`` (E562): exactly its keys, its schema and anchor, in its one written form
     (`canon.dump`), so the bytes the operator hashed are the record read. A record that breaks this is a seed defect:
-    the run stops (the operator's to fix, never the Founder's rejection)."""
+    the run stops (the operator's to fix, never the Founder's rejection). Read as the stage tables are (`_read`): a
+    checkout's line endings (core.autocrlf, E567) are not its form, and the commitment hashes canonical bytes anyway."""
     path = (directory or STAGES_DIR) / carry_name(anchor)
     try:
-        text = path.read_bytes().decode("utf-8")  # as written: a CR is not the one form
+        text = path.read_text(encoding="utf-8")  # universal newlines: CRLF is read as LF, the form is checked after
         data = json.loads(text)
     except (OSError, UnicodeDecodeError, ValueError, RecursionError) as exc:
         raise ConfigError(f"carry record {path.name} cannot be read: {type(exc).__name__}") from exc

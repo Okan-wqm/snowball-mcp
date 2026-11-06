@@ -536,7 +536,7 @@ class SpecCarryRecord(unittest.TestCase):
     def test_a_record_out_of_its_one_form_stops_the_run(self):
         # carry_record_form_unchecked carry_record_keys_unchecked carry_record_anchor_unchecked
         good = stages.carry_record("spec")
-        for name, text in (("crlf", canon.dump(good).replace("\n", "\r\n")), ("compact", json.dumps(good)),
+        for name, text in (("compact", json.dumps(good)), ("indent", canon.dump(good).replace("\n  ", "\n   ")),
                            ("extra", canon.dump(dict(good, extra=1))), ("anchor", canon.dump(dict(good, anchor="x"))),
                            ("schema", canon.dump(dict(good, schema="snowball-carry/2"))),
                            ("list", canon.dump([good])), ("missing", None)):
@@ -545,8 +545,20 @@ class SpecCarryRecord(unittest.TestCase):
                     (Path(tmp) / "carry-spec.json").write_bytes(text.encode("utf-8"))
                 with self.assertRaises(ConfigError):
                     stages.carry_record_sha256("spec", Path(tmp))
+        for name, ending in (("lf", "\n"), ("crlf", "\r\n"), ("cr", "\r")):
+            with self.subTest(ending=name), tempfile.TemporaryDirectory() as tmp:
+                (Path(tmp) / "carry-spec.json").write_bytes(canon.dump(good).replace("\n", ending).encode("utf-8"))
+                self.assertEqual(stages.carry_record_sha256("spec", Path(tmp)), self.PINNED)
+
+    def test_a_windows_checkout_of_the_record_is_the_same_record(self):
+        """E567: with core.autocrlf (Git for Windows' default, CI's windows runners) the checked-out record has CRLF;
+        it is still the record, its form and its commitment unchanged."""
+        # carry_record_crlf_refused
+        lf = (stages.STAGES_DIR / "carry-spec.json").read_bytes().replace(b"\r\n", b"\n")
+        self.assertNotIn(b"\r", lf)
         with tempfile.TemporaryDirectory() as tmp:
-            (Path(tmp) / "carry-spec.json").write_bytes(canon.dump(good).encode("utf-8"))
+            (Path(tmp) / "carry-spec.json").write_bytes(lf.replace(b"\n", b"\r\n"))
+            self.assertEqual(stages.carry_record("spec", Path(tmp)), stages.carry_record("spec"))
             self.assertEqual(stages.carry_record_sha256("spec", Path(tmp)), self.PINNED)
 
 
