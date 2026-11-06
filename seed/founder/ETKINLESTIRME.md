@@ -96,7 +96,7 @@ EOF
 ```
 
 Beklenen `exit accepted True`, 40 haneli `brain_sha`, iki 64 haneli hash; `owner_exception` ya `None` ya da sahibin
-istisnasıdır (E294, insan dokunuşu, `27`). `brain_sha`'yı `SHA` yap, ikisini `pilot-log.md`'ye yaz. Sonra Sigstore
+istisnalarının `anchor`'a göre sıralı dizisidir (E294, E563, insan dokunuşu, `27`). `brain_sha`'yı `SHA` yap, ikisini `pilot-log.md`'ye yaz. Sonra Sigstore
 (`bootstrap.yml`'ın pinli kümesi, lisans kapısından geçer) ve araç, hakemin canlı `bootstrap/`'ının kopyasından:
 
 ```
@@ -589,6 +589,17 @@ Bugün oyuncak ve kopya repoları yok; özette `targets[]` ve `honesty_commitmen
    ve yanına Aşama 1'in ekiminin `honesty_commitment`'ı girer (Aşama 0 sürerken, Kurucu olmayan bir ajanla; anahtar
    hiçbir açık metne yazılmaz). Taahhüt olmadan istisna koşulu kaldırmaz (E297). Anahtarın ve tespit yüklemlerinin
    biçimi bugün tanımsız (E287): ekim tohum dönemini bekler.
+7. **Sahibin kararı: #spec** (2026-11-06, `02` "Sahip istisnası", E561). Mekanik maddelerin makine tanımı yok (E286);
+   #spec Aşama 0'da ölçülmez, Aşama 1'in (A)'sına taşınır. Özete, kaydı getiren tohum dönemiyle birlikte
+   (`deliver_epoch.py --summary-edit`, `fields`), `spec_exception` `{"stage": 0, "carry_to": 1, "reason": "<neden>"}` ve
+   yanına `spec_commitment` girer: o dönemin tohumunun taşıma kaydının hash'i (E562), dönemin `S`'sinin klonunda:
+
+   ```
+   WSL$ cd $E/smcp/seed/bootstrap && python3 -c "from snowball_bootstrap import stages; print(stages.carry_record_sha256('spec'))"
+   ```
+
+   Kayıt değişirse hash de değişir ve eski taahhüt #spec'i kaldırmaz (`not_checked:spec`, nedeniyle). İki istisna da
+   yerindeyse (A) sonucunun `owner_exception`'ı iki elemanlıdır: `durustluk`, `spec`.
 
 ## Ek B: `brain-integration` API ile
 

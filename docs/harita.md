@@ -80,7 +80,7 @@ flowchart LR
 
 ## 2. Referee package: `seed/bootstrap/snowball_bootstrap`
 
-29 modules, 80 imports inside the package, 1 started as a separate process. Areas are roles. The overview has 5 areas and 12 edges; an arrow's number is how many imports cross from one area to the other.
+29 modules, 82 imports inside the package, 1 started as a separate process. Areas are roles. The overview has 5 areas and 12 edges; an arrow's number is how many imports cross from one area to the other.
 
 ```mermaid
 flowchart LR
@@ -94,7 +94,7 @@ flowchart LR
   a_Entry -->|2| a_Rival
   a_Entry -->|5| a_Sandbox
   a_Intake -->|1| a_Judgement
-  a_Judgement -->|7| a_Intake
+  a_Judgement -->|9| a_Intake
   a_Judgement -->|4| a_Rival
   a_Rival -->|3| a_Intake
   a_Rival -->|1| a_Sandbox
@@ -221,9 +221,9 @@ flowchart LR
 
 | Module | What it is (first sentence of its docstring) | Imported by |
 |---|---|---|
-| `canon` | Canonical JSON (the RFC 8785 subset the seed allows) and hashing helpers. | `cli`, `drillfixtures`, `importer`, `ledgercheck`, `parts`, `reproduce`, `rival`, `stagelock` |
+| `canon` | Canonical JSON (the RFC 8785 subset the seed allows) and hashing helpers. | `cli`, `drillfixtures`, `importer`, `ledgercheck`, `parts`, `reproduce`, `rival`, `stagelock`, `stages` |
 | `classify` | What kind of push is this (`tohum/29b`, "İki tür push")? | `cli`, `exitchecks` |
-| `config` | Operator-written inputs, validated strictly. | `cli`, `drillfixtures`, `exitchecks`, `rival`, `stagelock`, `stages`, `state` |
+| `config` | Operator-written inputs, validated strictly. | `cli`, `decide`, `drillfixtures`, `exitchecks`, `rival`, `stagelock`, `stages`, `state` |
 | `drillfixtures` | The operator's `drill-fixtures` command: the live revert-drill fixtures of one import (`tohum/26f` "Canlı prova fikstürleri", `25a` 7, `asama-0/01` D8; E499, E544). | `cli` |
 | `ghapi` | Minimal GitHub REST calls the pull job needs: find and download the latest state artifact, and look at the newest failed run of this workflow (E13). | `cli`, `drillfixtures` |
 | `gitio` | Git operations on the untrusted brain repository. | `cli`, `drillfixtures`, `importer`, `stagelock` |
@@ -321,7 +321,7 @@ flowchart LR
 
 ### Judgement
 
-6 modules, 18 edges out of them.
+6 modules, 20 edges out of them.
 
 ```mermaid
 flowchart LR
@@ -344,6 +344,7 @@ flowchart LR
     m_rival["rival"]:::outside
     m_secretscan["secretscan"]:::outside
   end
+  m_decide --> m_config
   m_decide --> m_exitchecks
   m_decide --> m_ledgercheck
   m_decide --> m_reproduce
@@ -357,6 +358,7 @@ flowchart LR
   m_exitchecks --> m_treehash
   m_exitchecks --> m_wiring
   m_ledgercheck --> m_canon
+  m_stages --> m_canon
   m_stages --> m_config
   m_stages --> m_treehash
   m_state --> m_config
