@@ -175,8 +175,10 @@ archive`'dan, `core.autocrlf=false` ile, her biri `ls-tree`'nin blob'una karşı
 `S`'ninki değilse ya da `D` başka bir yola dokunuyorsa (4); `seed-epoch` satırı `D`'yi adlandırmıyorsa,
 `setup/summary.json` ya da `control.json` aracın yeniden yazdığı biçimde (girinti 2, tek satır sonu) değilse, ya da
 `--summary-edit`'in bir alanı `from`'daki değerde değilse (5); imzalı sonuç `seed_update`/`noop`/`D` değilse (7).
-`--summary-edit` yalnız `targets[]` girdilerinin alanlarını değiştirir: `{"targets": {"copy": {"unit_candidates":
-{"from": [...], "to": [...]}}}}`. `seed-epoch` `S`'nin kendi `seed/bootstrap/`'ından (git nesnelerinden yazılır, bayt
+`--summary-edit` `targets[]` girdilerinin alanlarını ve özetin üst düzey alanlarını değiştirir: `{"targets": {"copy":
+{"unit_candidates": {"from": [...], "to": [...]}}}, "fields": {"spec_exception": {"from": null, "to": {...}}}}`; `from: null`
+alanın henüz olmadığıdır, `to` null olamaz, `seed_epochs` ve `targets` `fields`'la değişmez (E564: sahibin istisnası ve
+taahhüdü onları okuyan tohumun dönemiyle gelir, `26c`). `seed-epoch` `S`'nin kendi `seed/bootstrap/`'ından (git nesnelerinden yazılır, bayt
 kodu bırakılmaz) koşar. Her adım ya zaten yapılmışsa atlanır ya da uyuşmazlıkta durur: aracın yaptığı
 `<work>/epoch-delivery.json`'dadır, duran bir teslim aynı `S` ile yeniden koşturulunca kaldığı yerden sürer (başka bir
 `S` reddedilir). `kill_switch` açılmadan duran bir koşu klasörü bulduğu gibi bırakır (koyduğu `STOP` kalkar); sonra
