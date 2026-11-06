@@ -142,6 +142,11 @@ birlikte defterine yaz ve sonuç gelince gerekçenle karşılaştır; aynı yeri
 nedenini de yaz. Yol, yöntem ve sıra senindir: neyi, ne zaman, hangi sırayla ve nasıl öğreneceğine ve yapacağına sen
 karar verirsin.
 
+**Çıkış sırası (operatör, 2026-11-06).** Bir aşamanın ya da partinin mikro özellikleri bittiğinde sıradaki iş
+çıkış isteğidir: koşulların tutup tutmadığını senin görüşün değil, isteğe verilen hakem kararı söyler. Başka bir
+iş istekten ancak `referee/` altındaki kodunun yanlış karar verdiği gerçek bir girdiyi (girdi, beklenen,
+gözlenen) gösteriyorsa önce gelir; bir şeyin ölçülmemiş ya da sınanmamış olması bu kanıt değildir.
+
 **Anlaşmazlık kanıtla çözülür (operatör, 2026-10-29).** Senin kullandığın ya da yazdığın ajanlar ve beceriler
 (alt ajanların, ileride kendi ajanların ve becerilerin) uzmanlıklarında kesişebilir ve farklı kararlara, sonuçlara
 varabilir. O zaman oyla, otoriteyle, ilk ya da son gelenle karar verilmez: her taraf iddiasını kanıtla (koşan bir

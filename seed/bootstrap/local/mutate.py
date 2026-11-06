@@ -3052,6 +3052,10 @@ MUTANTS = [
     ("drill_fixtures_hunks_unordered", DFX, "        if old_at < pos or old_at + hunk.old_count > len(lines):",
      "        if old_at + hunk.old_count > len(lines):",
      "E499: a hunk that starts before the hunk ahead of it ends is applied"),
+    # E560: the exit order's evidence burden is a wrong verdict on a real input, never a claimed risk
+    ("prompt_exit_waits_on_a_risk_claim", "seed/founder/prompt.md",
+     "kodunun yanlış karar verdiği gerçek bir girdiyi (girdi, beklenen,\ngözlenen) gösteriyorsa",
+     "kodunun riskini\ngösteriyorsa", "E560: any risk the Founder names keeps a finished stage's exit request back"),
 ]
 
 
