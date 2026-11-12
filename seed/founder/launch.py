@@ -18,7 +18,8 @@ Everything lives in one folder, <work> (the operator deletes it to remove the pi
   <work>/vec/                   the vectors' inputs, mounted read-only at /vec: cases.json (every data case's command,
                                 stdin and fixtures) and the fixtures; no expected value is there. A vector that
                                 contradicts its page stays red until the operator answers with a seed epoch.
-  <work>/logs/                  session transcripts
+  <work>/logs/                  session transcripts; each session's folder also holds previous-session.json and
+                                targets.json, the targets' [{id, kind}] (seed-049, E571)
   <work>/pilot-log.md           the operator's report
   <work>/STOP                   create this file to stop after the current step
   <work>/cost-pending.jsonl     cost rows not written yet: the brain held work the referee had not accepted
@@ -66,10 +67,12 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 SEED = HERE.parent
 sys.path.insert(0, str(SEED / "bootstrap"))
-from snowball_bootstrap import canon, gitio, ledgercheck  # noqa: E402  (the chain rule, the referee's git and ledger check)
+from snowball_bootstrap import canon, config, gitio, ledgercheck  # noqa: E402  (the chain rule, the referee's git,
+# its strict reading of targets[] and its ledger check)
 from snowball_bootstrap.classify import (LEDGER_FILE, SEED_DIRS, is_founder_record,  # noqa: E402  (what is memory
                                          is_seed_path)  # and what is the operator's delivery to the referee)
 from snowball_bootstrap.decide import counts_against_founder, is_brake_stop  # noqa: E402  (the referee's rule)
+from snowball_bootstrap.exitchecks import fold, target_names  # noqa: E402  (the referee's folded names, E290, E291)
 from snowball_bootstrap.vectors import founder_inputs  # noqa: E402  (the referee's projection, not a copy: E244)
 IMAGE = "snowball-founder:pilot"
 REFEREE_WORKFLOW = "bootstrap.yml"
@@ -98,6 +101,7 @@ RUNNING_FILE = "RUNNING"  # E505: the run in progress, for --resume
 NOT_RERUN = ("help", "work", "cycles", "resume", "install_service", "uninstall_service")  # not stored in RUNNING
 READY_CHECKS = (("docker", "info"), ("gh", "auth", "status"))  # what a resumed run needs before its preflight
 READY_WAIT_S = 10 * 60  # past it the resume gives up; the task's next trigger tries again
+TARGETS_NOTE = "targets.json"  # each session's targets, [{id, kind}], never their names (seed-049, E571)
 READY_RETRY_S = 30
 TASK_NAME = "Snowball Founder launcher"
 TASK_EVERY = "PT15M"
@@ -443,6 +447,29 @@ def unchanged_since_naming(clone: Path, rid: str, file: str, head: str,
     return False
 
 
+def target_ids(summary: dict) -> list[dict]:
+    """``[{id, kind}]`` of `setup/summary.json` ``targets[]``, in its order: what a session needs to name a target's
+    folder (`24a`), never a target's repo, base or names (seed-049, E571). The rows are read by the referee's own rule
+    (`config.target`), so a row the referee refuses is refused here too; an id that holds a target's name once folded
+    (`exitchecks.fold`) would carry the name to the session, so it stops the start too, named by its index only
+    (E290). No ``targets[]`` is no target yet: an empty list."""
+    rows = summary.get("targets")
+    if rows is None:
+        return []
+    if not isinstance(rows, list):
+        raise ValueError("setup/summary.json targets must be a list (`26c`)")
+    try:
+        targets = tuple(config.target(row, f"setup/summary.json targets[{i}]") for i, row in enumerate(rows))
+    except config.ConfigError as exc:
+        raise ValueError(str(exc)) from exc
+    names = target_names(targets)
+    for i, t in enumerate(targets):
+        if any(name in fold(t.id) for _t, _j, name in names):
+            raise ValueError(f"setup/summary.json targets[{i}].id holds a target's name (E290): it would reach the "
+                             "session in targets.json")
+    return [{"id": t.id, "kind": t.kind} for t in targets]
+
+
 def write_build_context(ctx: Path) -> None:
     """Copy exactly the files the image needs, with LF line ends: a Windows checkout may hand over CRLF, and a CR
     after the entrypoint's shebang makes the container fail before it starts (E152)."""
@@ -476,6 +503,7 @@ class Pilot:
         self.metrics = work / "pilot-metrics.jsonl"  # one machine-readable line per cycle (what docs/pilot-gunlugu.md counts)
         self.seed = ""  # the brain commit the referee's setup summary pins; the capsule cuts history there
         self.epoch: str | None = None  # the last seed epoch's brain commit (`26c` seed_epochs[]), if any
+        self.targets: list[dict] = []  # `target_ids` of the summary, each session's targets.json (E571)
         self.brain_remote = f"https://github.com/{brain}.git"
         self.prompt_sha256: str | None = None  # what this launcher start built the capsule with (E313)
         self.context_sha256: str | None = None  # and every build file the image holds (E506)
@@ -500,6 +528,10 @@ class Pilot:
             self.epoch = self.last_epoch()
             if not re.fullmatch(r"[0-9a-f]{40}", self.seed):
                 problems.append(f"{self.referee} setup/summary.json has no seed_commit")
+            try:
+                self.targets = target_ids(self.summary())
+            except ValueError as exc:  # a summary the referee refuses, or an id that would carry a name (E290)
+                problems.append(f"{self.referee} {exc}")
         if problems:
             sys.exit("preflight failed:\n  " + "\n  ".join(problems))
         self.result_dir.mkdir(exist_ok=True)
@@ -934,6 +966,14 @@ class Pilot:
         (folder / "previous-session.json").write_text(json.dumps(note, ensure_ascii=False, sort_keys=True) + "\n",
                                                       encoding="utf-8")
 
+    def targets_note(self, stamp: str) -> None:
+        """The targets' ``[{id, kind}]`` (`target_ids`) into the session's folder as `targets.json` (seed-049, E571):
+        the copy target's id is in the referee repo's summary, which a session never reads; their names are not."""
+        folder = self.session_logs(stamp)
+        folder.mkdir(parents=True, exist_ok=True)
+        (folder / TARGETS_NOTE).write_text(json.dumps(self.targets, ensure_ascii=False, sort_keys=True) + "\n",
+                                           encoding="utf-8")
+
     def memory_alone(self, prior: dict | None, head: str) -> bool:
         """Whether head adds only memory to the newest signed result's own evaluated head (`memory_alone`)."""
         evaluated = (prior or {}).get("head") if self.evaluated(prior, str((prior or {}).get("head"))) else None
@@ -1007,6 +1047,7 @@ class Pilot:
             return False
         say(f"cycle {n}: Founder session {stamp} (brain {before[:7]})")
         self.previous_session_note(stamp, args.session_timeout, prior)
+        self.targets_note(stamp)
         sess = self.session(stamp, args.model, args.max_turns, args.budget_usd, args.session_timeout)
         after = self.brain_head()
         rows_after = self.ledger_rows(after)
