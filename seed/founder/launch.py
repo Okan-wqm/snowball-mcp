@@ -177,11 +177,35 @@ LIMIT_FALLBACK_S = 30 * 60
 LIMIT_MAX_WAIT_S = 6 * 3600
 
 
+BRAKES = ("error_max_turns", "error_max_budget_usd")  # the CLI's closing subtypes for a turn or budget brake
+
+
+def usage_limited(sess: dict) -> bool:
+    """Whether the account's usage limit ended the session (the CLI's closing result: api_error_status 429,
+    api_error usage_limit_reached): the one predicate the wait and the next session's note read (E243, E568)."""
+    return sess.get("api_error") == "usage_limit_reached" or sess.get("api_error_status") == 429
+
+
+def session_end(sess: dict) -> str:
+    """How a session ended, as the next session reads it (E360, E568): ``usage_limit`` (the account's limit, never the
+    Founder's doing), ``timeout`` (the wall-clock limit, exit -1), ``brake`` (the turn or budget brake), ``exit``
+    (exit 0) or ``error`` (any other exit). A session record or its metrics row; the limit is named first because a
+    cut session also exits non-zero."""
+    if usage_limited(sess):
+        return "usage_limit"
+    code = sess.get("session_exit", sess.get("exit"))
+    if code == -1:
+        return "timeout"
+    if sess.get("subtype") in BRAKES:
+        return "brake"
+    return "exit" if code == 0 else "error"
+
+
 def usage_limit_wait(sess: dict, at: datetime) -> int | None:
-    """Seconds to wait when the session could not work because the account's usage limit was reached (the CLI's
-    closing result: api_error_status 429, api_error usage_limit_reached), else None. Such a session is an outage,
-    not a Founder that chose not to push (E243): the wait runs to the reset the CLI names, plus two minutes."""
-    if sess.get("api_error") != "usage_limit_reached" and sess.get("api_error_status") != 429:
+    """Seconds to wait when the session could not work because the account's usage limit was reached
+    (`usage_limited`), else None. Such a session is an outage, not a Founder that chose not to push (E243): the wait
+    runs to the reset the CLI names, plus two minutes."""
+    if not usage_limited(sess):
         return None
     m = LIMIT_RESET_RE.search(str(sess.get("final") or ""))
     if not m:
@@ -901,7 +925,7 @@ class Pilot:
             prior = self.verdict_on(head)  # the newest result is another head's: a seed epoch came between (E420)
         if last.get("pushed") and prior and head and prior.get("head") == head and self.evaluated(prior, head):
             verdict = prior.get("verdict")
-        note = {"stamp": last.get("stamp"), "ended": "timeout" if last.get("session_exit") == -1 else "exit",
+        note = {"stamp": last.get("stamp"), "ended": session_end(last),
                 "exit": last.get("session_exit"), "minutes": last.get("minutes"), "limit_minutes": round(limit_s / 60, 1),
                 "pushed": bool(last.get("pushed")), "ledger_rows_added": sum((last.get("ledger_new") or {}).values()),
                 "verdict": verdict}
@@ -1051,7 +1075,8 @@ class Pilot:
             "reproduced": sum(1 for r in (verdict or {}).get("reasons") or [] if r.get("kind") == "refutation_reproduced"),
             "old_refutations_still_reproducing": sum(1 for r in (verdict or {}).get("reasons") or []
                                                      if r.get("kind") == "refutation_still_reproduces"),
-            "ledger_new": kinds, "api_error": sess.get("api_error"),
+            "ledger_new": kinds, "api_error": sess.get("api_error"), "api_error_status": sess.get("api_error_status"),
+            "subtype": sess.get("subtype"), "end": session_end(sess),
             # What the outcome is attributed to (E313): the launcher start's prompt and image, the model asked for and
             # served, the CLI, the seed, the rival's configuration, the target commit, and whether time ran out (E340).
             "prompt_sha256": self.prompt_sha256, "image_id": self.image_id, "model": args.model,

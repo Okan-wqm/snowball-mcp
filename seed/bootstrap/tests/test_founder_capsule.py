@@ -227,6 +227,29 @@ class PreviousSessionTest(unittest.TestCase):  # E360: how the last session ende
         self.assertEqual((note["ended"], note["limit_minutes"], note["ledger_rows_added"], note["pushed"]),
                          ("exit", 120.0, 4, True))
 
+    def test_how_the_session_ended_is_named_not_left_as_exit(self):  # session_end_usage_limit_as_exit session_end_brake_as_exit session_end_error_as_exit
+        """E568 (behaviour panel O3, E360's promise): a session the account's usage limit cut exits non-zero like any
+        failure, and the note said "exit"; the Founder then read the cut as its own fault (f659, f661, f934). The note
+        names usage_limit, timeout, brake, exit or error from the cycle's own record, one predicate with the wait."""
+        cases = [({"session_exit": 1, "api_error": "usage_limit_reached"}, "usage_limit"),
+                 ({"session_exit": 1, "api_error_status": 429}, "usage_limit"),
+                 ({"session_exit": -1}, "timeout"),
+                 ({"session_exit": 1, "subtype": "error_max_turns"}, "brake"),
+                 ({"session_exit": 0, "subtype": "error_max_budget_usd"}, "brake"),
+                 ({"session_exit": 0}, "exit"),
+                 ({"session_exit": 1}, "error")]
+        for fields, ended in cases:
+            with self.subTest(fields=fields):
+                row = dict({"stamp": "20261106T132200Z", "minutes": 71.4, "pushed": False, "ledger_new": {},
+                            "verdict": None, "session_timeout_s": 10800}, **fields)
+                self.pilot.metrics.write_text(json.dumps(row) + "\n", encoding="utf-8")
+                self.pilot.previous_session_note("20261031T210000Z", 10800)
+                self.assertEqual(self.note()["ended"], ended)
+        self.assertIsNotNone(self.launch.usage_limit_wait({"api_error": "usage_limit_reached"},
+                                                          self.launch.datetime.now(self.launch.timezone.utc)))
+        self.assertIsNone(self.launch.usage_limit_wait({"session_exit": 1},
+                                                       self.launch.datetime.now(self.launch.timezone.utc)))
+
     def test_the_restart_after_a_timeout_still_names_the_timeout(self):
         """A timed-out session stops the launcher, and every start appends its intervention row before cycle 1 (E313):
         the note reads the last cycle's row, never that start row (E360)."""
