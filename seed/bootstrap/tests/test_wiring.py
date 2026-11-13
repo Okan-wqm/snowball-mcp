@@ -1543,7 +1543,8 @@ class UnitProposalReportsTest(unittest.TestCase):
         line = flat(spec_page("tohum", "26c").splitlines()[70])
         for words in ("İşaret betikli paketin getirilmesine izindir, koşma buyruğu değildir:",
                       "işaretli her paketin betiğinin koşması ve 0 ile bitmesi istenmez;",
-                      "hangi betiğin `koş`ta koşacağını hiçbir sayfa sabitlemez.",
+                      "betiği koşarsa `koş`ta ağsız koşar (`08`, `asama-0/06`: yalnız yeri),",
+                      "hangi betiğin koşacağını hiçbir sayfa sabitlemez.",
                       "Tarifin ölçüsü yalnız `unit.verify`'dır (`14`):",
                       "açılmayan paket, koşmayan ya da 0'dan başka biten betik, isteğe bağlı paketinki dahil, hiçbir "
                       "sayfada ret nedeni değildir;", "kırmızı `unit.verify`'ındır."):
