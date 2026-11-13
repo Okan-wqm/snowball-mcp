@@ -20,6 +20,7 @@ Okunma: bir sayfanın geçmişi aranırken
   `seed-052-known-b-stop-has-no-path-before-b` → `29b:73`. seed-049 kaydının `24a:53`'ü `24a:54` oldu. 80 satır
   sınırı için `24a` "Oturumun maliyet satırı" yeniden sarıldı (içerik değişmedi) ve 2026-11-04 E499, E540–E546 kaydı
   `CHANGELOG-5.md`'ye taşındı.
+  Sahibin kararı (E582): `cost` satırı modeli ve CLI'nin token toplamlarını da taşır (`24a:35`).
 - 2.2 (2026-11-13, E574; sahibin kararı): yeni yasa `00` Y12 "Maliyet" (metni yalnız orada); `06`, `24`, `24a`
   ona işaret eder; `24a`'daki "Kurucu kendi maliyetini ölçemez" cümlesi Y12 ile çeliştiği için kalktı; `00` 80 satır
   sınırı için yeniden sarıldı, başka içerik değişmedi.
