@@ -821,6 +821,15 @@ class ReportAnswerPagesTest(unittest.TestCase):
         self.assertIn('exit_block["toy_tree_sha256"]', Path(decide.__file__).read_text(encoding="utf-8"))
         self.assertNotIn("E156", decide.EXIT_NOT_CHECKED["spec"])
 
+    def test_29b_lets_an_evidenced_founder_report_revert_an_exit_before_the_import(self):  # revert_before_import_dropped
+        """Seed-052 (E576, the owner's decision of 2026-11-13): a defect the Founder proves between (A) and (B) has a
+        path other than a red (B). The page says the operator may name that head in `reverted_exits` before the import,
+        and the referee releases the freeze on that list alone (`exit_freeze`), with no import row asked."""
+        page = spec_page("tohum", "29b")
+        self.assertIn("o başı aktarmadan `reverted_exits`'e yazabilir", page)
+        self.assertEqual(cli.exit_freeze({"exit_accepted_sha": "a" * 40}, ["a" * 40], 0), (False, True))
+        self.assertEqual(cli.exit_freeze({"exit_accepted_sha": "a" * 40}, [], 0), (True, False))
+
     def test_29e_defines_the_founders_records_by_the_paths_the_classifier_uses(self):
         """Seed-005 (E391, E148's text): what a push of the Founder's records is, said where `29b` "Çıkıştan sonra"
         uses the term."""

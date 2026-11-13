@@ -378,6 +378,10 @@ MUTANTS = [
     ("unanswered_by_prefix", "seed/founder/launch.py", '+ re.escape(rid) + r"(?![\\w-])"', "+ re.escape(rid)",
      "E527: seed-04 reads as answered because seed-041 is named"),
     # E526: the one-command seed epoch delivery (seed/founder/deliver_epoch.py)
+    # E576: seed-052, an evidenced Founder report reverts an accepted exit before the import
+    ("revert_before_import_dropped", "spec/tohum/29b-onyukleme-hakemi.md",
+     " o başı aktarmadan `reverted_exits`'e yazabilir;", " o başı yazamaz;",
+     "E576: the page no longer lets the operator revert an exit the Founder proved broken before the import"),
     # E568: the next session reads how the last one ended (usage_limit, timeout, brake, exit, error)
     ("session_end_usage_limit_as_exit", "seed/founder/launch.py",
      '    if usage_limited(sess):\n        return "usage_limit"\n', '',
