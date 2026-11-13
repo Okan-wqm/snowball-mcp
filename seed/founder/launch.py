@@ -18,8 +18,9 @@ Everything lives in one folder, <work> (the operator deletes it to remove the pi
   <work>/vec/                   the vectors' inputs, mounted read-only at /vec: cases.json (every data case's command,
                                 stdin and fixtures) and the fixtures; no expected value is there. A vector that
                                 contradicts its page stays red until the operator answers with a seed epoch.
-  <work>/logs/                  session transcripts; each session's folder also holds previous-session.json and
-                                targets.json, the targets' [{id, kind}] (seed-049, E571)
+  <work>/logs/                  session transcripts; each session's folder also holds previous-session.json,
+                                targets.json, the targets' [{id, kind, base_sha, unit_candidates}] (seed-049, E571;
+                                seed-050, E577), and operating.json, policy.json's operating{} read for that session
   <work>/pilot-log.md           the operator's report
   <work>/STOP                   create this file to stop after the current step
   <work>/cost-pending.jsonl     cost rows not written yet: the brain held work the referee had not accepted
@@ -49,6 +50,7 @@ import argparse
 import hashlib
 import io
 import json
+import math
 import os
 import re
 import shutil
@@ -101,7 +103,10 @@ RUNNING_FILE = "RUNNING"  # E505: the run in progress, for --resume
 NOT_RERUN = ("help", "work", "cycles", "resume", "install_service", "uninstall_service")  # not stored in RUNNING
 READY_CHECKS = (("docker", "info"), ("gh", "auth", "status"))  # what a resumed run needs before its preflight
 READY_WAIT_S = 10 * 60  # past it the resume gives up; the task's next trigger tries again
-TARGETS_NOTE = "targets.json"  # each session's targets, [{id, kind}], never their names (seed-049, E571)
+TARGETS_NOTE = "targets.json"  # each session's targets, never their names (seed-049, E571; seed-050, E577)
+OPERATING_NOTE = "operating.json"  # policy.json's operating{} alone, read for each session (seed-050, E577)
+OPERATING_KEYS = ("unit_inputs_bytes", "deps_bytes", "worktree_bytes", "container_mem_bytes", "kos_wall_s",
+                  "test_total_s", "output_bytes")  # `26c`'s seven, in its order
 READY_RETRY_S = 30
 TASK_NAME = "Snowball Founder launcher"
 TASK_EVERY = "PT15M"
@@ -448,11 +453,13 @@ def unchanged_since_naming(clone: Path, rid: str, file: str, head: str,
 
 
 def target_ids(summary: dict) -> list[dict]:
-    """``[{id, kind}]`` of `setup/summary.json` ``targets[]``, in its order: what a session needs to name a target's
-    folder (`24a`), never a target's repo, base or names (seed-049, E571). The rows are read by the referee's own rule
-    (`config.target`), so a row the referee refuses is refused here too; an id that holds a target's name once folded
-    (`exitchecks.fold`) would carry the name to the session, so it stops the start too, named by its index only
-    (E290). No ``targets[]`` is no target yet: an empty list."""
+    """``[{id, kind, base_sha, unit_candidates}]`` of `setup/summary.json` ``targets[]``, in its order: what a session
+    needs to name a target's folder (`24a`, seed-049, E571) and to propose its unit against the row the referee judges
+    it by (seed-050, E577), never a target's repo, excluded paths or names (E290). The rows are read by the referee's
+    own rule (`config.target`), so a row the referee refuses is refused here too; an id or a unit candidate that holds
+    a target's name once folded (`exitchecks.fold`) would carry the name to the session, so it stops the start too,
+    named by its field and index only (E290). ``base_sha`` is not folded: the referee's rule already holds it to 40
+    hex digits or null, which carry no text. No ``targets[]`` is no target yet: an empty list."""
     rows = summary.get("targets")
     if rows is None:
         return []
@@ -467,7 +474,42 @@ def target_ids(summary: dict) -> list[dict]:
         if any(name in fold(t.id) for _t, _j, name in names):
             raise ValueError(f"setup/summary.json targets[{i}].id holds a target's name (E290): it would reach the "
                              "session in targets.json")
-    return [{"id": t.id, "kind": t.kind} for t in targets]
+        for k, path in enumerate(t.unit_candidates):
+            if any(name in fold(path) for _t, _j, name in names):
+                raise ValueError(f"setup/summary.json targets[{i}].unit_candidates[{k}] holds a target's name (E290): "
+                                 "it would reach the session in targets.json")
+    return [{"id": t.id, "kind": t.kind, "base_sha": t.base_sha, "unit_candidates": list(t.unit_candidates)}
+            for t in targets]
+
+
+def _number(value) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
+
+
+def operating_values(policy) -> dict:
+    """``{"operating": {...}}`` of `policy.json`'s content, the shape `29g`'s `unit_verify check` takes, or ``{}``
+    when it has no ``operating`` (the operator wrote none; `26c`'s missing field fails closed): seed-050, E577. Only
+    `26c`'s seven keys pass, each exactly ``{value, band: [min, max]}`` of finite numbers, rebuilt from those numbers:
+    any other key, field or value is operator text that would reach the session (E290), so it raises ValueError
+    naming a known key or the position of an unknown one, never its text. The numbers are the operator's (`18a`);
+    their bands are not judged here."""
+    if not isinstance(policy, dict):
+        raise ValueError("policy.json is not a JSON object")
+    if "operating" not in policy:
+        return {}
+    found = policy["operating"]
+    if not isinstance(found, dict):
+        raise ValueError("policy.json operating is not an object (`26c`)")
+    shown = {}
+    for n, (key, entry) in enumerate(found.items()):
+        if key not in OPERATING_KEYS:
+            raise ValueError(f"policy.json operating's key number {n + 1} is not one of `26c`'s seven")
+        band = entry.get("band") if isinstance(entry, dict) else None
+        if not (isinstance(entry, dict) and set(entry) == {"value", "band"} and _number(entry["value"])
+                and isinstance(band, list) and len(band) == 2 and all(_number(b) for b in band)):
+            raise ValueError(f"policy.json operating.{key} is not {{value, band: [min, max]}} of numbers (`26c`)")
+        shown[key] = {"value": entry["value"], "band": [band[0], band[1]]}
+    return {"operating": shown}
 
 
 def write_build_context(ctx: Path) -> None:
@@ -503,7 +545,7 @@ class Pilot:
         self.metrics = work / "pilot-metrics.jsonl"  # one machine-readable line per cycle (what docs/pilot-gunlugu.md counts)
         self.seed = ""  # the brain commit the referee's setup summary pins; the capsule cuts history there
         self.epoch: str | None = None  # the last seed epoch's brain commit (`26c` seed_epochs[]), if any
-        self.targets: list[dict] = []  # `target_ids` of the summary, each session's targets.json (E571)
+        self.targets: list[dict] = []  # `target_ids` of the summary, each session's targets.json (E571, E577)
         self.brain_remote = f"https://github.com/{brain}.git"
         self.prompt_sha256: str | None = None  # what this launcher start built the capsule with (E313)
         self.context_sha256: str | None = None  # and every build file the image holds (E506)
@@ -545,6 +587,11 @@ class Pilot:
         except ValueError:
             return {}
         return data if isinstance(data, dict) else {}
+
+    def policy(self):
+        """The referee repo's `policy.json` from its main, parsed, read now: raises GitHubUnavailable or ValueError."""
+        return json.loads(gh_read("api", "-H", "Accept: application/vnd.github.raw",
+                                  f"repos/{self.referee}/contents/policy.json"))
 
     def seed_commit(self) -> str:
         return str(self.summary().get("seed_commit", ""))
@@ -967,12 +1014,26 @@ class Pilot:
                                                       encoding="utf-8")
 
     def targets_note(self, stamp: str) -> None:
-        """The targets' ``[{id, kind}]`` (`target_ids`) into the session's folder as `targets.json` (seed-049, E571):
-        the copy target's id is in the referee repo's summary, which a session never reads; their names are not."""
+        """The targets' rows (`target_ids`) into the session's folder as `targets.json` (seed-049, E571; seed-050,
+        E577): they are in the referee repo's summary, which a session never reads; their names are not."""
         folder = self.session_logs(stamp)
         folder.mkdir(parents=True, exist_ok=True)
         (folder / TARGETS_NOTE).write_text(json.dumps(self.targets, ensure_ascii=False, sort_keys=True) + "\n",
                                            encoding="utf-8")
+
+    def operating_note(self, stamp: str) -> None:
+        """`operating_values` of the referee repo's `policy.json`, read for this session, into its folder as
+        `operating.json` (seed-050, E577): the operator writes `operating{}` while the pilot runs (E579), so it is
+        never kept from an earlier read. A policy that cannot be read, or whose `operating` is not `26c`'s shape,
+        leaves no file and a warning; never ``{}``, which says the operator wrote none."""
+        try:
+            note = operating_values(self.policy())
+        except (GitHubUnavailable, ValueError) as exc:
+            say(f"{OPERATING_NOTE} not written for {stamp}: {exc}")
+            return
+        folder = self.session_logs(stamp)
+        folder.mkdir(parents=True, exist_ok=True)
+        (folder / OPERATING_NOTE).write_text(json.dumps(note, sort_keys=True) + "\n", encoding="utf-8")
 
     def memory_alone(self, prior: dict | None, head: str) -> bool:
         """Whether head adds only memory to the newest signed result's own evaluated head (`memory_alone`)."""
@@ -1048,6 +1109,7 @@ class Pilot:
         say(f"cycle {n}: Founder session {stamp} (brain {before[:7]})")
         self.previous_session_note(stamp, args.session_timeout, prior)
         self.targets_note(stamp)
+        self.operating_note(stamp)
         sess = self.session(stamp, args.model, args.max_turns, args.budget_usd, args.session_timeout)
         after = self.brain_head()
         rows_after = self.ledger_rows(after)

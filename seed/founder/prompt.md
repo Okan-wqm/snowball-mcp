@@ -69,8 +69,10 @@ dizinlerindeki ajan ve skill tanımlarını (biçimleri `spec/tohum/24a`) denetl
 beynin başka hiçbir dosyasını yapılandırma olarak yüklemez; neyin yüklendiği, neyin hangi nedenle atlandığı
 `/work/logs/brain-definitions.json`'dadır.
 
-**Hedefler (gözlem).** Hedeflerin kimliği ve türü, `setup/summary.json` `targets[]` sırasıyla, her oturumda
-`/work/logs/targets.json`'dadır (`[{id, kind}]`); hedeflerin adları orada yoktur (`spec/tohum/29e` "Genellik okuması").
+**Hedefler (gözlem).** Hedeflerin kimliği, türü, tabanı ve aday birimleri, `setup/summary.json` `targets[]` sırasıyla,
+her oturumda `/work/logs/targets.json`'dadır (`[{id, kind, base_sha, unit_candidates}]`); hedeflerin adları orada
+yoktur (`spec/tohum/29e` "Genellik okuması"). Hakem reposundaki `policy.json`'un `operating`'i o oturum için okunup
+`/work/logs/operating.json`'dadır (`spec/tohum/24a` 3: alan yoksa `{}`, okunamaz ya da biçim dışıysa dosya yoktur).
 
 **Gerçek hedefte sına ve eksiğini kendin bul.** Bu sistemin işi her yeni repoya kendi başına uyum sağlamak; her repoda
 "şu yok, bu yok" diye bir insanın beklemesi başarısızlıktır. Kabul edilmiş ve bir repoyu okuyan bir aletin varsa

@@ -340,7 +340,7 @@ class PreviousSessionTest(unittest.TestCase):  # E360: how the last session ende
         self.assertIn("/work/logs/previous-session.json", (FOUNDER / "prompt.md").read_text(encoding="utf-8"))
 
 
-class TargetsNoteTest(unittest.TestCase):  # seed-049, E571: the targets' ids and kinds, never their names (E290)
+class TargetsNoteTest(unittest.TestCase):  # seed-049, E571; seed-050, E577: the targets' rows, never their names
     COPY = {"id": "copy", "repo": "owner/copy", "kind": "copy", "base_sha": "c" * 40, "identifiers": ["Zorbalix"],
             "excluded_paths": [], "unit_candidates": ["packages/api"]}
     TOY = {"id": "toy", "repo": "owner/toy", "kind": "toy", "base_sha": None, "identifiers": [], "excluded_paths": [],
@@ -349,10 +349,16 @@ class TargetsNoteTest(unittest.TestCase):  # seed-049, E571: the targets' ids an
     def setUp(self):
         self.launch = load_launch()
 
-    def test_the_session_gets_each_targets_id_and_kind_in_order_and_nothing_else(self):
-        # targets_note_carries_the_names
-        ids = self.launch.target_ids({"seed_commit": "a" * 40, "targets": [self.TOY, self.COPY]})
-        self.assertEqual(ids, [{"id": "toy", "kind": "toy"}, {"id": "copy", "kind": "copy"}])
+    ROWS = [{"id": "toy", "kind": "toy", "base_sha": None, "unit_candidates": []},
+            {"id": "copy", "kind": "copy", "base_sha": "c" * 40, "unit_candidates": ["packages/api"]}]
+
+    def test_the_session_gets_each_targets_row_in_order_and_nothing_else(self):
+        # targets_note_carries_the_names targets_note_drops_the_candidates
+        """seed-050 (b), (c), E577: the base and the unit candidates the referee judges a proposal by reach the session
+        with the id and the kind; the repo, the excluded paths and the names do not (E290)."""
+        copy = dict(self.COPY, unit_candidates=["packages/api", "packages/web"], excluded_paths=["secret/dir"])
+        ids = self.launch.target_ids({"seed_commit": "a" * 40, "targets": [self.TOY, copy]})
+        self.assertEqual(ids, [self.ROWS[0], dict(self.ROWS[1], unit_candidates=["packages/api", "packages/web"])])
         self.assertEqual(self.launch.target_ids({"seed_commit": "a" * 40}), [])  # no targets[] yet: none
         work = Path(tempfile.mkdtemp())
         pilot = self.launch.Pilot(work, "owner/brain", "owner/referee", "target")
@@ -360,7 +366,7 @@ class TargetsNoteTest(unittest.TestCase):  # seed-049, E571: the targets' ids an
         pilot.targets_note("20261112T090000Z")
         raw = (work / "logs" / "20261112T090000Z" / "targets.json").read_text(encoding="utf-8")
         self.assertEqual(json.loads(raw), ids)
-        for word in ("zorbalix", "owner/", "packages", "c" * 40, "identifiers", "base_sha"):
+        for word in ("zorbalix", "owner/", "identifiers", "excluded", "secret/dir", "repo", "safety"):
             self.assertNotIn(word, raw.casefold())
 
     def test_an_id_holding_a_name_or_a_row_the_referee_refuses_stops_the_start(self):
@@ -372,10 +378,26 @@ class TargetsNoteTest(unittest.TestCase):  # seed-049, E571: the targets' ids an
             self.assertNotIn("zorbalix", str(caught.exception).casefold())
         with self.assertRaises(ValueError):  # a toy's id with the copy's name is the same leak
             self.launch.target_ids({"targets": [dict(self.TOY, id="zorbalix"), self.COPY]})
+        self.assertEqual(len(self.launch.target_ids({"targets": [self.TOY, self.COPY]})), 2)
         for bad in ([dict(self.COPY, note="x")], [dict(self.COPY, kind="real")], [{"id": "copy", "kind": "copy"}],
                     "copy", [dict(self.COPY, id="")]):
             with self.subTest(bad=bad), self.assertRaises(ValueError):
                 self.launch.target_ids({"targets": bad})
+
+    def test_a_candidate_holding_a_name_stops_the_start_and_the_base_is_never_read_for_one(self):
+        # targets_note_named_candidate_taken targets_note_base_folded
+        """seed-050, E577: a unit candidate is text the session receives, so a name in it stops the start like one in
+        an id, named by field and index; the base is 40 hex digits or null by the referee's rule (`config.target`), so
+        a name that happens to be hex letters inside it is no leak and must not stop the pilot."""
+        for path in ("packages/zorbalix", "Zorbalix/api", "web/ＺＯＲＢＡＬＩＸ"):
+            with self.assertRaises(ValueError) as caught:
+                self.launch.target_ids({"targets": [self.TOY, dict(self.COPY, unit_candidates=["packages/api", path])]})
+            self.assertIn("targets[1].unit_candidates[1] holds a target's name (E290)", str(caught.exception))
+            self.assertNotIn("zorbalix", str(caught.exception).casefold())
+        copy = dict(self.COPY, identifiers=["beef"], base_sha="beef" * 10)
+        self.assertEqual(self.launch.target_ids({"targets": [copy]})[0]["base_sha"], "beef" * 10)
+        with self.assertRaises(ValueError):  # the referee's rule, not the launcher's, keeps text out of the base
+            self.launch.target_ids({"targets": [dict(self.COPY, base_sha="zorbalix")]})
 
     def test_the_preflight_refuses_a_summary_whose_ids_would_carry_a_name(self):  # targets_preflight_refusal_dropped
         work = Path(tempfile.mkdtemp())
@@ -392,7 +414,110 @@ class TargetsNoteTest(unittest.TestCase):  # seed-049, E571: the targets' ids an
             self.assertNotIn("zorbalix", str(caught.exception).casefold())
             summary["targets"] = [self.TOY, self.COPY]
             pilot.preflight()
-        self.assertEqual(pilot.targets, [{"id": "toy", "kind": "toy"}, {"id": "copy", "kind": "copy"}])
+        self.assertEqual(pilot.targets, self.ROWS)
+
+
+class OperatingNoteTest(unittest.TestCase):
+    """seed-050 (d), E577: `policy.json`'s `operating{}` reaches each session as `/work/logs/operating.json`, read for
+    that session (the operator writes it while the pilot runs, E579), in `29g`'s `{operating: {...}}` shape. Three
+    states never mixed: the operator's numbers; `{}` when the operator wrote none; no file when the policy cannot be
+    read or carries anything but `26c`'s seven keys of numbers (operator text never reaches the session, E290)."""
+
+    GOOD = {"deps_bytes": {"value": 536870912, "band": [268435456, 2147483648]},
+            "kos_wall_s": {"value": 1800.5, "band": [600, 3600]}}
+
+    def setUp(self):
+        self.launch = load_launch()
+
+    def note(self, policy):
+        """The session folder's operating.json after one note with the referee's policy read as ``policy`` (an
+        exception is raised by the read), or None when no file was written; and the warnings said."""
+        launch = self.launch
+
+        class Fake(launch.Pilot):
+            def policy(self):
+                if isinstance(policy, Exception):
+                    raise policy
+                return policy
+
+        work = Path(tempfile.mkdtemp())
+        pilot = Fake(work, "owner/brain", "owner/referee", "target")
+        with mock.patch.object(launch, "say") as said:
+            pilot.operating_note("20261113T090000Z")
+        path = work / "logs" / "20261113T090000Z" / launch.OPERATING_NOTE
+        text = path.read_text(encoding="utf-8") if path.exists() else None
+        return text, [c.args[0] for c in said.call_args_list]
+
+    def test_the_operators_numbers_reach_the_session_in_the_shape_29g_names(self):  # operating_note_drops_the_wrapper
+        text, said = self.note({"constitutional": {"monthly_cap_usd": 7}, "operating": self.GOOD})
+        self.assertEqual(json.loads(text), {"operating": self.GOOD})
+        self.assertEqual(said, [])
+        self.assertNotIn("constitutional", text)
+        self.assertEqual(self.launch.OPERATING_KEYS, ("unit_inputs_bytes", "deps_bytes", "worktree_bytes",
+                                                     "container_mem_bytes", "kos_wall_s", "test_total_s",
+                                                     "output_bytes"))
+        every = {k: {"value": 1, "band": [0, 2]} for k in self.launch.OPERATING_KEYS}
+        self.assertEqual(json.loads(self.note({"operating": every})[0]), {"operating": every})
+
+    def test_none_written_is_an_empty_object_never_an_invented_operating(self):
+        # operating_absent_written_as_object
+        text, said = self.note({"constitutional": {"monthly_cap_usd": 7}})
+        self.assertEqual(json.loads(text), {})
+        self.assertEqual(said, [])
+        self.assertEqual(json.loads(self.note({"operating": {}})[0]), {"operating": {}})  # written empty: as written
+
+    def test_operator_text_never_reaches_the_session(self):
+        # operating_note_passes_text operating_note_unknown_key_passes operating_note_band_unchecked
+        """D1 of the panel: any key but `26c`'s seven, any field but value and band, any value but a finite number
+        (a bool is not one) is operator text; the whole note is withheld and the warning names a known key or the
+        position of an unknown one, never its text."""
+        bad = {"zorbalix_note": {"value": 1, "band": [0, 2]}}
+        text, said = self.note({"operating": dict(self.GOOD, **bad)})
+        self.assertIsNone(text)
+        self.assertEqual(len(said), 1)
+        self.assertIn("key number 3", said[0])
+        self.assertNotIn("zorbalix", said[0].casefold())
+        for entry in ({"value": "Zorbalix", "band": [0, 2]}, {"value": 1, "band": [0, "x"]},
+                      {"value": 1, "band": [0, 2], "note": "Zorbalix"}, {"value": True, "band": [0, 2]},
+                      {"value": 1, "band": [0, 2, 3]}, {"value": 1, "band": [0, float("nan")]},
+                      {"value": float("inf"), "band": [0, 2]}, {"value": 1}, {"value": 1, "band": {"min": 0}},
+                      "Zorbalix", None, [1, [0, 2]]):
+            with self.subTest(entry=entry):
+                text, said = self.note({"operating": dict(self.GOOD, deps_bytes=entry)})
+                self.assertIsNone(text)
+                self.assertIn("operating.deps_bytes is not", said[0])
+                self.assertNotIn("zorbalix", said[0].casefold())
+        for operating in ("Zorbalix", [], 3, None):
+            with self.subTest(operating=operating):
+                self.assertIsNone(self.note({"operating": operating})[0])
+
+    def test_a_policy_that_cannot_be_read_leaves_no_file(self):  # operating_unreadable_as_empty
+        for failure in (self.launch.GitHubUnavailable("gh api: 502"), ValueError("Expecting value"), ["a"], "x"):
+            with self.subTest(failure=failure):
+                text, said = self.note(failure)
+                self.assertIsNone(text)
+                self.assertEqual(len(said), 1)
+                self.assertIn("operating.json not written", said[0])
+
+    def test_the_policy_is_read_from_the_referee_repo_at_each_note(self):  # operating_read_once
+        """E579: the operator writes `operating{}` while the pilot runs; a second session reads the new numbers."""
+        launch = self.launch
+        policies = [b'{"constitutional": {}}', json.dumps({"operating": self.GOOD}).encode()]
+        calls = []
+
+        def fake_run(*args, **kwargs):
+            calls.append(args)
+            return subprocess.CompletedProcess(args, 0, policies[len(calls) - 1], b"")
+
+        work = Path(tempfile.mkdtemp())
+        pilot = launch.Pilot(work, "owner/brain", "owner/referee", "target")
+        with mock.patch.object(launch, "run", side_effect=fake_run), mock.patch.object(launch, "say"):
+            pilot.operating_note("20261113T090000Z")
+            pilot.operating_note("20261113T100000Z")
+        self.assertEqual([c[-1] for c in calls], ["repos/owner/referee/contents/policy.json"] * 2)
+        notes = [json.loads((work / "logs" / s / "operating.json").read_text(encoding="utf-8"))
+                 for s in ("20261113T090000Z", "20261113T100000Z")]
+        self.assertEqual(notes, [{}, {"operating": self.GOOD}])
 
 
 class BuildContextTest(unittest.TestCase):
@@ -970,12 +1095,14 @@ class CycleRecordTest(unittest.TestCase):
         self.assertEqual((m["cost_row"], m["reports_open"]), ("stub", 0))
         self.assertEqual(pilot.cost_calls, [(pilot.cost_calls[0][0], "b" * 40, "b" * 40)])  # after the referee's verdict
 
-    def test_each_session_folder_gets_the_targets_note(self):  # targets_note_not_written
-        """seed-049, E571: the cycle writes `targets.json` into the session's folder before the session starts."""
+    def test_each_session_folder_gets_the_targets_note(self):  # targets_note_not_written operating_note_not_written
+        """seed-049, E571: the cycle writes `targets.json` into the session's folder before the session starts;
+        seed-050, E577: and `operating.json` beside it (the stubbed policy has no operating{}: `{}`)."""
         pilot, _, _ = self.cycle()
         notes = sorted(pilot.logs.glob("*/targets.json"))
         self.assertEqual(len(notes), 1)
         self.assertEqual(json.loads(notes[0].read_text(encoding="utf-8")), [])
+        self.assertEqual(json.loads((notes[0].parent / "operating.json").read_text(encoding="utf-8")), {})
 
     def test_no_rival_block_is_no_rival_configuration_and_a_timeout_is_named(self):
         _, m, _ = self.cycle(sess={"exit": -1, "minutes": 180.2, "timed_out": True})
