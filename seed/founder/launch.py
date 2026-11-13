@@ -923,7 +923,8 @@ class Pilot:
     def session_logs(self, stamp: str) -> Path:
         return self.logs / stamp
 
-    def capsule_argv(self, stamp: str, model: str, max_turns: int, budget_usd: int) -> list[str]:
+    def capsule_argv(self, stamp: str, model: str, max_turns: int, budget_usd: int,
+                     effort: str | None = None) -> list[str]:
         def bind(src: Path, dst: str, ro: bool) -> list[str]:
             return ["--mount", f"type=bind,src={src},dst={dst}" + (",readonly" if ro else "")]
 
@@ -941,11 +942,13 @@ class Pilot:
                "-e", f"BRAIN_REPO={self.brain}", "-e", f"BRAIN_SEED={self.seed}", "-e", f"SESSION_STAMP={stamp}",
                "-e", f"FOUNDER_MODEL={model}", "-e", f"FOUNDER_MAX_TURNS={max_turns}",
                "-e", f"FOUNDER_MAX_BUDGET_USD={budget_usd}",
+               *(["-e", f"FOUNDER_EFFORT={effort}"] if effort else []),  # the CLI's --effort; none: its default
                IMAGE]
 
-    def session(self, stamp: str, model: str, max_turns: int, budget_usd: int, timeout_s: int) -> dict:
+    def session(self, stamp: str, model: str, max_turns: int, budget_usd: int, timeout_s: int,
+                effort: str | None = None) -> dict:
         self.session_logs(stamp).mkdir(parents=True, exist_ok=True)
-        cmd = self.capsule_argv(stamp, model, max_turns, budget_usd)
+        cmd = self.capsule_argv(stamp, model, max_turns, budget_usd, effort)
         started = time.monotonic()
         err = ""
         try:
@@ -1139,7 +1142,8 @@ class Pilot:
         self.previous_session_note(stamp, args.session_timeout, prior)
         self.targets_note(stamp)
         self.operating_note(stamp)
-        sess = self.session(stamp, args.model, args.max_turns, args.budget_usd, args.session_timeout)
+        sess = self.session(stamp, args.model, args.max_turns, args.budget_usd, args.session_timeout,
+                            getattr(args, "effort", None))
         after = self.brain_head()
         rows_after = self.ledger_rows(after)
         new_rows = rows_after[len(rows_before):] if rows_after[:len(rows_before)] == rows_before else rows_after
@@ -1212,6 +1216,7 @@ class Pilot:
             # What the outcome is attributed to (E313): the launcher start's prompt and image, the model asked for and
             # served, the CLI, the seed, the rival's configuration, the target commit, and whether time ran out (E340).
             "prompt_sha256": self.prompt_sha256, "image_id": self.image_id, "model": args.model,
+            "effort": getattr(args, "effort", None),
             "cli_version": sess.get("cli_version"), "model_served": sess.get("model_served"), "seed_commit": self.seed,
             "spec_tohum_tree": seen["spec_tohum_tree"], "target_sha": seen["target_sha"],
             "rival_config": ({k: ((verdict or {}).get("rival") or {}).get(k) for k in RIVAL_CONFIG}
@@ -1247,6 +1252,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--target", default="aquaculture_platform")
     p.add_argument("--cycles", type=int, default=1)
     p.add_argument("--model", default="claude-opus-5-5")
+    p.add_argument("--effort", choices=("low", "medium", "high", "xhigh", "max"), default=None,
+                   help="the Founder CLI's reasoning effort; omitted: the CLI's default")
     p.add_argument("--max-turns", type=int, default=200)
     p.add_argument("--budget-usd", type=int, default=50, help="runaway brake per session, not a budget")
     p.add_argument("--session-timeout", type=int, default=3 * 3600)
@@ -1421,6 +1428,8 @@ def rerun_argv(parser: argparse.ArgumentParser, args) -> list[str]:
         value = getattr(args, action.dest)
         if isinstance(action, argparse._StoreTrueAction):
             out += [action.option_strings[0]] if value else []
+        elif value is None:  # an option left at no value (e.g. --effort): omitted, so the rerun parses the same
+            continue
         else:
             out += [action.option_strings[0], str(value)]
     return out

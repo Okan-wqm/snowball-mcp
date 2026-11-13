@@ -392,6 +392,13 @@ MUTANTS = [
     ("unanswered_by_prefix", "seed/founder/launch.py", '+ re.escape(rid) + r"(?![\\w-])"', "+ re.escape(rid)",
      "E527: seed-04 reads as answered because seed-041 is named"),
     # E526: the one-command seed epoch delivery (seed/founder/deliver_epoch.py)
+    # the Founder's reasoning effort (owner 2026-11-13)
+    ("founder_effort_not_passed", "seed/founder/launch.py",
+     '               *(["-e", f"FOUNDER_EFFORT={effort}"] if effort else []),', '',
+     "the launcher drops the effort it was asked for"),
+    ("founder_effort_not_used", "seed/founder/entrypoint.sh",
+     '  ${FOUNDER_EFFORT:+--effort "$FOUNDER_EFFORT"} \\\n', '',
+     "the entrypoint never passes the effort to the CLI"),
     # cost row: the model and the token totals the CLI reported (owner 2026-11-13, Y12)
     ("cost_row_drops_tokens", "seed/founder/launch.py",
      '            f"tokens {counts}")', '            f"tokens")',
