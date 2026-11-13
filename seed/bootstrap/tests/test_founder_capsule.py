@@ -1373,12 +1373,18 @@ class CostRowTest(unittest.TestCase):
                           "snapshot_id": "9" * 40})
         self.assertEqual(row["payload"], {
             "summary": "session 20261031T174316Z: exit -1, 180.2 min, turns unknown, cost_usd_micros unknown, "
-                       "CLI result none",
+                       "CLI result none, model unknown, models unknown, "
+                       "tokens in unknown out unknown cache_read unknown cache_write unknown",
             "refs": ["logs/20261031T174316Z/session-20261031T174316Z.jsonl"]})
         self.assertEqual(ledgercheck.check(ledger + line, ledger, whole=False), [])
-        paid = launch.cost_summary(dict(self.FACT, exit=0, minutes=14.5, turns=88, cost_usd=2.3456789, subtype="success"))
+        paid = launch.cost_summary(dict(self.FACT, exit=0, minutes=14.5, turns=88, cost_usd=2.3456789,
+                                        subtype="success",
+                                        model_served="claude-fable-5-2", models=["claude-opus-5-5", "claude-fable-5-2"],
+                                        tokens={"in": 174, "out": 64993, "cache_read": 7801687, "cache_write": 206492}))
         self.assertEqual(paid, "session 20261031T174316Z: exit 0, 14.5 min, turns 88, cost_usd_micros 2345679, "
-                               "CLI result success")
+                               "CLI result success, model claude-fable-5-2, models claude-fable-5-2+claude-opus-5-5, "
+                               "tokens in 174 out 64993 cache_read 7801687 cache_write 206492")
+        # mutants: cost_row_drops_tokens cost_row_drops_model
         first = json.loads(launch.cost_line(b"", self.FACT, "2026-10-31T21:00:00Z"))
         self.assertEqual((first["row_id"], first["prev_hash"]), ("f1", "0" * 64))
 
@@ -1614,11 +1620,16 @@ class TranscriptTest(unittest.TestCase):
         path = Path(tempfile.mkdtemp()) / "s.jsonl"
         events = [{"type": "system", "subtype": "init"}, {"type": "result", "num_turns": 1, "total_cost_usd": 0.1},
                   "not json", {"type": "result", "subtype": "success", "num_turns": 7, "total_cost_usd": 1.5,
-                               "result": "pushed MF1"}]
+                               "result": "pushed MF1",
+                               "usage": {"input_tokens": 5, "output_tokens": 6, "cache_read_input_tokens": 7,
+                                         "cache_creation_input_tokens": True},
+                               "modelUsage": {"claude-fable-5-2": {}, "claude-opus-5-5": {}}}]
         path.write_text("\n".join(e if isinstance(e, str) else json.dumps(e) for e in events), encoding="utf-8")
-        self.assertEqual(launch.Pilot.transcript_summary(path),
+        self.assertEqual(launch.Pilot.transcript_summary(path),  # cost_row_tokens_not_read
                          {"turns": 7, "cost_usd": 1.5, "subtype": "success", "final": "pushed MF1",
-                          "api_error": None, "api_error_status": None})
+                          "api_error": None, "api_error_status": None,
+                          "tokens": {"in": 5, "out": 6, "cache_read": 7, "cache_write": None},
+                          "models": ["claude-fable-5-2", "claude-opus-5-5"]})
         self.assertEqual(launch.Pilot.transcript_summary(path.with_name("missing.jsonl")), {"transcript": "missing"})
 
 

@@ -243,14 +243,30 @@ def context_sha256(root: Path | None = None) -> str:
     return hashlib.sha256("".join(sorted(f"{rel}\0{digest}\n" for rel, digest in digests.items())).encode()).hexdigest()
 
 
+TOKEN_FIELDS = (("in", "input_tokens"), ("out", "output_tokens"), ("cache_read", "cache_read_input_tokens"),
+                ("cache_write", "cache_creation_input_tokens"))  # the CLI's closing usage, named as the row names them
+
+
+def _count(value) -> int | None:
+    return value if isinstance(value, int) and not isinstance(value, bool) and value >= 0 else None
+
+
 def cost_summary(fact: dict) -> str:
-    """A session's bare facts, no interpretation: what the CLI and the launcher saw (`tohum/24a` 4)."""
-    turns = fact.get("turns") if isinstance(fact.get("turns"), int) and not isinstance(fact.get("turns"), bool) else None
+    """A session's bare facts, no interpretation: what the CLI and the launcher saw (`tohum/24a` 4): the exit, minutes,
+    turns, USD, the model the CLI was served and every model the session's calls used, and the CLI's token totals
+    (input, output, read from and written to the provider's cache). A fact the CLI did not report reads unknown."""
+    turns = _count(fact.get("turns"))
     cost = fact.get("cost_usd")
     micros = round(cost * 1_000_000) if isinstance(cost, (int, float)) and not isinstance(cost, bool) else None
+    tokens = fact.get("tokens") if isinstance(fact.get("tokens"), dict) else {}
+    models = [m for m in fact.get("models") or [] if isinstance(m, str)]
+    counts = " ".join(f"{name} {'unknown' if _count(tokens.get(name)) is None else tokens[name]}"
+                      for name, _key in TOKEN_FIELDS)
     return (f"session {fact['stamp']}: exit {fact.get('exit')}, {fact.get('minutes')} min, "
             f"turns {'unknown' if turns is None else turns}, "
-            f"cost_usd_micros {'unknown' if micros is None else micros}, CLI result {fact.get('subtype') or 'none'}")
+            f"cost_usd_micros {'unknown' if micros is None else micros}, CLI result {fact.get('subtype') or 'none'}, "
+            f"model {fact.get('model_served') or 'unknown'}, models {'+'.join(sorted(models)) or 'unknown'}, "
+            f"tokens {counts}")
 
 
 def cost_line(ledger: bytes, fact: dict, ts: str) -> bytes:
@@ -785,7 +801,8 @@ class Pilot:
             facts = [row for row in map(_json_or_none, pending_path.read_text(encoding="utf-8").splitlines())
                      if isinstance(row, dict)]
         facts.append({"stamp": stamp, "head": head, **{k: sess.get(k) for k in ("exit", "minutes", "turns", "cost_usd",
-                                                                               "subtype")}})
+                                                                               "subtype", "model_served", "models",
+                                                                               "tokens")}})
         try:
             outcome = push_cost_rows(self.brain_remote, facts, last_accepted, now(), self.epoch)
         except (gitio.GitError, ValueError, OSError) as exc:
@@ -973,9 +990,13 @@ class Pilot:
                     pass
         if last is None:
             return {"transcript": "no result event"}
+        usage = last.get("usage") if isinstance(last.get("usage"), dict) else {}
+        models = last.get("modelUsage") if isinstance(last.get("modelUsage"), dict) else {}
         return {"turns": last.get("num_turns"), "cost_usd": last.get("total_cost_usd"),
                 "subtype": last.get("subtype"), "final": str(last.get("result") or "")[:1500],
-                "api_error": last.get("api_error"), "api_error_status": last.get("api_error_status")}
+                "api_error": last.get("api_error"), "api_error_status": last.get("api_error_status"),
+                "tokens": {name: _count(usage.get(key)) for name, key in TOKEN_FIELDS},
+                "models": sorted(m for m in models if isinstance(m, str))}
 
     # ---- the report ---------------------------------------------------------------------------------------
     def write(self, text: str) -> None:

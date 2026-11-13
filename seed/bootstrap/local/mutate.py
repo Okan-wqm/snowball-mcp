@@ -392,6 +392,16 @@ MUTANTS = [
     ("unanswered_by_prefix", "seed/founder/launch.py", '+ re.escape(rid) + r"(?![\\w-])"', "+ re.escape(rid)",
      "E527: seed-04 reads as answered because seed-041 is named"),
     # E526: the one-command seed epoch delivery (seed/founder/deliver_epoch.py)
+    # cost row: the model and the token totals the CLI reported (owner 2026-11-13, Y12)
+    ("cost_row_drops_tokens", "seed/founder/launch.py",
+     '            f"tokens {counts}")', '            f"tokens")',
+     "the cost row loses the CLI's token totals"),
+    ("cost_row_drops_model", "seed/founder/launch.py",
+     "f\"model {fact.get('model_served') or 'unknown'}, ", "f\"model unknown, ",
+     "the cost row no longer names the model the session was served"),
+    ("cost_row_tokens_not_read", "seed/founder/launch.py",
+     '                "tokens": {name: _count(usage.get(key)) for name, key in TOKEN_FIELDS},\n', '',
+     "the closing result's usage is never read into the session record"),
     # E576: seed-052, an evidenced Founder report reverts an accepted exit before the import
     ("revert_before_import_dropped", "spec/tohum/29b-onyukleme-hakemi.md",
      " o başı aktarmadan `reverted_exits`'e yazabilir;", " o başı yazamaz;",

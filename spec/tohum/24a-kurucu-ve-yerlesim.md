@@ -34,7 +34,7 @@ bir Windows kullanıcısında koşar; Kurucu'nun yapılandırması repo dışın
    okuması"); `policy.json`'un `operating`'i o oturum için okunur, aynı klasörde `/work/logs/operating.json`'dadır:
    `{operating: {…}}`, alan yoksa `{}`; okunamaz ya da `26c` biçiminde değilse dosya yoktur.
 4. Bitince CLI'nin bildirdiği maliyeti `kind: cost` satırı olarak `founder-ledger.jsonl`'a `26`'nın zincir
-   kuralıyla ekler; oturum sayısı ve USD `status-stage0.md`'ye girer.
+   kuralıyla ekler (model ve token toplamları dahil, yorumsuz); oturum sayısı, USD `status-stage0.md`'ye girer.
 
 **Oturumun maliyet satırı** (Y12, `asama-0/12`). `kind: cost` satırını başlatıcı yazar (rapor yoksa
 `unmeasured`). Oturum sayısı ve USD toplamları ilerlemenin ve maliyetin ölçüsüdür; çıkış koşulu değildir ve
