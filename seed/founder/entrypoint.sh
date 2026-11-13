@@ -53,6 +53,7 @@ rc=0
 # cloud); the Cron tools die with this process and were never used. Nothing else is narrowed.
 claude -p "$(cat /opt/founder/prompt.md)" \
   --model "${FOUNDER_MODEL:-claude-opus-5-5}" \
+  ${FOUNDER_EFFORT:+--effort "$FOUNDER_EFFORT"} \
   --max-turns "${FOUNDER_MAX_TURNS:-200}" \
   --max-budget-usd "${FOUNDER_MAX_BUDGET_USD:-50}" \
   --setting-sources "" --no-session-persistence \

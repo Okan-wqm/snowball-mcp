@@ -46,6 +46,17 @@ class CapsuleArgvTest(unittest.TestCase):
         pilot.seed = "a" * 40
         self.argv = pilot.capsule_argv("20261029T000000Z", "claude-opus-5-5", 200, 50)
         self.joined = " ".join(self.argv)
+        self.pilot = pilot
+
+    def test_an_effort_reaches_the_cli_only_when_asked(self):  # founder_effort_not_passed founder_effort_not_used
+        """Owner 2026-11-13: the Founder runs at a chosen reasoning effort. The launcher passes it as FOUNDER_EFFORT
+        and the entrypoint turns it into the CLI's --effort; without one, neither appears and the CLI's default holds."""
+        self.assertNotIn("FOUNDER_EFFORT", self.joined)
+        argv = self.pilot.capsule_argv("20261029T000000Z", "claude-fable-5-2", 200, 50, "medium")
+        self.assertIn("FOUNDER_EFFORT=medium", argv)
+        self.assertLess(argv.index("FOUNDER_EFFORT=medium"), argv.index(self.launch.IMAGE))
+        entry = (Path(self.launch.__file__).parent / "entrypoint.sh").read_text(encoding="utf-8")
+        self.assertIn('${FOUNDER_EFFORT:+--effort "$FOUNDER_EFFORT"}', entry)
 
     def mounts(self) -> dict[str, str]:
         out = {}
