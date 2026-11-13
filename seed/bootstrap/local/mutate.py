@@ -13,6 +13,7 @@ Run it on Linux (several tests need a POSIX shell). Exit 0 means every mutant wa
 from __future__ import annotations
 
 import argparse
+import re
 import shutil
 import subprocess
 import sys
@@ -22,6 +23,19 @@ from pathlib import Path
 
 BOOT = Path(__file__).resolve().parents[1]
 ROOT = BOOT.parents[1]
+
+
+def _ci_mutation_shards() -> int:
+    """N of the mutation job's `--shard "$SHARD/N"` in ci.yml, 0 when it is not there. The anchor of
+    `mutation_shards_back_to_eight` is the matrix of N shards: written as a number, it was left behind when a shard
+    was added (the verifier of 9600c4e: range(76) against 77 shards stopped every shard before its first mutant).
+    A matrix that disagrees with N is still a stale anchor."""
+    path = ROOT / ".github" / "workflows" / "ci.yml"
+    text = path.read_text(encoding="utf-8") if path.is_file() else ""
+    found = re.search(r'local/mutate\.py --shard "\$SHARD/([0-9]+)"', text)
+    return int(found.group(1)) if found else 0
+
+
 PKG = "seed/bootstrap/snowball_bootstrap"
 CANARY = "seed/bootstrap/local/canary.py"
 DEFS = "seed/founder/brain_defs.py"  # the capsule's loader of the brain's definitions (E450)
@@ -2570,7 +2584,7 @@ MUTANTS = [
      "      max-parallel: 16" + chr(10), "",
      "E525: every shard starts at once and the referee's runs queue behind them"),
     ("mutation_shards_back_to_eight", ".github/workflows/ci.yml",
-     "        shard: [" + ", ".join(str(k) for k in range(76)) + "]\n",
+     "        shard: [" + ", ".join(str(k) for k in range(_ci_mutation_shards())) + "]\n",
      "        shard: [0, 1, 2, 3, 4, 5, 6, 7]\n",
      "E410: fewer shards than the mutants need, and the mutation run hits its timeout and is cancelled"),
     # E450: the brain's agent and skill definitions, checked in the capsule before claude starts (seed/founder/brain_defs.py)
