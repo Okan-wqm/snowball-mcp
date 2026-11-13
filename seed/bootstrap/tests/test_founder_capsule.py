@@ -499,6 +499,25 @@ class OperatingNoteTest(unittest.TestCase):
                 self.assertEqual(len(said), 1)
                 self.assertIn("operating.json not written", said[0])
 
+    def test_any_policy_leaves_the_cycle_running(self):  # operating_huge_int_overflows policy_nesting_escapes
+        """The verifier of 9600c4e: an int past a float's range made `math.isfinite` raise OverflowError, and a file
+        nested past the recursion limit makes `json.loads` raise RecursionError; neither was caught, so the cycle
+        crashed. An int of any size is a number and reaches the session as written; too deep a file is unreadable:
+        no file and one warning, like any other."""
+        huge = {"deps_bytes": {"value": 10 ** 400, "band": [0, 10 ** 401]}}
+        text, said = self.note({"operating": huge})
+        self.assertEqual(json.loads(text), {"operating": huge})
+        self.assertEqual(said, [])
+        launch = self.launch
+        work = Path(tempfile.mkdtemp())
+        pilot = launch.Pilot(work, "owner/brain", "owner/referee", "target")
+        deep = mock.patch.object(launch, "gh_read", return_value=b"[" * 100000)
+        with deep, mock.patch.object(launch, "say") as said:
+            pilot.operating_note("20261113T090000Z")
+        self.assertFalse((work / "logs" / "20261113T090000Z" / launch.OPERATING_NOTE).exists())
+        self.assertEqual(len(said.call_args_list), 1)
+        self.assertIn("nests deeper than it can be read", said.call_args.args[0])
+
     def test_the_policy_is_read_from_the_referee_repo_at_each_note(self):  # operating_read_once
         """E579: the operator writes `operating{}` while the pilot runs; a second session reads the new numbers."""
         launch = self.launch

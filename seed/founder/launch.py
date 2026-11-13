@@ -483,7 +483,11 @@ def target_ids(summary: dict) -> list[dict]:
 
 
 def _number(value) -> bool:
-    return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
+    """A JSON number: an int of any size (``math.isfinite`` overflows on one past a float's range) or a finite float;
+    a bool is not one."""
+    if isinstance(value, bool):
+        return False
+    return isinstance(value, int) or (isinstance(value, float) and math.isfinite(value))
 
 
 def operating_values(policy) -> dict:
@@ -589,9 +593,13 @@ class Pilot:
         return data if isinstance(data, dict) else {}
 
     def policy(self):
-        """The referee repo's `policy.json` from its main, parsed, read now: raises GitHubUnavailable or ValueError."""
-        return json.loads(gh_read("api", "-H", "Accept: application/vnd.github.raw",
-                                  f"repos/{self.referee}/contents/policy.json"))
+        """The referee repo's `policy.json` from its main, parsed, read now: raises GitHubUnavailable or ValueError,
+        never another error for what the file holds (nesting past Python's recursion limit is a ValueError too)."""
+        raw = gh_read("api", "-H", "Accept: application/vnd.github.raw", f"repos/{self.referee}/contents/policy.json")
+        try:
+            return json.loads(raw)
+        except RecursionError:
+            raise ValueError("policy.json nests deeper than it can be read") from None
 
     def seed_commit(self) -> str:
         return str(self.summary().get("seed_commit", ""))

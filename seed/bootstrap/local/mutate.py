@@ -3301,6 +3301,13 @@ MUTANTS = [
     ("changelog_drops_seed_051", "spec/tohum/CHANGELOG.md",
      "`seed-051-install-marks-run-platform-foreign-scripts` →", "seed-051 →",
      "seed-051: this epoch's entry no longer names the report it answers"),
+    ("operating_huge_int_overflows", "seed/founder/launch.py",
+     "    return isinstance(value, int) or (isinstance(value, float) and math.isfinite(value))",
+     "    return isinstance(value, (int, float)) and math.isfinite(value)",
+     "E577: an operating number past a float's range raises OverflowError and crashes the cycle"),
+    ("policy_nesting_escapes", "seed/founder/launch.py", "        except RecursionError:\n",
+     "        except ZeroDivisionError:\n",
+     "E577: a policy.json nested too deep raises RecursionError out of the note and crashes the cycle"),
     ("changelog_drops_seed_052", "spec/tohum/CHANGELOG.md", "`seed-052-known-b-stop-has-no-path-before-b` → `29b:73`",
      "seed-052 → `29b:73`", "E581: seed-052's answer is named by no changelog line; the launcher counts it unanswered"),
 ]
