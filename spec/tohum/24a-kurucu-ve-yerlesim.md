@@ -32,7 +32,7 @@ bir Windows kullanıcısında koşar; Kurucu'nun yapılandırması repo dışın
    açılış "`00` ve `00a`'yı oku" ve tipli durum; hedeflerin `targets[]` sırasıyla `[{id, kind}]`'ı oturumun
    klasöründe `/work/logs/targets.json`'dadır, adları orada yoktur (`29e` "Genellik okuması").
 4. Bitince CLI'nin bildirdiği maliyeti `kind: cost` satırı olarak `founder-ledger.jsonl`'a `26`'nın zincir
-   kuralıyla ekler; oturum sayısı ve USD `status-stage0.md`'ye girer.
+   kuralıyla ekler (model ve token toplamları dahil, yorumsuz); oturum sayısı, USD `status-stage0.md`'ye girer.
 
 **Oturumun maliyet satırı** (Y12, `asama-0/12`). `kind: cost` satırını başlatıcı yazar (rapor yoksa
 `unmeasured`). Oturum sayısı ve USD toplamları ilerlemenin ve maliyetin ölçüsüdür;
