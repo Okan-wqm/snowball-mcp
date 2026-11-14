@@ -11,6 +11,7 @@ import json
 import os
 import re
 import shlex
+import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -1752,6 +1753,36 @@ class MutationShardTest(unittest.TestCase):
         ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
         self.assertIn("if: needs.mutation-plan.outputs.mode == 'full'", ci)
         self.assertIn("python3 local/mutate.py --changed", ci)
+
+    def test_each_mutants_copy_holds_every_root_file_a_test_reads(self):  # mutate_root_file_not_copied
+        """The K verifier's finding: a test read `.gitattributes`, the mutant's copy lacked it, so the baseline failed
+        and every mutation shard went red. The copy is run here over a stand-in root; the files at the root the tests
+        read (a name right under ``ROOT``) are derived from the tests, never listed by hand."""
+        import importlib.util
+        import subprocess
+        spec = importlib.util.spec_from_file_location("mutate", BOOT / "local" / "mutate.py")
+        mutate = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mutate)
+        read = set()
+        for test in (BOOT / "tests").glob("*.py"):
+            read.update(re.findall(r'ROOT / "([^"/]+)"(?!\s*/)', test.read_text(encoding="utf-8")))
+        read -= {"seed", "spec", "docs", ".github"}  # the folders the copy takes whole
+        self.assertIn(".gitattributes", read)
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for folder in ("seed/bootstrap/tests", "spec", ".github/workflows", "docs"):
+                (root / folder).mkdir(parents=True)
+            for name in read:
+                (root / name).write_text("x\n", encoding="utf-8")
+            seen = {}
+
+            def run(argv, cwd, **kw):
+                work = Path(cwd).parents[1]
+                seen.update({name: (work / name).is_file() for name in read})
+                return subprocess.CompletedProcess(argv, 0, "", "")
+            with mock.patch.object(mutate, "ROOT", root), mock.patch.object(mutate.subprocess, "run", run):
+                mutate.run_mutant(-1, None)
+        self.assertEqual(seen, {name: True for name in read})
 
     def test_the_shards_hold_every_mutant_inside_the_timeout(self):
         import importlib.util

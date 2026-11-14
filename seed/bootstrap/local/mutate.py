@@ -2535,6 +2535,11 @@ MUTANTS = [
      "        if texts[rel].count(old) != 1:\n            stale.append(",
      "        if texts[rel].count(old) > 1:\n            stale.append(",
      "E504: an anchor a change left behind survives in its one shard and is seen only after the whole run"),
+    # E593: a root file a test reads is missing from the mutant's copy, so the baseline fails and every shard is red
+    ("mutate_root_file_not_copied", "seed/bootstrap/local/mutate.py",
+     "        for name in ROOT_FILES_READ:\n            shutil.copy2(",
+     "        for name in ROOT_FILES_READ[:1]:\n            shutil.copy2(",
+     "E593: the copy lacks `.gitattributes`, the fixtures' test errors and the unmutated baseline fails"),
     # E507: a stage table module that hides a standard library module (report spec-011)
     ("stages_stdlib_shadow_unchecked", "seed/bootstrap/snowball_bootstrap/stages.py",
      "        if hidden and hidden not in STDLIB_KEPT", "        if False and hidden not in STDLIB_KEPT",
@@ -3582,6 +3587,9 @@ def stale_anchors(root: Path = ROOT, mutants=MUTANTS) -> list[str]:
     return stale
 
 
+ROOT_FILES_READ = ("README.md", ".gitattributes")  # the repo-root files the unit tests read, copied with each mutant
+
+
 def run_mutant(index: int, mutant: tuple[str, str, str, str, str] | None) -> tuple[bool, str, float]:
     """Apply one mutant (or none: the baseline) to a fresh copy and run the unit tests there."""
     started = time.monotonic()
@@ -3597,7 +3605,10 @@ def run_mutant(index: int, mutant: tuple[str, str, str, str, str] | None) -> tup
         # The documents the tests read: the gap register (E162's exit table), the generated system map (E301), the
         # scorecard (E310) and the README; the whole folder, so the next document a test reads cannot be missing.
         shutil.copytree(ROOT / "docs", work / "docs", ignore=ignore)
-        shutil.copy2(ROOT / "README.md", work / "README.md")
+        # The files at the root the tests read: the README, and the checkout's attributes, which the byte-for-byte
+        # fixtures' test holds to `-text` (E588); `test_wiring` derives the list from the tests' own reads.
+        for name in ROOT_FILES_READ:
+            shutil.copy2(ROOT / name, work / name)
         if mutant is not None:
             _name, rel, old, new, _why = mutant
             target = work / rel

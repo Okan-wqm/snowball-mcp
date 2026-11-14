@@ -1430,7 +1430,8 @@ class CycleRecordTest(unittest.TestCase):
                 mock.patch.object(launch.Pilot, "seed_changelogs", return_value=["`seed-040` → `29b:30`"]), \
                 mock.patch.object(launch.Pilot, "owed_reports", return_value=[]), \
                 mock.patch.object(launch.Pilot, "spec_tohum_tree", return_value="t" * 40), \
-                mock.patch.object(launch.Pilot, "target_head", return_value="c" * 40),                 mock.patch.object(launch.Pilot, "wip", return_value=["wip_unmerged_behind:wip/x"]) as wip:
+                mock.patch.object(launch.Pilot, "target_head", return_value="c" * 40), \
+                mock.patch.object(launch.Pilot, "wip", return_value=["wip_unmerged_behind:wip/x"]) as wip:
             seen_now = pilot.observe("b" * 40, "d" * 40)
         self.assertEqual(seen_now, {"spec_tohum_tree": "t" * 40, "target_sha": "c" * 40,
                                     "reports_open": [("seed-040", 0)], "reports_unanswered": [],
@@ -1475,13 +1476,15 @@ class CycleRecordTest(unittest.TestCase):
                 mock.patch.object(launch.Pilot, "owed_reports", lambda self, head, reps, ages, texts:
                                   launch.unanswered_reports(ages, texts, unchanged)), \
                 mock.patch.object(launch.Pilot, "spec_tohum_tree", return_value="t" * 40), \
-                mock.patch.object(launch.Pilot, "target_head", return_value="c" * 40):
+                mock.patch.object(launch.Pilot, "target_head", return_value="c" * 40), \
+                mock.patch.object(launch.Pilot, "wip", return_value=[]):  # no live GitHub call from a test
             unanswered = pilot.observe("b" * 40)["reports_unanswered"]
         self.assertEqual(sorted(unanswered), [("seed-04", 0), ("seed-040-d1-inputs", 0)])
         with mock.patch.object(launch.Pilot, "open_reports", return_value=reports), \
                 mock.patch.object(launch.Pilot, "seed_changelogs", return_value=None), \
                 mock.patch.object(launch.Pilot, "spec_tohum_tree", return_value="t" * 40), \
-                mock.patch.object(launch.Pilot, "target_head", return_value="c" * 40):
+                mock.patch.object(launch.Pilot, "target_head", return_value="c" * 40), \
+                mock.patch.object(launch.Pilot, "wip", return_value=[]):
             self.assertIsNone(pilot.observe("b" * 40)["reports_unanswered"])
         observed = {"spec_tohum_tree": "t" * 40, "target_sha": "c" * 40,
                     "reports_open": [("seed-040-d1-inputs", 30), ("seed-041", 5)],
