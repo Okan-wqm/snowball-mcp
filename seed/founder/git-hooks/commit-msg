@@ -1,0 +1,4 @@
+#!/bin/sh
+# Owner rule: on GitHub only the brain's own identity appears. The CLI writes a co-author trailer naming itself into
+# commit messages; this hook drops that line before the commit is made. Nothing else in the message changes.
+sed -i '/^[Cc]o-[Aa]uthored-[Bb]y: Claude/d' "$1"

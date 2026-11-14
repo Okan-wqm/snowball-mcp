@@ -26,6 +26,7 @@ git config --global user.email "founder@snowball.invalid"
 git config --global init.defaultBranch main
 git config --global --add safe.directory /work/target
 git config --global --add safe.directory /work/brain  # the tmpfs mount point belongs to root; the clone is ours
+git config --global core.hooksPath /opt/founder/git-hooks  # commit-msg drops the CLI's co-author trailer (owner)
 basic=$(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 | tr -d '\n')
 git config --global http.https://github.com/.extraheader "AUTHORIZATION: basic $basic"
 unset GITHUB_TOKEN basic

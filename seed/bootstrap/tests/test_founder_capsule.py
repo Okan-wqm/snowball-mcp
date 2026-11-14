@@ -1902,6 +1902,20 @@ class ImageAndEntrypointTest(unittest.TestCase):
         self.assertIn('CLAUDE_CONFIG_DIR="$(mktemp -d)"', self.entry)
         self.assertNotIn("ANTHROPIC_API_KEY", self.entry + self.dockerfile)
 
+    def test_commits_carry_no_claude_trailer(self):
+        """Owner rule: on GitHub only the brain's own identity appears. The CLI writes a co-author trailer naming
+        itself; a global commit-msg hook baked into the image drops that line and nothing else. Run for real here."""
+        self.assertIn("git config --global core.hooksPath /opt/founder/git-hooks", self.entry)
+        self.assertIn("COPY founder/git-hooks/commit-msg /opt/founder/git-hooks/commit-msg", self.dockerfile)
+        hook = (FOUNDER / "git-hooks" / "commit-msg").read_text(encoding="utf-8")
+        sed = re.search(r"sed -i '([^']*)'", hook)
+        self.assertIsNotNone(sed)
+        pattern = re.compile(sed.group(1).strip("/").removesuffix("/d"))
+        msg = ["Ledger f1: a row", "", "Body names Claude in prose.", "Co-Authored-By: Claude <noreply@anthropic.com>",
+               "co-authored-by: Claude Opus <noreply@anthropic.com>", "Co-Authored-By: Okan-wqm <x@users.noreply.github.com>"]
+        kept = [line for line in msg if not pattern.search(line)]
+        self.assertEqual(kept, msg[:3] + msg[5:])
+
     def test_four_tools_are_denied_and_no_other_is_narrowed(self):  # E380
         """RemoteTrigger is the one default tool whose effect can outlive the capsule; the Cron tools die with the
         session and were never used. Every other default tool stays: the session's tool set is the Founder's."""
