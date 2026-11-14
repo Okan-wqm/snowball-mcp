@@ -70,8 +70,52 @@ jobs:
         shell: bash
         run: python -m unittest discover -s tests
 
-  mutation:
+  # A push to main that changes only pages (spec/, docs/, *.md) runs the mutants anchored in those pages in one job
+  # (`mutate.mutants_for_changed`); any other change, the weekly run and a manual run run every mutant in shards.
+  mutation-plan:
     if: github.event_name != 'pull_request' && (github.event_name != 'push' || github.ref == 'refs/heads/main')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      mode: ${{ steps.plan.outputs.mode }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - id: plan
+        env:
+          BEFORE: ${{ github.event.before }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          mode=full
+          if [ "$EVENT" = push ] && [ -n "$BEFORE" ] && [ "$BEFORE" != 0000000000000000000000000000000000000000 ] \
+             && git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+            git diff --name-only "$BEFORE" HEAD > changed.txt
+            if [ -s changed.txt ] && ! grep -qvE '^(spec/|docs/)|\.md$' changed.txt; then mode=pages; fi
+          fi
+          echo "mode=$mode" >> "$GITHUB_OUTPUT"
+          echo "mutation mode: $mode"
+
+  mutation-pages:
+    needs: mutation-plan
+    if: needs.mutation-plan.outputs.mode == 'pages'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Mutants anchored in the changed pages (every one must be killed)
+        working-directory: seed/bootstrap
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: git diff --name-only "$BEFORE" HEAD > /tmp/changed.txt && python3 local/mutate.py --changed /tmp/changed.txt
+
+  mutation:
+    needs: mutation-plan
+    if: needs.mutation-plan.outputs.mode == 'full'
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     strategy:
