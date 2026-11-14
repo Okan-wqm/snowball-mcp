@@ -414,8 +414,8 @@ yeniden aktarım; E540):
    okumaz: Bypass list'e kimse eklenmez). Yalnız oyuncak ve kopyada, yalnız `brain/` dalları;
 4. `git -C $E/referee revert --no-edit <AKTARIM> && git -C $E/referee push -q origin main`: önyükleme hakemi
    etkilenmez, Kurucu'nun yolu açık kalır; sonra kill switch kapalı ve `control.json` `reverted_exits`'e (A)'nın
-   `brain_sha`'sı eklenmiş, it (`26c`; E333'ü taşıyan tohum döneminden sonra: o olmadan `referee/`'ye dokunan her push
-   `referee_changed_after_exit` kalır). Geri alma sayaç satırını da siler; insan dokunuşu sayacı bir eksik sayar (E546,
+   `brain_sha`'sı eklenmiş, it (`26c`; durum (A)'nın başını unutur, `29u`; tohum dönemi K'dan beri `referee/`'ye
+   dokunan push zaten olağan yargılanır, E590). Geri alma sayaç satırını da siler; insan dokunuşu sayacı bir eksik sayar (E546,
    sahibe açık): dokunuşu `pilot-log.md`'ye yaz;
 5. nedeni `pilot-log.md`'ye; düzeltilmiş SHA (A)'dan yeniden geçer, aktarımı yine dokunuştur ([Adımlar](#adımlar)
    2–4); prova fikstürleri yeni aktarım satırı için yeniden üretilir ve sırrı yazılır (`26f`; yanmış küme yeniden

@@ -32,7 +32,7 @@ yoktur; değilse komut bir kez daha koşar ve iki koşunun çıktıları birbiri
   çıkış ya da dolan süre).
 
 **Aşama.** Aşama 0'da (`setup/stage.json` yok) bulgu imzalı sonucun `warnings`'ine `<ad>:docs/map/brain.md` olarak
-yazılır; karar, ret nedenleri, seriler ve donmuş çıkış değişmez. Kilit Aşama 1'i açınca (`asama-0/10a`) aynı ad ret
+yazılır; karar, ret nedenleri, seriler ve imzalı çıkış değişmez. Kilit Aşama 1'i açınca (`asama-0/10a`) aynı ad ret
 nedenidir, `detail`'i koşunun ne gördüğünü söyler; Kurucu'nun düzeltebildiği rettir ve ret hafızasında sayılır (`29b`).
 
 **Okunuş.** Bulgu yalnız testleri koşulan push'ta okunur: `pull`'un reddettiği push'ta testler koşmaz, bulgu da yoktur.
