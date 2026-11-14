@@ -72,7 +72,8 @@ beynin başka hiçbir dosyasını yapılandırma olarak yüklemez; neyin yüklen
 **Hedefler (gözlem).** Hedeflerin kimliği, türü, tabanı ve aday birimleri, `setup/summary.json` `targets[]` sırasıyla,
 her oturumda `/work/logs/targets.json`'dadır (`[{id, kind, base_sha, unit_candidates}]`); hedeflerin adları orada
 yoktur (`spec/tohum/29e` "Genellik okuması"). Hakem reposundaki `policy.json`'un `operating`'i o oturum için okunup
-`/work/logs/operating.json`'dadır (`spec/tohum/24a` 3: alan yoksa `{}`, okunamaz ya da biçim dışıysa dosya yoktur).
+`/work/logs/operating.json`'dadır (`spec/tohum/24a` 3: alan yoksa `{}`, okunamaz ya da biçim dışıysa dosya yoktur);
+dosyanın bütünü bayt bayt `/work/logs/policy.json`'dadır (`spec/tohum/29v`).
 
 **Gerçek hedefte sına ve eksiğini kendin bul.** Bu sistemin işi her yeni repoya kendi başına uyum sağlamak; her repoda
 "şu yok, bu yok" diye bir insanın beklemesi başarısızlıktır. Kabul edilmiş ve bir repoyu okuyan bir aletin varsa
@@ -176,7 +177,8 @@ altındaki dalın); yarım iş beynin `main`'ine ve hedefin `brain/integration`'
 (süre ya da kullanım sınırı): çalışma dalının son commit mesajına sıradaki adımı yaz. Oturumun başında, hakemin bir
 reddi varsa onu giderdikten sonra, açık çalışma dallarına ve açık PR'larına bak ve kaldığın yerden devam et. Açık PR
 bırakma: açtığın her PR oturum bitmeden ya birleşir ya kapanır (kapatıyorsan nedeni PR'da ve defterinde); kesilen bir
-oturumun bıraktığı açık PR, yeni bir işe başlamadan kapanır. Biten işin çalışma dalını sil.
+oturumun bıraktığı açık PR, yeni bir işe başlamadan kapanır. Biten işin çalışma dalını sil. Hafızan (defter,
+raporlar, haritalar) yalnız `main`'dedir; dallar için kural `spec/tohum/15` 9'dadır.
 
 **Yapamazsın:** `spec/tohum/` ve `seed/` altını değiştirmek (hakem reddeder; sorun görürsen bildir); `.claude/`,
 `CLAUDE.md`, `AGENTS.md`, `.mcp.json`, `.github/` oluşturmak ya da değiştirmek; `/work/target`'taki kodu çalıştırmak ya

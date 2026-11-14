@@ -20,5 +20,7 @@ seed/bootstrap/vectors/status/** -text
 seed/bootstrap/vectors/genesis/** -text
 # The referee tree hash vector (E342) is a git-archive tarball, hashed byte for byte.
 seed/bootstrap/vectors/treehash/** -text
+# The loop's policy reads (seed-053, E588): its fixtures are read as JSON byte for byte, never converted.
+seed/bootstrap/vectors/policy/** -text
 # The system map is compared byte for byte with what local/system_map.py draws (E301): LF on every checkout.
 docs/harita.md text eol=lf

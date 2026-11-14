@@ -41,6 +41,7 @@ WSL$ E=~/etkinlestirme; SHA=<2. adımdaki brain_sha>; ID=https://github.com/Okan
 | Ö4 | Sahip 5. adım için ulaşılabilir (web arayüzü, yaklaşık yarım saat) | — |
 | Ö5 | 0. adım bir kez yapılmış | yapılmadı |
 | Ö6 | Oyuncağa ekilecek canlı prova fikstürleri (`22a`, `asama-0/01` D8; `26f`): onlarsız D8 canlı koşmaz, (B)'nin #geri-alma'sı ölçülemez, PASS yazılamaz | yok. Yeri, biçimi ve kuralları `26f`'te (E499): hakemin ikinci prova sırrı, o aktarım satırına bağlı; operatör aktarımdan sonra ve 7. adımdan önce tohumun `drill-fixtures` komutuyla üretir (6a), her aktarımda yeniden; komut snowball-mcp `tools/drill-fixtures` dalında, hakemin `bootstrap/`'ına bir tohum dönemiyle gelir |
+| Ö7 | Tohum dönemi K (E590, `29u`) süren (B) denemesi bitmeden teslim edilmez: teslim kill switch'i açar (`25`). Deneme yeşilse aktarılan SHA kalır, kırmızıysa [Başarısızlık](#başarısızlık) 4 (E576). K'dan sonra, beynin D1'i aktarım satırının `brain_sha`'sına karşı karşılaştıran kodu aktarılana dek, kabul edilen ilk `referee/` push'u `çek`'i `referee_tree_mismatch` ile durdurur (E591 1; kapalıya düşer, `referee_ahead_of_exit` push'u adlandırır): operatör bunu bekler, el yaması yapmaz, sahibe söyler | 2026-11-14: (B) denemesi `82128c3` ile sürüyor; K teslim edilmedi |
 
 ## Adımlar
 
@@ -414,9 +415,9 @@ yeniden aktarım; E540):
    okumaz: Bypass list'e kimse eklenmez). Yalnız oyuncak ve kopyada, yalnız `brain/` dalları;
 4. `git -C $E/referee revert --no-edit <AKTARIM> && git -C $E/referee push -q origin main`: önyükleme hakemi
    etkilenmez, Kurucu'nun yolu açık kalır; sonra kill switch kapalı ve `control.json` `reverted_exits`'e (A)'nın
-   `brain_sha`'sı eklenmiş, it (`26c`; E333'ü taşıyan tohum döneminden sonra: o olmadan `referee/`'ye dokunan her push
-   `referee_changed_after_exit` kalır). Geri alma sayaç satırını da siler; insan dokunuşu sayacı bir eksik sayar (E546,
-   sahibe açık): dokunuşu `pilot-log.md`'ye yaz;
+   `brain_sha`'sı eklenmiş, it (`26c`; durum (A)'nın başını unutur, `29u`; tohum dönemi K'dan beri `referee/`'ye
+   dokunan push zaten olağan yargılanır, E590). Geri alma sayaç satırını da siler; insan dokunuşu sayacı bir eksik
+   sayar (E546, sahibe açık): dokunuşu `pilot-log.md`'ye yaz;
 5. nedeni `pilot-log.md`'ye; düzeltilmiş SHA (A)'dan yeniden geçer, aktarımı yine dokunuştur ([Adımlar](#adımlar)
    2–4); prova fikstürleri yeni aktarım satırı için yeniden üretilir ve sırrı yazılır (`26f`; yanmış küme yeniden
    kullanılmaz, Ö6). Sonra 7. adım: (B) iki hedefte yeni defterlerin ilk genesis'inden koşar.

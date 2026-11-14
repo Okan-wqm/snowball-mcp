@@ -80,33 +80,33 @@ flowchart LR
 
 ## 2. Referee package: `seed/bootstrap/snowball_bootstrap`
 
-30 modules, 88 imports inside the package, 1 started as a separate process. Areas are roles. The overview has 5 areas and 13 edges; an arrow's number is how many imports cross from one area to the other.
+31 modules, 94 imports inside the package, 1 started as a separate process. Areas are roles. The overview has 5 areas and 13 edges; an arrow's number is how many imports cross from one area to the other.
 
 ```mermaid
 flowchart LR
   a_Entry["Entry<br/>3 modules"]
   a_Intake["Intake<br/>10 modules"]
-  a_Sandbox["Sandbox<br/>7 modules"]
+  a_Sandbox["Sandbox<br/>8 modules"]
   a_Rival["Rival<br/>4 modules"]
   a_Judgement["Judgement<br/>6 modules"]
   a_Entry -->|10| a_Intake
   a_Entry -->|6| a_Judgement
   a_Entry -->|2| a_Rival
-  a_Entry -->|6| a_Sandbox
+  a_Entry -->|7| a_Sandbox
   a_Intake -->|1| a_Judgement
   a_Judgement -->|9| a_Intake
   a_Judgement -->|4| a_Rival
-  a_Judgement -->|1| a_Sandbox
+  a_Judgement -->|2| a_Sandbox
   a_Rival -->|3| a_Intake
   a_Rival -->|1| a_Sandbox
   a_Sandbox -->|3| a_Intake
   a_Sandbox -->|3| a_Judgement
-  a_Sandbox -->|1| a_Rival
+  a_Sandbox -->|2| a_Rival
 ```
 
 ### Entry
 
-3 modules, 25 edges out of them.
+3 modules, 26 edges out of them.
 
 ```mermaid
 flowchart LR
@@ -144,6 +144,7 @@ flowchart LR
     m_manifest["manifest"]:::outside
     m_moduleless["moduleless"]:::outside
     m_parts["parts"]:::outside
+    m_policyreads["policyreads"]:::outside
     m_selfmap["selfmap"]:::outside
     m_vectors["vectors"]:::outside
   end
@@ -163,6 +164,7 @@ flowchart LR
   m_cli --> m_manifest
   m_cli --> m_moduleless
   m_cli --> m_parts
+  m_cli --> m_policyreads
   m_cli --> m_reproduce
   m_cli --> m_rival
   m_cli --> m_selfmap
@@ -237,7 +239,7 @@ flowchart LR
 
 ### Sandbox
 
-7 modules, 16 edges out of them.
+8 modules, 20 edges out of them.
 
 ```mermaid
 flowchart LR
@@ -247,6 +249,7 @@ flowchart LR
     m_manifest["manifest"]
     m_moduleless["moduleless"]
     m_parts["parts"]
+    m_policyreads["policyreads"]
     m_selfmap["selfmap"]
     m_vectors["vectors"]
   end
@@ -269,8 +272,12 @@ flowchart LR
   m_parts --> m_canon
   m_parts --> m_container
   m_parts --> m_controls
+  m_parts --> m_policyreads
   m_parts --> m_selfmap
   m_parts --> m_vectors
+  m_policyreads --> m_container
+  m_policyreads --> m_moduleless
+  m_policyreads --> m_secretscan
   m_selfmap --> m_container
   m_selfmap --> m_moduleless
   m_selfmap --> m_treehash
@@ -281,11 +288,12 @@ flowchart LR
 
 | Module | What it is (first sentence of its docstring) | Imported by |
 |---|---|---|
-| `container` | Run untrusted code in a nested, network-less, unprivileged container (`tohum/08` 2). | `cli`, `controls`, `moduleless`, `parts`, `reproduce`, `selfmap`, `vectors` |
+| `container` | Run untrusted code in a nested, network-less, unprivileged container (`tohum/08` 2). | `cli`, `controls`, `moduleless`, `parts`, `policyreads`, `reproduce`, `selfmap`, `vectors` |
 | `controls` | Red controls: known answers about the runner itself (`tohum/08` 3). | `parts` |
 | `manifest` | The founder's test manifest (`snowball-tests.json`, `tohum/26c`) and its lock files. | `cli` |
-| `moduleless` | Module-less red (`asama-0/14`; `tohum/04` 1, "Kasıtlı bozma"): a micro-feature's tests fail without it. | `cli`, `selfmap` |
+| `moduleless` | Module-less red (`asama-0/14`; `tohum/04` 1, "Kasıtlı bozma"): a micro-feature's tests fail without it. | `cli`, `policyreads`, `selfmap` |
 | `parts` | `kos` in parts (E440): one push's run shared out among N parallel jobs and joined into the single job's `run.json`. | `cli` |
+| `policyreads` | The loop's reads of `policy.json`, asked of the loop itself (`tohum/29v`; the Founder's report seed-053, E588). | `cli`, `decide`, `parts` |
 | `selfmap` | The brain's own map, held to its generator by the referee (`tohum/29t`; the owner's decision of 2026-11-14, E585). | `cli`, `decide`, `parts` |
 | `vectors` | Apply the seed vectors (`tohum/29a`, `29d`) to the founder's code through the fixed interface. | `cli`, `parts` |
 
@@ -326,11 +334,11 @@ flowchart LR
 | `reproduce` | Run reproducers in the same sandbox as the tests (`tohum/29`, "Rakibin kuralları"). | `cli`, `decide` |
 | `rival` | The seed rival (`tohum/29`), run through the operator's own ``claude`` CLI. | `cli`, `decide`, `reproduce`, `rival_mcp`, `state` |
 | `rival_mcp` | Stdio MCP server that gives the seed rival (`tohum/29`) its four tools. | - |
-| `secretscan` | Secret patterns checked before any text leaves for the model provider (`tohum/08` 11). | `decide`, `moduleless`, `reproduce`, `rival`, `rival_mcp` |
+| `secretscan` | Secret patterns checked before any text leaves for the model provider (`tohum/08` 11). | `decide`, `moduleless`, `policyreads`, `reproduce`, `rival`, `rival_mcp` |
 
 ### Judgement
 
-6 modules, 21 edges out of them.
+6 modules, 22 edges out of them.
 
 ```mermaid
 flowchart LR
@@ -354,11 +362,13 @@ flowchart LR
     m_secretscan["secretscan"]:::outside
   end
   subgraph a_Sandbox["Sandbox"]
+    m_policyreads["policyreads"]:::outside
     m_selfmap["selfmap"]:::outside
   end
   m_decide --> m_config
   m_decide --> m_exitchecks
   m_decide --> m_ledgercheck
+  m_decide --> m_policyreads
   m_decide --> m_reproduce
   m_decide --> m_rival
   m_decide --> m_secretscan
@@ -402,9 +412,9 @@ Every subcommand of `cli.py`, the jobs that run it, and the package modules its 
 | `fetch-state` | `cek` | `cmd_fetch_state` | `canon`, `config`, `decide`, `ghapi`, `importer`, `state` |
 | `pull` | `cek` | `cmd_pull` | `canon`, `classify`, `config`, `decide`, `exitchecks`, `gitio`, `ledgercheck`, `manifest`, `rival`, `selfmap`, `stagelock`, `stages`, `state`, `treehash`, `wiring` |
 | `fetch-deps` | `getir` | `cmd_fetch_deps` | `canon`, `manifest`, `treehash` |
-| `run-tests` | operator / local | `cmd_run_tests` | `canon`, `config`, `container`, `licenses`, `moduleless`, `parts`, `selfmap`, `stagelock`, `treehash`, `vectors` |
-| `run-part` | `kos_parca` | `cmd_run_part` | `canon`, `config`, `container`, `licenses`, `moduleless`, `parts`, `selfmap`, `stagelock`, `treehash`, `vectors` |
-| `join-parts` | `kos` | `cmd_join_parts` | `canon`, `config`, `licenses`, `moduleless`, `parts`, `selfmap`, `stagelock`, `treehash`, `vectors` |
+| `run-tests` | operator / local | `cmd_run_tests` | `canon`, `config`, `container`, `licenses`, `moduleless`, `parts`, `policyreads`, `selfmap`, `stagelock`, `treehash`, `vectors` |
+| `run-part` | `kos_parca` | `cmd_run_part` | `canon`, `config`, `container`, `licenses`, `moduleless`, `parts`, `policyreads`, `selfmap`, `stagelock`, `treehash`, `vectors` |
+| `join-parts` | `kos` | `cmd_join_parts` | `canon`, `config`, `licenses`, `moduleless`, `parts`, `policyreads`, `selfmap`, `stagelock`, `treehash`, `vectors` |
 | `rival` | `cagir` | `cmd_rival` | `canon`, `config`, `rival`, `stagelock`, `stages`, `treehash` |
 | `reproduce` | `yeniden` | `cmd_reproduce` | `canon`, `config`, `container`, `reproduce`, `treehash`, `vectors` |
 | `decide` | `yaz` | `cmd_decide` | `canon`, `config`, `decide`, `stagelock` |
@@ -418,7 +428,7 @@ Every subcommand of `cli.py`, the jobs that run it, and the package modules its 
 
 ## 3. Launcher links
 
-`seed/founder/launch.py` runs on the operator's machine and imports 8 referee modules, so the launcher applies the referee's own rules instead of a copy (E244). Through them it loads 18: `canon`, `classify`, `config`, `container`, `decide`, `exitchecks`, `gitio`, `ledgercheck`, `moduleless`, `reproduce`, `rival`, `secretscan`, `selfmap`, `stages`, `state`, `treehash`, `vectors`, `wiring`.
+`seed/founder/launch.py` runs on the operator's machine and imports 9 referee modules, so the launcher applies the referee's own rules instead of a copy (E244). Through them it loads 19: `canon`, `classify`, `config`, `container`, `decide`, `exitchecks`, `gitio`, `ledgercheck`, `moduleless`, `policyreads`, `reproduce`, `rival`, `secretscan`, `selfmap`, `stages`, `state`, `treehash`, `vectors`, `wiring`.
 
 ```mermaid
 flowchart LR
@@ -428,6 +438,7 @@ flowchart LR
     m_config["config"]
     m_gitio["gitio"]
     m_ledgercheck["ledgercheck"]
+    m_secretscan["secretscan"]
     m_classify["classify"]
     m_decide["decide"]
     m_exitchecks["exitchecks"]
@@ -437,6 +448,7 @@ flowchart LR
   launcher -->|module| m_config
   launcher -->|module| m_gitio
   launcher -->|module| m_ledgercheck
+  launcher -->|module| m_secretscan
   launcher -->|LEDGER_FILE, SEED_DIRS, is_founder_record, is_seed_path| m_classify
   launcher -->|counts_against_founder, is_brake_stop| m_decide
   launcher -->|fold, target_names| m_exitchecks

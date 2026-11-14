@@ -8,7 +8,8 @@ One cycle:
   5. write the session's cost as a `kind: cost` founder row on the brain's main (`tohum/24a` 4), when that commit is
      memory alone to the referee; otherwise keep it in <work>/cost-pending.jsonl for a later cycle;
   6. append what happened to <work>/pilot-log.md (with the brain's open reports and their age, and apart those no
-     changelog of the brain's seed names, the operator's unanswered ones, E527) and one metrics line that names what
+     changelog of the brain's seed names, the operator's unanswered ones, E527; and the brain's `wip/` branches that
+     hold the Founder's memory or have fallen behind the last accepted head, E592) and one metrics line that names what
      the cycle ran on (prompt, image, model, CLI, seed, rival configuration, target commit).
 
 Everything lives in one folder, <work> (the operator deletes it to remove the pilot):
@@ -20,7 +21,8 @@ Everything lives in one folder, <work> (the operator deletes it to remove the pi
                                 contradicts its page stays red until the operator answers with a seed epoch.
   <work>/logs/                  session transcripts; each session's folder also holds previous-session.json,
                                 targets.json, the targets' [{id, kind, base_sha, unit_candidates}] (seed-049, E571;
-                                seed-050, E577), and operating.json, policy.json's operating{} read for that session
+                                seed-050, E577), operating.json, policy.json's operating{} read for that session, and
+                                policy.json, the referee repo's file byte for byte from that same read (seed-053, E588)
   <work>/pilot-log.md           the operator's report
   <work>/STOP                   create this file to stop after the current step
   <work>/cost-pending.jsonl     cost rows not written yet: the brain held work the referee had not accepted
@@ -69,8 +71,8 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 SEED = HERE.parent
 sys.path.insert(0, str(SEED / "bootstrap"))
-from snowball_bootstrap import canon, config, gitio, ledgercheck  # noqa: E402  (the chain rule, the referee's git,
-# its strict reading of targets[] and its ledger check)
+from snowball_bootstrap import canon, config, gitio, ledgercheck, secretscan  # noqa: E402  (the chain rule, the
+# referee's git, its strict reading of targets[], its ledger check and its secret patterns)
 from snowball_bootstrap.classify import (LEDGER_FILE, SEED_DIRS, is_founder_record,  # noqa: E402  (what is memory
                                          is_seed_path)  # and what is the operator's delivery to the referee)
 from snowball_bootstrap.decide import counts_against_founder, is_brake_stop  # noqa: E402  (the referee's rule)
@@ -108,6 +110,8 @@ TARGETS_NOTE = "targets.json"  # each session's targets, never their names (seed
 OPERATING_NOTE = "operating.json"  # policy.json's operating{} alone, read for each session (seed-050, E577)
 OPERATING_KEYS = ("unit_inputs_bytes", "deps_bytes", "worktree_bytes", "container_mem_bytes", "kos_wall_s",
                   "test_total_s", "output_bytes")  # `26c`'s seven, in its order
+POLICY_NOTE = "policy.json"  # the referee repo's policy.json byte for byte, read for each session (seed-053, E588)
+POLICY_NOTE_MAX = 256 * 1024  # a larger file is no policy of thresholds and brakes: no copy (`29v`)
 READY_RETRY_S = 30
 TASK_NAME = "Snowball Founder launcher"
 TASK_EVERY = "PT15M"
@@ -469,6 +473,20 @@ def unchanged_since_naming(clone: Path, rid: str, file: str, head: str,
     return False
 
 
+def target_rows(summary: dict) -> tuple:
+    """`setup/summary.json` ``targets[]`` read by the referee's own rule (`config.target`), so a row the referee
+    refuses is refused here too (ValueError); () when there is no target yet."""
+    rows = summary.get("targets")
+    if rows is None:
+        return ()
+    if not isinstance(rows, list):
+        raise ValueError("setup/summary.json targets must be a list (`26c`)")
+    try:
+        return tuple(config.target(row, f"setup/summary.json targets[{i}]") for i, row in enumerate(rows))
+    except config.ConfigError as exc:
+        raise ValueError(str(exc)) from exc
+
+
 def target_ids(summary: dict) -> list[dict]:
     """``[{id, kind, base_sha, unit_candidates}]`` of `setup/summary.json` ``targets[]``, in its order: what a session
     needs to name a target's folder (`24a`, seed-049, E571) and to propose its unit against the row the referee judges
@@ -477,15 +495,7 @@ def target_ids(summary: dict) -> list[dict]:
     a target's name once folded (`exitchecks.fold`) would carry the name to the session, so it stops the start too,
     named by its field and index only (E290). ``base_sha`` is not folded: the referee's rule already holds it to 40
     hex digits or null, which carry no text. No ``targets[]`` is no target yet: an empty list."""
-    rows = summary.get("targets")
-    if rows is None:
-        return []
-    if not isinstance(rows, list):
-        raise ValueError("setup/summary.json targets must be a list (`26c`)")
-    try:
-        targets = tuple(config.target(row, f"setup/summary.json targets[{i}]") for i, row in enumerate(rows))
-    except config.ConfigError as exc:
-        raise ValueError(str(exc)) from exc
+    targets = target_rows(summary)
     names = target_names(targets)
     for i, t in enumerate(targets):
         if any(name in fold(t.id) for _t, _j, name in names):
@@ -533,6 +543,89 @@ def operating_values(policy) -> dict:
     return {"operating": shown}
 
 
+def _no_repeated_key(pairs: list) -> dict:
+    if len({key for key, _value in pairs}) != len(pairs):
+        raise ValueError("duplicate_key")
+    return dict(pairs)
+
+
+def _non_finite(_constant: str):
+    raise ValueError("non_finite")
+
+
+def _texts(value):
+    """Every key and string value of a parsed JSON document."""
+    if isinstance(value, dict):
+        for key, item in value.items():
+            yield key
+            yield from _texts(item)
+    elif isinstance(value, list):
+        for item in value:
+            yield from _texts(item)
+    elif isinstance(value, str):
+        yield value
+
+
+def policy_copy(raw: bytes, names: list) -> bytes:
+    """What `/work/logs/policy.json` holds (`24a` 3, `29v`; seed-053, E588): the referee repo's `policy.json` byte for
+    byte, so the Founder runs its own readers over the real file. The file holds thresholds and brakes, no secret, but
+    it is operator text: one that is not a strict JSON object (a key twice at any depth, `NaN` or an infinity, nesting
+    past the parser, other than UTF-8 JSON), larger than POLICY_NOTE_MAX, or carrying a secret's shape (`secretscan`)
+    or a target's folded name in a key or a string (``names``, `target_names`, E290) is not copied: ValueError naming
+    the class only, never the text."""
+    def refuse(why: str):
+        return ValueError(f"policy.json is not copied: {why} (`29v`)")
+    if len(raw) > POLICY_NOTE_MAX:
+        raise refuse("too_large")
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError:
+        raise refuse("not_utf8") from None
+    try:
+        doc = json.loads(text, object_pairs_hook=_no_repeated_key, parse_constant=_non_finite)
+    except RecursionError:
+        raise refuse("too_deep") from None
+    except ValueError as exc:
+        raise refuse(str(exc) if str(exc) in ("duplicate_key", "non_finite") else "not_json") from None
+    if not isinstance(doc, dict):
+        raise refuse("not_an_object")
+    if secretscan.scan(text):
+        raise refuse("secret_shape")
+    if any(name in fold(item) for item in _texts(doc) for _t, _j, name in names):
+        raise refuse("target_name")
+    return raw
+
+
+WIP_PREFIX = "wip/"  # the Founder's side branches (prompt.md "İşi bitirerek ilerle"); memory lives on main (E592)
+COMPARE_FILES_MAX = 300  # GitHub's compare lists at most this many files: a full list may be cut, so it is unknown
+
+
+def is_memory(path: str) -> bool:
+    """The Founder's memory as the owner named it (2026-11-14, `15` 9, E592): the ledger, the reports and the maps."""
+    return is_founder_record(path) or path.startswith("docs/map/")
+
+
+def wip_findings(branches: list[dict], compare: Callable[[str, str], dict], last_accepted: str | None) -> list[str]:
+    """What the operator is told of the brain's `wip/` branches (`15` 9, E592), each ``{name, sha}``: a branch with
+    commits `main` lacks that touch the Founder's memory (`wip_memory_off_main:<branch>`), and one with such commits
+    that lacks the last accepted head (`wip_unmerged_behind:<branch>`: topological, no clock). A branch `main` holds
+    whole is merged and says nothing. ``compare(base, head)`` is GitHub's compare of two commits; it raises, or the
+    file list is cut, and the whole answer is unknown (ValueError): never "none"."""
+    found = []
+    for branch in sorted(branches, key=lambda b: b["name"]):
+        mine = compare("main", branch["sha"])
+        if not mine.get("ahead_by"):
+            continue
+        files = [str(f.get("filename", "")) for f in mine.get("files") or []]
+        if len(files) >= COMPARE_FILES_MAX:
+            raise ValueError(f"{WIP_PREFIX}{branch['name']}: the compare lists {len(files)} files, maybe not all")
+        if any(is_memory(f) for f in files):
+            found.append(f"wip_memory_off_main:{WIP_PREFIX}{branch['name']}")
+        if last_accepted and compare(last_accepted, branch["sha"]).get("behind_by"):
+            found.append(f"wip_unmerged_behind:{WIP_PREFIX}{branch['name']}")
+    return found
+
+
 def write_build_context(ctx: Path) -> None:
     """Copy exactly the files the image needs, with LF line ends: a Windows checkout may hand over CRLF, and a CR
     after the entrypoint's shebang makes the container fail before it starts (E152)."""
@@ -567,6 +660,7 @@ class Pilot:
         self.seed = ""  # the brain commit the referee's setup summary pins; the capsule cuts history there
         self.epoch: str | None = None  # the last seed epoch's brain commit (`26c` seed_epochs[]), if any
         self.targets: list[dict] = []  # `target_ids` of the summary, each session's targets.json (E571, E577)
+        self.withheld: list = []  # the targets' folded names (`target_names`), kept out of policy.json's copy (E588)
         self.brain_remote = f"https://github.com/{brain}.git"
         self.prompt_sha256: str | None = None  # what this launcher start built the capsule with (E313)
         self.context_sha256: str | None = None  # and every build file the image holds (E506)
@@ -592,7 +686,9 @@ class Pilot:
             if not re.fullmatch(r"[0-9a-f]{40}", self.seed):
                 problems.append(f"{self.referee} setup/summary.json has no seed_commit")
             try:
-                self.targets = target_ids(self.summary())
+                summary = self.summary()
+                self.targets = target_ids(summary)
+                self.withheld = target_names(target_rows(summary))
             except ValueError as exc:  # a summary the referee refuses, or an id that would carry a name (E290)
                 problems.append(f"{self.referee} {exc}")
         if problems:
@@ -609,10 +705,14 @@ class Pilot:
             return {}
         return data if isinstance(data, dict) else {}
 
-    def policy(self):
-        """The referee repo's `policy.json` from its main, parsed, read now: raises GitHubUnavailable or ValueError,
-        never another error for what the file holds (nesting past Python's recursion limit is a ValueError too)."""
-        raw = gh_read("api", "-H", "Accept: application/vnd.github.raw", f"repos/{self.referee}/contents/policy.json")
+    def policy_raw(self) -> bytes:
+        """The referee repo's `policy.json` from its main, its bytes, read now: raises GitHubUnavailable."""
+        return gh_read("api", "-H", "Accept: application/vnd.github.raw", f"repos/{self.referee}/contents/policy.json")
+
+    @staticmethod
+    def policy(raw: bytes):
+        """``raw`` parsed: raises ValueError, never another error for what the file holds (nesting past Python's
+        recursion limit is a ValueError too)."""
         try:
             return json.loads(raw)
         except RecursionError:
@@ -737,6 +837,40 @@ class Pilot:
             return None
         return [o["text"] for o in logs]
 
+    WIP_QUERY = ("query($owner:String!,$name:String!){repository(owner:$owner,name:$name){refs(refPrefix:"
+                 "\"refs/heads/wip/\",first:100){pageInfo{hasNextPage} nodes{name target{oid}}}}}")
+
+    def wip_branches(self) -> list[dict] | None:
+        """The brain's `wip/` branches, each ``{name, sha}`` (name without the prefix), in one read-only GraphQL call;
+        None when they cannot be read or more than one page holds them."""
+        owner, name = self.brain.split("/", 1)
+        proc = run("gh", "api", "graphql", "-f", f"query={self.WIP_QUERY}", "-f", f"owner={owner}", "-f",
+                   f"name={name}", check=False, timeout=120)
+        try:
+            refs = json.loads(proc.stdout)["data"]["repository"]["refs"] if proc.returncode == 0 else None
+            if refs is None or refs["pageInfo"]["hasNextPage"]:
+                return None
+            return [{"name": str(n["name"]), "sha": str(n["target"]["oid"])} for n in refs["nodes"]]
+        except (ValueError, TypeError, KeyError):
+            return None
+
+    def wip(self, last_accepted: str | None) -> list[str] | None:
+        """`wip_findings` of the brain's `wip/` branches against `main` and the last accepted head; None when any read
+        fails (unknown, never "none", E527's rule)."""
+        branches = self.wip_branches()
+        if branches is None:
+            return None
+
+        def compare(base: str, head: str) -> dict:
+            found = gh_json("api", f"repos/{self.brain}/compare/{base}...{head}")
+            if not isinstance(found, dict):
+                raise ValueError("compare: not an object")
+            return found
+        try:
+            return wip_findings(branches, compare, last_accepted)
+        except (GitHubUnavailable, ValueError, TypeError, KeyError):
+            return None
+
     def open_reports(self, sha: str) -> list[dict] | None:
         """The brain's root `reports/*.json` at sha, each `{file, id, state}`, in one read-only GraphQL call; None when
         it cannot be read."""
@@ -755,10 +889,10 @@ class Pilot:
             out.append({"file": entry["name"], "id": doc.get("id"), "state": doc.get("state")})
         return out
 
-    def observe(self, head: str) -> dict:
+    def observe(self, head: str, last_accepted: str | None = None) -> dict:
         """What this cycle's outcome is attributed to, read after the session (E313): the brain's seed text and open
-        reports at head, which of them no changelog of the seed it holds names (E527), and the target commit the capsule
-        mounted."""
+        reports at head, which of them no changelog of the seed it holds names (E527), the target commit the capsule
+        mounted, and the brain's `wip/` branches the operator should hear of (E592)."""
         reports = self.open_reports(head)
         seen_path = self.work / REPORTS_SEEN
         try:
@@ -771,7 +905,8 @@ class Pilot:
         return {"spec_tohum_tree": self.spec_tohum_tree(head), "target_sha": self.target_head(),
                 "reports_open": None if reports is None else ages,
                 "reports_unanswered": (None if changelogs is None
-                                       else self.owed_reports(head, reports, ages, changelogs))}
+                                       else self.owed_reports(head, reports, ages, changelogs)),
+                "wip": self.wip(last_accepted)}
 
     def owed_reports(self, head: str, reports: list[dict], ages: list[tuple[str, int]],
                      changelogs: list[str]) -> list[tuple[str, int]] | None:
@@ -1054,19 +1189,31 @@ class Pilot:
         (folder / TARGETS_NOTE).write_text(json.dumps(self.targets, ensure_ascii=False, sort_keys=True) + "\n",
                                            encoding="utf-8")
 
-    def operating_note(self, stamp: str) -> None:
-        """`operating_values` of the referee repo's `policy.json`, read for this session, into its folder as
-        `operating.json` (seed-050, E577): the operator writes `operating{}` while the pilot runs (E579), so it is
-        never kept from an earlier read. A policy that cannot be read, or whose `operating` is not `26c`'s shape,
-        leaves no file and a warning; never ``{}``, which says the operator wrote none."""
-        try:
-            note = operating_values(self.policy())
-        except (GitHubUnavailable, ValueError) as exc:
-            say(f"{OPERATING_NOTE} not written for {stamp}: {exc}")
-            return
+    def policy_notes(self, stamp: str) -> None:
+        """The referee repo's `policy.json`, read once for this session, into its folder twice (`24a` 3): as
+        `operating.json`, `operating_values` of it (seed-050, E577), and as `policy.json`, `policy_copy` of its bytes
+        (seed-053, E588). The operator writes the file while the pilot runs (E579), so it is never kept from an earlier
+        read. Each file is written or withheld on its own; a withheld one leaves a warning and no file, never ``{}``,
+        which says the operator wrote no `operating`."""
         folder = self.session_logs(stamp)
         folder.mkdir(parents=True, exist_ok=True)
-        (folder / OPERATING_NOTE).write_text(json.dumps(note, sort_keys=True) + "\n", encoding="utf-8")
+        try:
+            raw = self.policy_raw()
+        except GitHubUnavailable as exc:
+            say(f"{OPERATING_NOTE} not written, nor {POLICY_NOTE}, for {stamp}: {exc}")
+            return
+        try:
+            note = operating_values(self.policy(raw))
+        except ValueError as exc:
+            say(f"{OPERATING_NOTE} not written for {stamp}: {exc}")
+        else:
+            (folder / OPERATING_NOTE).write_text(json.dumps(note, sort_keys=True) + "\n", encoding="utf-8")
+        try:
+            copy = policy_copy(raw, self.withheld)
+        except ValueError as exc:
+            say(f"{POLICY_NOTE} not written for {stamp}: {exc}")
+        else:
+            (folder / POLICY_NOTE).write_bytes(copy)
 
     def memory_alone(self, prior: dict | None, head: str) -> bool:
         """Whether head adds only memory to the newest signed result's own evaluated head (`memory_alone`)."""
@@ -1142,7 +1289,7 @@ class Pilot:
         say(f"cycle {n}: Founder session {stamp} (brain {before[:7]})")
         self.previous_session_note(stamp, args.session_timeout, prior)
         self.targets_note(stamp)
-        self.operating_note(stamp)
+        self.policy_notes(stamp)
         sess = self.session(stamp, args.model, args.max_turns, args.budget_usd, args.session_timeout,
                             getattr(args, "effort", None))
         after = self.brain_head()
@@ -1171,7 +1318,7 @@ class Pilot:
                 lines.append(f"  - **{row.get('kind')}**: {json.dumps(row, ensure_ascii=False)[:600]}")
         last_accepted = ((verdict or prior or {}).get("state") or {}).get("last_accepted_sha")
         cost = self.record_cost(stamp, sess, after, last_accepted)
-        seen = self.observe(after)
+        seen = self.observe(after, last_accepted)
         lines.append(f"- Maliyet satırı (`kind: cost`): {cost}")
         if seen["reports_open"] is None:
             lines.append("- Açık raporlar: okunamadı")
@@ -1186,6 +1333,12 @@ class Pilot:
             lines.append(f"- CEVAPSIZ (operatör) ({len(seen['reports_unanswered'])}; beyindeki tohumun hiçbir "
                          "`spec/tohum/CHANGELOG*.md`'si adlandırmıyor, yanıt ya da `declined:` bekliyor): "
                          + (", ".join(f"`{rid}` {age} sa" for rid, age in seen["reports_unanswered"]) or "yok"))
+        # E592: memory lives on main only; a wip/ branch holding it, or left behind the last accepted head, is the
+        # operator's to see (the Founder reads `15` 9, never this log). Unknown is said, never "none".
+        if seen.get("wip") is None:
+            lines.append("- WIP dalları (operatör): okunamadı")
+        else:
+            lines.append("- WIP dalları (operatör; `15` 9): " + (", ".join(f"`{w}`" for w in seen["wip"]) or "yok"))
         if dispatched is not None:
             lines.append(f"- Hakem koşusu: {dispatched['conclusion']} {dispatched['url']}"
                          + (f" (aynı commit {retries} kez yeniden incelendi)" if retries else ""))
@@ -1226,6 +1379,7 @@ class Pilot:
             "reports_open": None if seen["reports_open"] is None else len(seen["reports_open"]),
             "reports_unanswered": (None if seen.get("reports_unanswered") is None
                                    else len(seen["reports_unanswered"])),
+            "wip": seen.get("wip"),  # E592: the wip/ findings, None when unknown
             "reports_new": [r.get("payload", {}).get("summary", "")[:120] for r in new_rows
                             if r.get("kind") in REPORT_KINDS],
         })
