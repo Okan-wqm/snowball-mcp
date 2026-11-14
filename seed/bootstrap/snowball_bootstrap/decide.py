@@ -14,7 +14,7 @@ import datetime
 import hashlib
 from typing import Any
 
-from . import config, exitchecks, ledgercheck, secretscan, stages
+from . import config, exitchecks, ledgercheck, secretscan, selfmap, stages
 from .reproduce import reproducer_key
 from .rival import REPRODUCER_FIELDS
 from .state import MAX_OPEN_CLAIMS, MAX_OPEN_REFUTATIONS
@@ -326,6 +326,7 @@ def decide(meta: dict[str, Any], run: dict[str, Any] | None, rival: dict[str, An
         broken = [c["id"] for c in controls if not c["ok"]]
         if not broken and (any(t.get("exit") == DOCKER_ERROR for t in tests)
                            or any(v.get("runner_fault") for v in vectors)  # E141: docker failed under a vector
+                           or selfmap.runner_fault(run.get("self_map"))
                            or any(m.get("runner_fault") for m in module_less)):
             broken = ["docker"]
         if broken:  # the sandbox itself failed: nothing it printed is evidence about the push
@@ -355,6 +356,19 @@ def decide(meta: dict[str, Any], run: dict[str, Any] | None, rival: dict[str, An
                 reasons.append(_reason("infra", ref="kos:module_less_incomplete"))
                 evaluate = False
                 outage = True
+            # The brain's own map (`29t`, E585), red or green and at the exit too: a warning in Stage 0, so neither the
+            # verdict nor the frozen exit moves; a reason the Founder can fix once the lock opened Stage 1. A plan the
+            # run does not answer is the referee's gap, never the Founder's (E05).
+            plan = meta.get("self_map")
+            if selfmap.to_run(plan) is not None and not selfmap.complete(plan, run.get("self_map")):
+                reasons.append(_reason("infra", ref="kos:self_map_incomplete"))
+                evaluate = False
+                outage = True
+            elif (found := selfmap.finding(plan, run.get("self_map"))) is not None:
+                if table.stage == 0:
+                    warnings.append(f"{found[0]}:{selfmap.MAP_PATH}")
+                else:
+                    reasons.append(_reason(found[0], ref=selfmap.MAP_PATH, detail=found[1]))
         if kind != "exit":
             warnings += [f"vector_group_missing:{g}" for g in groups_missing]
 

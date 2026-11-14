@@ -21,7 +21,7 @@ koşturan işin izni ve sırrı, sır taşıyan işin kod koşturması yoktur; a
 |---|---|---|
 | `çek` | Kimliksiz beyin okuma; Actions okuma | Önceki imzalı durumu Sigstore ile doğrular; SHA'yı çeker, sınıflandırır, ağacı blob blob kurar (`export-ignore` etkisizdir) |
 | `getir` | Yok, ağ var | Kilit dosyalarındaki tekerlekleri `--only-binary`, `--require-hashes` ile indirir; kurulum betiği koşmaz |
-| `koş` | Yok | Tekerleklerin lisans kapısı (`24`; hakemin kendi Sigstore tekerlekleri de kurulmadan önce geçer, kaydı `requirements/licenses.json`); kırmızı kontroller, `snowball-tests.json` bildirimindeki Aşama 0 testleri (`asama-0/09`) ve vektörler, her biri `--network none --cap-drop ALL --read-only --user 65534` konteynerde |
+| `koş` | Yok | Tekerleklerin lisans kapısı (`24`; hakemin kendi Sigstore tekerlekleri de kurulmadan önce geçer, kaydı `requirements/licenses.json`); kırmızı kontroller, `snowball-tests.json` bildirimindeki Aşama 0 testleri (`asama-0/09`), vektörler ve kendi haritasının üreticisi (`29t`), her biri `--network none --cap-drop ALL --read-only --user 65534` konteynerde |
 | `çağır` | `CLAUDE_CODE_OAUTH_TOKEN` | Tohum rakibi (aşağıda); sır desenli metin prompta girmez |
 | `yeniden` | Yok | Rakibin ve durumdaki yeniden üreticiler, `koş` ile aynı kumda; gözleneni gösteren her biri boş kontrol ağacında da (`29`) |
 | `yaz` | OIDC, içerik okuma | Kararı verir, sonucu Sigstore ile imzalayıp Rekor'a bağlar, imzalı durumu yükler; kill switch açıksa kabul etmeyen, harcamayı yazan `stopped` sonucu imzalar; iptal edilen koşu hiçbir şey imzalamaz |

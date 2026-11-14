@@ -4,6 +4,7 @@ Tarih: 2026-10-29 · Sürüm: 2.2
 Okunma: bir sayfanın geçmişi aranırken
 Çapa: git geçmişi ve zincirdeki spec hash satırları
 
+- 2.2 (2026-11-14, E585–E587; sahip): `29t` kendi haritası: hakem `docs/map/brain.md`'yi sınar (Aşama 0 uyarı, 1 ret).
 - 2.2 (2026-11-14, E583; gözlem): (B)'nin ilk denemesi kırmızı. Aktarılan 91bbd27; `loop.yml`'un `cagir` işi
   `unusable input: cagir: policy.json has no stage_budgets.asama_0.canary_usd` ile durdu (koşu 43534260172), `yaz`
   koşmadı, hedeflere yazılmadı; aktarım `25a` "Başarısızlık" ile geri alındı, 91bbd27 `reverted_exits`'te. `kos`'un
@@ -63,10 +64,9 @@ Okunma: bir sayfanın geçmişi aranırken
   `seed-044-revert-facts-producers`: ret geçerli (2026-11-01 kaydındaki `declined: seed-044-revert-facts-producers`
   satırı; `29j:53-60`); `asama-0/10a:26` `#geri-alma` Aşama 0'da değişmedi. 80 satır sınırı için 2026-11-02 E506 ve
   E507 kayıtları `CHANGELOG-5.md`'ye taşındı.
-- 2.2 (2026-11-04, E499, E540–E546): kırmızı bir (B)'den sonra dalların arşivi ve silinmesi, tohum güvenlik
-  defteri, imzalı (A) sonucunun aktarımdaki yeri ve canlı prova fikstürleri: `CHANGELOG-5.md`.
-- 2.2 (2026-11-02, E506, E507): kapsülde defterin salt-okur dizini ve standart kütüphaneyi gizleyen modül adı:
-  `CHANGELOG-5.md`.
+- 2.2 (2026-11-02 – 2026-11-04, E499, E506, E507, E540–E546): kırmızı bir (B)'den sonra dalların arşivi ve
+  silinmesi, tohum güvenlik defteri, imzalı (A) sonucunun aktarımdaki yeri, canlı prova fikstürleri, kapsülde
+  defterin salt-okur dizini ve standart kütüphaneyi gizleyen modül adı: `CHANGELOG-5.md`.
 - 2.2 (2026-11-01, E411–E417, E470–E475, E478–E485, E490–E499): `26d`'nin olguları (son kökün paketi, zincirli
   satır, Rekor v1, genesis satırı), içe aktarmanın git nesneleriyle anlatımı, `stage-open`'ın bağları ve döngünün
   üç girdisi (`29s`): `CHANGELOG-5.md`.

@@ -17,8 +17,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from . import (canon, config, drillfixtures, exitchecks, ghapi, gitio, ledgercheck, licenses, parts, stagelock, stages,
-               state as st, wiring)
+from . import (canon, config, drillfixtures, exitchecks, ghapi, gitio, ledgercheck, licenses, parts, selfmap, stagelock,
+               stages, state as st, wiring)
 from .classify import (LEDGER_FILE, REPORTS_DIR, SEED_DIRS, classify, is_founder_record, is_seed_path,
                        spec_stage_dirs)
 from .container import DockerRunner
@@ -691,6 +691,9 @@ def _pull_classify(boot: config.Bootstrap, policy: config.Policy, summary_cfg: c
     if meta["run_tests"]:
         meta["state_repro"] = ([e["key"] for e in prev.get("open_refutations", []) if e["key"] not in waived]
                                + [c["id"] for c in prev.get("open_claims", []) if c["reproducer"] is not None])
+        # The brain's own map (`29t`, E585): read here, run in `kos`, judged in `decide`; never a pre-reason, so the
+        # tests and the rival still run and the push hears everything (as `exit_checks`).
+        meta["self_map"] = selfmap.read(tar_bytes)
     repro = bool(meta["state_repro"]) or (meta["reuse_rival"] and any("reproducer" in a for a in pending["rival"]["attempts"]))
     write_json(out / "meta.json", meta)
     (out / "brain.tar").write_bytes(tar_bytes)
@@ -766,6 +769,7 @@ def _kos(args: argparse.Namespace) -> Kos:
         asked=call_inputs(groups),
         units=[(k, t["id"]) for k, t in units(table, meta.get("module_less") or [], manifest["tests"])],
         lic=licenses.check_dir(Path(args.deps), policy.license_allowlist, policy.license_exceptions),
+        self_map=selfmap.to_run(meta.get("self_map")),
         missing=missing_groups(root / "vectors", done, table, tree=src))
     return Kos(boot, table, meta, tar_bytes, src, push)
 
@@ -782,7 +786,12 @@ def _run_part(args: argparse.Namespace, kos: Kos, part: int, count: int) -> dict
             lambda tree: _runner(boot, tree, Path(args.deps), vec, manifest["lockfiles"]),
             kos.tar_bytes, Path(args.work) / "module-less", kos.table, kos.meta.get("module_less") or [],
             manifest["tests"], boot.limits.test_timeout_s, boot.limits.max_tree_bytes, mine=mine)
-    return parts.run_part(kos.push, part, count, runner, boot.limits.test_timeout_s, module_less)
+
+    def self_map() -> dict[str, Any]:  # the tests' sandbox and time limit, on the pushed tree without the map (E585)
+        return selfmap.run(lambda where: _runner(boot, where, Path(args.deps), vec, manifest["lockfiles"]),
+                           kos.tar_bytes, Path(args.work) / "self-map", kos.push.self_map, boot.limits.test_timeout_s,
+                           boot.limits.max_tree_bytes)
+    return parts.run_part(kos.push, part, count, runner, boot.limits.test_timeout_s, module_less, self_map)
 
 
 def _write_run(out: Path, run: dict[str, Any]) -> int:

@@ -82,6 +82,7 @@ Okunma: sayfa ararken; görev seçmek için `tohum/00b-gorev-haritasi.md`
 | `tohum/29p-kontrol-komutu.md` | Kontrol Komutu: Döngü İşlerinin İlk Adımı | `loop.yml` yazılırken; döngünün her işinde |
 | `tohum/29r-is-akisi-yaml-altkumesi.md` | İş Akışı YAML Altkümesi | `loop.yml` yazılırken |
 | `tohum/29s-dongu-girdileri.md` | Döngü Girdileri: Beyin, Hedefler, Sigstore | `loop.yml` ve döngünün `çek` ve `yaz` işleri yazılırken |
+| `tohum/29t-kendi-harita-denetimi.md` | Kendi Haritası: Beynin Çiziminin Hakem Denetimi | `docs/map/brain.md` ya da üreticisi yazılırken ve bir `self_map_*` bulgusu okunurken |
 | `tohum/30-guvenlik-katalogu.md` | Güvenlik Kataloğu: İlkeler, Zamanlama, Ortak Kader | her güvenlik işinde, her bildirimde ve yeni bir hedefe bağlanırken |
 | `tohum/30a-katalog-erisim-ve-enjeksiyon.md` | Güvenlik Kataloğu I: Erişim, Kimlik, Enjeksiyon, Web | kapsam bu sınıflara dokunduğunda; güvenlik avcısı, Kurucu ve K6 düzeltme işinde |
 | `tohum/30b-katalog-kiracilik-ve-graphql.md` | Güvenlik Kataloğu II: Çok Kiracılık, GraphQL, Kaynak Tüketimi | profil `tenancy.model` `none` değilse ya da hedef GraphQL sunuyorsa; güvenlik avcısı ve K6 işinde |
