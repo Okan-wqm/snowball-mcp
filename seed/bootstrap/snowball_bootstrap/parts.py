@@ -4,7 +4,8 @@ The single job is the one-part case of this same code (`run-tests`). A part runs
 then its share of the work, each piece exactly as the single job runs it: the manifest's Stage 0 tests whose place is
 its own (place mod N), the vector inputs whose place among the push's inputs is its own (first-asked order, each input
 asked once, E273), and, when nothing it saw is red, its share of module-less red. It writes what it ran: the test and
-module-less records, and for every vector call the answer (a tape). It judges nothing.
+module-less records, for every vector call the answer (a tape), and, in the part that owns the place after the last
+test, the run of the brain's own map generator (`selfmap`, E585). It judges nothing.
 
 The join does. It checks that every part is the part it says it is (place, part count, head and the push's plan, all
 computed again here from the same snapshot) and that each part reported exactly its own share in order; then it
@@ -22,7 +23,7 @@ import hashlib
 from dataclasses import dataclass
 from typing import Any, Callable
 
-from . import canon, vectors
+from . import canon, selfmap, vectors
 from .container import Runner, RunResult
 from .controls import run_controls
 
@@ -71,6 +72,7 @@ class Push:
     units: list[tuple[int, str]]  # every module-less run, (micro-feature, test id), in order
     lic: list[dict[str, Any]]
     missing: list[str]  # `vector_groups_missing`
+    self_map: dict[str, str] | None = None  # the brain's own map to run (`selfmap.to_run`), None when nothing runs
 
     @property
     def inputs(self) -> list[str]:
@@ -80,7 +82,11 @@ class Push:
     def plan_sha256(self) -> str:
         return canon.sha256_hex(canon.canonical({
             "head": self.head, "tests": [[t["id"], hashlib.sha256(t["cmd"].encode()).hexdigest()] for t in self.tests],
-            "asked": self.asked, "units": [[mf, test_id] for mf, test_id in self.units]}))
+            "asked": self.asked, "units": [[mf, test_id] for mf, test_id in self.units], "self_map": self.self_map}))
+
+    def self_map_owner(self, parts: int) -> int:
+        """The part that runs the map's generator: the owner of the place after the last test (E585)."""
+        return len(self.tests) % parts
 
 
 def part_of(text: str) -> tuple[int, int]:
@@ -95,20 +101,25 @@ def part_of(text: str) -> tuple[int, int]:
 
 
 def run_part(push: Push, part: int, parts: int, runner: Runner, test_timeout_s: int,
-             module_less: Callable[[Callable[[int], bool]], list[dict[str, Any]]]) -> dict[str, Any]:
-    """Part ``part`` of ``parts``: its controls, then, on a sandbox that behaved, its tests, its vector calls and, when
-    nothing it saw is red, its module-less runs. ``module_less`` runs the places a predicate names."""
+             module_less: Callable[[Callable[[int], bool]], list[dict[str, Any]]],
+             self_map: Callable[[], dict[str, Any] | None] = lambda: None) -> dict[str, Any]:
+    """Part ``part`` of ``parts``: its controls, then, on a sandbox that behaved, its tests, its vector calls, the map's
+    generator when the push has one to run and this part owns it (red or not: the finding is heard beside the red),
+    and, when nothing it saw is red, its module-less runs. ``module_less`` runs the places a predicate names;
+    ``self_map`` runs the generator."""
     def own(place: int) -> bool:
         return place % parts == part
     record: dict[str, Any] = {"schema": SCHEMA, "part": part, "parts": parts, "head": push.head,
                               "plan_sha256": push.plan_sha256(), "controls": run_controls(runner), "tests": [],
-                              "tape": [], "module_less": None}
+                              "tape": [], "module_less": None, "self_map": None}
     if not all(c["ok"] for c in record["controls"]):
         return record  # the single job runs nothing on a sandbox whose controls fail; neither does a part
     record["tests"] = [test_record(t, runner.run(t["cmd"], timeout_s=test_timeout_s))
                        for place, t in enumerate(push.tests) if own(place)]
     mine = {key for place, key in enumerate(push.inputs) if own(place)}
     record["tape"], known = vectors.run_part(runner, push.groups, mine)
+    if push.self_map is not None and part == push.self_map_owner(parts):
+        record["self_map"] = self_map()
     if nothing_red(record["controls"], record["tests"], known, push.lic):  # a red push is rejected anyway
         record["module_less"] = module_less(own)
     return record
@@ -160,6 +171,12 @@ def join(push: Push, records: list[Any]) -> dict[str, Any]:
     failed = [r for r in records if not all(c.get("ok") is True for c in r["controls"])]
     if failed:
         return _run(push, failed[0]["controls"], [], [], [])
+    map_owner = push.self_map_owner(parts) if push.self_map is not None else None
+    for part, record in enumerate(records):
+        if part == map_owner and not selfmap.complete(push.self_map, record.get("self_map")):
+            raise PartError(f"part {part} owns the map's run and does not hold the run of the push's plan")
+        if part != map_owner and record.get("self_map") is not None:
+            raise PartError(f"part {part} holds a map's run that is not its own")
     controls = records[0]["controls"]
     if any(r["controls"] != controls for r in records):
         raise PartError("the parts' sandboxes answered the red controls differently")
@@ -178,11 +195,12 @@ def join(push: Push, records: list[Any]) -> dict[str, Any]:
             raise PartError("a part left out its module-less runs, yet the push is green")
         module_less = _merge("module-less run", list(push.units), [p % parts for p in range(len(push.units))],
                              [r["module_less"] for r in records], lambda rec: (rec.get("mf"), rec.get("test_id")))
-    return _run(push, controls, tests, vector_records, module_less)
+    return _run(push, controls, tests, vector_records, module_less,
+                None if map_owner is None else records[map_owner]["self_map"])
 
 
 def _run(push: Push, controls: list[dict], tests: list[dict], vector_records: list[dict],
-         module_less: list[dict]) -> dict[str, Any]:
+         module_less: list[dict], self_map: dict[str, Any] | None = None) -> dict[str, Any]:
     return {"controls": controls, "tests": tests, "vectors": vector_records, "licenses": push.lic,
-            "module_less": module_less, "vector_groups_missing": push.missing,
+            "module_less": module_less, "vector_groups_missing": push.missing, "self_map": self_map,
             "green": is_green(controls, tests, vector_records, push.lic, module_less)}

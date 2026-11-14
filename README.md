@@ -39,7 +39,9 @@ The founder cannot build the judge of its own first stage, so the **bootstrap re
 the seed under `seed/bootstrap/` (see `spec/tohum/29b-onyukleme-hakemi.md`): a GitHub Actions
 workflow and a standard-library Python package that pulls each founder commit, runs its tests and
 the seed vectors in network-less containers (shared out among four parallel jobs, whose answers one job judges in
-the order a single job would, so the verdict is the same bytes), asks a rival model to refute it, and signs the verdict
+the order a single job would, so the verdict is the same bytes), runs the generator its own map's header names and
+compares the output with the committed map byte for byte (`spec/tohum/29t-kendi-harita-denetimi.md`: a warning in
+Stage 0, a rejection from Stage 1), asks a rival model to refute it, and signs the verdict
 into Sigstore's Rekor log. It polls hourly; standard runners are free in a public repository, while a private one would spend about
 720 of the free plan's Actions minutes a month (the arithmetic is in `spec/tohum/25-kurulum-gunu.md`). In the pilot it runs
 on GitHub Actions in `snowball-rehearsal-referee`, dispatched by `seed/founder/launch.py` after each Founder push.

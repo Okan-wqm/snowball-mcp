@@ -80,32 +80,33 @@ flowchart LR
 
 ## 2. Referee package: `seed/bootstrap/snowball_bootstrap`
 
-29 modules, 82 imports inside the package, 1 started as a separate process. Areas are roles. The overview has 5 areas and 12 edges; an arrow's number is how many imports cross from one area to the other.
+30 modules, 88 imports inside the package, 1 started as a separate process. Areas are roles. The overview has 5 areas and 13 edges; an arrow's number is how many imports cross from one area to the other.
 
 ```mermaid
 flowchart LR
   a_Entry["Entry<br/>3 modules"]
   a_Intake["Intake<br/>10 modules"]
-  a_Sandbox["Sandbox<br/>6 modules"]
+  a_Sandbox["Sandbox<br/>7 modules"]
   a_Rival["Rival<br/>4 modules"]
   a_Judgement["Judgement<br/>6 modules"]
   a_Entry -->|10| a_Intake
   a_Entry -->|6| a_Judgement
   a_Entry -->|2| a_Rival
-  a_Entry -->|5| a_Sandbox
+  a_Entry -->|6| a_Sandbox
   a_Intake -->|1| a_Judgement
   a_Judgement -->|9| a_Intake
   a_Judgement -->|4| a_Rival
+  a_Judgement -->|1| a_Sandbox
   a_Rival -->|3| a_Intake
   a_Rival -->|1| a_Sandbox
-  a_Sandbox -->|2| a_Intake
+  a_Sandbox -->|3| a_Intake
   a_Sandbox -->|3| a_Judgement
   a_Sandbox -->|1| a_Rival
 ```
 
 ### Entry
 
-3 modules, 24 edges out of them.
+3 modules, 25 edges out of them.
 
 ```mermaid
 flowchart LR
@@ -143,6 +144,7 @@ flowchart LR
     m_manifest["manifest"]:::outside
     m_moduleless["moduleless"]:::outside
     m_parts["parts"]:::outside
+    m_selfmap["selfmap"]:::outside
     m_vectors["vectors"]:::outside
   end
   m___main__ --> m_cli
@@ -163,6 +165,7 @@ flowchart LR
   m_cli --> m_parts
   m_cli --> m_reproduce
   m_cli --> m_rival
+  m_cli --> m_selfmap
   m_cli --> m_stagelock
   m_cli --> m_stages
   m_cli --> m_state
@@ -230,11 +233,11 @@ flowchart LR
 | `importer` | Operator import at the Stage 0 exit and at each batch exit after it (`tohum/25a` 1-2, `asama-0/10a` #aktarim and #oyuncak, `asama-1/13` 3: "aynı komut"). | `cli`, `drillfixtures`, `stagelock` |
 | `licenses` | License gate for downloaded wheels (`tohum/24`, "Lisans"). | `cli` |
 | `stagelock` | The stage lock and the counter it is bound to (`tohum/02` 5, `asama-0/10a` "Kilidin açılışı", `tohum/25a` 9, `26c`). | `cli`, `drillfixtures`, `importer` |
-| `treehash` | Tree hashes over git-archive tarballs, and safe extraction of regular files only. | `cli`, `drillfixtures`, `exitchecks`, `gitio`, `importer`, `moduleless`, `stages` |
+| `treehash` | Tree hashes over git-archive tarballs, and safe extraction of regular files only. | `cli`, `drillfixtures`, `exitchecks`, `gitio`, `importer`, `moduleless`, `selfmap`, `stages` |
 
 ### Sandbox
 
-6 modules, 12 edges out of them.
+7 modules, 16 edges out of them.
 
 ```mermaid
 flowchart LR
@@ -244,6 +247,7 @@ flowchart LR
     m_manifest["manifest"]
     m_moduleless["moduleless"]
     m_parts["parts"]
+    m_selfmap["selfmap"]
     m_vectors["vectors"]
   end
   subgraph a_Intake["Intake"]
@@ -265,7 +269,11 @@ flowchart LR
   m_parts --> m_canon
   m_parts --> m_container
   m_parts --> m_controls
+  m_parts --> m_selfmap
   m_parts --> m_vectors
+  m_selfmap --> m_container
+  m_selfmap --> m_moduleless
+  m_selfmap --> m_treehash
   m_vectors --> m_container
   m_vectors --> m_stages
   classDef outside stroke-dasharray: 4 3
@@ -273,11 +281,12 @@ flowchart LR
 
 | Module | What it is (first sentence of its docstring) | Imported by |
 |---|---|---|
-| `container` | Run untrusted code in a nested, network-less, unprivileged container (`tohum/08` 2). | `cli`, `controls`, `moduleless`, `parts`, `reproduce`, `vectors` |
+| `container` | Run untrusted code in a nested, network-less, unprivileged container (`tohum/08` 2). | `cli`, `controls`, `moduleless`, `parts`, `reproduce`, `selfmap`, `vectors` |
 | `controls` | Red controls: known answers about the runner itself (`tohum/08` 3). | `parts` |
 | `manifest` | The founder's test manifest (`snowball-tests.json`, `tohum/26c`) and its lock files. | `cli` |
-| `moduleless` | Module-less red (`asama-0/14`; `tohum/04` 1, "Kasıtlı bozma"): a micro-feature's tests fail without it. | `cli` |
+| `moduleless` | Module-less red (`asama-0/14`; `tohum/04` 1, "Kasıtlı bozma"): a micro-feature's tests fail without it. | `cli`, `selfmap` |
 | `parts` | `kos` in parts (E440): one push's run shared out among N parallel jobs and joined into the single job's `run.json`. | `cli` |
+| `selfmap` | The brain's own map, held to its generator by the referee (`tohum/29t`; the owner's decision of 2026-11-14, E585). | `cli`, `decide`, `parts` |
 | `vectors` | Apply the seed vectors (`tohum/29a`, `29d`) to the founder's code through the fixed interface. | `cli`, `parts` |
 
 ### Rival
@@ -321,7 +330,7 @@ flowchart LR
 
 ### Judgement
 
-6 modules, 20 edges out of them.
+6 modules, 21 edges out of them.
 
 ```mermaid
 flowchart LR
@@ -344,12 +353,16 @@ flowchart LR
     m_rival["rival"]:::outside
     m_secretscan["secretscan"]:::outside
   end
+  subgraph a_Sandbox["Sandbox"]
+    m_selfmap["selfmap"]:::outside
+  end
   m_decide --> m_config
   m_decide --> m_exitchecks
   m_decide --> m_ledgercheck
   m_decide --> m_reproduce
   m_decide --> m_rival
   m_decide --> m_secretscan
+  m_decide --> m_selfmap
   m_decide --> m_stages
   m_decide --> m_state
   m_exitchecks --> m_classify
@@ -387,11 +400,11 @@ Every subcommand of `cli.py`, the jobs that run it, and the package modules its 
 | `poll` | `cek` | `cmd_poll` | `config`, `decide`, `ghapi`, `gitio`, `stagelock`, `state`, `treehash` |
 | `licenses` | `cek`, `yaz` | `cmd_licenses` | `canon`, `config`, `licenses` |
 | `fetch-state` | `cek` | `cmd_fetch_state` | `canon`, `config`, `decide`, `ghapi`, `importer`, `state` |
-| `pull` | `cek` | `cmd_pull` | `canon`, `classify`, `config`, `decide`, `exitchecks`, `gitio`, `ledgercheck`, `manifest`, `rival`, `stagelock`, `stages`, `state`, `treehash`, `wiring` |
+| `pull` | `cek` | `cmd_pull` | `canon`, `classify`, `config`, `decide`, `exitchecks`, `gitio`, `ledgercheck`, `manifest`, `rival`, `selfmap`, `stagelock`, `stages`, `state`, `treehash`, `wiring` |
 | `fetch-deps` | `getir` | `cmd_fetch_deps` | `canon`, `manifest`, `treehash` |
-| `run-tests` | operator / local | `cmd_run_tests` | `canon`, `config`, `container`, `licenses`, `moduleless`, `parts`, `stagelock`, `treehash`, `vectors` |
-| `run-part` | `kos_parca` | `cmd_run_part` | `canon`, `config`, `container`, `licenses`, `moduleless`, `parts`, `stagelock`, `treehash`, `vectors` |
-| `join-parts` | `kos` | `cmd_join_parts` | `canon`, `config`, `licenses`, `moduleless`, `parts`, `stagelock`, `treehash`, `vectors` |
+| `run-tests` | operator / local | `cmd_run_tests` | `canon`, `config`, `container`, `licenses`, `moduleless`, `parts`, `selfmap`, `stagelock`, `treehash`, `vectors` |
+| `run-part` | `kos_parca` | `cmd_run_part` | `canon`, `config`, `container`, `licenses`, `moduleless`, `parts`, `selfmap`, `stagelock`, `treehash`, `vectors` |
+| `join-parts` | `kos` | `cmd_join_parts` | `canon`, `config`, `licenses`, `moduleless`, `parts`, `selfmap`, `stagelock`, `treehash`, `vectors` |
 | `rival` | `cagir` | `cmd_rival` | `canon`, `config`, `rival`, `stagelock`, `stages`, `treehash` |
 | `reproduce` | `yeniden` | `cmd_reproduce` | `canon`, `config`, `container`, `reproduce`, `treehash`, `vectors` |
 | `decide` | `yaz` | `cmd_decide` | `canon`, `config`, `decide`, `stagelock` |
@@ -405,7 +418,7 @@ Every subcommand of `cli.py`, the jobs that run it, and the package modules its 
 
 ## 3. Launcher links
 
-`seed/founder/launch.py` runs on the operator's machine and imports 8 referee modules, so the launcher applies the referee's own rules instead of a copy (E244). Through them it loads 16: `canon`, `classify`, `config`, `container`, `decide`, `exitchecks`, `gitio`, `ledgercheck`, `reproduce`, `rival`, `secretscan`, `stages`, `state`, `treehash`, `vectors`, `wiring`.
+`seed/founder/launch.py` runs on the operator's machine and imports 8 referee modules, so the launcher applies the referee's own rules instead of a copy (E244). Through them it loads 18: `canon`, `classify`, `config`, `container`, `decide`, `exitchecks`, `gitio`, `ledgercheck`, `moduleless`, `reproduce`, `rival`, `secretscan`, `selfmap`, `stages`, `state`, `treehash`, `vectors`, `wiring`.
 
 ```mermaid
 flowchart LR
