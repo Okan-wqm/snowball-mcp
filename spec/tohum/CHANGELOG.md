@@ -64,10 +64,9 @@ Okunma: bir sayfanın geçmişi aranırken
   `seed-044-revert-facts-producers`: ret geçerli (2026-11-01 kaydındaki `declined: seed-044-revert-facts-producers`
   satırı; `29j:53-60`); `asama-0/10a:26` `#geri-alma` Aşama 0'da değişmedi. 80 satır sınırı için 2026-11-02 E506 ve
   E507 kayıtları `CHANGELOG-5.md`'ye taşındı.
-- 2.2 (2026-11-04, E499, E540–E546): kırmızı bir (B)'den sonra dalların arşivi ve silinmesi, tohum güvenlik
-  defteri, imzalı (A) sonucunun aktarımdaki yeri ve canlı prova fikstürleri: `CHANGELOG-5.md`.
-- 2.2 (2026-11-02, E506, E507): kapsülde defterin salt-okur dizini ve standart kütüphaneyi gizleyen modül adı:
-  `CHANGELOG-5.md`.
+- 2.2 (2026-11-02 – 2026-11-04, E499, E506, E507, E540–E546): kırmızı bir (B)'den sonra dalların arşivi ve
+  silinmesi, tohum güvenlik defteri, imzalı (A) sonucunun aktarımdaki yeri, canlı prova fikstürleri, kapsülde
+  defterin salt-okur dizini ve standart kütüphaneyi gizleyen modül adı: `CHANGELOG-5.md`.
 - 2.2 (2026-11-01, E411–E417, E470–E475, E478–E485, E490–E499): `26d`'nin olguları (son kökün paketi, zincirli
   satır, Rekor v1, genesis satırı), içe aktarmanın git nesneleriyle anlatımı, `stage-open`'ın bağları ve döngünün
   üç girdisi (`29s`): `CHANGELOG-5.md`.
