@@ -5,12 +5,14 @@ then its share of the work, each piece exactly as the single job runs it: the ma
 its own (place mod N), the vector inputs whose place among the push's inputs is its own (first-asked order, each input
 asked once, E273), and, when nothing it saw is red, its share of module-less red. It writes what it ran: the test and
 module-less records, for every vector call the answer (a tape), and, in the part that owns the place after the last
-test, the run of the brain's own map generator (`selfmap`, E585). It judges nothing.
+test, the run of the brain's own map generator (`selfmap`, E585) and of its policy reads (`policyreads`, E588). It
+judges nothing.
 
 The join does. It checks that every part is the part it says it is (place, part count, head and the push's plan, all
 computed again here from the same snapshot) and that each part reported exactly its own share in order; then it
-replays every vector judge over the merged tape in the single job's call order (`vectors.replay`), puts the tests and
-the module-less records back in the single job's order and writes what the single job writes. A part missing, failed,
+replays every vector judge over the merged tape in the single job's call order (`vectors.replay`), judges the policy
+reads (`policyreads.findings`), puts the tests and the module-less records back in the single job's order and writes
+what the single job writes. A part missing, failed,
 short, long, reordered or foreign stops the join: the push is an outage (`kos:failure`), never an accept.
 
 A part's sandbox answers the red controls for that part. If any part's controls fail, the run is the single job's run
@@ -23,7 +25,7 @@ import hashlib
 from dataclasses import dataclass
 from typing import Any, Callable
 
-from . import canon, selfmap, vectors
+from . import canon, policyreads, selfmap, vectors
 from .container import Runner, RunResult
 from .controls import run_controls
 
@@ -73,6 +75,7 @@ class Push:
     lic: list[dict[str, Any]]
     missing: list[str]  # `vector_groups_missing`
     self_map: dict[str, str] | None = None  # the brain's own map to run (`selfmap.to_run`), None when nothing runs
+    policy_reads: dict[str, Any] | None = None  # `policyreads.plan`: the reads to ask for, None when the seed has none
 
     @property
     def inputs(self) -> list[str]:
@@ -82,10 +85,12 @@ class Push:
     def plan_sha256(self) -> str:
         return canon.sha256_hex(canon.canonical({
             "head": self.head, "tests": [[t["id"], hashlib.sha256(t["cmd"].encode()).hexdigest()] for t in self.tests],
-            "asked": self.asked, "units": [[mf, test_id] for mf, test_id in self.units], "self_map": self.self_map}))
+            "asked": self.asked, "units": [[mf, test_id] for mf, test_id in self.units], "self_map": self.self_map,
+            "policy_reads": policyreads.digest(self.policy_reads)}))
 
     def self_map_owner(self, parts: int) -> int:
-        """The part that runs the map's generator: the owner of the place after the last test (E585)."""
+        """The part that runs the map's generator and the policy reads: the owner of the place after the last test
+        (E585, E588)."""
         return len(self.tests) % parts
 
 
@@ -102,16 +107,17 @@ def part_of(text: str) -> tuple[int, int]:
 
 def run_part(push: Push, part: int, parts: int, runner: Runner, test_timeout_s: int,
              module_less: Callable[[Callable[[int], bool]], list[dict[str, Any]]],
-             self_map: Callable[[], dict[str, Any] | None] = lambda: None) -> dict[str, Any]:
+             self_map: Callable[[], dict[str, Any] | None] = lambda: None,
+             policy_reads: Callable[[], dict[str, Any] | None] = lambda: None) -> dict[str, Any]:
     """Part ``part`` of ``parts``: its controls, then, on a sandbox that behaved, its tests, its vector calls, the map's
     generator when the push has one to run and this part owns it (red or not: the finding is heard beside the red),
     and, when nothing it saw is red, its module-less runs. ``module_less`` runs the places a predicate names;
-    ``self_map`` runs the generator."""
+    ``self_map`` runs the generator, ``policy_reads`` the policy reads (E588), in the same part."""
     def own(place: int) -> bool:
         return place % parts == part
     record: dict[str, Any] = {"schema": SCHEMA, "part": part, "parts": parts, "head": push.head,
                               "plan_sha256": push.plan_sha256(), "controls": run_controls(runner), "tests": [],
-                              "tape": [], "module_less": None, "self_map": None}
+                              "tape": [], "module_less": None, "self_map": None, "policy_reads": None}
     if not all(c["ok"] for c in record["controls"]):
         return record  # the single job runs nothing on a sandbox whose controls fail; neither does a part
     record["tests"] = [test_record(t, runner.run(t["cmd"], timeout_s=test_timeout_s))
@@ -120,6 +126,8 @@ def run_part(push: Push, part: int, parts: int, runner: Runner, test_timeout_s: 
     record["tape"], known = vectors.run_part(runner, push.groups, mine)
     if push.self_map is not None and part == push.self_map_owner(parts):
         record["self_map"] = self_map()
+    if push.policy_reads is not None and part == push.self_map_owner(parts):
+        record["policy_reads"] = policy_reads()
     if nothing_red(record["controls"], record["tests"], known, push.lic):  # a red push is rejected anyway
         record["module_less"] = module_less(own)
     return record
@@ -177,6 +185,12 @@ def join(push: Push, records: list[Any]) -> dict[str, Any]:
             raise PartError(f"part {part} owns the map's run and does not hold the run of the push's plan")
         if part != map_owner and record.get("self_map") is not None:
             raise PartError(f"part {part} holds a map's run that is not its own")
+    reads_owner = push.self_map_owner(parts) if push.policy_reads is not None else None
+    for part, record in enumerate(records):
+        if part == reads_owner and not policyreads.complete(record.get("policy_reads")):
+            raise PartError(f"part {part} owns the policy reads and does not hold their run")
+        if part != reads_owner and record.get("policy_reads") is not None:
+            raise PartError(f"part {part} holds a policy reads run that is not its own")
     controls = records[0]["controls"]
     if any(r["controls"] != controls for r in records):
         raise PartError("the parts' sandboxes answered the red controls differently")
@@ -195,12 +209,17 @@ def join(push: Push, records: list[Any]) -> dict[str, Any]:
             raise PartError("a part left out its module-less runs, yet the push is green")
         module_less = _merge("module-less run", list(push.units), [p % parts for p in range(len(push.units))],
                              [r["module_less"] for r in records], lambda rec: (rec.get("mf"), rec.get("test_id")))
+    reads = None if reads_owner is None else records[reads_owner]["policy_reads"]
     return _run(push, controls, tests, vector_records, module_less,
-                None if map_owner is None else records[map_owner]["self_map"])
+                None if map_owner is None else records[map_owner]["self_map"],
+                None if reads is None else dict(reads, findings=[list(f) for f in policyreads.findings(
+                    push.policy_reads, reads)]))
 
 
 def _run(push: Push, controls: list[dict], tests: list[dict], vector_records: list[dict],
-         module_less: list[dict], self_map: dict[str, Any] | None = None) -> dict[str, Any]:
+         module_less: list[dict], self_map: dict[str, Any] | None = None,
+         policy_reads: dict[str, Any] | None = None) -> dict[str, Any]:
     return {"controls": controls, "tests": tests, "vectors": vector_records, "licenses": push.lic,
             "module_less": module_less, "vector_groups_missing": push.missing, "self_map": self_map,
+            "policy_reads": policy_reads,
             "green": is_green(controls, tests, vector_records, push.lic, module_less)}
