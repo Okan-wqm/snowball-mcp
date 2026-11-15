@@ -275,11 +275,13 @@ class ClassesTest(LoopRunsBase):
         return self.launch.job_summary(self.launch.log_lines(log(line)), "kos", list(names))
 
     def test_each_class_keeps_out_only_that_summary(self):
-        # loop_summary_size_unbounded loop_summary_depth_unbounded escaped_secret_unscanned
+        # loop_summary_size_unbounded loop_summary_depth_unbounded escaped_secret_unscanned overflow_float_passes
         launch = self.launch
         deep = lambda n: '{"job": "kos", "x": ' + "[" * (n - 1) + "1" + "]" * (n - 1) + "}"
         cases = {'{"job": "kos", "a": 1, "a": 2}': "duplicate_key",
                  '{"job": "kos", "a": NaN}': "non_finite",
+                 '{"job": "kos", "a": 1e999}': "non_finite",
+                 '{"job": "kos", "a": [-1E400]}': "non_finite",
                  deep(launch.LOOP_DEPTH_MAX + 1): "too_deep",
                  '{"job": "kos", "note": "' + TOKEN + '"}': "secret_shape",
                  '{"job": "kos", "note": "\\u0041' + AWS[1:] + '"}': "secret_shape",

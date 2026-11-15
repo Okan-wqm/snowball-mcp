@@ -571,6 +571,14 @@ def _non_finite(_constant: str):
     raise ValueError("non_finite")
 
 
+def _finite(text: str) -> float:
+    """A number literal out of the float range (1e999) parses to an infinity: no JSON value either."""
+    value = float(text)
+    if not math.isfinite(value):
+        raise ValueError("non_finite")
+    return value
+
+
 def _texts(value):
     """Every key and string value of a parsed JSON document."""
     if isinstance(value, dict):
@@ -598,7 +606,7 @@ def strict_object(raw: bytes, limit: int, names: list) -> dict:
     except UnicodeDecodeError:
         raise ValueError("not_utf8") from None
     try:
-        doc = json.loads(text, object_pairs_hook=_no_repeated_key, parse_constant=_non_finite)
+        doc = json.loads(text, object_pairs_hook=_no_repeated_key, parse_constant=_non_finite, parse_float=_finite)
     except RecursionError:
         raise ValueError("too_deep") from None
     except ValueError as exc:
