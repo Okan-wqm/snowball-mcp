@@ -392,8 +392,8 @@ class BoundsTest(LoopRunsBase):
     def test_the_worst_file_is_bounded_by_construction(self):
         launch = self.launch
         worst = launch.LOOP_RUNS_MAX * launch.LOOP_JOBS_MAX * (
-            launch.LOOP_SUMMARY_MAX + launch.LOOP_OUTPUT_LINES * launch.LOOP_OUTPUT_LINE_MAX * 6 + 1024)
-        self.assertLess(worst, 1024 * 1024)  # an escape is at most six ASCII bytes for one character
+            launch.LOOP_SUMMARY_MAX + launch.LOOP_OUTPUT_LINES * launch.LOOP_OUTPUT_LINE_MAX * 12 + 1024)
+        self.assertLess(worst, 1024 * 1024)  # a character outside the BMP is two escapes, twelve ASCII bytes
         self.assertEqual((launch.LOOP_RUNS_MAX, launch.LOOP_JOBS_MAX, launch.LOOP_CALL_S, launch.LOOP_BUDGET_S),
                          (3, 8, 30, 90))
 
