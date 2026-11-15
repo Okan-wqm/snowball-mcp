@@ -4,6 +4,11 @@ Tarih: 2026-10-29 · Sürüm: 2.2
 Okunma: bir sayfanın geçmişi aranırken
 Çapa: git geçmişi ve zincirdeki spec hash satırları
 
+- 2.2 (2026-11-15, E594–E601; sahibin kararı): `29w` tohum teklifi (Kurucu eklemeli yama ve kanıt testi önerir,
+  hakem mekanik sınar, aday yalnız panelle ya da sahiple merge olur; merge yolunda var olan takım tabanın testleri ve
+  koşucusuyla, kanıt testleri her biri kendi sürecinde koşar, iki karar buluşmaz) ve `29x` açık iddialar (yaş, cevap,
+  kapanış; gecikme Aşama 0'da uyarı, 1'den ret). İşlenen yerler: `00a` Bildirim kanalı, `00b`, `09a`, `24a`, `26c`,
+  `29e`.
 - 2.2 (2026-11-14, E588–E592; Kurucu raporu ve sahibin iki kararı, iki uzmanlı iki turlu panel): yeni `29u`, `29v`.
   Sahibin kararı (E590): (A) kabul edilince sabitlenen yalnız kabul edilen SHA'dır, `main` değil; sonraki push olağan
   yargılanır, `changed_after_exit` ve `referee_changed_after_exit` kalktı, `referee/`'ye dokunan push

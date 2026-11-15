@@ -63,3 +63,6 @@ olan dosya `target_name_in_referee:<yol>`. Ad taşıyan yol sonuçta `sha256:` v
 karakteridir; `why` hedefi ve adı yalnız sırasıyla söyler (`targets[<i>].identifiers[<j>]`). Kopya hedef ya da onun
 adları yoksa karar yoktur, çıkış `not_checked:genellik` ile kapalı kalır. Denetimden geçmek genelliğin kanıtı değildir:
 ölçüsü `21`'in ilkesidir.
+
+**Teklif ve cevap kayıtları.** `reports/<id>.patch` ve `reports/claim-<id>.json` de Kurucu kaydıdır (`29w`, `29x`):
+push'un türünü değiştirmez, yalnız kayıt push'unda da okunup sonuçta adlandırılır; rakip onları da görmez.

@@ -45,6 +45,11 @@ Stage 0, a rejection from Stage 1), asks a rival model to refute it, and signs t
 into Sigstore's Rekor log. It polls hourly; standard runners are free in a public repository, while a private one would spend about
 720 of the free plan's Actions minutes a month (the arithmetic is in `spec/tohum/25-kurulum-gunu.md`). In the pilot it runs
 on GitHub Actions in `snowball-rehearsal-referee`, dispatched by `seed/founder/launch.py` after each Founder push.
+The signed result also shows every open claim of the rival with its age and how it was answered or closed, an
+unanswered one past the exit's own window being a warning in Stage 0 and a rejection from Stage 1
+(`spec/tohum/29x-acik-iddialar.md`), and names the Founder's seed proposals, additive patches against this repository
+that the referee checks without running them and that only the panel or the owner can merge
+(`spec/tohum/29w-tohum-teklifi.md`).
 
 Two rules run through everything:
 

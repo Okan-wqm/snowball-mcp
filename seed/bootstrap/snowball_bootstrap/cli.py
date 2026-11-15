@@ -17,8 +17,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from . import (canon, config, drillfixtures, exitchecks, ghapi, gitio, ledgercheck, licenses, parts, policyreads,
-               selfmap, stagelock, stages, state as st, wiring)
+from . import (canon, claims as claimbook, config, drillfixtures, exitchecks, ghapi, gitio, ledgercheck, licenses,
+               parts, policyreads, proposals, selfmap, stagelock, stages, state as st, wiring)
 from .classify import (LEDGER_FILE, REPORTS_DIR, SEED_DIRS, classify, is_founder_record, is_seed_path,
                        spec_stage_dirs)
 from .container import DockerRunner
@@ -355,6 +355,8 @@ def cmd_pull(args: argparse.Namespace) -> int:
         _check_epoch(repo, summary_cfg.epoch)
     waived = config.load_waivers(root)
     reverted = config.load_reverted_exits(root)  # the operator's file: a broken list stops the run, never a rejection
+    claim_controls = config.load_claim_controls(root)  # `29x`: the operator's closures and refused answers
+    meta["claims"].update(waived=claim_controls[0], refused=claim_controls[1])
     faults = exam_faults_in_force(repo, summary_cfg, config.load_exam_faults(root))
     meta["exam_faults"] = faults
     try:
@@ -366,6 +368,7 @@ def cmd_pull(args: argparse.Namespace) -> int:
         print(f"::warning::pull could not classify {head}: {type(exc).__name__}: {str(exc)[:200]!r}")
         meta = _pull_meta(head, base, prev)
         meta.update(kind="rejected", pre_reasons=["pull_error"], waived=waived, exam_faults=faults)
+        meta["claims"].update(waived=claim_controls[0], refused=claim_controls[1])
         write_json(out / "meta.json", meta)
         output(skip=False, kind="rejected", head=head, run_tests=False, run_rival=False, repro=False)
         return 0
@@ -379,7 +382,26 @@ def _pull_meta(head: str, base: str, prev: dict[str, Any]) -> dict[str, Any]:
             "run_tests": False, "run_rival": False, "manifest": None, "exit_request": None, "exit_request_sha256": None,
             "referee_tree_sha256": None, "spec_dir_hashes": {}, "state_repro": [], "reuse_rival": False,
             "waived": [], "module_less": [], "exit_checks": {}, "toy_tree_sha256": None, "honesty_exception": None,
-            "reports": [], "exam_faults": []}
+            "reports": [], "exam_faults": [], "claims": {"answers": [], "dates": {}, "waived": [], "refused": []},
+            "proposals": []}
+
+
+def claim_inputs(repo: Path, head: str, prev: dict[str, Any], tar_bytes: bytes) -> dict[str, Any]:
+    """What `decide` needs of the open claims from the brain (`29x`, E596): the Founder's answers held to the claims
+    they answer (a fix to the files changed since the claim's first head), and, for a claim opened before the claim book
+    kept its time, its first head's commit time (a measurement only)."""
+    open_claims = prev.get("open_claims", [])
+    rows = claimbook.read_answers(tar_bytes)
+    asked = {r["ref"] for r in rows if r["answer"] == "fix"}
+    changed: dict[str, set[str] | None] = {}
+    for c in open_claims:
+        if c["id"] in asked:
+            known = gitio.has_commit(repo, c["first_head"])
+            changed[c["id"]] = set(gitio.changed_paths(repo, c["first_head"], head)) if known else None
+    booked = (prev.get(claimbook.BOOK) or {}).get("claims", {})
+    dates = {c["id"]: gitio.commit_time(repo, c["first_head"]) for c in open_claims
+             if c["id"] not in booked and gitio.has_commit(repo, c["first_head"])}
+    return {"answers": claimbook.engage(rows, open_claims, changed), "dates": dates}
 
 
 def exam_faults_in_force(repo: Path, summary_cfg: config.Summary, faults: list[config.ExamFault]) -> list[str]:
@@ -523,6 +545,9 @@ def _pull_classify(boot: config.Bootstrap, policy: config.Policy, summary_cfg: c
     readable = not {"non_utf8_path", "unsafe_path"} & set(pre)
     trees = seed_trees(tar_bytes) if readable else (None, None)
     meta["reports"] = read_reports(tar_bytes) if readable else []  # `26c`, E93: named in the signed result
+    if readable:  # the Founder's answers to open claims and its seed proposals: never a pre-reason (`29x`, `29w`)
+        meta["claims"].update(claim_inputs(repo, head, prev, tar_bytes))
+        meta["proposals"] = proposals.judge(tar_bytes, epoch, exitchecks.target_names(summary_cfg.targets))
     # While the head's seed is the last epoch's commit's, the seed paths in the diff from the last accepted commit are
     # the operator's delivery, not the Founder's change (`25` 10b, E88); any other seed is checked below. Git compares
     # them: a mode change counts (the tree hashes leave the executable bit out) and an unreadable tree is no excuse

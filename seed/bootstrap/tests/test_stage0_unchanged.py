@@ -14,9 +14,12 @@ import test does). A difference in any field of either document, for any shape, 
 change nothing the bootstrap referee signs before `stage-open` wrote `setup/stage.json` (`asama-0/10a`: the Stage 1
 table holds only after the lock).
 
-One addition is set aside by name, and nothing else (E585, `29t`): the brain's own map check reads a plan into the meta
-(`self_map`) and, in Stage 0, only warns (`self_map_*` warnings). The recording stays the base's, byte for byte; every
-verdict, reason, exit condition and state field it holds is still compared.
+Two additions are set aside by name, and nothing else. The brain's own map check (E585, `29t`) reads a plan into the
+meta (`self_map`) and, in Stage 0, only warns (`self_map_*` warnings). Open claims and seed proposals (E594, E596,
+`29w`, `29x`): `pull` hands the answers, dates and operator's lists of claims (`claims`) and the checked proposals
+(`proposals`) in the meta; the result names them in `claims` and `proposals`; the state keeps the optional
+`claim_book`; in Stage 0 they only warn (`claim_*`, `claims_*`, `proposal_*`). The recording stays the base's, byte for
+byte; every verdict, reason, exit condition and state field it holds is still compared.
 """
 
 import hashlib
@@ -62,13 +65,20 @@ SHAPES = {
     "not_an_object": {"RAW": "[0]"},
 }
 SELF_MAP = "self_map"  # the meta key and the warnings' prefix of the brain's own map check (E585)
+SET_ASIDE_META = (SELF_MAP, "claims", "proposals")  # E585; E594, E596
+SET_ASIDE_RESULT = ("claims", "proposals")  # E594, E596: the blocks `decide` adds on every result
+SET_ASIDE_WARNINGS = (SELF_MAP + "_", "claim_", "claims_", "proposal_")
+CLAIM_BOOK = "claim_book"  # E596: the optional state key
 
 
 def without_self_map(found: dict) -> dict:
-    """``found`` without the map check's own additions: the meta's plan and the Stage 0 warnings, nothing else."""
-    meta = {k: v for k, v in found["meta"].items() if k != SELF_MAP}
-    kept = [w for w in found["result"]["warnings"] if not w.startswith(SELF_MAP + "_")]
-    result = dict(found["result"], warnings=kept)
+    """``found`` without the additions set aside by name: the map check's plan and the claims' and proposals' inputs
+    in the meta, their blocks in the result, the optional claim book in either state, the Stage 0 warnings."""
+    meta = {k: v for k, v in found["meta"].items() if k not in SET_ASIDE_META}
+    meta["state"] = {k: v for k, v in meta["state"].items() if k != CLAIM_BOOK}
+    kept = [w for w in found["result"]["warnings"] if not w.startswith(SET_ASIDE_WARNINGS)]
+    result = {k: v for k, v in found["result"].items() if k not in SET_ASIDE_RESULT}
+    result = dict(result, warnings=kept, state={k: v for k, v in result["state"].items() if k != CLAIM_BOOK})
     return {"meta": meta, "result": result}
 
 

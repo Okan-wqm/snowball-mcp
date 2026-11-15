@@ -14,7 +14,7 @@ import datetime
 import hashlib
 from typing import Any
 
-from . import config, exitchecks, ledgercheck, policyreads, secretscan, selfmap, stages
+from . import claims as claimbook, config, exitchecks, ledgercheck, policyreads, secretscan, selfmap, stages
 from .reproduce import reproducer_key
 from .rival import REPRODUCER_FIELDS
 from .state import MAX_OPEN_CLAIMS, MAX_OPEN_REFUTATIONS
@@ -442,6 +442,9 @@ def decide(meta: dict[str, Any], run: dict[str, Any] | None, rival: dict[str, An
     waived = sorted(set(meta.get("waived") or []) & set(refutations))
     for key in waived:  # the operator closed it by hand (`control.json`, `29`)
         refutations.pop(key)
+    # The open claims' ages, answers and closures (`29x`, E596): the book is read before this head changes anything.
+    book = claimbook.Claims(state, meta.get("claims"), now)
+    claims[:] = [c for c in claims if c["id"] not in book.waived]  # the operator closed it (`waived_claims`)
     if complete and not outage:
         reported: set[str] = set()
         # The state's reproducers first: they ran as the state was when `pull` read it.
@@ -478,6 +481,20 @@ def decide(meta: dict[str, Any], run: dict[str, Any] | None, rival: dict[str, An
                 claims[:] = [c for c in claims if c["id"] not in proven]
             elif rival["verdict"] == "refuted":
                 _keep_claim(claims, attempt, result, head)
+        book.challenge(attempts)  # the rival sent an answered claim again: it still holds it (`29x`)
+
+    # A claim whose own reproducer shows what it calls correct on this head closes if the head is accepted; an open
+    # claim of an earlier head, unanswered for the window, is overdue: a warning in Stage 0, a reason from Stage 1
+    # (`29x`, the shape of `29t`). The answering head is never rejected for the claim it answers.
+    observed = claimbook.observed_closing(claims, state_results) if complete and not outage else set()
+    if kind in ("spec", "code", "exit"):
+        for cid, heads, days in book.overdue([c["id"] for c in claims], observed, rival_min_attempts):
+            if table.stage == 0:
+                warnings.append(f"{claimbook.OVERDUE}:{cid}")
+            else:
+                reasons.append(_reason(claimbook.OVERDUE, ref=f"claim:{cid}",
+                                       detail=f"accepted_heads={heads} days={days}"))
+    warnings += book.warnings()
 
     exit_block: dict[str, Any] = {"requested": kind == "exit", "transferable": False, "missing": []}
     if kind == "exit":
@@ -548,12 +565,18 @@ def decide(meta: dict[str, Any], run: dict[str, Any] | None, rival: dict[str, An
         for s in state_results:
             if s["source"] == "refutation" and not s["reproduced"] and not s.get("timed_out"):
                 refutations.pop(s["key"], None)
+        claims[:] = [c for c in claims if c["id"] not in observed]  # `29x` observed: bookkeeping, not proof (`29`)
     # Over the caps the oldest go, each named: a defect or claim the referee stops remembering is never silent (E387).
     kept = list(refutations.values())
     warnings += [f"refutation_evicted:{e['key']}" for e in kept[:-MAX_OPEN_REFUTATIONS]]
     warnings += [f"claim_evicted:{c['id']}" for c in claims[:-MAX_OPEN_CLAIMS]]
+    evicted = [c["id"] for c in claims[:-MAX_OPEN_CLAIMS]]
     state["open_refutations"] = kept[-MAX_OPEN_REFUTATIONS:]
     state["open_claims"] = claims[-MAX_OPEN_CLAIMS:]
+    claim_book, claims_block = book.settle(state["open_claims"], accepted, observed, evicted, rival_min_attempts)
+    state.pop(claimbook.BOOK, None)
+    if claim_book is not None:
+        state[claimbook.BOOK] = claim_book
 
     learning = {"repeated": [], "not_learning": [], "repeat_events": state["repeat_events"]}
     if evaluate and kind not in NOTHING_TO_JUDGE:
@@ -621,6 +644,10 @@ def decide(meta: dict[str, Any], run: dict[str, Any] | None, rival: dict[str, An
     still_open = sum(1 for r in reports if r["state"] == "open")
     if still_open:
         warnings.append(f"reports_open:{still_open}")
+    # The Founder's seed proposals as `pull` checked them (`29w`, E594): never a reason, a streak or an acceptance
+    # condition; a candidate is a warning to the panel or the owner, who alone merge it through a seed epoch.
+    proposals = list(meta.get("proposals") or [])
+    warnings += [f"proposal_candidate:{p['id']}" for p in proposals if p.get("status") == "candidate"]
     return {
         "schema": RESULT_SCHEMA,
         "head": head,
@@ -647,4 +674,6 @@ def decide(meta: dict[str, Any], run: dict[str, Any] | None, rival: dict[str, An
         "state": state,
         "rejection": rejection,
         "reports": reports,
+        "claims": claims_block,
+        "proposals": proposals,
     }

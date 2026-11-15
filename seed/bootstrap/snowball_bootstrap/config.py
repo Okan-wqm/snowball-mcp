@@ -182,6 +182,23 @@ def load_waivers(root: Path) -> list[str]:
     return sorted(set(waived))
 
 
+CLAIM_RE = re.compile(r"^[0-9a-f]{12}\Z")
+
+
+def load_claim_controls(root: Path) -> tuple[list[str], list[str]]:
+    """The operator's word on open claims (`tohum/29x`, E596): ``control.json`` ``waived_claims``, the 12-character ids
+    of claims the operator closed, and ``refused_answers``, the sha256 of answer files the operator refused (the claim
+    is unanswered again). Both optional; anything else than such a list stops the run, never a rejection."""
+    data = _load(root / "control.json")
+    data = data if isinstance(data, dict) else {}
+    waived, refused = data.get("waived_claims", []), data.get("refused_answers", [])
+    if not isinstance(waived, list) or not all(isinstance(w, str) and CLAIM_RE.match(w) for w in waived):
+        raise ConfigError("control.json.waived_claims must be a list of 12-character claim ids")
+    if not isinstance(refused, list) or not all(isinstance(r, str) and HEX64_RE.match(r) for r in refused):
+        raise ConfigError("control.json.refused_answers must be a list of 64-character sha256 values")
+    return sorted(set(waived)), sorted(set(refused))
+
+
 @dataclass(frozen=True)
 class ExamFault:
     """A rejection the operator confirmed was the exam's own fault (`29e` "Sınav hatası", E53, E426): the head it

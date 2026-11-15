@@ -36,6 +36,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          fetch-depth: 2  # a PR's merge commit and its base, HEAD^1
+      - name: A proposal PR runs the base's tests and runner on its code (`tohum/29w`, E601)
+        if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'proposal/')
+        working-directory: seed/bootstrap
+        run: python3 local/proposal_check.py --isolate HEAD^1
       - name: Referee unit tests
         working-directory: seed/bootstrap
         run: PYTHONPATH=.:tests python3 -m unittest discover -s tests
@@ -55,9 +60,15 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          fetch-depth: 2  # a PR's merge commit and its base, HEAD^1
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
+      - name: A proposal PR runs the base's tests and runner on its code (`tohum/29w`, E601)
+        if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'proposal/')
+        working-directory: seed/bootstrap
+        shell: bash
+        run: python local/proposal_check.py --isolate HEAD^1
       - name: Referee unit tests
         working-directory: seed/bootstrap
         shell: bash
@@ -72,8 +83,13 @@ jobs:
 
   # A push to main that changes only pages (spec/, docs/, *.md) runs the mutants anchored in those pages in one job
   # (`mutate.mutants_for_changed`); any other change, the weekly run and a manual run run every mutant in shards.
+  # A pull request from a proposal/<id> branch (a Founder's seed proposal, `tohum/29w`, E600, E601) runs every mutant
+  # before anyone merges it, with the base's tests and runner (`proposal_check.py --isolate`): the PR's new tests never
+  # share a process with the suite that judges it; they run alone in `proposal-evidence`.
   mutation-plan:
-    if: github.event_name != 'pull_request' && (github.event_name != 'push' || github.ref == 'refs/heads/main')
+    if: >-
+      (github.event_name == 'pull_request' && startsWith(github.head_ref, 'proposal/'))
+      || (github.event_name != 'pull_request' && (github.event_name != 'push' || github.ref == 'refs/heads/main'))
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
@@ -124,16 +140,39 @@ jobs:
       max-parallel: 16
       matrix:
         # at most 15 mutants a shard: at the worst seen 3 minutes a mutant a shard ends in 45 of its 60 (E410, E502)
-        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82]
+        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          fetch-depth: 2  # a PR's merge commit and its base, HEAD^1
+      - name: A proposal PR runs the base's tests and runner on its code (`tohum/29w`, E601)
+        if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'proposal/')
+        working-directory: seed/bootstrap
+        run: python3 local/proposal_check.py --isolate HEAD^1
       - name: Referee mutants (every one must be killed)
         working-directory: seed/bootstrap
         env:
           SHARD: ${{ matrix.shard }}
-        run: python3 local/mutate.py --shard "$SHARD/83"
+        run: python3 local/mutate.py --shard "$SHARD/93"
+
+  # The proposal's new test modules, each in its own process: the Founder's evidence, green after the patch. Their
+  # verdict is this job's alone; the unit and mutation jobs above never load them (E601).
+  proposal-evidence:
+    if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'proposal/')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+      - name: Each new test module alone
+        working-directory: seed/bootstrap
+        run: |
+          for module in $(python3 local/proposal_check.py --added-tests HEAD^1); do
+            PYTHONPATH=.:tests python3 -m unittest "$module" || exit 1
+          done
 
   fixture-mutation:
     if: github.event_name != 'pull_request' && (github.event_name != 'push' || github.ref == 'refs/heads/main')

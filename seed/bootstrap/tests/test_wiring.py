@@ -374,7 +374,7 @@ class SpecPagesTest(unittest.TestCase):
             with self.subTest(page=rel):
                 self.assertIn(f"| `{rel}` | {lines[0].removeprefix('# ')} | {okunma} |", index)
         task = next(line for line in spec_page("tohum", "00b").splitlines() if line.startswith("| Hakem bileşeni yazma"))
-        for prefix in ("29b", "29e", "29p", "29r", "29t"):
+        for prefix in ("29b", "29e", "29p", "29r", "29t", "29w", "29x"):
             spec_page("tohum", prefix)
             self.assertIn(f"`{prefix}`", task)
 

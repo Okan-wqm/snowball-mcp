@@ -22,6 +22,8 @@ ignored in later code pushes (`asama-0/10`, `26c`, E97).
 ``spend_stage`` is there only past a lock (`for_stage`): the stage whose rival spend ``stage_spend_usd_micros`` counts.
 A stage's brake counts from the lock that opened it (`29b`, `26e`, `asama-1/10`; E492); Stage 0's state never has the
 key, so it is the one it always was.
+``claim_book`` is there only once a claim was open (`claims`, `tohum/29x`, E596): the open claims' ages and the
+closures' counts. A state without it is read as an empty book, so every state signed before it is valid as it was.
 
 A state written by an older bootstrap is carried forward by ``migrate``, never thrown away (`tohum/25`).
 """
@@ -31,6 +33,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from .claims import BOOK as CLAIM_BOOK, valid_book
 from .config import ConfigError, Summary
 from .rival import REPRODUCER_FIELDS
 
@@ -155,8 +158,8 @@ def validate(state: Any) -> dict[str, Any]:
         raise ConfigError("previous state has an unexpected shape (schema "
                           f"{state.get('schema') if isinstance(state, dict) else type(state).__name__!r}); "
                           "see tohum/25 'Durum kaybolursa'")
-    if not KEYS <= set(state) <= KEYS | {SPEND_STAGE}:
-        missing, extra = sorted(KEYS - set(state)), sorted(set(state) - KEYS - {SPEND_STAGE})
+    if not KEYS <= set(state) <= KEYS | {SPEND_STAGE, CLAIM_BOOK}:
+        missing, extra = sorted(KEYS - set(state)), sorted(set(state) - KEYS - {SPEND_STAGE, CLAIM_BOOK})
         raise ConfigError("previous state has an unexpected shape (missing: " + (", ".join(missing) or "none")
                           + "; unexpected: " + (", ".join(extra) or "none") + "): another version of the bootstrap "
                           "wrote it and no migration knows it; see tohum/25 'Durum kaybolursa'")
@@ -212,6 +215,8 @@ def validate(state: Any) -> dict[str, Any]:
         raise ConfigError("previous state: bad exit_accepted_sha")
     if SPEND_STAGE in state and not (_count(state[SPEND_STAGE]) and state[SPEND_STAGE] >= 1):
         raise ConfigError(f"previous state: bad {SPEND_STAGE}")
+    if CLAIM_BOOK in state and not valid_book(state[CLAIM_BOOK], {c["id"] for c in claims}):
+        raise ConfigError(f"previous state: bad {CLAIM_BOOK}")
     return state
 
 

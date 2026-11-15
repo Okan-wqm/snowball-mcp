@@ -7,6 +7,7 @@ no effect (`asama-0/06`).
 
 from __future__ import annotations
 
+import datetime
 import io
 import os
 import subprocess
@@ -103,6 +104,12 @@ def is_ancestor(repo: Path, base: str, head: str) -> bool:
     if proc.returncode not in (0, 1):
         raise GitError(f"git merge-base failed: {proc.stderr.decode('utf-8', 'replace')[:500]}")
     return proc.returncode == 0
+
+
+def commit_time(repo: Path, sha: str) -> str:
+    """The committer time of ``sha`` in UTC, as the signed result writes times (a measurement only, `tohum/29x`)."""
+    seconds = int(git(repo, "show", "-s", "--format=%ct", f"{sha}^{{commit}}").decode().strip())
+    return datetime.datetime.fromtimestamp(seconds, datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def changed_paths(repo: Path, base: str, head: str) -> list[str]:

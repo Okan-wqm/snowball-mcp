@@ -47,10 +47,10 @@ yüklemleri, kardeş girdi; kaydedilmiş plan biçiminde planın kendisi (`snowb
 `honesty_commitment`'la tutmalıdır; çıkışta operatör ekler. **setup/honesty-result.json** (`snowball-honesty-result/1`):
 kaydedilmiş plan biçiminde değerlendiricinin çıktısı; çıkışta operatör ekler (insan dokunuşu).
 
-**reports/*.json** (beyin): `{id, kind: seed_issue|referee_weakness|spec_issue, ref, evidence_test?, state}`. Önyükleme
-hakemi `pull`'da okur, rakipten gizler; imzalı sonuçta her biri `reports[]`'ta `{id, kind, ref, state, sha256}` (dosya
-baytlarının) olur, açık olanlar operatörü `reports_open:<n>` uyarısıyla uyarır; bir vektörü adlandıran `seed_issue` onu
-`disputed` yapar (en çok iki açık itiraz). Spec ve tohum sorunlarını operatör tohum dönemiyle kapatır, Kurucu teyit eder.
+**reports/*.json** (beyin): `{id, kind: seed_issue|referee_weakness|spec_issue|seed_proposal|claim_answer, ref,
+evidence_test?, state}`. Önyükleme hakemi `pull`'da okur, rakipten gizler; her biri sonuçta `reports[]`'ta `{id, kind,
+ref, state, sha256}` (dosya baytlarının) olur, açık olanlar `reports_open:<n>` uyarısıdır; bir vektörü adlandıran
+`seed_issue` onu `disputed` yapar (en çok iki açık itiraz). Kapanışı `00a`, son iki türü `29w` ve `29x` söyler.
 
 **Hazır aday** (`candidates/<hedef>/<cid>/`, beyin): `finding.json` `{rule_id, path, line, fix_range, tool_output_sha256}` (hakemin
 yayımladığı araç çıktısından); `diff.patch` (birleşik diff, yalnız düz dosya); `expect.json` `{decision: merge|reject, reason?}`; `reason`

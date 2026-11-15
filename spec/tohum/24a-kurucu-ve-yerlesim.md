@@ -54,7 +54,7 @@ referee/                        döngü hakeminin adayı; .github/workflows/loop
 targets/<hedef>/units.json      birim tarifi önerisi (veri, `26c`)
 candidates/<hedef>/<cid>/       finding.json, diff.patch, expect.json (`26c`)
 tests/fixtures/toy-repo/        oyuncak hedefin içeriği; ajan yapılandırması taşımaz
-reports/*.json                  tipli bildirimler (`26c`)
+reports/*.json, *.patch         tipli bildirimler, tohum teklifi ve iddia cevabı (`26c`, `29w`, `29x`)
 agents/<ad>.md                  Kurucu'nun ajan tanımları (aşağıda "Ajan ve skill tanımları")
 skills/<ad>/SKILL.md            Kurucu'nun skill tanımları, skill'in kendi dosyalarıyla
 founder-ledger.jsonl            Kurucu'nun koduyla zincirli (`26`); `cost` satırı başlatıcının

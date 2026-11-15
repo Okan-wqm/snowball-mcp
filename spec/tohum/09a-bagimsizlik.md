@@ -40,6 +40,9 @@ operatör yazar (`01a`).
   işaretleri, kanarya sonuçları); serbest metin ona talimat olarak ulaşmaz. Önerisi yeni bir
   kendi-testi ekler, arşivde yeniden oynatılır, farklı modelden rakip çürütmeye çalışır ve kanarya
   geçer. Yeni donmuş koltuklar (Savunma, Uygulayıcı temsilcisi) de onun taslağıyla doğar.
+- **Kurucu'nun tohum teklifi şerit yazarının yerini tutmaz.** Kurucu yalnız `snowball-mcp` tohumuna eklemeli bir aday
+  yazar (`29w`, sahibin kararı 2026-11-14); hakem reposuna, donmuş koltuklara ve aktarılmış koda yine yazamaz, adayı
+  merge etmez, kendi sınavını yargılamaz (Y6).
 - **Aktarım yolu.** Hakem reposu ruleset'e ve ortama dayandırılmadığı için (özel Free planda yoktur) hiçbir App ona
   yazmaz; şerit yazarının kabul edilmiş önerisi hakem reposuna operatör aktarımıyla, aşama
   çıkışında girer ve "insan dokunuşu" sayacına yazılır. Hakem reposu ruleset ve ortam taşıyabildiğinde
