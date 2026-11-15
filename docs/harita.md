@@ -16,7 +16,7 @@ Read from the code: the jobs, `needs:` and commands of `seed/bootstrap/workflow/
 
 ## 1. System flow
 
-15 nodes, 27 edges. A job box lists the `snowball_bootstrap` commands it runs, in order. Job arrows leave out dependencies another path already implies; the table lists every `needs:`. A seed epoch is the operator's delivery of `spec/tohum/` and `seed/` to the brain, with the `seed_epochs` row the referee checks on its next pull (`seed/founder/README.md`).
+15 nodes, 29 edges. A job box lists the `snowball_bootstrap` commands it runs, in order. Job arrows leave out dependencies another path already implies; the table lists every `needs:`. A seed epoch is the operator's delivery of `spec/tohum/` and `seed/` to the brain, with the `seed_epochs` row the referee checks on its next pull (`seed/founder/README.md`).
 
 ```mermaid
 flowchart LR
@@ -57,6 +57,8 @@ flowchart LR
   job_yaz -.->|signs result.json, keyless| rekor
   job_yaz -.->|signed verdict: bootstrap-state artifact| launcher
   launcher -.->|last verdict, read-only: /work/referee| capsule
+  referee -.->|loop.yml runs: jobs and their summary lines, read-only| launcher
+  launcher -.->|last loop runs, read-only: /work/logs/loop-runs.jsonl| capsule
   operator -.->|seed epoch: delivers spec/tohum alone| brain
   operator -.->|installs bootstrap/, vectors/, kill switch, seed_epochs row| referee
   operator -.->|after each cycle: docs/karne.md| scorecard
@@ -451,6 +453,6 @@ flowchart LR
   launcher -->|module| m_secretscan
   launcher -->|LEDGER_FILE, SEED_DIRS, is_founder_record, is_seed_path| m_classify
   launcher -->|counts_against_founder, is_brake_stop| m_decide
-  launcher -->|fold, target_names| m_exitchecks
+  launcher -->|fold, target_names, withheld| m_exitchecks
   launcher -->|founder_inputs| m_vectors
 ```
