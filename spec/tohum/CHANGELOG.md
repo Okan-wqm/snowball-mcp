@@ -4,6 +4,15 @@ Tarih: 2026-10-29 · Sürüm: 2.2
 Okunma: bir sayfanın geçmişi aranırken
 Çapa: git geçmişi ve zincirdeki spec hash satırları
 
+- 2.2 (2026-11-15, E594–E599; Kurucu raporu ve sahibin kararı, iki uzmanlı iki turlu panel): yeni `29y`. Yanıtlanan
+  rapor: `seed-055-prompt-limit-not-stated` → `29b:47-50` (istemin parçaları, Unicode kod noktası birimi,
+  `bootstrap.json` `limits.max_prompt_chars`, `prompt_too_large`; sonucun `rival` kaydı her koşuda, sınır denetiminden
+  önce, `prompt_chars`, `prompt_diff_chars` ve `prompt_max_chars` taşır, ölçülmeyen `null`'dır). Raporun bayt birimi
+  ve `rival.prompt_max_bytes` anahtarı kodda yoktur; en büyük yollar listesi alınmadı (E595). `29b:46-54` satır sayısı
+  değişmeden yazıldı; çıkan olgular `24:21`, `24:29`, `29b:44`, `29e:16` ve `25:42-44`'te kalır. Sahibin kararı
+  (E596): Kurucu döngünün (`loop.yml`) en yeni üç koşusunu her oturumda `/work/logs/loop-runs.jsonl`'da görür (`29y`;
+  `prompt.md`, `00b`). `policy.json`'un kopyası kaçışla yazılmış sır desenini de reddeder (E598). 80 satır sınırı için
+  2026-11-12 ve 2026-11-13 E569–E574 kayıtları `CHANGELOG-7.md`'ye taşındı.
 - 2.2 (2026-11-15; sahibin istisnası, olgu): operatörün (B) ön denetimi, iki GitHub API olgusu. (1) `GET /app`
   yalnız App'in JWT'siyle okunur; kurulum belirteci 401 alır (canlı deneme: `A JSON web token could not be
   decoded`). (2) `GET /repos/{repo}/actions/permissions` belirteçte `administration: read` ister; yazar App'inde
@@ -47,20 +56,8 @@ Okunma: bir sayfanın geçmişi aranırken
   sınırı için `24a` "Oturumun maliyet satırı" yeniden sarıldı (içerik değişmedi) ve 2026-11-04 E499, E540–E546 kaydı
   `CHANGELOG-5.md`'ye taşındı.
   Sahibin kararı (E582): `cost` satırı modeli ve CLI'nin token toplamlarını da taşır (`24a:35`).
-- 2.2 (2026-11-13, E574; sahibin kararı): yeni yasa `00` Y12 "Maliyet" (metni yalnız orada); `06`, `24`, `24a`
-  ona işaret eder; `24a`'daki "Kurucu kendi maliyetini ölçemez" cümlesi Y12 ile çeliştiği için kalktı; `00` 80 satır
-  sınırı için yeniden sarıldı, başka içerik değişmedi.
-- 2.2 (2026-11-12, E569–E573; Kurucu raporu, iki uzmanlı iki turlu panelin kararı): yeni `29e` "Genellik okuması":
-  #genellik'in metin saydığı baytlar (katı UTF-8 ve NUL yok; öbür denetim karakterleri metindir), aradığı yer (yol,
-  `referee/`'den sonrası, ve metin; karşılaştırmanın biçimi), iki nedenin adı ve listenin oturuma verilmediği; `26c:32`
-  kuralı için oraya bakar, `00b`'nin aşama satırı `29e`'yi okutur; donmuş `asama-0/10` değişmedi. `24a` 3: başlatıcı her
-  oturumun klasörüne `targets.json` yazar, `targets[]` sırasıyla `[{id, kind}]`, adsız (`seed/founder/prompt.md`
-  "Hedefler"). Yanıtlanan rapor: `seed-049-genellik-text-rule-and-names-unreadable` → (a) `29e:60-62` (metin kuralı ve
-  iki nedenin adı), `29e:58-60` (biçim; önce yol, sonra metin); (b) `29e:57-58` (liste de sayısı da oturuma verilmez),
-  `29e:64-65` (denetimden geçmek genelliğin kanıtı değildir); `26c:32` listeyi adlandırır, kimin okuduğunu söylemez; (c)
-  `24a:32-33` (hedeflerin kimliği ve türü `/work/logs/targets.json`'da), `24a:54` (`targets/<hedef>/`);
-  `targets/names.json`'u okuyan ya da reddeden denetim yoktur. 80 satır sınırı için 2026-11-01 E490–E499 kaydı
-  `CHANGELOG-5.md`'ye taşındı.
+- 2.2 (2026-11-12 – 2026-11-13, E569–E574): `29e` "Genellik okuması", hedeflerin `targets.json`'u ve yasa `00`
+  Y12 "Maliyet": `CHANGELOG-7.md`.
 - 2.2 (2026-11-05 – 2026-11-06, E550, E551, E553, E560–E566): rakibin bütçe durması, çıkış sırası ve sahip
   istisnasının #spec'i: `CHANGELOG-6.md`.
 - 2.2 (2026-11-02 – 2026-11-04, E499, E506, E507, E540–E546): kırmızı bir (B)'den sonra dalların arşivi ve
