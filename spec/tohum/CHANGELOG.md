@@ -11,16 +11,10 @@ Okunma: bir sayfanın geçmişi aranırken
   ve `rival.prompt_max_bytes` anahtarı kodda yoktur; en büyük yollar listesi alınmadı (E595). `29b:46-54` satır sayısı
   değişmeden yazıldı; çıkan olgular `24:21`, `24:29`, `29b:44`, `29e:16` ve `25:42-44`'te kalır. Sahibin kararı
   (E596): Kurucu döngünün (`loop.yml`) en yeni üç koşusunu her oturumda `/work/logs/loop-runs.jsonl`'da görür (`29y`;
-  `prompt.md`, `00b`). `policy.json`'un kopyası kaçışla yazılmış sır desenini de reddeder (E598). 80 satır sınırı için
-  2026-11-12 ve 2026-11-13 E569–E574 kayıtları `CHANGELOG-7.md`'ye taşındı.
-- 2.2 (2026-11-15; sahibin istisnası, olgu): operatörün (B) ön denetimi, iki GitHub API olgusu. (1) `GET /app`
-  yalnız App'in JWT'siyle okunur; kurulum belirteci 401 alır (canlı deneme: `A JSON web token could not be
-  decoded`). (2) `GET /repos/{repo}/actions/permissions` belirteçte `administration: read` ister; yazar App'inde
-  Administration Read-only vardır (sahip doğruladı), bir belirteç yalnız basılırken istenen izinleri taşır.
-- 2.2 (2026-11-15; gözlem): (B)'nin ikinci denemesi kırmızı. Aktarılan 4dc2c69; iki devir (koşu 43685908138,
-  43686181570) aynı: `cek`, `cagir`, `getir`, `kos` yeşil; `kos` oyuncakta `base` `no_verdict` [`red_control_fault`,
-  `runner_fault`], işin süresi 3 sn, her aday `base_unavailable`; `yaz` `activation_refused` [`base_run_missing`]. İlk
-  denemenin `kos`'u (43534260172) aynı satırı vermişti. Aktarım geri alındı, 4dc2c69 `reverted_exits`'te.
+  `prompt.md`, `00b`). `policy.json`'un kopyası kaçışla yazılmış sır desenini de reddeder (E598). Yanıtlanan raporlar:
+  `seed-056-kos-red-without-its-cause` → `29y:29-36` (her işin son çıktı satırları, `output`);
+  `seed-057-app-read-credential-not-stated` → `29s` "GitHub kimlikleri". 80 satır için 2026-11-12/13 E569–E574 ve
+  operatörün 2026-11-15 gözlem ve istisna kayıtları `CHANGELOG-7.md`'de.
 - 2.2 (2026-11-14, E588–E592; Kurucu raporu ve sahibin iki kararı, iki uzmanlı iki turlu panel): yeni `29u`, `29v`.
   Sahibin kararı (E590): (A) kabul edilince sabitlenen yalnız kabul edilen SHA'dır, `main` değil; sonraki push olağan
   yargılanır, `changed_after_exit` ve `referee_changed_after_exit` kalktı, `referee/`'ye dokunan push
@@ -34,11 +28,6 @@ Okunma: bir sayfanın geçmişi aranırken
   o yoldur; donmuş `asama-0/12:20` için de), `18a:49-50` (`deps.fetch` okur), `29b:79` (okudukları `constitutional`
   altında), `26e:46`. 80 satır sınırı için 2026-11-05 ve 2026-11-06 kayıtları `CHANGELOG-6.md`'ye taşındı.
 - 2.2 (2026-11-14, E585–E587; sahip): `29t` kendi haritası: hakem `docs/map/brain.md`'yi sınar (Aşama 0 uyarı, 1 ret).
-- 2.2 (2026-11-14, E583; gözlem): (B)'nin ilk denemesi kırmızı. Aktarılan 91bbd27; `loop.yml`'un `cagir` işi
-  `unusable input: cagir: policy.json has no stage_budgets.asama_0.canary_usd` ile durdu (koşu 43534260172), `yaz`
-  koşmadı, hedeflere yazılmadı; aktarım `25a` "Başarısızlık" ile geri alındı, 91bbd27 `reverted_exits`'te. `kos`'un
-  ilk durması (`operating` yok) operatöründü: `policy.json`'a `operating{}` ve `security_keywords` yazıldı.
-  E584: `canary_usd` da `policy.json`'da hiç yoktu (operatörün eksiği; `18a:60`'ın 1 USD'si yazıldı); şema `26b:54-59`.
 - 2.2 (2026-11-13, E577–E581; Kurucu raporları, iki uzmanlı iki turlu panelin kararı): `24a` 3: başlatıcının
   `targets.json`'u `targets[]` sırasıyla `[{id, kind, base_sha, unit_candidates}]`'dır (kimlik ya da aday ad taşırsa
   başlatıcı durur; repo, hariç yollar, güvenlik yolları ve adlar verilmez); `policy.json`'un `operating`'i her oturum

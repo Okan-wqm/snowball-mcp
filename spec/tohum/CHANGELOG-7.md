@@ -4,6 +4,20 @@ Tarih: 2026-11-13 · Sürüm: 2.2
 Okunma: bir sayfanın geçmişi aranırken
 Çapa: git geçmişi ve zincirdeki spec hash satırları
 
+- 2.2 (2026-11-15; gözlem ve sahibin istisnası, olgu): (B)'nin üçüncü denemesi kırmızı. Aktarılan 1b0a1e4; iki devir
+  (43721580137, 43721876896) aynı: `kos` oyuncakta `base` `no_verdict` [`unreadable_output`], her aday
+  `base_unavailable`; `yaz` `activation_refused` [`base_run_missing`]; geri alındı, 1b0a1e4 `reverted_exits`'te. Olgu:
+  `loop.yml`'un işleri koşucunun kullanıcısıyla (`ubuntu-24.04`'te uid 1001) koşar; `contained` konteyneri `--user
+  65534:65534` ile başlatır; `unreadable_output` yalnız koşudan sonra `work/` ya da `out/` altında host kullanıcısının
+  açamadığı bir girdi varken çıkar. 80 satır için E583 gözlemi `CHANGELOG-6.md`'de.
+- 2.2 (2026-11-15; sahibin istisnası, olgu): operatörün (B) ön denetimi, iki GitHub API olgusu. (1) `GET /app`
+  yalnız App'in JWT'siyle okunur; kurulum belirteci 401 alır (canlı deneme: `A JSON web token could not be
+  decoded`). (2) `GET /repos/{repo}/actions/permissions` belirteçte `administration: read` ister; yazar App'inde
+  Administration Read-only vardır (sahip doğruladı), bir belirteç yalnız basılırken istenen izinleri taşır.
+- 2.2 (2026-11-15; gözlem): (B)'nin ikinci denemesi kırmızı. Aktarılan 4dc2c69; iki devir (koşu 43685908138,
+  43686181570) aynı: `cek`, `cagir`, `getir`, `kos` yeşil; `kos` oyuncakta `base` `no_verdict` [`red_control_fault`,
+  `runner_fault`], işin süresi 3 sn, her aday `base_unavailable`; `yaz` `activation_refused` [`base_run_missing`]. İlk
+  denemenin `kos`'u (43534260172) aynı satırı vermişti. Aktarım geri alındı, 4dc2c69 `reverted_exits`'te.
 - 2.2 (2026-11-13, E574; sahibin kararı): yeni yasa `00` Y12 "Maliyet" (metni yalnız orada); `06`, `24`, `24a`
   ona işaret eder; `24a`'daki "Kurucu kendi maliyetini ölçemez" cümlesi Y12 ile çeliştiği için kalktı; `00` 80 satır
   sınırı için yeniden sarıldı, başka içerik değişmedi.
