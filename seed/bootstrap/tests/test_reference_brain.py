@@ -567,7 +567,12 @@ BREAKS = [
      ["status.fields_from_ledger.changed_input"]),
 
     ("toy_base_from_the_summary", "activate.py", 'base_sha = obj["sha"]', 'base_sha = target.get("base_sha")',
-     ["genesis.toy_genesis_row", "genesis.recipe_canonical"]),
+     ["genesis.toy_genesis_row", "genesis.recipe_canonical", "genesis.toy_base_empty", "genesis.toy_base_absent"]),
+    # seed-059 (E603): the toy's summary base is null at setup, or its key absent; genesis does not read it
+    ("toy_base_required", "activate.py", 'if kind == "copy" and not isinstance(target.get("base_sha"), str):',
+     'if not isinstance(target.get("base_sha"), str):', ["genesis.toy_base_empty", "genesis.toy_base_absent"]),
+    ("copy_base_unchecked", "activate.py", 'if kind == "copy" and not isinstance(target.get("base_sha"), str):',
+     "if False:", ["genesis.copy_base_empty"]),
     ("toy_main_checked_against_the_summary", "activate.py", "    reasons = set()" + chr(10),
      '    reasons = {"main_moved"} if kind == "toy" and base_sha != target.get("base_sha") else set()' + chr(10),
      ["genesis.toy_genesis_row", "genesis.every_fault_named"]),
@@ -711,7 +716,7 @@ class SeedVectorsOnReferenceImplementationsTest(unittest.TestCase):
         cases = [c["id"] for g in DATA_GROUPS for c in seed[g]["cases"]]
         data = [r for r in results if not r["id"].startswith("chain.")]
         self.assertEqual([r["id"] for r in data], [i + s for i in cases for s in ("", ".changed_input")])
-        self.assertEqual((len(data), len(results)), (300, 306))  # MF2-MF7 122, MF8-MF13 124, MF14-MF18 54; `chain` 6
+        self.assertEqual((len(data), len(results)), (306, 312))  # MF2-MF7 122, MF8-MF13 124, MF14-MF18 60; `chain` 6
         self.assertEqual([(r["id"], r["detail"]) for r in results if not r["ok"]], [])
         self.assertEqual(brain_manifest().done_mf, (1,))  # reference implementations, not declared done
 

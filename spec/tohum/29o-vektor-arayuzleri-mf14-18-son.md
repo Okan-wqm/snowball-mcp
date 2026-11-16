@@ -43,7 +43,7 @@ boş ya da geçerli zincir değil).
 
 **Yük**, neden yoksa, on iki anahtar (`asama-0/10a:17`'nin bağladıkları; `26`'da genesis yükü yok, adlar seçim ve
 `26`'ya girmeli): `target`; `base_sha` (`toy`: API'deki `main`'in `object.sha`'sı, özettekini okumaz, oyuncak kurulumda
-boştur, `25:26`, `25a:16`; `copy`: `targets[].base_sha`); son aktarım satırından (`referee_tree_sha256` taşıyan son
+boştur (`null`), `25:26`, `25a:16`; `copy`: `targets[].base_sha`); son aktarım satırından (`referee_tree_sha256` taşıyan son
 imports satırı; sayacın aktarım dışı dokunuşları atlanır, `29n`) `referee_tree_sha256`, `result_sha256`;
 `import_line_sha256` (o satırın LF'siz baytları, `26c:39`); `seed_epoch` (son `seed_epochs[]`); dosya baytlarının
 sha256'sı `policy_sha256`, `summary_sha256`, `seed_security_ledger_sha256` (LF checkout'ta git blob'u, `25:64`);
@@ -60,4 +60,11 @@ aynı tarif başka anahtar sırası ve girintiyle aynı yükü verir; `copy_acti
 `every_fault_named` altı olgu birden düşer, her biri adlanır (onaysız inceleme `main`'i korumaz, oyuncakta iş akışı
 var), oyuncağın kayan `main`'i hata değil; `bypass_named` kopyada yazar App'i `brain/state`'in ruleset'ini atlayabilir
 ve `main`'inkinden muaftır, `main` güncelleme kısıtlı olsa da: ikisi adlanır; `security_ledger_broken` hash'ten sonra
-bir baytı düzenlenmiş tohum güvenlik defteri etkinleştirmeyi durdurur.
+bir baytı düzenlenmiş tohum güvenlik defteri etkinleştirmeyi durdurur; `toy_base_empty` özette oyuncağın `base_sha`'sı
+`null`, `toy_base_absent` satırda anahtar yok: yük ikisinde de `toy_genesis_row`'unkidir, `summary_sha256` fikstürün kendi
+baytlarınındır; `copy_base_empty` kopyanın `base_sha`'sı `null` iken kopya istenir: kullanılamaz girdi (çıkış 2).
+
+**Oyuncağın özetteki tabanı** (seed-059). Kurulumun yazdığı biçim `null`'dır: önyükleme hakemi `setup/summary.json`'un her
+`targets[]` satırında `base_sha` anahtarını ister, değeri 40 küçük onaltılık hane ya da `null`'dır (commit'i henüz olmayan
+hedef); boş dize ve eksik anahtar özeti okunamaz yapar, hakemin her işi durur (`seed/bootstrap/snowball_bootstrap/config.py`
+`target`). Başlatıcının `/work/logs/targets.json`'u değeri olduğu gibi taşır (`24a:32-33`). Genesis oyuncağınkini okumaz.
