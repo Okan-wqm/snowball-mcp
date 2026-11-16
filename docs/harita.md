@@ -16,7 +16,7 @@ Read from the code: the jobs, `needs:` and commands of `seed/bootstrap/workflow/
 
 ## 1. System flow
 
-15 nodes, 29 edges. A job box lists the `snowball_bootstrap` commands it runs, in order. Job arrows leave out dependencies another path already implies; the table lists every `needs:`. A seed epoch is the operator's delivery of `spec/tohum/` and `seed/` to the brain, with the `seed_epochs` row the referee checks on its next pull (`seed/founder/README.md`).
+16 nodes, 31 edges. A job box lists the `snowball_bootstrap` commands it runs, in order. Job arrows leave out dependencies another path already implies; the table lists every `needs:`. A seed epoch is the operator's delivery of `spec/tohum/` and `seed/` to the brain, with the `seed_epochs` row the referee checks on its next pull (`seed/founder/README.md`).
 
 ```mermaid
 flowchart LR
@@ -37,6 +37,7 @@ flowchart LR
     job_kos["job kos<br/>control · join-parts · pack"]
     job_cagir["job cagir<br/>control · rival · pack"]
     job_yeniden["job yeniden<br/>control · reproduce · pack"]
+    job_kanarya["job kanarya<br/>control · canary"]
     job_yaz["job yaz<br/>control · decide · licenses"]
   end
   job_cek --> job_getir
@@ -44,7 +45,9 @@ flowchart LR
   job_kos_parca --> job_kos
   job_kos --> job_cagir
   job_cagir --> job_yeniden
+  job_cek --> job_kanarya
   job_yeniden --> job_yaz
+  job_kanarya --> job_yaz
   operator -.->|starts the pilot| launcher
   launcher -.->|docker run: one Founder session| capsule
   capsule -.->|git push| brain
@@ -78,37 +81,38 @@ flowchart LR
 | `kos` | `cek`, `getir`, `kos_parca` | `control`, `join-parts`, `pack` | {} | - |
 | `cagir` | `cek`, `kos` | `control`, `rival`, `pack` | {} | `CLAUDE_CODE_OAUTH_TOKEN` |
 | `yeniden` | `cek`, `getir`, `kos`, `cagir` | `control`, `reproduce`, `pack` | {} | - |
-| `yaz` | `cek`, `getir`, `kos`, `cagir`, `yeniden` | `control`, `decide`, `licenses` | contents: read, id-token: write | - |
+| `kanarya` | `cek` | `control`, `canary` | {} | - |
+| `yaz` | `cek`, `getir`, `kos`, `cagir`, `yeniden`, `kanarya` | `control`, `decide`, `licenses` | contents: read, id-token: write | - |
 
 ## 2. Referee package: `seed/bootstrap/snowball_bootstrap`
 
-31 modules, 94 imports inside the package, 1 started as a separate process. Areas are roles. The overview has 5 areas and 13 edges; an arrow's number is how many imports cross from one area to the other.
+32 modules, 98 imports inside the package, 1 started as a separate process. Areas are roles. The overview has 5 areas and 13 edges; an arrow's number is how many imports cross from one area to the other.
 
 ```mermaid
 flowchart LR
   a_Entry["Entry<br/>3 modules"]
   a_Intake["Intake<br/>10 modules"]
-  a_Sandbox["Sandbox<br/>8 modules"]
+  a_Sandbox["Sandbox<br/>9 modules"]
   a_Rival["Rival<br/>4 modules"]
   a_Judgement["Judgement<br/>6 modules"]
   a_Entry -->|10| a_Intake
   a_Entry -->|6| a_Judgement
   a_Entry -->|2| a_Rival
-  a_Entry -->|7| a_Sandbox
+  a_Entry -->|8| a_Sandbox
   a_Intake -->|1| a_Judgement
   a_Judgement -->|9| a_Intake
   a_Judgement -->|4| a_Rival
-  a_Judgement -->|2| a_Sandbox
+  a_Judgement -->|3| a_Sandbox
   a_Rival -->|3| a_Intake
   a_Rival -->|1| a_Sandbox
-  a_Sandbox -->|3| a_Intake
+  a_Sandbox -->|5| a_Intake
   a_Sandbox -->|3| a_Judgement
   a_Sandbox -->|2| a_Rival
 ```
 
 ### Entry
 
-3 modules, 26 edges out of them.
+3 modules, 27 edges out of them.
 
 ```mermaid
 flowchart LR
@@ -143,6 +147,7 @@ flowchart LR
   end
   subgraph a_Sandbox["Sandbox"]
     m_container["container"]:::outside
+    m_exitcanary["exitcanary"]:::outside
     m_manifest["manifest"]:::outside
     m_moduleless["moduleless"]:::outside
     m_parts["parts"]:::outside
@@ -157,6 +162,7 @@ flowchart LR
   m_cli --> m_container
   m_cli --> m_decide
   m_cli --> m_drillfixtures
+  m_cli --> m_exitcanary
   m_cli --> m_exitchecks
   m_cli --> m_ghapi
   m_cli --> m_gitio
@@ -230,24 +236,25 @@ flowchart LR
 |---|---|---|
 | `canon` | Canonical JSON (the RFC 8785 subset the seed allows) and hashing helpers. | `cli`, `drillfixtures`, `importer`, `ledgercheck`, `parts`, `reproduce`, `rival`, `stagelock`, `stages` |
 | `classify` | What kind of push is this (`tohum/29b`, "İki tür push")? | `cli`, `exitchecks` |
-| `config` | Operator-written inputs, validated strictly. | `cli`, `decide`, `drillfixtures`, `exitchecks`, `rival`, `stagelock`, `stages`, `state` |
+| `config` | Operator-written inputs, validated strictly. | `cli`, `decide`, `drillfixtures`, `exitcanary`, `exitchecks`, `rival`, `stagelock`, `stages`, `state` |
 | `drillfixtures` | The operator's `drill-fixtures` command: the live revert-drill fixtures of one import (`tohum/26f` "Canlı prova fikstürleri", `25a` 7, `asama-0/01` D8; E499, E544). | `cli` |
 | `ghapi` | Minimal GitHub REST calls the pull job needs: find and download the latest state artifact, and look at the newest failed run of this workflow (E13). | `cli`, `drillfixtures` |
 | `gitio` | Git operations on the untrusted brain repository. | `cli`, `drillfixtures`, `importer`, `stagelock` |
 | `importer` | Operator import at the Stage 0 exit and at each batch exit after it (`tohum/25a` 1-2, `asama-0/10a` #aktarim and #oyuncak, `asama-1/13` 3: "aynı komut"). | `cli`, `drillfixtures`, `stagelock` |
 | `licenses` | License gate for downloaded wheels (`tohum/24`, "Lisans"). | `cli` |
 | `stagelock` | The stage lock and the counter it is bound to (`tohum/02` 5, `asama-0/10a` "Kilidin açılışı", `tohum/25a` 9, `26c`). | `cli`, `drillfixtures`, `importer` |
-| `treehash` | Tree hashes over git-archive tarballs, and safe extraction of regular files only. | `cli`, `drillfixtures`, `exitchecks`, `gitio`, `importer`, `moduleless`, `selfmap`, `stages` |
+| `treehash` | Tree hashes over git-archive tarballs, and safe extraction of regular files only. | `cli`, `drillfixtures`, `exitcanary`, `exitchecks`, `gitio`, `importer`, `moduleless`, `selfmap`, `stages` |
 
 ### Sandbox
 
-8 modules, 20 edges out of them.
+9 modules, 22 edges out of them.
 
 ```mermaid
 flowchart LR
   subgraph a_Sandbox["Sandbox"]
     m_container["container"]
     m_controls["controls"]
+    m_exitcanary["exitcanary"]
     m_manifest["manifest"]
     m_moduleless["moduleless"]
     m_parts["parts"]
@@ -257,6 +264,7 @@ flowchart LR
   end
   subgraph a_Intake["Intake"]
     m_canon["canon"]:::outside
+    m_config["config"]:::outside
     m_treehash["treehash"]:::outside
   end
   subgraph a_Judgement["Judgement"]
@@ -266,6 +274,8 @@ flowchart LR
     m_secretscan["secretscan"]:::outside
   end
   m_controls --> m_container
+  m_exitcanary --> m_config
+  m_exitcanary --> m_treehash
   m_manifest --> m_stages
   m_moduleless --> m_container
   m_moduleless --> m_secretscan
@@ -292,6 +302,7 @@ flowchart LR
 |---|---|---|
 | `container` | Run untrusted code in a nested, network-less, unprivileged container (`tohum/08` 2). | `cli`, `controls`, `moduleless`, `parts`, `policyreads`, `reproduce`, `selfmap`, `vectors` |
 | `controls` | Red controls: known answers about the runner itself (`tohum/08` 3). | `parts` |
+| `exitcanary` | The exit request's container canary (seed-058, `29z`): one real contained run before (B). | `cli`, `decide` |
 | `manifest` | The founder's test manifest (`snowball-tests.json`, `tohum/26c`) and its lock files. | `cli` |
 | `moduleless` | Module-less red (`asama-0/14`; `tohum/04` 1, "Kasıtlı bozma"): a micro-feature's tests fail without it. | `cli`, `policyreads`, `selfmap` |
 | `parts` | `kos` in parts (E440): one push's run shared out among N parallel jobs and joined into the single job's `run.json`. | `cli` |
@@ -340,7 +351,7 @@ flowchart LR
 
 ### Judgement
 
-6 modules, 22 edges out of them.
+6 modules, 23 edges out of them.
 
 ```mermaid
 flowchart LR
@@ -364,10 +375,12 @@ flowchart LR
     m_secretscan["secretscan"]:::outside
   end
   subgraph a_Sandbox["Sandbox"]
+    m_exitcanary["exitcanary"]:::outside
     m_policyreads["policyreads"]:::outside
     m_selfmap["selfmap"]:::outside
   end
   m_decide --> m_config
+  m_decide --> m_exitcanary
   m_decide --> m_exitchecks
   m_decide --> m_ledgercheck
   m_decide --> m_policyreads
@@ -407,7 +420,7 @@ Every subcommand of `cli.py`, the jobs that run it, and the package modules its 
 
 | Command | Run by | Handler | Modules it reaches |
 |---|---|---|---|
-| `control` | `cek`, `getir`, `kos_parca`, `kos`, `cagir`, `yeniden`, `yaz` | `cmd_control` | `config`, `stagelock`, `wiring` |
+| `control` | `cek`, `getir`, `kos_parca`, `kos`, `cagir`, `yeniden`, `kanarya`, `yaz` | `cmd_control` | `config`, `stagelock`, `wiring` |
 | `config-value` | `cek` | `cmd_config_value` | `config` |
 | `poll` | `cek` | `cmd_poll` | `config`, `decide`, `ghapi`, `gitio`, `stagelock`, `state`, `treehash` |
 | `licenses` | `cek`, `yaz` | `cmd_licenses` | `canon`, `config`, `licenses` |
@@ -419,6 +432,7 @@ Every subcommand of `cli.py`, the jobs that run it, and the package modules its 
 | `join-parts` | `kos` | `cmd_join_parts` | `canon`, `config`, `licenses`, `moduleless`, `parts`, `policyreads`, `selfmap`, `stagelock`, `treehash`, `vectors` |
 | `rival` | `cagir` | `cmd_rival` | `canon`, `config`, `rival`, `stagelock`, `stages`, `treehash` |
 | `reproduce` | `yeniden` | `cmd_reproduce` | `canon`, `config`, `container`, `reproduce`, `treehash`, `vectors` |
+| `canary` | `kanarya` | `cmd_canary` | `config`, `exitcanary`, `treehash` |
 | `decide` | `yaz` | `cmd_decide` | `canon`, `config`, `decide`, `stagelock` |
 | `pack` | `cek`, `getir`, `kos_parca`, `kos`, `cagir`, `yeniden` | `cmd_pack` | - |
 | `unpack` | operator / local | `cmd_unpack` | `treehash` |
@@ -430,7 +444,7 @@ Every subcommand of `cli.py`, the jobs that run it, and the package modules its 
 
 ## 3. Launcher links
 
-`seed/founder/launch.py` runs on the operator's machine and imports 9 referee modules, so the launcher applies the referee's own rules instead of a copy (E244). Through them it loads 19: `canon`, `classify`, `config`, `container`, `decide`, `exitchecks`, `gitio`, `ledgercheck`, `moduleless`, `policyreads`, `reproduce`, `rival`, `secretscan`, `selfmap`, `stages`, `state`, `treehash`, `vectors`, `wiring`.
+`seed/founder/launch.py` runs on the operator's machine and imports 9 referee modules, so the launcher applies the referee's own rules instead of a copy (E244). Through them it loads 20: `canon`, `classify`, `config`, `container`, `decide`, `exitcanary`, `exitchecks`, `gitio`, `ledgercheck`, `moduleless`, `policyreads`, `reproduce`, `rival`, `secretscan`, `selfmap`, `stages`, `state`, `treehash`, `vectors`, `wiring`.
 
 ```mermaid
 flowchart LR
