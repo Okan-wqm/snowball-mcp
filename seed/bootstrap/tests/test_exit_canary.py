@@ -379,18 +379,40 @@ class PagesTest(unittest.TestCase):
         self.assertEqual(exitcanary.RED_CMD, ["node", "-e", "process.exit(1)"])
         self.assertEqual(exitcanary.COMMAND, ("python3", "-m", "runner.contained", "run"))
 
-    def test_29o_says_the_toys_summary_base_is_null_as_the_referee_reads_it(self):  # toy_base_page_not_null
+    def test_29o_says_the_toys_summary_base_is_null_as_the_referee_reads_it(self):
+        # toy_base_page_not_null toy_base_fact_dropped seed_sha_null_fact_dropped
         lines = page("29o").splitlines()
         self.assertIn("oyuncak kurulumda boştur (`null`)", flat(" ".join(lines[44:46])))
-        fact = flat(page("29o").split("**Oyuncağın özetteki tabanı** (seed-059).", 1)[1])
-        self.assertIn("Kurulumun yazdığı biçim `null`'dır", fact)
-        self.assertIn("boş dize ve eksik anahtar özeti okunamaz yapar", fact)
+        fact = flat(page("29o").split("**Kurulumun özetteki biçimi** (seed-059).", 1)[1])
+        for words in ("oyuncak kurulumda boştur, yazılan `null`'dır; boş dize ya da eksik anahtar okunmaz",
+                      "`seed_epochs[].seed_sha256` (beyinde `seed/` yoksa", "Zorunlu: `seed_commit`",
+                      "`seed_epoch` son satırı olduğu gibi taşır"):
+            self.assertIn(words, fact, words)
+        optional = re.search(r"Yazılmayabilen: (.*?)\. ", fact).group(1)
+        self.assertEqual(set(re.findall(r"`([a-z_\[\].]+)`", optional)),
+                         {"seed_epochs", "targets", "targets[].safety_paths"} | {
+                             f for fields in config.OWNER_EXCEPTIONS.values() for f in (fields.exception, fields.commitment)})
+        self.assertEqual(config.TARGET_OPTIONAL_KEYS, {"safety_paths"})
+        epoch = {"commit": "c" * 40, "spec_tohum_sha256": "d" * 64, "seed_sha256": None, "bootstrap_sha256": "e" * 64}
+        self.assertIsNone(config._epoch(epoch, "e").seed_sha256)
         row = dict(SUMMARY["targets"][0])
         self.assertIsNone(config.target(row, "t").base_sha)
         for broken in (dict(row, base_sha=""), {k: v for k, v in row.items() if k != "base_sha"},
                        dict(row, base_sha="A" * 40)):
             with self.subTest(row=broken), self.assertRaises(config.ConfigError):
                 config.target(broken, "t")
+
+    def test_the_new_genesis_summaries_are_the_form_the_referee_reads_at_setup(self):
+        """The sixth (B) attempt: fixtures that carry a form setup does not write let a reading pass that the real summary
+        stops. The summary the toy cases read is one the referee itself reads; the others differ by the row they name."""
+        genesis = BOOT / "vectors" / "genesis"
+        real = config.summary_of(json.loads((genesis / "summary_toy_null.json").read_text(encoding="utf-8")))
+        self.assertEqual([e.seed_sha256 for e in real.epochs], [None] * len(real.epochs))
+        self.assertEqual([(t.kind, t.base_sha is None) for t in real.targets], [("toy", True), ("copy", False)])
+        config.summary_of(json.loads((genesis / "summary_bases_null.json").read_text(encoding="utf-8")))
+        for name in ("summary_toy_absent.json", "summary_bases_absent.json"):
+            with self.subTest(name=name), self.assertRaises(config.ConfigError):
+                config.summary_of(json.loads((genesis / name).read_text(encoding="utf-8")))
 
     def test_29s_names_the_writer_apps_two_secrets_and_what_is_not_known(self):  # app_secret_names_dropped
         text = flat(page("29s").split("**GitHub kimlikleri** (seed-057).", 1)[1])
@@ -411,10 +433,11 @@ class PagesTest(unittest.TestCase):
             self.assertIn(f"`{report}` → {ref}", log, report)
             self.assertIn(words, flat(" ".join(page(prefix).splitlines()[first - 1:last])), report)
         self.assertIn("`seed-058-no-real-container-before-b` → `29b:73`, `29z`", log)
-        self.assertIn("`seed-059-genesis-vector-toy-base-not-setups-form` → `29o:45-46`, `29o:67-70`", log)
+        self.assertIn("`seed-059-genesis-vector-toy-base-not-setups-form` → `29o:45-46`, `29o:69-76`", log)
         z = page("29o").splitlines()
-        self.assertTrue(z[66].startswith("**Oyuncağın özetteki tabanı** (seed-059)."), z[66])
-        self.assertEqual(len(z), 70)
+        self.assertTrue(z[68].startswith("**Kurulumun özetteki biçimi** (seed-059)."), z[68])
+        self.assertIn("`seed_epoch_seed_null`", " ".join(z[62:67]))
+        self.assertEqual(len(z), 76)
 
 
 if __name__ == "__main__":

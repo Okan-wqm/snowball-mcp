@@ -60,11 +60,17 @@ aynı tarif başka anahtar sırası ve girintiyle aynı yükü verir; `copy_acti
 `every_fault_named` altı olgu birden düşer, her biri adlanır (onaysız inceleme `main`'i korumaz, oyuncakta iş akışı
 var), oyuncağın kayan `main`'i hata değil; `bypass_named` kopyada yazar App'i `brain/state`'in ruleset'ini atlayabilir
 ve `main`'inkinden muaftır, `main` güncelleme kısıtlı olsa da: ikisi adlanır; `security_ledger_broken` hash'ten sonra
-bir baytı düzenlenmiş tohum güvenlik defteri etkinleştirmeyi durdurur; `toy_base_empty` özette oyuncağın `base_sha`'sı
-`null`, `toy_base_absent` satırda anahtar yok: yük ikisinde de `toy_genesis_row`'unkidir, `summary_sha256` fikstürün kendi
-baytlarınındır; `copy_base_empty` kopyanın `base_sha`'sı `null` iken kopya istenir: kullanılamaz girdi (çıkış 2).
+bir baytı düzenlenmiş tohum güvenlik defteri etkinleştirmeyi durdurur; `toy_base_empty` kurulumun yazdığı özette (oyuncağın
+`base_sha`'sı ve her `seed_sha256` `null`), `toy_base_absent` oyuncağın satırında anahtar yok: yük `toy_genesis_row`'unkidir,
+yalnız `seed_epoch.seed_sha256` `null` ve `summary_sha256` fikstürün kendi baytlarınındır; `copy_base_empty` kopyanın
+`base_sha`'sı `null` iken kopya istenir: kullanılamaz girdi (çıkış 2); `seed_epoch_seed_null` kurulumun özetinde kopya:
+`seed_epoch` son satırdır, `seed_sha256`'sı `null`.
 
-**Oyuncağın özetteki tabanı** (seed-059). Kurulumun yazdığı biçim `null`'dır: önyükleme hakemi `setup/summary.json`'un her
-`targets[]` satırında `base_sha` anahtarını ister, değeri 40 küçük onaltılık hane ya da `null`'dır (commit'i henüz olmayan
-hedef); boş dize ve eksik anahtar özeti okunamaz yapar, hakemin her işi durur (`seed/bootstrap/snowball_bootstrap/config.py`
-`target`). Başlatıcının `/work/logs/targets.json`'u değeri olduğu gibi taşır (`24a:32-33`). Genesis oyuncağınkini okumaz.
+**Kurulumun özetteki biçimi** (seed-059). Önyükleme hakemi `setup/summary.json`'u şu biçimde okur, başkasında her işi durur
+(`seed/bootstrap/snowball_bootstrap/config.py` `summary_of`, `target`, `_epoch`). Zorunlu: `seed_commit` (40 küçük onaltılık
+hane), `seed_tree_sha256` (64), her `targets[]` satırında yedi anahtar. `null` olabilen: `targets[].base_sha` (commit'i
+henüz olmayan hedef; oyuncak kurulumda boştur, yazılan `null`'dır; boş dize ya da eksik anahtar okunmaz) ve
+`seed_epochs[].seed_sha256` (beyinde `seed/` yoksa; `25` 10b gereği beyne yalnız `spec/tohum` gider, her teslim satırında
+`null`'dır). Yazılmayabilen: `seed_epochs`, `targets`, `honesty_commitment`, `honesty_exception`, `spec_commitment`,
+`spec_exception`, `targets[].safety_paths`. Başlatıcının `/work/logs/targets.json`'u `base_sha`'yı olduğu gibi taşır
+(`24a:32-33`). Genesis oyuncağın tabanını okumaz; `seed_epoch` son satırı olduğu gibi taşır.

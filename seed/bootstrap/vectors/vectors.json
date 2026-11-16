@@ -5281,7 +5281,7 @@
       },
       {
         "id": "genesis.toy_base_empty",
-        "purpose": "The form setup writes (seed-059): the toy is empty at setup, so its targets[].base_sha in setup/summary.json is null (25:26, 25a:16). Genesis does not read the toy's summary base: the payload is toy_genesis_row's, base_sha main's head as the API reports it, and summary_sha256 is the hash of this summary's own bytes. A reading that requires a 40-hex base_sha of every target answers unusable input and is caught.",
+        "purpose": "The form setup writes (seed-059): the toy is empty at setup, so its targets[].base_sha in setup/summary.json is null (25:26, 25a:16), and a seed epoch's seed_sha256 is null (the brain gets spec/tohum alone, 25 10b); the fixture is a summary the referee itself reads. Genesis does not read the toy's summary base: base_sha is main's head as the API reports it, seed_epoch is the last seed_epochs row as it stands (its seed_sha256 null), and summary_sha256 is the hash of this summary's own bytes. A reading that requires a 40-hex base_sha of every target, or a 64-hex seed_sha256, answers unusable input and is caught.",
         "cmd": "python -m activate genesis /vec/genesis/api.json /vec/genesis/summary_toy_null.json /vec/genesis/imports.jsonl /vec/genesis/policy.json /vec/genesis/security.jsonl /vec/genesis/recipe.json",
         "stdin": "{\"target\":\"toy\"}",
         "fixture": [
@@ -5306,12 +5306,12 @@
             "seed_epoch": {
               "bootstrap_sha256": "4eb6a4178c3f9ba8f7aed3c132d149bc4bcfb60a75c1c0c433b7f8db8d126bf2",
               "commit": "c7e45005ac1fc2affc8f397efb807caa5b441cc4",
-              "seed_sha256": "7ce5fcd046004c9f93dea6b3c2effd72dce15e0eddb2345fb6f45157bef07343",
+              "seed_sha256": null,
               "spec_tohum_sha256": "3e30495392c3ee655df051cd61eedf83010af4d19e1aa326ea094610ceffc3af"
             },
             "seed_security_last_row_hash": "5f856f4e6fef6e0ea43948b7525ca6bcfcd1e95e5c658550547c9f6d840e1bf5",
             "seed_security_ledger_sha256": "9d9d422357a55c1cbec31d91b46c3eac4f0fc654caa77cd8f054bcb02783b8c4",
-            "summary_sha256": "0de16aba9316a4eb525a42c73176b9d0652dcbed693306c0f558a4d9b423d5f2",
+            "summary_sha256": "de3145b2e59f89e140d196f34db211994fd237162140c14c21fe7caafe0d8db3",
             "target": "toy"
           },
           "reasons": []
@@ -5342,12 +5342,12 @@
               "seed_epoch": {
                 "bootstrap_sha256": "4eb6a4178c3f9ba8f7aed3c132d149bc4bcfb60a75c1c0c433b7f8db8d126bf2",
                 "commit": "c7e45005ac1fc2affc8f397efb807caa5b441cc4",
-                "seed_sha256": "7ce5fcd046004c9f93dea6b3c2effd72dce15e0eddb2345fb6f45157bef07343",
+                "seed_sha256": null,
                 "spec_tohum_sha256": "3e30495392c3ee655df051cd61eedf83010af4d19e1aa326ea094610ceffc3af"
               },
               "seed_security_last_row_hash": "5f856f4e6fef6e0ea43948b7525ca6bcfcd1e95e5c658550547c9f6d840e1bf5",
               "seed_security_ledger_sha256": "9d9d422357a55c1cbec31d91b46c3eac4f0fc654caa77cd8f054bcb02783b8c4",
-              "summary_sha256": "0de16aba9316a4eb525a42c73176b9d0652dcbed693306c0f558a4d9b423d5f2",
+              "summary_sha256": "de3145b2e59f89e140d196f34db211994fd237162140c14c21fe7caafe0d8db3",
               "target": "toy"
             },
             "reasons": []
@@ -5381,12 +5381,12 @@
             "seed_epoch": {
               "bootstrap_sha256": "4eb6a4178c3f9ba8f7aed3c132d149bc4bcfb60a75c1c0c433b7f8db8d126bf2",
               "commit": "c7e45005ac1fc2affc8f397efb807caa5b441cc4",
-              "seed_sha256": "7ce5fcd046004c9f93dea6b3c2effd72dce15e0eddb2345fb6f45157bef07343",
+              "seed_sha256": null,
               "spec_tohum_sha256": "3e30495392c3ee655df051cd61eedf83010af4d19e1aa326ea094610ceffc3af"
             },
             "seed_security_last_row_hash": "5f856f4e6fef6e0ea43948b7525ca6bcfcd1e95e5c658550547c9f6d840e1bf5",
             "seed_security_ledger_sha256": "9d9d422357a55c1cbec31d91b46c3eac4f0fc654caa77cd8f054bcb02783b8c4",
-            "summary_sha256": "c908f0ee049d25480cbd0bf8460f27da78a7b20e4a3ef9284266be44951e98cb",
+            "summary_sha256": "eee3b444c01f4eddec9be605df5b91a3d3e8533679fdc20ff259e732323cb1ce",
             "target": "toy"
           },
           "reasons": []
@@ -5417,12 +5417,12 @@
               "seed_epoch": {
                 "bootstrap_sha256": "4eb6a4178c3f9ba8f7aed3c132d149bc4bcfb60a75c1c0c433b7f8db8d126bf2",
                 "commit": "c7e45005ac1fc2affc8f397efb807caa5b441cc4",
-                "seed_sha256": "7ce5fcd046004c9f93dea6b3c2effd72dce15e0eddb2345fb6f45157bef07343",
+                "seed_sha256": null,
                 "spec_tohum_sha256": "3e30495392c3ee655df051cd61eedf83010af4d19e1aa326ea094610ceffc3af"
               },
               "seed_security_last_row_hash": "5f856f4e6fef6e0ea43948b7525ca6bcfcd1e95e5c658550547c9f6d840e1bf5",
               "seed_security_ledger_sha256": "9d9d422357a55c1cbec31d91b46c3eac4f0fc654caa77cd8f054bcb02783b8c4",
-              "summary_sha256": "c908f0ee049d25480cbd0bf8460f27da78a7b20e4a3ef9284266be44951e98cb",
+              "summary_sha256": "eee3b444c01f4eddec9be605df5b91a3d3e8533679fdc20ff259e732323cb1ce",
               "target": "toy"
             },
             "reasons": []
@@ -5538,6 +5538,81 @@
             "hard_stop": true,
             "ok": false,
             "payload": null
+          }
+        }
+      },
+      {
+        "id": "genesis.seed_epoch_seed_null",
+        "purpose": "The copy on the summary setup writes (summary_toy_null.json: every seed_sha256 null, the toy's base null, the copy's its commit): the payload's seed_epoch is the last seed_epochs row as the summary holds it, seed_sha256 null included (26c: null when the brain has no seed/). A reading that holds seed_sha256 to 64 hex, or drops the null, is caught.",
+        "cmd": "python -m activate genesis /vec/genesis/api.json /vec/genesis/summary_toy_null.json /vec/genesis/imports.jsonl /vec/genesis/policy.json /vec/genesis/security.jsonl /vec/genesis/recipe.json",
+        "stdin": "{\"target\":\"copy\"}",
+        "fixture": [
+          "genesis/api.json",
+          "genesis/summary_toy_null.json",
+          "genesis/imports.jsonl",
+          "genesis/policy.json",
+          "genesis/security.jsonl",
+          "genesis/recipe.json"
+        ],
+        "expect": {
+          "hard_stop": false,
+          "ok": true,
+          "payload": {
+            "base_sha": "144de53f2ef6fbe655400a040fae3d95f7ad926b",
+            "facts_sha256": "3ae99a73cfb16748b6ecc31f9af77a43fbe284afea00456ac2860d2ad9b16631",
+            "import_line_sha256": "6fb3461d0296811ad22a321e03a10be5409b69447ee7d2041483f2de6650f885",
+            "policy_sha256": "85d5cf7dcf9d59920c595804681f7052af39932a97d119acb7c2a705604d56f6",
+            "recipe_sha256": "5c13843aab5ef6d35a6bf6a5772725231bbfe29782054aadad8b00350c173958",
+            "referee_tree_sha256": "280ba708b63465165f9835b97185341f71cc887fac3ba64e9b7f78272770f120",
+            "result_sha256": "096e929abe31157e5a522fecfe1333bb96b3252e9ee74923b6e9027206c4d068",
+            "seed_epoch": {
+              "bootstrap_sha256": "4eb6a4178c3f9ba8f7aed3c132d149bc4bcfb60a75c1c0c433b7f8db8d126bf2",
+              "commit": "c7e45005ac1fc2affc8f397efb807caa5b441cc4",
+              "seed_sha256": null,
+              "spec_tohum_sha256": "3e30495392c3ee655df051cd61eedf83010af4d19e1aa326ea094610ceffc3af"
+            },
+            "seed_security_last_row_hash": "5f856f4e6fef6e0ea43948b7525ca6bcfcd1e95e5c658550547c9f6d840e1bf5",
+            "seed_security_ledger_sha256": "9d9d422357a55c1cbec31d91b46c3eac4f0fc654caa77cd8f054bcb02783b8c4",
+            "summary_sha256": "de3145b2e59f89e140d196f34db211994fd237162140c14c21fe7caafe0d8db3",
+            "target": "copy"
+          },
+          "reasons": []
+        },
+        "changed": {
+          "description": "One field per row: the summary whose seed epochs carry a seed_sha256 (summary.json): seed_epoch and summary_sha256 differ.",
+          "cmd": "python -m activate genesis /vec/genesis/api.json /vec/genesis/summary.json /vec/genesis/imports.jsonl /vec/genesis/policy.json /vec/genesis/security.jsonl /vec/genesis/recipe.json",
+          "stdin": "{\"target\":\"copy\"}",
+          "fixture": [
+            "genesis/api.json",
+            "genesis/summary.json",
+            "genesis/imports.jsonl",
+            "genesis/policy.json",
+            "genesis/security.jsonl",
+            "genesis/recipe.json"
+          ],
+          "expect_not": {
+            "hard_stop": false,
+            "ok": true,
+            "payload": {
+              "base_sha": "144de53f2ef6fbe655400a040fae3d95f7ad926b",
+              "facts_sha256": "3ae99a73cfb16748b6ecc31f9af77a43fbe284afea00456ac2860d2ad9b16631",
+              "import_line_sha256": "6fb3461d0296811ad22a321e03a10be5409b69447ee7d2041483f2de6650f885",
+              "policy_sha256": "85d5cf7dcf9d59920c595804681f7052af39932a97d119acb7c2a705604d56f6",
+              "recipe_sha256": "5c13843aab5ef6d35a6bf6a5772725231bbfe29782054aadad8b00350c173958",
+              "referee_tree_sha256": "280ba708b63465165f9835b97185341f71cc887fac3ba64e9b7f78272770f120",
+              "result_sha256": "096e929abe31157e5a522fecfe1333bb96b3252e9ee74923b6e9027206c4d068",
+              "seed_epoch": {
+                "bootstrap_sha256": "4eb6a4178c3f9ba8f7aed3c132d149bc4bcfb60a75c1c0c433b7f8db8d126bf2",
+                "commit": "c7e45005ac1fc2affc8f397efb807caa5b441cc4",
+                "seed_sha256": null,
+                "spec_tohum_sha256": "3e30495392c3ee655df051cd61eedf83010af4d19e1aa326ea094610ceffc3af"
+              },
+              "seed_security_last_row_hash": "5f856f4e6fef6e0ea43948b7525ca6bcfcd1e95e5c658550547c9f6d840e1bf5",
+              "seed_security_ledger_sha256": "9d9d422357a55c1cbec31d91b46c3eac4f0fc654caa77cd8f054bcb02783b8c4",
+              "summary_sha256": "de3145b2e59f89e140d196f34db211994fd237162140c14c21fe7caafe0d8db3",
+              "target": "copy"
+            },
+            "reasons": []
           }
         }
       },
