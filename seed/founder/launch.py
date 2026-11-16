@@ -22,7 +22,9 @@ Everything lives in one folder, <work> (the operator deletes it to remove the pi
   <work>/logs/                  session transcripts; each session's folder also holds previous-session.json,
                                 targets.json, the targets' [{id, kind, base_sha, unit_candidates}] (seed-049, E571;
                                 seed-050, E577), operating.json, policy.json's operating{} read for that session, and
-                                policy.json, the referee repo's file byte for byte from that same read (seed-053, E588)
+                                policy.json, the referee repo's file byte for byte from that same read (seed-053, E588),
+                                and loop-runs.jsonl, the referee repo's newest loop.yml runs, their jobs and summary
+                                lines, read with the operator's login; what could not be read is null (`29y`, E596)
   <work>/pilot-log.md           the operator's report
   <work>/STOP                   create this file to stop after the current step
   <work>/cost-pending.jsonl     cost rows not written yet: the brain held work the referee had not accepted
@@ -76,7 +78,8 @@ from snowball_bootstrap import canon, config, gitio, ledgercheck, secretscan  # 
 from snowball_bootstrap.classify import (LEDGER_FILE, SEED_DIRS, is_founder_record,  # noqa: E402  (what is memory
                                          is_seed_path)  # and what is the operator's delivery to the referee)
 from snowball_bootstrap.decide import counts_against_founder, is_brake_stop  # noqa: E402  (the referee's rule)
-from snowball_bootstrap.exitchecks import fold, target_names  # noqa: E402  (the referee's folded names, E290, E291)
+from snowball_bootstrap.exitchecks import fold, target_names, withheld  # noqa: E402  (the referee's folded names and
+# its one rule for showing a text that may carry one, E290, E291)
 from snowball_bootstrap.vectors import founder_inputs  # noqa: E402  (the referee's projection, not a copy: E244)
 IMAGE = "snowball-founder:pilot"
 REFEREE_WORKFLOW = "bootstrap.yml"
@@ -112,6 +115,21 @@ OPERATING_KEYS = ("unit_inputs_bytes", "deps_bytes", "worktree_bytes", "containe
                   "test_total_s", "output_bytes")  # `26c`'s seven, in its order
 POLICY_NOTE = "policy.json"  # the referee repo's policy.json byte for byte, read for each session (seed-053, E588)
 POLICY_NOTE_MAX = 256 * 1024  # a larger file is no policy of thresholds and brakes: no copy (`29v`)
+# The live loop's newest runs on the referee repo, read for each session with the operator's login (`29y`; the owner's
+# decision of 2026-11-15). Every bound below is the page's; the four tuples are every word the file's classes can say.
+LOOP_NOTE = "loop-runs.jsonl"
+LOOP_WORKFLOW = "loop.yml"
+LOOP_RUNS_MAX, LOOP_JOBS_MAX = 3, 8
+LOOP_SUMMARY_MAX = 16 * 1024  # a job's summary line, raw and again as written
+LOOP_DEPTH_MAX = 32
+LOOP_OUTPUT_LINES, LOOP_OUTPUT_LINE_MAX = 5, 300
+LOOP_LOG_MAX = 8 * 1024 * 1024
+LOOP_CALL_S, LOOP_BUDGET_S = 30, 90  # one attempt per call, never a retry; the next session reads again
+LOOP_STATE = ("runs", "no_loop", "unavailable")
+LOOP_WHY = ("timeout", "gh", "bad_reply", "launcher_error")
+LOOP_SUMMARY_WHY = ("none", "unread", "not_run", "too_large", "too_deep", "duplicate_key", "non_finite",
+                    "secret_shape")
+LOOP_OUTPUT_WHY = ("unread", "secret_shape")
 READY_RETRY_S = 30
 TASK_NAME = "Snowball Founder launcher"
 TASK_EVERY = "PT15M"
@@ -553,6 +571,14 @@ def _non_finite(_constant: str):
     raise ValueError("non_finite")
 
 
+def _finite(text: str) -> float:
+    """A number literal out of the float range (1e999) parses to an infinity: no JSON value either."""
+    value = float(text)
+    if not math.isfinite(value):
+        raise ValueError("non_finite")
+    return value
+
+
 def _texts(value):
     """Every key and string value of a parsed JSON document."""
     if isinstance(value, dict):
@@ -566,34 +592,151 @@ def _texts(value):
         yield value
 
 
-def policy_copy(raw: bytes, names: list) -> bytes:
-    """What `/work/logs/policy.json` holds (`24a` 3, `29v`; seed-053, E588): the referee repo's `policy.json` byte for
-    byte, so the Founder runs its own readers over the real file. The file holds thresholds and brakes, no secret, but
-    it is operator text: one that is not a strict JSON object (a key twice at any depth, `NaN` or an infinity, nesting
-    past the parser, other than UTF-8 JSON), larger than POLICY_NOTE_MAX, or carrying a secret's shape (`secretscan`)
-    or a target's folded name in a key or a string (``names``, `target_names`, E290) is not copied: ValueError naming
-    the class only, never the text."""
-    def refuse(why: str):
-        return ValueError(f"policy.json is not copied: {why} (`29v`)")
-    if len(raw) > POLICY_NOTE_MAX:
-        raise refuse("too_large")
+def strict_object(raw: bytes, limit: int, names: list) -> dict:
+    """``raw`` as a strict JSON object of operator or loop text, or ValueError naming the class only, never the text:
+    larger than ``limit`` bytes (`too_large`), other than UTF-8 (`not_utf8`), nesting past the parser (`too_deep`), a
+    key twice at any depth (`duplicate_key`), `NaN` or an infinity (`non_finite`), no JSON (`not_json`), no object
+    (`not_an_object`), a secret's shape (`secretscan`) in the text or in any key or string as parsed, so an escaped
+    one (``\\u0041KIA...``) is caught too (`secret_shape`), or a target's folded name in a key or a string (``names``,
+    `target_names`, E290: `target_name`). The policy copy (`29v`) and the loop's summary lines (`29y`) share it."""
+    if len(raw) > limit:
+        raise ValueError("too_large")
     try:
         text = raw.decode("utf-8")
     except UnicodeDecodeError:
-        raise refuse("not_utf8") from None
+        raise ValueError("not_utf8") from None
     try:
-        doc = json.loads(text, object_pairs_hook=_no_repeated_key, parse_constant=_non_finite)
+        doc = json.loads(text, object_pairs_hook=_no_repeated_key, parse_constant=_non_finite, parse_float=_finite)
     except RecursionError:
-        raise refuse("too_deep") from None
+        raise ValueError("too_deep") from None
     except ValueError as exc:
-        raise refuse(str(exc) if str(exc) in ("duplicate_key", "non_finite") else "not_json") from None
+        raise ValueError(str(exc) if str(exc) in ("duplicate_key", "non_finite") else "not_json") from None
     if not isinstance(doc, dict):
-        raise refuse("not_an_object")
-    if secretscan.scan(text):
-        raise refuse("secret_shape")
+        raise ValueError("not_an_object")
+    if secretscan.scan(text) or any(secretscan.scan(item) for item in _texts(doc)):
+        raise ValueError("secret_shape")
     if any(name in fold(item) for item in _texts(doc) for _t, _j, name in names):
-        raise refuse("target_name")
+        raise ValueError("target_name")
+    return doc
+
+
+def policy_copy(raw: bytes, names: list) -> bytes:
+    """What `/work/logs/policy.json` holds (`24a` 3, `29v`; seed-053, E588): the referee repo's `policy.json` byte for
+    byte, so the Founder runs its own readers over the real file. The file holds thresholds and brakes, no secret, but
+    it is operator text: one `strict_object` refuses, or larger than POLICY_NOTE_MAX, is not copied: ValueError naming
+    the class only, never the text."""
+    try:
+        strict_object(raw, POLICY_NOTE_MAX, names)
+    except ValueError as exc:
+        raise ValueError(f"policy.json is not copied: {exc} (`29v`)") from None
     return raw
+
+
+class LoopUnread(Exception):
+    """A read of the loop's runs that did not answer (`29y`): its class alone (`timeout`, `gh`, `not_found`,
+    `bad_reply`), never what GitHub printed."""
+
+
+_LOG_STAMP = re.compile(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d+)?Z ")  # GitHub's stamp before each log line
+_GH_WORD = re.compile(r"[a-z_]{1,40}")  # `event`, `status`, `conclusion`, a workflow's `state`
+_GH_TIME = re.compile(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ")
+
+
+def _gh_word(value):
+    return value if isinstance(value, str) and _GH_WORD.fullmatch(value) else None
+
+
+def _gh_id(value) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool) and value > 0
+
+
+def log_lines(body: bytes) -> list[str]:
+    """A job's log as GitHub serves it, as its lines: without the byte order mark and each line's time stamp."""
+    text = body.decode("utf-8", "replace").lstrip("\ufeff")
+    return [line[m.end():] if (m := _LOG_STAMP.match(line)) else line for line in text.splitlines()]
+
+
+def loop_shown(value, names: list, depth: int = 0):
+    """``value`` as the loop file writes it (`29y`): every key and string holding a target's name hashed by the
+    referee's one rule (`withheld`, E290), the rest as it is; nesting past LOOP_DEPTH_MAX levels is
+    ValueError("too_deep")."""
+    if isinstance(value, (dict, list)) and depth >= LOOP_DEPTH_MAX:
+        raise ValueError("too_deep")
+    if isinstance(value, dict):
+        return {withheld(key, names): loop_shown(item, names, depth + 1) for key, item in value.items()}
+    if isinstance(value, list):
+        return [loop_shown(item, names, depth + 1) for item in value]
+    return withheld(value, names) if isinstance(value, str) else value
+
+
+def loop_line(row: dict) -> bytes:
+    """One row of the loop file: a JSON object on one line, ASCII (an escape never fails to encode)."""
+    return json.dumps(row, ensure_ascii=True, sort_keys=True, allow_nan=False).encode("ascii") + b"\n"
+
+
+def job_summary(lines: list[str], job: str, names: list) -> tuple:
+    """(summary, None) or (None, class) (`29y`): the last line of a job's log that is a JSON object whose `job` is the
+    job's own name (`29p:34`; never a prefix: the keys are sorted), held to `strict_object` and LOOP_SUMMARY_MAX raw
+    and again as written; `none` when the log holds no such line."""
+    for line in reversed(lines):
+        line = line.strip()
+        if not line.startswith("{"):
+            continue
+        try:
+            doc = json.loads(line)
+        except (ValueError, RecursionError):
+            continue
+        if not isinstance(doc, dict) or doc.get("job") != job:
+            continue
+        try:
+            shown = loop_shown(strict_object(line.encode("utf-8"), LOOP_SUMMARY_MAX, []), names)
+        except ValueError as exc:
+            return None, str(exc) if str(exc) in LOOP_SUMMARY_WHY else "unread"
+        if len(loop_line(shown)) - 1 > LOOP_SUMMARY_MAX:  # as written, without its newline
+            return None, "too_large"
+        return shown, None
+    return None, "none"
+
+
+def job_output(lines: list[str], names: list) -> tuple:
+    """(lines, None) or (None, class) of a failed job that printed no summary (`29y`): the failing step's own last
+    LOOP_OUTPUT_LINES non-blank lines, between the step's `##[endgroup]` and the first `##[error]`; withheld whole on a
+    secret's shape, then each line's target names hashed, then cut to LOOP_OUTPUT_LINE_MAX characters. `unread` when
+    the log marks no failing step."""
+    end = next((i for i, line in enumerate(lines) if line.startswith("##[error]")), None)
+    start = None if end is None else max((i for i in range(end) if lines[i].startswith("##[endgroup]")), default=None)
+    if start is None:
+        return None, "unread"
+    step = [line for line in lines[start + 1:end] if line.strip()][-LOOP_OUTPUT_LINES:]
+    if any(secretscan.scan(line) for line in step) or secretscan.scan("\n".join(step)):
+        return None, "secret_shape"
+    return [withheld(line, names)[:LOOP_OUTPUT_LINE_MAX] for line in step], None
+
+
+class LoopReads:
+    """The loop file's reads of GitHub: `gh api <path>` alone, one attempt per call, LOOP_CALL_S each and LOOP_BUDGET_S
+    for them all (`29y`); a call that does not answer is LoopUnread and is never repeated."""
+
+    def __init__(self) -> None:
+        self.deadline = time.monotonic() + LOOP_BUDGET_S
+
+    def get(self, path: str) -> bytes:
+        left = self.deadline - time.monotonic()
+        if left <= 0:
+            raise LoopUnread("timeout")
+        try:
+            proc = run("gh", "api", path, check=False, timeout=min(LOOP_CALL_S, left))
+        except subprocess.TimeoutExpired:
+            raise LoopUnread("timeout") from None
+        if proc.returncode != 0:
+            raise LoopUnread("not_found" if b"HTTP 404" in (proc.stderr or b"") else "gh")
+        return proc.stdout
+
+    def json(self, path: str):
+        try:
+            return json.loads(self.get(path))
+        except (ValueError, RecursionError):
+            raise LoopUnread("bad_reply") from None
 
 
 WIP_PREFIX = "wip/"  # the Founder's side branches (prompt.md "İşi bitirerek ilerle"); memory lives on main (E592)
@@ -1215,6 +1358,106 @@ class Pilot:
         else:
             (folder / POLICY_NOTE).write_bytes(copy)
 
+    def loop_runs(self) -> list[dict]:
+        """The rows of `/work/logs/loop-runs.jsonl` (`29y`; the owner's decision of 2026-11-15): a `read` row, then the
+        referee repo's newest LOOP_RUNS_MAX runs of `loop.yml` on main, each with its newest attempt's jobs. The
+        workflow's own record decides whether an import ever ran (it stays, `deleted`, after a reverted one); a 404
+        is `no_loop` only when the same repo answers another read. What could not be read is null, never empty."""
+        reads = LoopReads()
+        actions = f"repos/{self.referee}/actions"
+        head = {"kind": "read", "read_at": now(), "state": "runs", "why": None, "workflow_state": None}
+
+        def unavailable(why: str) -> list[dict]:
+            return [dict(head, state="unavailable", why="gh" if why == "not_found" else why)]
+        try:
+            flow = reads.json(f"{actions}/workflows/{LOOP_WORKFLOW}")
+        except LoopUnread as exc:
+            if str(exc) != "not_found":
+                return unavailable(str(exc))
+            try:
+                reads.get(f"{actions}/workflows?per_page=1")  # the repo answers: the 404 is the workflow's own
+            except LoopUnread as again:
+                return unavailable(str(again))
+            return [dict(head, state="no_loop")]
+        if not isinstance(flow, dict) or not _gh_id(flow.get("id")):
+            return unavailable("bad_reply")
+        head["workflow_state"] = _gh_word(flow.get("state"))
+        try:
+            listing = reads.json(f"{actions}/workflows/{LOOP_WORKFLOW}/runs?branch=main&per_page={LOOP_RUNS_MAX}")
+        except LoopUnread as exc:
+            return unavailable(str(exc))
+        runs = listing.get("workflow_runs") if isinstance(listing, dict) else None
+        if not isinstance(runs, list) or not all(isinstance(r, dict) and _gh_id(r.get("id")) for r in runs):
+            return unavailable("bad_reply")
+        rows = [head]
+        for one in sorted(runs, key=lambda r: (str(r.get("created_at")), r["id"]), reverse=True)[:LOOP_RUNS_MAX]:
+            rows += self.loop_run(reads, actions, one)
+        return [{key: loop_shown(value, self.withheld) for key, value in row.items()} for row in rows]
+
+    def loop_run(self, reads: LoopReads, actions: str, one: dict) -> list[dict]:
+        """A run's row and, when its jobs could be listed, its newest attempt's first LOOP_JOBS_MAX jobs' rows."""
+        created = one.get("created_at")
+        row = {"kind": "run", "id": one["id"],
+               "created_at": created if isinstance(created, str) and _GH_TIME.fullmatch(created) else None,
+               "event": _gh_word(one.get("event")), "status": _gh_word(one.get("status")),
+               "conclusion": _gh_word(one.get("conclusion")),
+               "attempt": one.get("run_attempt") if _gh_id(one.get("run_attempt")) else None, "jobs_total": None}
+        try:
+            listing = reads.json(f"{actions}/runs/{one['id']}/jobs?filter=latest&per_page=30")
+        except LoopUnread:
+            return [row]
+        jobs = listing.get("jobs") if isinstance(listing, dict) else None
+        total = listing.get("total_count") if isinstance(listing, dict) else None
+        if not isinstance(jobs, list) or not all(isinstance(j, dict) for j in jobs) \
+                or not (_gh_id(total) or total == 0):
+            return [row]
+        row["jobs_total"] = total
+        return [row] + [self.loop_job(reads, actions, one["id"], job) for job in jobs[:LOOP_JOBS_MAX]]
+
+    def loop_job(self, reads: LoopReads, actions: str, run_id: int, job: dict) -> dict:
+        """A job's row: its name, status and conclusion, its summary line or the class that kept it out, and for a
+        failed job that printed none, the failing step's last lines. A skipped job's log is never asked for."""
+        name = job.get("name") if isinstance(job.get("name"), str) else None
+        row = {"kind": "job", "run": run_id,
+               "name": None if name is None or secretscan.scan(name) else withheld(name, self.withheld)[:80],
+               "status": _gh_word(job.get("status")), "conclusion": _gh_word(job.get("conclusion")),
+               "summary": None, "summary_why": "unread", "output": None, "output_why": None}
+        if row["conclusion"] == "skipped":
+            row["summary_why"] = "not_run"
+            return row
+        failed = row["conclusion"] == "failure"
+        body = None
+        if row["status"] == "completed" and name is not None and _gh_id(job.get("id")):
+            try:
+                body = reads.get(f"{actions}/jobs/{job['id']}/logs")
+            except LoopUnread:
+                pass
+        if body is None or len(body) > LOOP_LOG_MAX or body.lstrip(b"\xef\xbb\xbf \t\r\n").startswith(b"<?xml"):
+            row["output_why"] = "unread" if failed else None
+            return row
+        lines = log_lines(body)
+        row["summary"], row["summary_why"] = job_summary(lines, name, self.withheld)
+        if failed and row["summary_why"] == "none":
+            row["output"], row["output_why"] = job_output(lines, self.withheld)
+        return row
+
+    def loop_note(self, stamp: str) -> None:
+        """`/work/logs/loop-runs.jsonl` for this session (`29y`), written before it starts and never read back. A read
+        that fails in any way still writes the file, `unavailable`; the warning names the class, never the text."""
+        folder = self.session_logs(stamp)
+        folder.mkdir(parents=True, exist_ok=True)
+        try:
+            rows = self.loop_runs()
+            data = b"".join(loop_line(row) for row in rows)
+        except Exception as exc:  # the session still starts; the exception's text may carry a log's content
+            say(f"{LOOP_NOTE} for {stamp}: the read failed ({type(exc).__name__})")
+            rows = [{"kind": "read", "read_at": now(), "state": "unavailable", "why": "launcher_error",
+                     "workflow_state": None}]
+            data = b"".join(loop_line(row) for row in rows)
+        (folder / LOOP_NOTE).write_bytes(data)
+        if rows[0]["state"] != "runs":
+            say(f"{LOOP_NOTE} for {stamp}: {rows[0]['state']} {rows[0]['why'] or ''}".rstrip())
+
     def memory_alone(self, prior: dict | None, head: str) -> bool:
         """Whether head adds only memory to the newest signed result's own evaluated head (`memory_alone`)."""
         evaluated = (prior or {}).get("head") if self.evaluated(prior, str((prior or {}).get("head"))) else None
@@ -1290,6 +1533,7 @@ class Pilot:
         self.previous_session_note(stamp, args.session_timeout, prior)
         self.targets_note(stamp)
         self.policy_notes(stamp)
+        self.loop_note(stamp)
         sess = self.session(stamp, args.model, args.max_turns, args.budget_usd, args.session_timeout,
                             getattr(args, "effort", None))
         after = self.brain_head()
