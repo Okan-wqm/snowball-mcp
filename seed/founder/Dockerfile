@@ -11,6 +11,9 @@ FROM docker.io/library/python:3.12-slim@sha256:aa943ce411423c7582288f18707ff66ed
 RUN apt-get update \
  && apt-get install -y --no-install-recommends git ca-certificates \
  && rm -rf /var/lib/apt/lists/*
+# The base image deletes every *.pyc of its standard library, and a session runs with a read-only root and
+# PYTHONDONTWRITEBYTECODE=1: without this layer every python process compiles each module it imports (seed-064, E632).
+RUN python -m compileall -q -j 0 "$(python -c 'import sysconfig; print(sysconfig.get_path("stdlib"))')"
 COPY --from=node /usr/local/bin/node /usr/local/bin/node
 COPY --from=node /usr/local/lib/node_modules /usr/local/lib/node_modules
 RUN ln -s ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
