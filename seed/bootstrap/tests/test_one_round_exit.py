@@ -1,5 +1,5 @@
 """Seed epoch U's pages: the own-head exit request (E630) as `29b` and `26c` state it, and the facts the Founder's
-reports seed-064 (E632, `24a`) and seed-065 (E631, `07`) were answered with, each named by the changelog. The
+reports seed-064 (E632, `24a`) and seed-065 (E631, `07`) were answered with, each named by the changelog, and the owner's outage re-trigger (E633, `25a`). The
 behaviour itself is `test_flow`'s (`Flow.test_an_own_head_request_*`, `test_only_a_request_on_top_of_its_own_code_*`)."""
 
 import re
@@ -70,10 +70,33 @@ class ReportAnswersTest(unittest.TestCase):
             self.assertIn(f"`{report}` → {ref}", log, report)
             self.assertIn(words, flat(" ".join(page(prefix).splitlines()[first - 1:last])), report)
         self.assertIn("`29j:59-60` (`build_ok`'un ve lint toplamının üreticisi Kurucu'nun hakem kodudur)", log)
+        # changelog_drops_e633: the owner's decision is named with its page
+        self.assertIn("Sahip kararı: `25a` \"Dış kesinti\" (E633; `ETKINLESTIRME.md` 7. adım)", log)
         self.assertIn("üreticisini adlandırmaz", flat(" ".join(page("29j").splitlines()[58:60])))
         raw = (ROOT / "spec" / "tohum" / "CHANGELOG.md").read_text(encoding="utf-8").splitlines()
         for report in says:  # the launcher reads added lines one by one: each id sits whole on one line
             self.assertTrue(any(report in line for line in raw), report)
+
+
+class OutageRetriggerTest(unittest.TestCase):
+    """The owner's decision of 2026-11-17 (E633): a live (B) loop run red only from a named external outage may be
+    re-triggered once for that cycle before the failure procedure; operator procedure only, no code check."""
+
+    def test_25a_states_the_one_retrigger_and_when_the_failure_procedure_applies(self):  # outage_retrigger_unsaid
+        text = flat(page("25a").split("**Dış kesinti** (sahip kararı, 2026-11-17, E633).", 1)[1].split("**Her yeni", 1)[0])
+        for words in ("yalnız adı konmuş bir dış kesinti", "HTTP 5xx ya da bağlantı hatası",
+                      "Rekor/Sigstore, npm kayıt deposu, GitHub API'si ya da Actions",
+                      "kırmızı işin kendi çıktısında görünür", "o devir için koşuyu Başarısızlık'tan önce bir kez",
+                      "Yeniden tetik bir insan dokunuşudur ve kaydedilir", "iki koşunun kimliği",
+                      "Yeniden tetiklenen koşu yine kırmızıysa", "beynin kendi mantığından",
+                      "Başarısızlık bugünkü gibi uygulanır"):
+            self.assertIn(words, text, words)
+
+    def test_the_runbook_audit_of_step_7_carries_it(self):  # outage_retrigger_runbook_unsaid
+        runbook = flat((ROOT / "seed" / "founder" / "ETKINLESTIRME.md").read_text(encoding="utf-8"))
+        self.assertIn("o devir için yukarıdaki tetikle bir kez yeniden tetikle; bu bir insan dokunuşudur, `pilot-log.md`'ye "
+                      "iki koşunun kimliğiyle yaz (`25a` \"Dış kesinti\", E633)", runbook)
+        self.assertIn("önce 7. adımın tek yeniden tetiğini alır", runbook)
 
 
 if __name__ == "__main__":

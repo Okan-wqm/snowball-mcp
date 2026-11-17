@@ -4,16 +4,17 @@ Tarih: 2026-10-29 · Sürüm: 2.2
 Okunma: bir sayfanın geçmişi aranırken
 Çapa: git geçmişi ve zincirdeki spec hash satırları
 
-- 2.2 (2026-11-17, E630–E632; sahibin onayı ve Kurucu raporları): tek turda çıkış (E630). `exit-request.json` başın
-  atası olan ve ondan başa yalnız isteğin değiştiği commit'i de adlandırabilir: push önce kod olarak
-  yargılanır; kod kabul edilirse (A) aynı koşuda aynı başta yargılanır ve geçerse o baş sabitlenir, edilmezse çıkış
-  yargılanmaz (`exit.not_judged`: `code_not_accepted`). Son kabul edilmiş SHA'yı adlandıran istek değişmedi
-  (`29b:73`, `26c:14-16`; `kanarya` işi `pull`'un `exit_request` çıktısıyla koşar). Yanıtlanan raporlar:
-  `seed-064-capsule-stdlib-has-no-bytecode` → `24a:19` (kapsülün imajı, tabanın sildiği `*.pyc`'ler, salt okunur
-  kök, hakemin konteyneri; imaj artık standart kütüphaneyi derler, E632);
-  `seed-065-revert-trigger-without-red-test-unstated` → `07:35-39` (geri almayı `29j`'nin `unknown` dışı nedeni
-  başlatır, kırmızı testsiz `build_break` ve `lint_regression` da; flaky test doğrulanmış kırmızı değildir, `rerun`
-  geri almaz, E631), `29j:59-60` (`build_ok`'un ve lint toplamının üreticisi Kurucu'nun hakem kodudur).
+- 2.2 (2026-11-17, E630–E633; sahibin onayı, sahip kararı ve Kurucu raporları): tek turda çıkış (E630).
+  `exit-request.json` başın atası olan ve ondan başa yalnız isteğin değiştiği commit'i de adlandırabilir: push önce kod
+  olarak yargılanır; kod kabul edilirse (A) aynı koşuda aynı başta yargılanır ve geçerse o baş sabitlenir, edilmezse
+  çıkış yargılanmaz (`exit.not_judged`: `code_not_accepted`); son kabul edilmiş SHA'yı adlandıran istek değişmedi
+  (`29b:73`, `26c:14-16`). Yanıtlanan raporlar: `seed-064-capsule-stdlib-has-no-bytecode` → `24a:19` (kapsülün imajı,
+  tabanın sildiği `*.pyc`'ler, hakemin konteyneri; imaj artık standart kütüphaneyi derler, E632);
+  `seed-065-revert-trigger-without-red-test-unstated` → `07:35-39` (geri almayı `29j`'nin `unknown` dışı nedeni başlatır,
+  kırmızı testsiz `build_break` ve `lint_regression` da; flaky test doğrulanmış kırmızı değildir, `rerun` geri almaz,
+  E631), `29j:59-60` (`build_ok`'un ve lint toplamının üreticisi Kurucu'nun hakem kodudur). Sahip kararı:
+  `25a` "Dış kesinti" (E633; `ETKINLESTIRME.md` 7. adım): yalnız adı konmuş dış kesintiden kırmızı (B) koşusu o devir
+  için bir kez yeniden tetiklenir, insan dokunuşu olarak kaydedilir; yeni kod denetimi yok.
 - 2.2 (2026-11-17, E609–E611; sahip kararı, 2026-11-17): yeni `26g`. `founder` bölümüne `lesson` türü,
   `26g` (E609, E610): yükü `{summary, refs[], recheck}`; iddia tek cümle ve kendi başına anlaşılır,
   `refs[]` kanıttır, `recheck` beyin kökünden yazıldığı gibi koşan komut ya da `none: <neden>`. Yürürlükten

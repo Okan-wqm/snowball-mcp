@@ -3987,6 +3987,14 @@ MUTANTS = [
     ("changelog_drops_seed_065", "spec/tohum/CHANGELOG.md",
      "`seed-065-revert-trigger-without-red-test-unstated` → `07:35-39`", "seed-065 → `07:35-39`",
      "E631: the epoch's entry no longer names the report it answers"),
+    # ---- seed epoch U: the owner's decision on a (B) loop run red from an external outage (E633)
+    ("outage_retrigger_unsaid", "spec/tohum/25a-kurulum-etkinlestirme.md",
+     "Başarısızlık'tan önce bir kez yeniden tetikleyebilir", "Başarısızlık'tan önce yeniden tetikleyebilir",
+     "E633: 25a no longer limits the outage re-trigger to once a cycle"),
+    ("outage_retrigger_runbook_unsaid", "seed/founder/ETKINLESTIRME.md", "o devir için yukarıdaki tetikle bir kez",
+     "o devir için yukarıdaki tetikle", "E633: the runbook's step 7 no longer limits the re-trigger to once"),
+    ("changelog_drops_e633", "spec/tohum/CHANGELOG.md", "`25a` \"Dış kesinti\" (E633", "`25a` (E633",
+     "E633: the epoch's entry no longer names the owner's decision and its page"),
 ]
 
 
