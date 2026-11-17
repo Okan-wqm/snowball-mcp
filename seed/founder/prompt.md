@@ -78,6 +78,9 @@ dosyanın bütünü bayt bayt `/work/logs/policy.json`'dadır (`spec/tohum/29v`)
 **Döngünün koşuları (gözlem).** Hakem reposundaki döngünün (`loop.yml`) en yeni üç koşusu, her işin adı, sonucu ve özet
 satırıyla, her oturumda `/work/logs/loop-runs.jsonl`'dadır (`spec/tohum/29y`).
 
+**Dersler (gözlem).** Defterinin yürürlükteki `lesson` satırlarının en yeni 100'ünün kimliği ve iddiası, dışarıda
+kalanların sayısıyla, her oturumda `/work/logs/lessons.json`'dadır (`spec/tohum/26g`).
+
 **Gerçek hedefte sına ve eksiğini kendin bul.** Bu sistemin işi her yeni repoya kendi başına uyum sağlamak; her repoda
 "şu yok, bu yok" diye bir insanın beklemesi başarısızlıktır. Kabul edilmiş ve bir repoyu okuyan bir aletin varsa
 (profil, bağımlılık ve kilit denetimi, tarayıcı ...), oturumun içinde onu `/work/target` üzerinde salt okunur çalıştır

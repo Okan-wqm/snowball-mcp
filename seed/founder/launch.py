@@ -24,7 +24,9 @@ Everything lives in one folder, <work> (the operator deletes it to remove the pi
                                 seed-050, E577), operating.json, policy.json's operating{} read for that session, and
                                 policy.json, the referee repo's file byte for byte from that same read (seed-053, E588),
                                 and loop-runs.jsonl, the referee repo's newest loop.yml runs, their jobs and summary
-                                lines, read with the operator's login; what could not be read is null (`29y`, E596)
+                                lines, read with the operator's login; what could not be read is null (`29y`, E596),
+                                and lessons.json, the id and claim of the ledger's newest live `lesson` rows at the
+                                head the session starts from, and how many were left out (`26g`, E610)
   <work>/pilot-log.md           the operator's report
   <work>/STOP                   create this file to stop after the current step
   <work>/cost-pending.jsonl     cost rows not written yet: the brain held work the referee had not accepted
@@ -81,6 +83,19 @@ from snowball_bootstrap.decide import counts_against_founder, is_brake_stop  # n
 from snowball_bootstrap.exitchecks import fold, target_names, withheld  # noqa: E402  (the referee's folded names and
 # its one rule for showing a text that may carry one, E290, E291)
 from snowball_bootstrap.vectors import founder_inputs  # noqa: E402  (the referee's projection, not a copy: E244)
+
+
+def _ledger_index():
+    """The capsule's own read-only ledger index (`ledger_index.py`, E506), loaded by path: the lesson index folds the
+    ledger with its `unclosed` rule, the one the Founder's `unclosed --tag closes` answers by (`26g`, E610)."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("founder_ledger_index", HERE / "ledger_index.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+LEDGER_INDEX = _ledger_index()
 IMAGE = "snowball-founder:pilot"
 REFEREE_WORKFLOW = "bootstrap.yml"
 STATE_ARTIFACT = "bootstrap-state"
@@ -131,6 +146,12 @@ LOOP_SUMMARY_WHY = ("none", "unread", "not_run", "too_large", "too_deep", "dupli
                     "secret_shape")
 LOOP_OUTPUT_WHY = ("unread", "secret_shape")
 READY_RETRY_S = 30
+# The index of the Founder's live lessons, written for each session (`26g`; the owner's decision of 2026-11-17, E610).
+LESSONS_NOTE = "lessons.json"
+LESSON_KIND = "lesson"  # `26`'s founder kind for a lesson (E609)
+LESSON_CLOSING_TAG = "closes"  # a later row's `closes:<row_id>` ref retires a lesson (`26g`)
+LESSONS_MAX = 100  # the newest live lessons listed; the older ones are counted in `left_out`
+LESSON_CLAIM_MAX = 500  # characters of a claim in the index; a longer one is cut and says so
 TASK_NAME = "Snowball Founder launcher"
 TASK_EVERY = "PT15M"
 
@@ -491,6 +512,35 @@ def unchanged_since_naming(clone: Path, rid: str, file: str, head: str,
     return False
 
 
+def lesson_index(data: bytes, commit: str) -> dict:
+    """`/work/logs/lessons.json` from the ledger's bytes at the session's brain head (`26g`, E610): every live `lesson`
+    row's id and claim, the newest LESSONS_MAX of them in ledger order, and how many were left out. A lesson is live
+    when no later row names it by `closes:<row_id>` (the capsule index's own `unclosed` fold, not a copy of its rule)
+    and no later row's `supersedes` holds its `row_hash` (`13`). Only reads: no re-check is run, nothing is ranked,
+    and the chain is not judged here (the referee's and the Founder's own check)."""
+    li = LEDGER_INDEX
+    ledger = li.Ledger(LEDGER_FILE, data)
+    every = [line for line, row in ledger.rows if row.get("kind") == LESSON_KIND]
+    superseding = ledger.index("supersedes")
+    live = []
+    for line, _item in li.unclosed(ledger, LESSON_CLOSING_TAG, [LESSON_KIND], False):
+        row = ledger.by_line[line]
+        named = superseding.get(row["row_hash"], ()) if isinstance(row.get("row_hash"), str) else ()
+        if not any(at > line for at, _where in named):
+            live.append((line, row))
+    shown = live[-LESSONS_MAX:]
+    rows = []
+    for line, row in shown:
+        claim = li.summary(row)
+        rows.append({"row_id": row["row_id"], "line": line,
+                     "claim": claim[:LESSON_CLAIM_MAX] if claim is not None else None,
+                     "claim_cut": claim is not None and len(claim) > LESSON_CLAIM_MAX})
+    return {"ledger": {"commit": commit, "bytes": ledger.size, "sha256": ledger.sha256, "rows": len(ledger.rows),
+                       "unreadable": len(ledger.unreadable)},
+            "lessons": len(every), "live": len(live), "shown": len(shown), "left_out": len(live) - len(shown),
+            "rows": rows}
+
+
 def target_rows(summary: dict) -> tuple:
     """`setup/summary.json` ``targets[]`` read by the referee's own rule (`config.target`), so a row the referee
     refuses is refused here too (ValueError); () when there is no target yet."""
@@ -808,6 +858,7 @@ class Pilot:
         self.prompt_sha256: str | None = None  # what this launcher start built the capsule with (E313)
         self.context_sha256: str | None = None  # and every build file the image holds (E506)
         self.image_id: str | None = None
+        self._ledger_read: tuple[str, bytes] | None = None  # the last ledger read, by commit (`ledger_bytes`)
 
     # ---- checks -------------------------------------------------------------------------------------------
     def stopped(self) -> bool:
@@ -931,11 +982,21 @@ class Pilot:
     def brain_head(self) -> str:
         return gh_json("api", f"repos/{self.brain}/commits/main")["sha"]
 
-    def ledger_rows(self, sha: str) -> list[dict]:
+    def ledger_bytes(self, sha: str) -> bytes | None:
+        """The brain's ledger at sha, byte for byte; None when it cannot be read (no ledger yet, a failed call). The
+        last commit's bytes are kept: a cycle reads the same head for its rows and for the lesson index (`26g`)."""
+        if self._ledger_read is not None and self._ledger_read[0] == sha:
+            return self._ledger_read[1]
         proc = run("gh", "api", "-H", "Accept: application/vnd.github.raw",
-                   f"repos/{self.brain}/contents/founder-ledger.jsonl?ref={sha}", check=False)
+                   f"repos/{self.brain}/contents/{LEDGER_FILE}?ref={sha}", check=False)
+        data = proc.stdout if proc.returncode == 0 else None
+        self._ledger_read = (sha, data) if data is not None else None
+        return data
+
+    def ledger_rows(self, sha: str) -> list[dict]:
+        data = self.ledger_bytes(sha)
         rows = []
-        for line in proc.stdout.decode(errors="replace").splitlines() if proc.returncode == 0 else []:
+        for line in data.decode(errors="replace").splitlines() if data is not None else []:
             try:
                 rows.append(json.loads(line))
             except ValueError:
@@ -1458,6 +1519,24 @@ class Pilot:
         if rows[0]["state"] != "runs":
             say(f"{LOOP_NOTE} for {stamp}: {rows[0]['state']} {rows[0]['why'] or ''}".rstrip())
 
+    def lessons_note(self, stamp: str, head: str) -> None:
+        """`/work/logs/lessons.json` for this session (`26g`, E610): the live lessons of the ledger at the brain head the
+        session starts from (`lesson_index`). A ledger that cannot be read, or an index that fails, leaves no file and a
+        warning that names the class only; the session still starts."""
+        folder = self.session_logs(stamp)
+        folder.mkdir(parents=True, exist_ok=True)
+        try:
+            data = self.ledger_bytes(head)
+            if data is None:
+                say(f"{LESSONS_NOTE} not written for {stamp}: the ledger at {head[:7]} could not be read")
+                return
+            note = lesson_index(data, head)
+        except Exception as exc:  # no session is lost to the index; the text may carry a row's content
+            say(f"{LESSONS_NOTE} not written for {stamp}: {type(exc).__name__}")
+            return
+        (folder / LESSONS_NOTE).write_text(json.dumps(note, ensure_ascii=False, sort_keys=True) + "\n",
+                                           encoding="utf-8")
+
     def memory_alone(self, prior: dict | None, head: str) -> bool:
         """Whether head adds only memory to the newest signed result's own evaluated head (`memory_alone`)."""
         evaluated = (prior or {}).get("head") if self.evaluated(prior, str((prior or {}).get("head"))) else None
@@ -1533,6 +1612,7 @@ class Pilot:
         self.previous_session_note(stamp, args.session_timeout, prior)
         self.targets_note(stamp)
         self.policy_notes(stamp)
+        self.lessons_note(stamp, before)
         self.loop_note(stamp)
         sess = self.session(stamp, args.model, args.max_turns, args.budget_usd, args.session_timeout,
                             getattr(args, "effort", None))
