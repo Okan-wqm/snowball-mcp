@@ -38,7 +38,11 @@ dersler, sonraki oturumların okuduğu kayıtlar), ondan sonraki oturumlar ve aj
 kullanılabilir ve güvenlidir; öğrenilen, daha zayıf bir modelin kullanabileceği biçimde yazılır: kendi başına
 anlaşılır dersler, yazıldığı gibi koşan yeniden denetimler (`26g`); bir ders araç, skill ya da test olabiliyorsa o
 biçim tercih edilir. Hangi modelin koşacağını varsayım değil, kabul edilmiş değişiklik başına ölçülen maliyet
-belirler; güçlü model bugün mimardır, sistemin gereği değildir.
+belirler; güçlü model bugün mimardır, sistemin gereği değildir. Karmaşıklık da sistemin taşıdığı bir maliyettir ve
+düşük tutulur (sahip kararı, 2026-11-17): sistemin kendi boyutu (spec sayfaları, denetimler, CI süresi, mutantlar,
+araçlar) ölçülür ve raporlanır; yerini ölçülmüş bir ihtiyaçla hak etmeyen birleştirilir ya da kaldırılır. Yeni bir
+mekanizma yalnız ölçülmüş bir ihtiyaçtan doğar, "lazım olabilir" diye doğmaz. Kaçınılan uyarı işaretleri: aşırı
+karmaşıklık, aşılamayan kilitler, biçimi doğruluk sanmak, değer yerine canlılığı ölçmek.
 
 **En basit döngü.** Döngü en basit hâliyle başlar. Aşama 0'da Kurucu yürüyen iskeleti kurar: hazır
 bir adayı kapıdan geçirip merge eden, izleyen ve geri alan ilk canlı döngü, önce oyuncak hedefte, sonra

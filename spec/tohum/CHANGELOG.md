@@ -12,8 +12,10 @@ Okunma: bir sayfanın geçmişi aranırken
   var, tür kümeye girseydi kapatanları geçersiz olurdu (E609). Başlatıcı her oturumdan önce
   `/work/logs/lessons.json`'u yazar: yürürlükteki derslerin en yeni 100'ünün `row_id`'si ve iddiası (500
   karakter), dışarıda kalanların sayısı; `recheck`'i koşturmaz (E610). Sahibin hedefi `01`'de, `00` ona
-  işaret eder: ölçü kabul edilmiş sağlam değişiklik başına maliyet, bilgi repoda, model değil (E611). 27
-  mutant, CI 92 parça.
+  işaret eder: ölçü kabul edilmiş sağlam değişiklik başına maliyet, bilgi repoda, model değil (E611).
+  Karmaşıklık da maliyettir (sahip kararı, 2026-11-17, `01`): sistemin kendi boyutu ölçülür ve raporlanır,
+  yerini ölçülmüş ihtiyaçla hak etmeyen birleştirilir ya da kaldırılır, yeni mekanizma yalnız ölçülmüş
+  ihtiyaçtan (E611). 28 mutant, CI 92 parça.
 - 2.2 (2026-11-17, E608; Kurucu raporu, olgu): yeni kural, vaka ve mutant yok. Yanıtlanan rapor:
   `seed-063-outside-brain-ruleset-covers-nested-brain-branches` → `25a:17` (iki hedefte `brain-disi`'nin hariç listesi
   2026-11-17'den beri `refs/heads/brain/**`, `refs/heads/brain/**/*`, `~DEFAULT_BRANCH`; `brain/c/good`, `brain/drill/x`,

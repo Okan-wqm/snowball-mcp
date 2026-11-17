@@ -300,13 +300,18 @@ class PageTest(unittest.TestCase):
             self.assertIn("`26g`", next(line for line in task if line.startswith(row)), row)
 
     def test_the_owners_goal_is_said_once_and_the_core_points_to_it(self):
-        # owner_goal_pointer_gone owner_goal_names_a_model owner_goal_restated
+        # owner_goal_pointer_gone owner_goal_names_a_model owner_goal_restated owner_goal_drops_complexity
         goal = paragraph(page("spec/tohum/01-hedef-sistem.md"), "**Sahibin hedefi (sahip kararı, 2026-11-17).**")
         for phrase in ("Amaç belirli bir model değil, kabul edilmiş sağlam değişiklik başına en düşük maliyettir",
                        "doğruluk ve güvenlik önce gelir (Y12)", "Sistemin bilgisi bir modelde değil repodadır",
                        "daha az token ve daha az yeniden denemeyle", "çok daha küçük ve ucuz bir model de",
                        "kullanılabilir ve güvenlidir", "(`26g`)", "ölçülen maliyet belirler",
-                       "güçlü model bugün mimardır, sistemin gereği değildir"):
+                       "güçlü model bugün mimardır, sistemin gereği değildir",
+                       "Karmaşıklık da sistemin taşıdığı bir maliyettir ve düşük tutulur (sahip kararı, 2026-11-17)",
+                       "sistemin kendi boyutu (spec sayfaları, denetimler, CI süresi, mutantlar, araçlar) ölçülür ve "
+                       "raporlanır", "yerini ölçülmüş bir ihtiyaçla hak etmeyen birleştirilir ya da kaldırılır",
+                       "Yeni bir mekanizma yalnız ölçülmüş bir ihtiyaçtan doğar",
+                       "aşırı karmaşıklık, aşılamayan kilitler, biçimi doğruluk sanmak, değer yerine canlılığı ölçmek"):
             self.assertIn(phrase, goal, phrase)
         self.assertIsNone(re.search(r"\b(Opus|Sonnet|Haiku|Fable|USD)\b", goal))
         core = page("spec/tohum/00-cekirdek.md")

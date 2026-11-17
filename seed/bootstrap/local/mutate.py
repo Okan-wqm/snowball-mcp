@@ -3911,6 +3911,9 @@ MUTANTS = [
     ("owner_goal_restated", "seed/founder/prompt.md", "**Dersler (gözlem).** ",
      "**Dersler (gözlem).** Amaç kabul edilmiş sağlam değişiklik başına en düşük maliyettir. ",
      "E611: the goal is said twice, and the two copies can drift"),
+    ("owner_goal_drops_complexity", "spec/tohum/01-hedef-sistem.md",
+     "yerini ölçülmüş bir ihtiyaçla hak etmeyen birleştirilir ya da kaldırılır.",
+     "yeri gelince gözden geçirilir.", "E611: the system's own size is measured but nothing that fails to earn its keep goes"),
     ("changelog_drops_epoch_t", "spec/tohum/CHANGELOG.md", "`26g` (E609, E610)", "26g",
      "E609: the epoch's entry no longer names the page and its register rows"),
 ]
