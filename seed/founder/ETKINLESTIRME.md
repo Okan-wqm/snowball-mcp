@@ -306,10 +306,11 @@ ağacında defter, kök zinciri ve `status.md` var; her devirde `status.md` yeni
 `gh api "repos/<T>/contents/<yol>?ref=brain/state" -H "Accept: application/vnd.github.raw"`); 6'dan sonra kopyanın
 `brain/integration`'ı ilk merge'e kadar `base_sha`'da. Kırmızı koşu yalnız adı konmuş bir dış kesintidense (döngünün
 çağırdığı dış bir hizmetten HTTP 5xx ya da bağlantı hatası: Rekor/Sigstore, npm kayıt deposu, GitHub API'si ya da
-Actions; kırmızı işin kendi çıktısında), o devir için yukarıdaki tetikle bir kez yeniden tetikle; bu bir insan
-dokunuşudur, `pilot-log.md`'ye iki koşunun kimliğiyle yaz (`25a` "Dış kesinti", E633). Yeniden tetiklenen koşu yine
-kırmızı, kırmızı beynin kendi mantığından (bir ret, kullanılamaz girdi, kesinti olmayan sert duruş) ya da `status.md`'de
-sert duruş: [Başarısızlık](#başarısızlık).
+Actions; kırmızı işin kendi çıktısında) ve koşu hiçbir hedef ref'i yazmadıysa, o devir için yukarıdaki tetikle bir kez
+yeniden tetikle; bu bir insan dokunuşudur, `pilot-log.md`'ye iki koşunun kimliğiyle yaz (`25a` "Dış kesinti", E633).
+Hedefe yazdıktan sonra kırmızı koşu (yazılmış ref'leri adlandıran `yaz` sert duruşu; E638), yeniden tetiklenen koşu
+yine kırmızı, kırmızı beynin kendi mantığından (bir ret, kesintiden gelmeyen kullanılamaz girdi, kesinti olmayan sert
+duruş) ya da `status.md`'de sert duruş: [Başarısızlık](#başarısızlık).
 *Geri dönüş:* [Başarısızlık](#başarısızlık).
 
 **8. Kopyanın adayları, merge'ler, PASS** (Kurucu, sonra operatör · `25a` 8, `asama-0/08` 7–9: kopyada ilk gerçek
@@ -401,8 +402,9 @@ geçer. *Geri dönüş:* `loop_schedule` `False`, it; `stage.json` commit'ini `g
 
 ## Başarısızlık
 
-`25a` "Başarısızlık": 1., 7. ya da 8. satır kırmızıysa sistem sert durur (yalnız adı konmuş bir dış kesintiden kırmızı
-bir döngü koşusu önce 7. adımın tek yeniden tetiğini alır, `25a` "Dış kesinti", E633). Operatör, sırası `25a`'nınki
+`25a` "Başarısızlık": 1., 7. ya da 8. satır kırmızıysa sistem sert durur (yalnız adı konmuş bir dış kesintiden kırmızı,
+hedefe ref yazmamış bir döngü koşusu önce 7. adımın tek yeniden tetiğini alır, `25a` "Dış kesinti", E633, E638).
+Operatör, sırası `25a`'nınki
 (arşiv, silme, yeniden aktarım; E540):
 
 1. `STOP` yerinde; kill switch açık (1. adımın betiği, it) ve `PS> gh workflow disable loop.yml -R $H`. Ruleset'lerin
