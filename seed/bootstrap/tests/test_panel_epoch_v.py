@@ -1,8 +1,9 @@
 """Seed epoch V, the first decided by the independent review panel (two reviewers, Opus and Sonnet) with the owner's
 decisions of 2026-11-18: the Founder's reports seed-066 (declined, E634), seed-067 (E635), seed-068 (E636-E638) and
 seed-069 (E639, E640) as `13`, `28`, `25a`, `29g`, `29j` and the runbook state them, each named by the changelog, the
-revert drill's draw (E641, `26f`) and the reference MF5's reading of a bundled package (`29g`). The vectors
-themselves run in `test_reference_brain`. The trailing comment on a test names the mutants it kills (`local/mutate.py`)."""
+revert drill's draw (E641, `26f`), the owner's temporary-structures rule (E642, `01`) and the reference MF5's reading
+of a bundled package (`29g`). The vectors themselves run in `test_reference_brain`. The trailing comment on a test
+names the mutants it kills (`local/mutate.py`)."""
 
 import base64
 import hashlib
@@ -134,6 +135,22 @@ class DrillDrawPageTest(unittest.TestCase):
         row = next(line for line in register if line.startswith("| E641 |"))
         self.assertIn("Kabul edilen bedel: sıradaki neden ekimden önce açık defterden çıkarılabilir", row)
         self.assertIn("(2) kapandı (tohum dönemi V, E641", next(line for line in register if line.startswith("| E544 |")))
+
+class TemporaryStructuresPageTest(unittest.TestCase):
+    """The owner's decision of 2026-11-18 (E642), text only: what the Founder and its agents build for a job is removed
+    when the job ends; evidence, archives and another's work are not temporary structures."""
+
+    def test_01_states_what_is_removed_and_what_stays(self):  # temporary_structures_unsaid
+        text = flat(page("01").split("**Geçici yapılar (sahip kararı, 2026-11-18).**", 1)[1].split("**En basit", 1)[0])
+        for words in ("geçici olarak kurduklarını", "iş bittiğinde siler",
+                      "kabul edildiğinde, bırakıldığında ya da yerine başka bir yol seçildiğinde bitmiş sayılır",
+                      "Geriye yalnız repoya kaydedilmiş bilgi kalır", "Süren bir işin dalı iş bitene kadar durur",
+                      "gerekçesi defterde kayıtlı olduktan sonra silinir",
+                      "(defter satırları, `arsiv/` etiketleri, hakem sonuçları) ve başkasının işi geçici yapı değildir, "
+                      "silinmez", "Kalıntılar sistemin ölçülen boyutuna sayılır"):
+            self.assertIn(words, text, words)
+        self.assertIn("Sahip kararı: `01` \"Geçici yapılar\" (E642)",
+                      flat((ROOT / "spec" / "tohum" / "CHANGELOG.md").read_text(encoding="utf-8")))
 
 class ReferenceBundledReadingTest(unittest.TestCase):
     """The reference MF5 (`local/reference_brain/referee/runner/deps_npm.py`) reads `29g`'s package directories: a

@@ -4083,6 +4083,9 @@ MUTANTS = [
     ("drill_draw_from_the_whole_catalog", "spec/tohum/26f-semalar-nobetci-ve-prova.md",
      "bütün katalogdan değil, en az ekilmiş nedenlerin örneklerinden çekilir", "bütün katalogdan çekilir",
      "E641: the fewest-plants rule is weakened back to the whole catalog"),
+    # ---- seed epoch V: the owner's decision on temporary structures (E642), text only
+    ("temporary_structures_unsaid", "spec/tohum/01-hedef-sistem.md", "iş bittiğinde siler.", "iş bittiğinde bırakabilir.",
+     "E642: 01 no longer has the Founder remove what it built for a job once the job ends"),
 ]
 
 
