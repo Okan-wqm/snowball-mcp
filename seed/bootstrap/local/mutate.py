@@ -3916,7 +3916,7 @@ MUTANTS = [
     ("owner_goal_drops_complexity", "spec/tohum/01-hedef-sistem.md",
      "yerini ölçülmüş bir ihtiyaçla hak etmeyen birleştirilir ya da kaldırılır.",
      "yeri gelince gözden geçirilir.", "E611: the system's own size is measured but nothing that fails to earn its keep goes"),
-    ("changelog_drops_epoch_t", "spec/tohum/CHANGELOG.md", "`26g` (E609, E610)", "26g",
+    ("changelog_drops_epoch_t", "spec/tohum/CHANGELOG-8.md", "`26g` (E609, E610)", "26g",
      "E609: the epoch's entry no longer names the page and its register rows"),
     # ---- seed epoch U: the own-head exit request (E630), one round where two were needed
     ("own_head_never", f"{PKG}/cli.py", "            own_head = not reasons and _names_its_code(repo, head, exit_raw)",
@@ -4086,6 +4086,9 @@ MUTANTS = [
     # ---- seed epoch V: the owner's decision on temporary structures (E642), text only
     ("temporary_structures_unsaid", "spec/tohum/01-hedef-sistem.md", "iş bittiğinde siler.", "iş bittiğinde bırakabilir.",
      "E642: 01 no longer has the Founder remove what it built for a job once the job ends"),
+    # ---- seed epoch V: the owner's hint (E643), labelled as a hint, text only
+    ("owner_hint_unlabelled", "spec/tohum/00b-gorev-haritasi.md", "(2026-11-18, E643; ipucu, reçete değil)",
+     "(2026-11-18, E643)", "E643: the owner's hint is no longer labelled a hint, so measurement cannot tell it apart"),
 ]
 
 

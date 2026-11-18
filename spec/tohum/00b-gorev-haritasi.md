@@ -25,3 +25,15 @@ Okunma: her oturumda, görev seçilirken
 | Tohum vektörleri ve koltuklar | `29`, `29a`, `29c`, `29d`, `29f`, `29g`, `29h`, `29i`, `29j`, `29k`, `29m`, `29n`, `29o` |
 | Terim ve okuyucu | `27` |
 | Sayfa yazma | `15` |
+
+**Sahibin ipucu (2026-11-18, E643; ipucu, reçete değil).** Sahibin Kurucu'ya açık ipucudur, beslememe kuralının
+istisnasıdır; ölçüm ipucuyla bulunanı Kurucu'nun kendi bulduğundan ayırır.
+- Kurucu (Fable) mimar ve yönetici olarak kalır. Tekrar eden, iyi tanımlı işleri (mutant koşturmak, test sonucu
+  okumak, defter satırı hazırlamak, dar bir düzeltme) beynin `agents/` dizininde tanımladığı ajanlara verebilir.
+- Ajanın modeli tanımının `model` alanıyla seçilir (`24a` "Ajan ve skill tanımları") ve `sonnet` ya da `opus`'tur;
+  `haiku` şimdilik kullanılmaz (sahip kararı).
+- Hangi işin hangi modele gittiği ve kabul edilmiş değişiklik başına maliyeti defterde kaydedilir; karar varsayımla
+  değil ölçümle verilir (`01` "Sahibin hedefi").
+- Olgu: rakip `opus`'tur. Hakeme giden kodu aynı modelin yazması rakibin bağımsızlığını zayıflatır (`03` K5).
+- Sahibin tercihi (ipucu, denetim değil): hakeme giden kodu yazan ajanlar `sonnet`'tir (rakipten farklı model);
+  `opus` ajanları analiz, inceleme ve planlama içindir.

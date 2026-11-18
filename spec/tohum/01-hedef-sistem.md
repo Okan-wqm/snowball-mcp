@@ -23,11 +23,10 @@ Discover → Plan → Execute → Approve → Learn → Cheapen → Discover aga
 
 Bu son durumdur, başlangıç değil.
 
-**Öğrenmenin amacı.** Sistem hata yapmamak için öğrenir: doğruyu yanlıştan ayırmak, daha iyi ve
-daha profesyonel olanı seçmek için. Repoyu haritalamak, neyin neye bağlı olduğunu çıkarmak, ders
-tutmak, başka repolardan ve modelin kendi bilgisinden yararlanmak bunun araçlarıdır; ölçüsü düşen
-hata oranıdır (Y5). Bir repodan öğrenilen kalıp kopyalanmaz: modelin kendi bilgisinden gelen bir
-alternatifle çekiştirilir ve kazananı yürütme seçer (`10`, `21`).
+**Öğrenmenin amacı.** Sistem hata yapmamak için öğrenir: doğruyu yanlıştan ayırmak, daha iyi ve daha profesyonel olanı
+seçmek için. Repoyu haritalamak, neyin neye bağlı olduğunu çıkarmak, ders tutmak, başka repolardan ve modelin kendi
+bilgisinden yararlanmak bunun araçlarıdır; ölçüsü düşen hata oranıdır (Y5). Bir repodan öğrenilen kalıp kopyalanmaz:
+modelin kendi bilgisinden gelen bir alternatifle çekiştirilir ve kazananı yürütme seçer (`10`, `21`).
 
 **Sahibin hedefi (sahip kararı, 2026-11-17).** Amaç belirli bir model değil, kabul edilmiş sağlam değişiklik başına
 en düşük maliyettir; doğruluk ve güvenlik önce gelir (Y12). Sistemin bilgisi bir modelde değil repodadır: defterin
@@ -50,6 +49,8 @@ iş bittiğinde siler. İş, kabul edildiğinde, bırakıldığında ya da yerin
 Geriye yalnız repoya kaydedilmiş bilgi kalır. Süren bir işin dalı iş bitene kadar durur. Bırakılan bir dal, gerekçesi
 defterde kayıtlı olduktan sonra silinir. Kanıt ve arşiv (defter satırları, `arsiv/` etiketleri, hakem sonuçları) ve
 başkasının işi geçici yapı değildir, silinmez. Kalıntılar sistemin ölçülen boyutuna sayılır.
+
+**Sahibin ipucu** (2026-11-18, E643): Kurucu'nun tekrar eden işleri ajanlarına vermesi üzerine; `00b`'dedir.
 
 **En basit döngü.** Döngü en basit hâliyle başlar. Aşama 0'da Kurucu yürüyen iskeleti kurar: hazır bir adayı kapıdan
 geçirip merge eden, izleyen ve geri alan ilk canlı döngü, önce oyuncak hedefte, sonra gerçek hedefin kopyasında tek
@@ -75,6 +76,5 @@ boyutudur, ortalaması değil. Boyutlar alan bağımsızdır; ölçüleri profil
 **Alan doğruluğu hedef değildir.** Sistem bir iş kuralının ya da formülün "doğrusunu" yargılamaz; yalnız reponun kendi
 kendisiyle tutarlı olup olmadığını sorar: aynı kavram bir yerde tanımlı öbür yerde tanımsız mı, iki tanım birbirini
 tutuyor mu, test ve doküman kodla uyuşuyor mu. Öğrendiği ve repolar arasında taşıdığı şey alan bilgisi değil
-mühendisliktir: güvenlik, kimlik doğrulama, kiracı izolasyonu, altyapı, test düzeni, mimari kalıplar (`21`).
-
-Beyin bu repoyu değil, herhangi bir repoyu hedefler; repoya özgü her şey `21-cok-repo.md`'deki kurala tabidir.
+mühendisliktir: güvenlik, kimlik doğrulama, kiracı izolasyonu, altyapı, test düzeni, mimari kalıplar (`21`). Beyin bu
+repoyu değil, herhangi bir repoyu hedefler; repoya özgü her şey `21-cok-repo.md`'deki kurala tabidir.

@@ -4,7 +4,7 @@ Tarih: 2026-10-29 · Sürüm: 2.2
 Okunma: bir sayfanın geçmişi aranırken
 Çapa: git geçmişi ve zincirdeki spec hash satırları
 
-- 2.2 (2026-11-18, E634–E642; bağımsız inceleme ekibi kararı, sahip kararları ve Kurucu raporları): Kurucu'nun dört
+- 2.2 (2026-11-18, E634–E643; bağımsız inceleme ekibi kararı, sahip kararları ve Kurucu raporları): Kurucu'nun dört
   raporunu iki bağımsız inceleyici (Opus ve Sonnet) ayrı ayrı yargıladı; bu yolla karara bağlanan ilk dönem. Sahip
   kararları: `13` "Rekor'a yazılamama" (E636; `28:36`): imzalama programının başarısız tek çağrısı yazılamama değildir,
   bir `yaz` işinde en çok 3 çağrı, her birinin sonucu `yaz`'ın çıktısında; tekrarın aynı köke bıraktığı ikinci Rekor
@@ -15,7 +15,8 @@ Okunma: bir sayfanın geçmişi aranırken
   kurulum betikleri gömenin işaretini ister, `npmlock`'a iki vaka (E639). Bağımsız inceleme ekibi kararı (E641,
   E544 (2) kapandı): `26f` "Taahhüdün kataloğu": geri alma provasının taahhüdü en az ekilmiş nedenin örneklerinden
   çeker; anahtar, taahhüt, `judge` ve #geri-alma kapısı değişmez. Sahip kararı: `01` "Geçici yapılar" (E642): iş
-  bitince geçici kurulanlar silinir; kanıt, arşiv ve başkasının işi kalır. Yanıtlanan raporlar:
+  bitince geçici kurulanlar silinir; kanıt, arşiv ve başkasının işi kalır. Sahibin ipucu (E643; beslememe kuralının
+  istisnası, ipucu olarak işaretli): `00b`, `01` ona işaret eder. Yanıtlanan raporlar:
   `seed-066-cek-running-tree-unexercised` → declined: `29u:30-33` ve E591 zaten yanıtlar (koşan hakem ağacı son
   aktarım satırının `brain_sha`'sındadır; kabul edilmiş SHA'daki farklı `referee/` durdurma nedeni değildir); vektör
   yok, sayfa değişmedi (E634);
@@ -25,7 +26,7 @@ Okunma: bir sayfanın geçmişi aranırken
   `brain/integration` başı), `25a:41-49` (hedefe yazmış koşu yeniden tetiklenmez), `29j:30` (E636–E638);
   `seed-069-bundled-packages-in-a-lock-and-in-a-tarball` → `29g:31-37` (F1 kabul, E639; F2: `inBundle: true` satırı
   bugün `registry_not_allowed`, kabulü onu isteyen bir hedef kilidini bekler, E640), `29g:60-62`. 80 satır için
-  2026-11-14/15 E585–E599 kayıtları `CHANGELOG-8.md`'ye taşındı. 29 mutant, CI 96 parça.
+  2026-11-14/17 E585–E599 ve E609–E611 kayıtları `CHANGELOG-8.md`'ye taşındı. 30 mutant, CI 96 parça.
 - 2.2 (2026-11-17, E630–E633; sahibin onayı, sahip kararı ve Kurucu raporları): tek turda çıkış (E630).
   `exit-request.json` başın atası olan ve ondan başa yalnız isteğin değiştiği commit'i de adlandırabilir: push önce kod
   olarak yargılanır; kod kabul edilirse (A) aynı koşuda aynı başta yargılanır ve geçerse o baş sabitlenir, edilmezse
@@ -37,18 +38,8 @@ Okunma: bir sayfanın geçmişi aranırken
   E631), `29j:59-60` (`build_ok`'un ve lint toplamının üreticisi Kurucu'nun hakem kodudur). Sahip kararı:
   `25a` "Dış kesinti" (E633; `ETKINLESTIRME.md` 7. adım): yalnız adı konmuş dış kesintiden kırmızı (B) koşusu o devir
   için bir kez yeniden tetiklenir, insan dokunuşu olarak kaydedilir; yeni kod denetimi yok.
-- 2.2 (2026-11-17, E609–E611; sahip kararı, 2026-11-17): yeni `26g`. `founder` bölümüne `lesson` türü,
-  `26g` (E609, E610): yükü `{summary, refs[], recheck}`; iddia tek cümle ve kendi başına anlaşılır,
-  `refs[]` kanıttır, `recheck` beyin kökünden yazıldığı gibi koşan komut ya da `none: <neden>`. Yürürlükten
-  çıkma bugünkü `closes:<row_id>` ref'i ya da `13`'ün `supersedes`'i; yeni mekanizma yok, hakem yalnız
-  yapıyı denetler. Ad `learning` değil: beynin defterinde `13`'le kapatılmış altı `kind: learning` satırı
-  var, tür kümeye girseydi kapatanları geçersiz olurdu (E609). Başlatıcı her oturumdan önce
-  `/work/logs/lessons.json`'u yazar: yürürlükteki derslerin en yeni 100'ünün `row_id`'si ve iddiası (500
-  karakter), dışarıda kalanların sayısı; `recheck`'i koşturmaz (E610). Sahibin hedefi `01`'de, `00` ona
-  işaret eder: ölçü kabul edilmiş sağlam değişiklik başına maliyet, bilgi repoda, model değil (E611).
-  Karmaşıklık da maliyettir (sahip kararı, 2026-11-17, `01`): sistemin kendi boyutu ölçülür ve raporlanır,
-  yerini ölçülmüş ihtiyaçla hak etmeyen birleştirilir ya da kaldırılır, yeni mekanizma yalnız ölçülmüş
-  ihtiyaçtan (E611). 28 mutant, CI 92 parça.
+- 2.2 (2026-11-17, E609–E611; sahip kararı): yeni `26g`, Kurucu'nun dersi, başlatıcının ders dizini ve sahibin
+  hedefi: `CHANGELOG-8.md`.
 - 2.2 (2026-11-16 – 2026-11-17, E606–E608; Kurucu raporları, olgu): `seed-061`, `seed-062`, `seed-063`: `CHANGELOG-7.md`.
 - 2.2 (2026-11-16, E600–E605; Kurucu raporları, sahibin onayı): yeni `29z`. Önyükleme hakemi çıkış isteğinde ayrı,
   sırsız ve izinsiz `kanarya` işinde beynin `python -m runner.contained run`'ını konteynerin dışında, oyuncağın birim

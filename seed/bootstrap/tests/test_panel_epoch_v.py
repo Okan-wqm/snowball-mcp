@@ -1,9 +1,9 @@
 """Seed epoch V, the first decided by the independent review panel (two reviewers, Opus and Sonnet) with the owner's
 decisions of 2026-11-18: the Founder's reports seed-066 (declined, E634), seed-067 (E635), seed-068 (E636-E638) and
 seed-069 (E639, E640) as `13`, `28`, `25a`, `29g`, `29j` and the runbook state them, each named by the changelog, the
-revert drill's draw (E641, `26f`), the owner's temporary-structures rule (E642, `01`) and the reference MF5's reading
-of a bundled package (`29g`). The vectors themselves run in `test_reference_brain`. The trailing comment on a test
-names the mutants it kills (`local/mutate.py`)."""
+revert drill's draw (E641, `26f`), the owner's temporary-structures rule (E642, `01`) and hint (E643, `00b`) and the
+reference MF5's reading of a bundled package (`29g`). The vectors themselves run in `test_reference_brain`. The
+trailing comment on a test names the mutants it kills (`local/mutate.py`)."""
 
 import base64
 import hashlib
@@ -151,6 +151,23 @@ class TemporaryStructuresPageTest(unittest.TestCase):
             self.assertIn(words, text, words)
         self.assertIn("Sahip kararı: `01` \"Geçici yapılar\" (E642)",
                       flat((ROOT / "spec" / "tohum" / "CHANGELOG.md").read_text(encoding="utf-8")))
+
+class OwnerHintPageTest(unittest.TestCase):
+    """The owner's hint of 2026-11-18 (E643), an explicit exception to no-feeding, text only: labelled a hint so that
+    later measurement can tell hinted from discovered; `01` points at it."""
+
+    def test_00b_carries_the_labelled_hint_and_01_points_at_it(self):  # owner_hint_unlabelled
+        text = flat(page("00b").split("**Sahibin ipucu (2026-11-18, E643; ipucu, reçete değil).**", 1)[1])
+        for words in ("beslememe kuralının istisnasıdır", "ölçüm ipucuyla bulunanı Kurucu'nun kendi bulduğundan ayırır",
+                      "Kurucu (Fable) mimar ve yönetici olarak kalır", "`agents/` dizininde tanımladığı ajanlara verebilir",
+                      "`model` alanıyla seçilir (`24a` \"Ajan ve skill tanımları\") ve `sonnet` ya da `opus`'tur",
+                      "`haiku` şimdilik kullanılmaz (sahip kararı)", "karar varsayımla değil ölçümle verilir",
+                      "Olgu: rakip `opus`'tur", "rakibin bağımsızlığını zayıflatır (`03` K5)",
+                      "Sahibin tercihi (ipucu, denetim değil): hakeme giden kodu yazan ajanlar `sonnet`'tir",
+                      "`opus` ajanları analiz, inceleme ve planlama içindir"):
+            self.assertIn(words, text, words)
+        self.assertIn("**Sahibin ipucu** (2026-11-18, E643):", page("01"))
+        self.assertIn("`00b`'dedir", page("01"))
 
 class ReferenceBundledReadingTest(unittest.TestCase):
     """The reference MF5 (`local/reference_brain/referee/runner/deps_npm.py`) reads `29g`'s package directories: a
