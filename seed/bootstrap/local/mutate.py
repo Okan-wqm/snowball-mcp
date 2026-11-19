@@ -4101,6 +4101,12 @@ MUTANTS = [
     # ---- seed epoch V: the owner's hint on reading the imported result (E645), labelled as a hint, text only
     ("imported_result_hint_unlabelled", "spec/tohum/00b-gorev-haritasi.md", "(2026-11-19, E645; ipucu, reçete değil)",
      "(2026-11-19, E645)", "E645: the owner's hint is no longer labelled a hint, so measurement cannot tell it apart"),
+    # ---- seed epoch W: the owner's hint on an adversarial gate set (E648), labelled as a hint, text only
+    ("adversarial_hint_unlabelled", "spec/tohum/00b-gorev-haritasi.md", "(2026-11-19, E648; ipucu, reçete değil)",
+     "(2026-11-19, E648)", "E648: the owner's hint is no longer labelled a hint, so measurement cannot tell it apart"),
+    ("adversarial_hint_drops_a_class", "spec/tohum/00b-gorev-haritasi.md",
+     "  değişiklikler, gizlenmiş ya da kodlanmış secret'lar. Seti hakem koşar.\n",
+     "  değişiklikler. Seti hakem koşar.\n", "E648: the adversarial set no longer covers hidden or encoded secrets"),
     # ---- seed epoch W: the measurement mirror, /work/logs/mirror.json (the owner's decision of 2026-11-19, E647)
     ("mirror_version_ignores_effort", MIRROR,
      '(word(row.get("effort")) or "default") if "effort" in row else "unrecorded")', '"default")',

@@ -205,6 +205,27 @@ class ReadTheImportedResultHintPageTest(unittest.TestCase):
             self.assertIn(words, text, words)
         self.assertIn("result_sha256", flat(page("26c")))
 
+class AdversarialGateHintPageTest(unittest.TestCase):
+    """The owner's hint of 2026-11-19 (E648), labelled a hint, text only: before a real product repository the
+    gates pass an adversarial set the referee runs; the design is the Founder's."""
+
+    def test_00b_carries_the_labelled_hint(self):  # adversarial_hint_unlabelled adversarial_hint_drops_a_class
+        text = flat(page("00b").split("**Sahibin ipucu (2026-11-19, E648; ipucu, reçete değil).**", 1)[1])
+        for words in ("bir dosyanın içine yazılmış bir talimat (prompt injection)",
+                      "(`30a`) hedefin kendi enjeksiyon açıklarını anlatır, modele yöneleni anlatmaz",
+                      "Snowball gerçek ürün reposunda çalışmadan önce, kapılar saldırgan bir test setinden kanıtla",
+                      "hedef dosyalara gömülü prompt injection, diff denetiminden kaçmaya çalışan değişiklikler, "
+                      "gizlenmiş ya da kodlanmış secret'lar", "Seti hakem koşar", "Tasarım Kurucu'nundur."):
+            self.assertIn(words, text, words)
+        self.assertNotIn("prompt injection", flat(page("30a")).casefold())
+        self.assertLessEqual(len(page("00b").splitlines()), 80)
+        log = (ROOT / "spec" / "tohum" / "CHANGELOG.md").read_text(encoding="utf-8")
+        self.assertIn("Sahibin ipucu (E648; ipucu olarak işaretli): `00b`", flat(log))
+        self.assertLessEqual(len(log.splitlines()), 80)
+        register = (ROOT / "docs" / "eksik-kaydi.md").read_text(encoding="utf-8").splitlines()
+        self.assertIn("sahip kararı, ipucu (2026-11-19",
+                      next(line for line in register if line.startswith("| E648 |")))
+
 class ReferenceBundledReadingTest(unittest.TestCase):
     """The reference MF5 (`local/reference_brain/referee/runner/deps_npm.py`) reads `29g`'s package directories: a
     scoped one, a nested one, a `binding.gyp`, and not a package.json that only sits deeper in a bundled package."""
