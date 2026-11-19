@@ -313,6 +313,8 @@ class LearnFromOtherReposHintPageTest(unittest.TestCase):
                       "yazıldığı gibi koşan bir kontrolüyle birlikte tutulur (`26g`)",
                       "şirketin kendi `tromso-mvp` reposudur (Python/Django, özel; çiftlik yazılımı)",
                       "operatörün kuracağı özel bir kopyası üzerinden okur ya da onda çalışır",
+                      "(`snowball-rehearsal-copy` gibi bir kopya, ama özel)",
+                      "Şirketin kendi repoları bu lisans kuralının dışındadır; hakları şirkettedir.",
                       "hakemin bugünkü desteği (npm) yetmez"):
             self.assertIn(words, text, words)
         self.assertTrue(text.lstrip().startswith("- Amaç:"), text[:40])

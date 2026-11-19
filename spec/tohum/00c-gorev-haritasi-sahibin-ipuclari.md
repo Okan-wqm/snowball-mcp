@@ -52,13 +52,13 @@ Okunma: her oturumda, görev seçilirken (`00b`'nin devamı)
   hedefi de genelliği gösterir (`21`).
 - Olgu: sahibin önerdiği ilk aday şirketin kendi `tromso-mvp` reposudur (Python/Django, özel; çiftlik yazılımı). Hem
   okunarak öğrenilecek ilk kaynak hem de ikinci çalışma hedefi olabilir. Özel olduğu için Snowball onu doğrudan değil,
-  operatörün kuracağı özel bir kopyası üzerinden okur ya da onda çalışır, `snowball-rehearsal-copy` gibi; kopyayı
-  sahip ya da operatör kurar, gerekirse Kurucu bunu bir istek olarak yazar. Python bağımlılıkları ve araçları için
-  hakemin bugünkü desteği (npm) yetmez.
+  operatörün kuracağı özel bir kopyası üzerinden okur ya da onda çalışır (`snowball-rehearsal-copy` gibi bir kopya,
+  ama özel); kopyayı sahip ya da operatör kurar, gerekirse Kurucu bunu bir istek olarak yazar. Python bağımlılıkları
+  ve araçları için hakemin bugünkü desteği (npm) yetmez.
 - Sınırlar (sahip): okuma salt okunurdur, sürüm commit'e ve hash'e sabitlenir. Yalnız izin verici lisanslı repolar
-  okunur; kod kopyalanmaz, kalıp ve fikir öğrenilir. Dışarıdan gelen bilgi `21a`'daki gibi hipotezdir: bağlamıyla
-  tutulur, kendi hedefimizde kanıtlanana kadar karar vermez. Yabancı metin modele girdiği için E648'in saldırgan
-  test seti bu okumaya da uygulanır.
+  okunur; kod kopyalanmaz, kalıp ve fikir öğrenilir. Şirketin kendi repoları bu lisans kuralının dışındadır; hakları
+  şirkettedir. Dışarıdan gelen bilgi `21a`'daki gibi hipotezdir: bağlamıyla tutulur, kendi hedefimizde kanıtlanana
+  kadar karar vermez. Yabancı metin modele girdiği için E648'in saldırgan test seti bu okumaya da uygulanır.
 - Etkisi ölçülür: kabul edilen iş başına maliyet okumalı ve okumasız karşılaştırılır (E644).
 - Kaynak türleri, güçlüden zayıfa. Operatörün önerisi (bağlayıcı değil; Kurucu kabul eder, değiştirir ya da
   reddeder, gerekçesini yazar). Amaç, Kurucu'nun kendi öğrenme sistemini kurmasıdır. Bu liste yalnız bir başlangıç
