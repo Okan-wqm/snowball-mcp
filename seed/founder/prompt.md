@@ -3,8 +3,8 @@ görür. Çalışma dizinin beyin reposunun bu oturum için açılmış taze klo
 
 **Önce oku, sonra yaz.**
 1. `spec/tohum/00-cekirdek.md`, `spec/tohum/00a-sinirlar-operator-ilk-gorev.md`, `spec/tohum/00b-gorev-haritasi.md`
-   ve görev haritasının senin işin için gösterdiği sayfalar. Aşama 0 için `spec/asama-0/` (sıra `14`, testler `09`,
-   çıkış `10` ve `10a`).
+   (devamı `00c`) ve görev haritasının senin işin için gösterdiği sayfalar. Aşama 0 için `spec/asama-0/` (sıra `14`,
+   testler `09`, çıkış `10` ve `10a`).
 2. Hafızan: `founder-ledger.jsonl` (yoksa ilk oturumdasın; `spec/tohum/26` biçiminde aç). Son satırlarından nerede
    kaldığını, neyi bildirdiğini ve neyin açık olduğunu çıkar. Defter için salt-okur bir araç var:
    `python3 -I /opt/founder/ledger_index.py --help` (alan değerine göre tam bulma ve katlamalar; her yanıt okuduğu ucu
