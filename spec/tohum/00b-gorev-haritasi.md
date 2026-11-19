@@ -67,3 +67,5 @@ istisnasıdır; ölçüm ipucuyla bulunanı Kurucu'nun kendi bulduğundan ayır�
   geçmelidir. Set üç şeyi kapsar: hedef dosyalara gömülü prompt injection, diff denetiminden kaçmaya çalışan
   değişiklikler, gizlenmiş ya da kodlanmış secret'lar. Seti hakem koşar.
 - Tasarım Kurucu'nundur.
+
+Sahibin 2026-11-19 tarihli öteki ipuçları (E649 öğrenme, E650 önleme ve yapı) `00c`'dedir.

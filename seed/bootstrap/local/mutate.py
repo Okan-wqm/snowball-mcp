@@ -4107,6 +4107,11 @@ MUTANTS = [
     ("adversarial_hint_drops_a_class", "spec/tohum/00b-gorev-haritasi.md",
      "  değişiklikler, gizlenmiş ya da kodlanmış secret'lar. Seti hakem koşar.\n",
      "  değişiklikler. Seti hakem koşar.\n", "E648: the adversarial set no longer covers hidden or encoded secrets"),
+    # ---- seed epoch W: the owner's hints on learning (E649) and on prevention and structure (E650), text only
+    ("learning_hint_unlabelled", "spec/tohum/00c-gorev-haritasi-sahibin-ipuclari.md", "2026-11-19, E649; ipucu, reçete değil)",
+     "2026-11-19, E649)", "E649: the owner's hint is no longer labelled a hint, so measurement cannot tell it apart"),
+    ("prevention_hint_unlabelled", "spec/tohum/00c-gorev-haritasi-sahibin-ipuclari.md", "2026-11-19, E650; ipucu, reçete değil)",
+     "2026-11-19, E650)", "E650: the owner's hint is no longer labelled a hint, so measurement cannot tell it apart"),
     # ---- seed epoch W: the measurement mirror, /work/logs/mirror.json (the owner's decision of 2026-11-19, E647)
     ("mirror_version_ignores_effort", MIRROR,
      '(word(row.get("effort")) or "default") if "effort" in row else "unrecorded")', '"default")',
