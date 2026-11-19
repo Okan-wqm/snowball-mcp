@@ -32,3 +32,22 @@ Okunma: her oturumda, görev seçilirken (`00b`'nin devamı)
 - Sınırlar değişmez: gerçek ürün reposu için sahip şartları (E648); merge'ü sahibin yapması; her merge'ün geri
   alınabilir olması; aşama merdiveni ve hakem kuralları.
 - MVP'ye ne kadar yaklaşıldığı ölçüm aynasının sayılarıyla izlenebilir.
+
+**Sahibin ipucu (2026-11-19, E652; ipucu, reçete değil). Başka repolardan öğrenme.**
+- Amaç: başka repolardan öğrenilen kalıplar, ileride daha küçük ve ucuz modeller Snowball'da çalıştığında onlara yol
+  gösteren hipotezler olsun. Bilgi modelde değil repoda durur (`01` sahibin hedefi); bu yüzden her hipotez kendi
+  başına anlaşılır ve yazıldığı gibi koşan bir kontrolüyle birlikte tutulur (`26g`). Böylece zayıf bir model de onu
+  kullanabilir ve doğrulayabilir.
+- İstek: Snowball'un hafızası, üzerinde çalışmadığı, iyi bilinen ve güvenilir açık kaynak projelerden de öğrenebilir.
+  Bunu yapacak sistemi Kurucu tasarlar: hangi repo, ne okunur, nasıl saklanır, nasıl ölçülür. İkinci bir çalışma
+  hedefi de genelliği gösterir (`21`).
+- Olgu: sahibin önerdiği ilk aday şirketin kendi `tromso-mvp` reposudur (Python/Django, özel; çiftlik yazılımı). Hem
+  okunarak öğrenilecek ilk kaynak hem de ikinci çalışma hedefi olabilir. Özel olduğu için Snowball onu doğrudan değil,
+  operatörün kuracağı özel bir kopyası üzerinden okur ya da onda çalışır, `snowball-rehearsal-copy` gibi; kopyayı
+  sahip ya da operatör kurar, gerekirse Kurucu bunu bir istek olarak yazar. Python bağımlılıkları ve araçları için
+  hakemin bugünkü desteği (npm) yetmez.
+- Sınırlar (sahip): okuma salt okunurdur, sürüm commit'e ve hash'e sabitlenir. Yalnız izin verici lisanslı repolar
+  okunur; kod kopyalanmaz, kalıp ve fikir öğrenilir. Dışarıdan gelen bilgi `21a`'daki gibi hipotezdir: bağlamıyla
+  tutulur, kendi hedefimizde kanıtlanana kadar karar vermez. Yabancı metin modele girdiği için E648'in saldırgan
+  test seti bu okumaya da uygulanır.
+- Etkisi ölçülür: kabul edilen iş başına maliyet okumalı ve okumasız karşılaştırılır (E644).

@@ -269,12 +269,40 @@ class MvpRequestHintPageTest(unittest.TestCase):
         for recipe in ("içermeli", "içermelidir", "şunları", "özellikleri", "demo"):
             self.assertNotIn(recipe, text.casefold(), recipe)
         logs = sorted((ROOT / "spec" / "tohum").glob("CHANGELOG*.md"))
-        self.assertIn("2.2 (2026-11-19, E651; sahibin ipucu): `00c` \"MVP isteği\"",
+        self.assertIn("2.2 (2026-11-19, E651–E652; sahibin ipuçları): `00c` \"MVP isteği\" (E651",
                       flat((ROOT / "spec" / "tohum" / "CHANGELOG.md").read_text(encoding="utf-8")))
         self.assertTrue(all(len(p.read_text(encoding="utf-8").splitlines()) <= 80 for p in logs))
         self.assertLessEqual(len(page("00c").splitlines()), 80)
         register = (ROOT / "docs" / "eksik-kaydi.md").read_text(encoding="utf-8").splitlines()
         self.assertIn("sahip kararı, ipucu (2026-11-19", next(line for line in register if line.startswith("| E651 |")))
+
+class LearnFromOtherReposHintPageTest(unittest.TestCase):
+    """The owner's hint of 2026-11-19 (E652), labelled a hint, text only: memory may also learn from well-known trusted
+    open-source projects; the system is the Founder's; the owner's limits are stated."""
+
+    def test_00c_carries_the_labelled_hint_and_its_limits(self):  # other_repos_hint_unlabelled
+        text = flat(page("00c")).split(
+            "**Sahibin ipucu (2026-11-19, E652; ipucu, reçete değil). Başka repolardan öğrenme.**", 1)[1]
+        for words in ("iyi bilinen ve güvenilir açık kaynak projelerden de öğrenebilir",
+                      "Bunu yapacak sistemi Kurucu tasarlar: hangi repo, ne okunur, nasıl saklanır, nasıl ölçülür",
+                      "genelliği gösterir (`21`)", "okuma salt okunurdur, sürüm commit'e ve hash'e sabitlenir",
+                      "Yalnız izin verici lisanslı repolar okunur; kod kopyalanmaz, kalıp ve fikir öğrenilir",
+                      "`21a`'daki gibi hipotezdir", "kendi hedefimizde kanıtlanana kadar karar vermez",
+                      "E648'in saldırgan test seti bu okumaya da uygulanır",
+                      "kabul edilen iş başına maliyet okumalı ve okumasız karşılaştırılır (E644)",
+                      "daha küçük ve ucuz modeller Snowball'da çalıştığında onlara yol gösteren hipotezler olsun",
+                      "Bilgi modelde değil repoda durur (`01` sahibin hedefi)",
+                      "yazıldığı gibi koşan bir kontrolüyle birlikte tutulur (`26g`)",
+                      "şirketin kendi `tromso-mvp` reposudur (Python/Django, özel; çiftlik yazılımı)",
+                      "operatörün kuracağı özel bir kopyası üzerinden okur ya da onda çalışır",
+                      "hakemin bugünkü desteği (npm) yetmez"):
+            self.assertIn(words, text, words)
+        self.assertTrue(text.lstrip().startswith("- Amaç:"), text[:40])
+        self.assertIn("**İthal bilgi hipotezdir.**", page("21a"))
+        self.assertLessEqual(len(page("00c").splitlines()), 80)
+        self.assertLessEqual(len((ROOT / "spec" / "tohum" / "CHANGELOG.md").read_text(encoding="utf-8").splitlines()), 80)
+        register = (ROOT / "docs" / "eksik-kaydi.md").read_text(encoding="utf-8").splitlines()
+        self.assertIn("sahip kararı, ipucu (2026-11-19", next(line for line in register if line.startswith("| E652 |")))
 
 class ReferenceBundledReadingTest(unittest.TestCase):
     """The reference MF5 (`local/reference_brain/referee/runner/deps_npm.py`) reads `29g`'s package directories: a

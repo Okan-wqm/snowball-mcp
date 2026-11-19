@@ -4115,6 +4115,9 @@ MUTANTS = [
     # ---- seed epoch X: the owner's MVP request (E651), labelled as a hint, text only
     ("mvp_hint_unlabelled", "spec/tohum/00c-gorev-haritasi-sahibin-ipuclari.md", "2026-11-19, E651; ipucu, reçete değil)",
      "2026-11-19, E651)", "E651: the owner's MVP request is no longer labelled a hint, so measurement cannot tell it apart"),
+    ("other_repos_hint_unlabelled", "spec/tohum/00c-gorev-haritasi-sahibin-ipuclari.md",
+     "2026-11-19, E652; ipucu, reçete değil)", "2026-11-19, E652)",
+     "E652: the owner's hint on learning from other repositories is no longer labelled a hint"),
     # ---- seed epoch W: the measurement mirror, /work/logs/mirror.json (the owner's decision of 2026-11-19, E647)
     ("mirror_version_ignores_effort", MIRROR,
      '(word(row.get("effort")) or "default") if "effort" in row else "unrecorded")', '"default")',
