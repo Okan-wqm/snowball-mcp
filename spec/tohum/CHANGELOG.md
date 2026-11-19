@@ -4,7 +4,7 @@ Tarih: 2026-10-29 · Sürüm: 2.2
 Okunma: bir sayfanın geçmişi aranırken
 Çapa: git geçmişi ve zincirdeki spec hash satırları
 
-- 2.2 (2026-11-18, E634–E643; bağımsız inceleme ekibi kararı, sahip kararları ve Kurucu raporları): Kurucu'nun dört
+- 2.2 (2026-11-18 – 2026-11-19, E634–E644; bağımsız inceleme ekibi kararı, sahip kararları ve Kurucu raporları): Kurucu'nun dört
   raporunu iki bağımsız inceleyici (Opus ve Sonnet) ayrı ayrı yargıladı; bu yolla karara bağlanan ilk dönem. Sahip
   kararları: `13` "Rekor'a yazılamama" (E636; `28:36`): imzalama programının başarısız tek çağrısı yazılamama değildir,
   bir `yaz` işinde en çok 3 çağrı, her birinin sonucu `yaz`'ın çıktısında; tekrarın aynı köke bıraktığı ikinci Rekor
@@ -16,7 +16,8 @@ Okunma: bir sayfanın geçmişi aranırken
   E544 (2) kapandı): `26f` "Taahhüdün kataloğu": geri alma provasının taahhüdü en az ekilmiş nedenin örneklerinden
   çeker; anahtar, taahhüt, `judge` ve #geri-alma kapısı değişmez. Sahip kararı: `01` "Geçici yapılar" (E642): iş
   bitince geçici kurulanlar silinir; kanıt, arşiv ve başkasının işi kalır. Sahibin ipucu (E643; beslememe kuralının
-  istisnası, ipucu olarak işaretli): `00b`, `01` ona işaret eder. Yanıtlanan raporlar:
+  istisnası, ipucu olarak işaretli): `00b`, `01` ona işaret eder. Sahip ilkesi (E644, 2026-11-19): `00b` "Model
+  seçimi amaçla ve ölçümle": model amaç başına, kabul edilmiş sonuç başına toplam maliyetle seçilir. Yanıtlanan raporlar:
   `seed-066-cek-running-tree-unexercised` → declined: `29u:30-33` ve E591 zaten yanıtlar (koşan hakem ağacı son
   aktarım satırının `brain_sha`'sındadır; kabul edilmiş SHA'daki farklı `referee/` durdurma nedeni değildir); vektör
   yok, sayfa değişmedi (E634);
@@ -26,7 +27,7 @@ Okunma: bir sayfanın geçmişi aranırken
   `brain/integration` başı), `25a:41-49` (hedefe yazmış koşu yeniden tetiklenmez), `29j:30` (E636–E638);
   `seed-069-bundled-packages-in-a-lock-and-in-a-tarball` → `29g:31-37` (F1 kabul, E639; F2: `inBundle: true` satırı
   bugün `registry_not_allowed`, kabulü onu isteyen bir hedef kilidini bekler, E640), `29g:60-62`. 80 satır için
-  2026-11-14/17 E585–E599 ve E609–E611 kayıtları `CHANGELOG-8.md`'ye taşındı. 30 mutant, CI 96 parça.
+  2026-11-14/17 E585–E599 ve E609–E611 kayıtları `CHANGELOG-8.md`'ye taşındı. 31 mutant, CI 96 parça.
 - 2.2 (2026-11-17, E630–E633; sahibin onayı, sahip kararı ve Kurucu raporları): tek turda çıkış (E630).
   `exit-request.json` başın atası olan ve ondan başa yalnız isteğin değiştiği commit'i de adlandırabilir: push önce kod
   olarak yargılanır; kod kabul edilirse (A) aynı koşuda aynı başta yargılanır ve geçerse o baş sabitlenir, edilmezse

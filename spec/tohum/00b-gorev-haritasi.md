@@ -37,3 +37,13 @@ istisnasıdır; ölçüm ipucuyla bulunanı Kurucu'nun kendi bulduğundan ayır�
 - Olgu: rakip `opus`'tur. Hakeme giden kodu aynı modelin yazması rakibin bağımsızlığını zayıflatır (`03` K5).
 - Sahibin tercihi (ipucu, denetim değil): hakeme giden kodu yazan ajanlar `sonnet`'tir (rakipten farklı model);
   `opus` ajanları analiz, inceleme ve planlama içindir.
+
+**Model seçimi amaçla ve ölçümle (sahip ilkesi, 2026-11-19, E644; ilke, ipucu değil).**
+- Her model çağrısı neden çağrıldığını (amacını) ve onu yargılayan kalite denetimini adlandırır; denetim bazen
+  tekniktir (test, derleme, hakem kararı), bazen kullanıcı deneyimine bağlıdır.
+- Model, amaç başına, kabul edilmiş sonuç başına ölçülen toplam maliyetle seçilir; yeniden denemeler, inceleme ve
+  hakem koşuları bu maliyete dahildir. Token fiyatı ölçü değildir.
+- Örnek: token başına dört kat ucuz bir model 100 işin 10'unu, pahalısı 90'ını geçiriyorsa ucuz olan pahalıya gelir.
+- Yeni bir model çıktı diye görev ona bağlanmaz; yeni model, aynı işlerde mevcut modelle ölçülü bir denemeden geçerek
+  girer.
+- Bu fikri geliştirmek Snowball'un işidir; ilke yalnız yönü verir.

@@ -4089,6 +4089,9 @@ MUTANTS = [
     # ---- seed epoch V: the owner's hint (E643), labelled as a hint, text only
     ("owner_hint_unlabelled", "spec/tohum/00b-gorev-haritasi.md", "(2026-11-18, E643; ipucu, reçete değil)",
      "(2026-11-18, E643)", "E643: the owner's hint is no longer labelled a hint, so measurement cannot tell it apart"),
+    # ---- seed epoch V: the owner's principle on model choice (E644), text only
+    ("model_choice_by_token_price", "spec/tohum/00b-gorev-haritasi.md", "Token fiyatı ölçü değildir.",
+     "Token fiyatı ölçüdür.", "E644: the model is chosen by token price again, not by cost per accepted result"),
 ]
 
 

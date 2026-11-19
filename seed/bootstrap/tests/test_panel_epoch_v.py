@@ -1,9 +1,10 @@
 """Seed epoch V, the first decided by the independent review panel (two reviewers, Opus and Sonnet) with the owner's
 decisions of 2026-11-18: the Founder's reports seed-066 (declined, E634), seed-067 (E635), seed-068 (E636-E638) and
 seed-069 (E639, E640) as `13`, `28`, `25a`, `29g`, `29j` and the runbook state them, each named by the changelog, the
-revert drill's draw (E641, `26f`), the owner's temporary-structures rule (E642, `01`) and hint (E643, `00b`) and the
-reference MF5's reading of a bundled package (`29g`). The vectors themselves run in `test_reference_brain`. The
-trailing comment on a test names the mutants it kills (`local/mutate.py`)."""
+revert drill's draw (E641, `26f`), the owner's temporary-structures rule (E642, `01`), hint (E643, `00b`) and
+model-choice principle (E644, `00b`), and the reference MF5's reading of a bundled package (`29g`). The vectors
+themselves run in `test_reference_brain`. The trailing comment on a test names the mutants it kills
+(`local/mutate.py`)."""
 
 import base64
 import hashlib
@@ -168,6 +169,23 @@ class OwnerHintPageTest(unittest.TestCase):
             self.assertIn(words, text, words)
         self.assertIn("**Sahibin ipucu** (2026-11-18, E643):", page("01"))
         self.assertIn("`00b`'dedir", page("01"))
+
+class ModelChoicePrinciplePageTest(unittest.TestCase):
+    """The owner's principle of 2026-11-19 (E644), text only: a model is chosen by purpose and measured cost per
+    accepted result, labelled a principle (not a hint)."""
+
+    def test_00b_states_the_principle(self):  # model_choice_by_token_price
+        text = flat(page("00b").split("**Model seçimi amaçla ve ölçümle (sahip ilkesi, 2026-11-19, E644; ilke, ipucu "
+                                      "değil).**", 1)[1])
+        for words in ("neden çağrıldığını (amacını) ve onu yargılayan kalite denetimini adlandırır",
+                      "bazen tekniktir (test, derleme, hakem kararı), bazen kullanıcı deneyimine bağlıdır",
+                      "amaç başına, kabul edilmiş sonuç başına ölçülen toplam maliyetle seçilir",
+                      "yeniden denemeler, inceleme ve hakem koşuları bu maliyete dahildir", "Token fiyatı ölçü değildir",
+                      "100 işin 10'unu, pahalısı 90'ını geçiriyorsa ucuz olan pahalıya gelir",
+                      "Yeni bir model çıktı diye görev ona bağlanmaz",
+                      "aynı işlerde mevcut modelle ölçülü bir denemeden geçerek girer",
+                      "Bu fikri geliştirmek Snowball'un işidir; ilke yalnız yönü verir"):
+            self.assertIn(words, text, words)
 
 class ReferenceBundledReadingTest(unittest.TestCase):
     """The reference MF5 (`local/reference_brain/referee/runner/deps_npm.py`) reads `29g`'s package directories: a
