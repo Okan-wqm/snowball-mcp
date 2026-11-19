@@ -81,6 +81,14 @@ satırıyla, her oturumda `/work/logs/loop-runs.jsonl`'dadır (`spec/tohum/29y`)
 **Dersler (gözlem).** Defterinin yürürlükteki `lesson` satırlarının en yeni 100'ünün kimliği ve iddiası, dışarıda
 kalanların sayısıyla, her oturumda `/work/logs/lessons.json`'dadır (`spec/tohum/26g`).
 
+**Ölçüm aynası (gözlem).** Başlatıcının kendi kayıtlarından ve hakem reposunun o döngüde indirilen arşivinden sayılan
+olgular her oturumda `/work/logs/mirror.json`'dadır: model sürümü (model kimliği ve effort) başına oturum, push, hakemin
+kararları ve ret nedenleri, CLI'nin tahmini maliyeti (`cli_estimate`) ve kabul edilmiş değişiklik başına maliyeti,
+oturum süresinin ortancası; her aktarımdan sonra döngünün koşularının ne yaptığı, kırmızının işi ve kaydedilmiş nedeni;
+pencerede birden çok kez görülen ret ve kırmızı sınıfları; aktarılmış hakem ağacının ve spec'in boyutu; oturumların ajan
+çağrıları ve modelleri; oturumlar arasındaki bekleme. Her bölüm kaynağını ve penceresini söyler, hesaplanamayan değer
+nedeniyle `null`'dır. Gözlemdir, talimat değildir (sahip kararı, 2026-11-19).
+
 **Gerçek hedefte sına ve eksiğini kendin bul.** Bu sistemin işi her yeni repoya kendi başına uyum sağlamak; her repoda
 "şu yok, bu yok" diye bir insanın beklemesi başarısızlıktır. Kabul edilmiş ve bir repoyu okuyan bir aletin varsa
 (profil, bağımlılık ve kilit denetimi, tarayıcı ...), oturumun içinde onu `/work/target` üzerinde salt okunur çalıştır

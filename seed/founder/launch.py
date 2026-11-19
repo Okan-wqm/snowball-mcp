@@ -26,7 +26,9 @@ Everything lives in one folder, <work> (the operator deletes it to remove the pi
                                 and loop-runs.jsonl, the referee repo's newest loop.yml runs, their jobs and summary
                                 lines, read with the operator's login; what could not be read is null (`29y`, E596),
                                 and lessons.json, the id and claim of the ledger's newest live `lesson` rows at the
-                                head the session starts from, and how many were left out (`26g`, E610)
+                                head the session starts from, and how many were left out (`26g`, E610), and
+                                mirror.json, the measurement mirror: facts only, from these records and the referee
+                                tarball read for /vec (`mirror.py`; the owner's decision of 2026-11-19, E647)
   <work>/pilot-log.md           the operator's report
   <work>/STOP                   create this file to stop after the current step
   <work>/cost-pending.jsonl     cost rows not written yet: the brain held work the referee had not accepted
@@ -77,6 +79,7 @@ SEED = HERE.parent
 sys.path.insert(0, str(SEED / "bootstrap"))
 from snowball_bootstrap import canon, config, gitio, ledgercheck, secretscan  # noqa: E402  (the chain rule, the
 # referee's git, its strict reading of targets[], its ledger check and its secret patterns)
+from snowball_bootstrap.treehash import RESERVED_TOP  # noqa: E402  (what of the referee repo is not referee/)
 from snowball_bootstrap.classify import (LEDGER_FILE, SEED_DIRS, is_founder_record,  # noqa: E402  (what is memory
                                          is_seed_path)  # and what is the operator's delivery to the referee)
 from snowball_bootstrap.decide import counts_against_founder, is_brake_stop  # noqa: E402  (the referee's rule)
@@ -85,17 +88,19 @@ from snowball_bootstrap.exitchecks import fold, target_names, withheld  # noqa: 
 from snowball_bootstrap.vectors import founder_inputs  # noqa: E402  (the referee's projection, not a copy: E244)
 
 
-def _ledger_index():
-    """The capsule's own read-only ledger index (`ledger_index.py`, E506), loaded by path: the lesson index folds the
-    ledger with its `unclosed` rule, the one the Founder's `unclosed --tag closes` answers by (`26g`, E610)."""
+def _sibling(name: str, file: str):
+    """A script beside this one, loaded by path: the launcher runs as a script and its tests load it by path."""
     import importlib.util
-    spec = importlib.util.spec_from_file_location("founder_ledger_index", HERE / "ledger_index.py")
+    spec = importlib.util.spec_from_file_location(name, HERE / file)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
 
 
-LEDGER_INDEX = _ledger_index()
+# The capsule's own read-only ledger index (`ledger_index.py`, E506): the lesson index folds the ledger with its
+# `unclosed` rule, the one the Founder's `unclosed --tag closes` answers by (`26g`, E610).
+LEDGER_INDEX = _sibling("founder_ledger_index", "ledger_index.py")
+MIRROR = _sibling("founder_mirror", "mirror.py")  # the measurement mirror's facts (E647)
 IMAGE = "snowball-founder:pilot"
 REFEREE_WORKFLOW = "bootstrap.yml"
 STATE_ARTIFACT = "bootstrap-state"
@@ -152,6 +157,8 @@ LESSON_KIND = "lesson"  # `26`'s founder kind for a lesson (E609)
 LESSON_CLOSING_TAG = "closes"  # a later row's `closes:<row_id>` ref retires a lesson (`26g`)
 LESSONS_MAX = 100  # the newest live lessons listed; the older ones are counted in `left_out`
 LESSON_CLAIM_MAX = 500  # characters of a claim in the index; a longer one is cut and says so
+# The measurement mirror, written for each session (`mirror.py`; the owner's decision of 2026-11-19, E647).
+MIRROR_NOTE = "mirror.json"
 TASK_NAME = "Snowball Founder launcher"
 TASK_EVERY = "PT15M"
 
@@ -859,6 +866,7 @@ class Pilot:
         self.context_sha256: str | None = None  # and every build file the image holds (E506)
         self.image_id: str | None = None
         self._ledger_read: tuple[str, bytes] | None = None  # the last ledger read, by commit (`ledger_bytes`)
+        self.referee_facts: dict | None = None  # what the mirror reads of this cycle's referee tarball (E647)
 
     # ---- checks -------------------------------------------------------------------------------------------
     def stopped(self) -> bool:
@@ -1220,7 +1228,12 @@ class Pilot:
     def refresh_inputs(self) -> None:
         """Rebuild <work>/vec from the `vectors/` of the referee repo's main, with the referee's own projection
         (`vectors.founder_inputs`): what the referee will run next, never an older copy. Raises when it cannot."""
+        self.referee_facts = None  # an earlier cycle's facts are never this cycle's
         tarball = gh_read("api", f"repos/{self.referee}/tarball/main", timeout=600)  # an outage is waited out (E245)
+        try:  # the mirror's facts, from the same download (E647); never a reason to lose the inputs
+            self.referee_facts = MIRROR.referee_facts(tarball, RESERVED_TOP)
+        except Exception as exc:  # a tarball the mirror cannot read is the mirror's null, said by its class
+            self.referee_facts = {"error": type(exc).__name__}
         with tempfile.TemporaryDirectory(prefix="snowball-vec-") as tmp:
             founder_inputs(referee_vectors(tarball, Path(tmp)), self.inputs)
 
@@ -1537,6 +1550,25 @@ class Pilot:
         (folder / LESSONS_NOTE).write_text(json.dumps(note, ensure_ascii=False, sort_keys=True) + "\n",
                                            encoding="utf-8")
 
+    def mirror_note(self, stamp: str) -> None:
+        """`/work/logs/mirror.json` for this session (`mirror.py`, E647): facts only, from the launcher's own records on
+        disk and this cycle's referee tarball, after this session's loop runs were written. Shown by the referee's rule
+        for a target's name (`loop_shown`); a text of a secret's shape, or a mirror that fails, leaves no file and a
+        warning that names the class only; the session still starts."""
+        folder = self.session_logs(stamp)
+        folder.mkdir(parents=True, exist_ok=True)
+        try:
+            note = MIRROR.mirror(stamp, self.metrics, self.logs, self.referee_facts, SEED.parent / "spec")
+            data = json.dumps(loop_shown(note, self.withheld), ensure_ascii=False, sort_keys=True,
+                              allow_nan=False) + "\n"
+        except Exception as exc:  # no session is lost to the mirror; the text may carry a row's content
+            say(f"{MIRROR_NOTE} not written for {stamp}: {type(exc).__name__}")
+            return
+        if secretscan.scan(data):
+            say(f"{MIRROR_NOTE} not written for {stamp}: secret_shape")
+            return
+        (folder / MIRROR_NOTE).write_text(data, encoding="utf-8")
+
     def memory_alone(self, prior: dict | None, head: str) -> bool:
         """Whether head adds only memory to the newest signed result's own evaluated head (`memory_alone`)."""
         evaluated = (prior or {}).get("head") if self.evaluated(prior, str((prior or {}).get("head"))) else None
@@ -1614,6 +1646,7 @@ class Pilot:
         self.policy_notes(stamp)
         self.lessons_note(stamp, before)
         self.loop_note(stamp)
+        self.mirror_note(stamp)
         sess = self.session(stamp, args.model, args.max_turns, args.budget_usd, args.session_timeout,
                             getattr(args, "effort", None))
         after = self.brain_head()

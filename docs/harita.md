@@ -16,7 +16,7 @@ Read from the code: the jobs, `needs:` and commands of `seed/bootstrap/workflow/
 
 ## 1. System flow
 
-16 nodes, 33 edges. A job box lists the `snowball_bootstrap` commands it runs, in order. Job arrows leave out dependencies another path already implies; the table lists every `needs:`. A seed epoch is the operator's delivery of `spec/tohum/` and `seed/` to the brain, with the `seed_epochs` row the referee checks on its next pull (`seed/founder/README.md`).
+16 nodes, 34 edges. A job box lists the `snowball_bootstrap` commands it runs, in order. Job arrows leave out dependencies another path already implies; the table lists every `needs:`. A seed epoch is the operator's delivery of `spec/tohum/` and `seed/` to the brain, with the `seed_epochs` row the referee checks on its next pull (`seed/founder/README.md`).
 
 ```mermaid
 flowchart LR
@@ -64,6 +64,7 @@ flowchart LR
   launcher -.->|last loop runs, read-only: /work/logs/loop-runs.jsonl| capsule
   brain -.->|founder-ledger.jsonl at the session head: live lesson rows| launcher
   launcher -.->|live lessons, read-only: /work/logs/lessons.json| capsule
+  launcher -.->|measurement mirror, read-only: /work/logs/mirror.json| capsule
   operator -.->|seed epoch: delivers spec/tohum alone| brain
   operator -.->|installs bootstrap/, vectors/, kill switch, seed_epochs row| referee
   operator -.->|after each cycle: docs/karne.md| scorecard
@@ -446,7 +447,7 @@ Every subcommand of `cli.py`, the jobs that run it, and the package modules its 
 
 ## 3. Launcher links
 
-`seed/founder/launch.py` runs on the operator's machine and imports 9 referee modules, so the launcher applies the referee's own rules instead of a copy (E244). Through them it loads 20: `canon`, `classify`, `config`, `container`, `decide`, `exitcanary`, `exitchecks`, `gitio`, `ledgercheck`, `moduleless`, `policyreads`, `reproduce`, `rival`, `secretscan`, `selfmap`, `stages`, `state`, `treehash`, `vectors`, `wiring`.
+`seed/founder/launch.py` runs on the operator's machine and imports 10 referee modules, so the launcher applies the referee's own rules instead of a copy (E244). Through them it loads 20: `canon`, `classify`, `config`, `container`, `decide`, `exitcanary`, `exitchecks`, `gitio`, `ledgercheck`, `moduleless`, `policyreads`, `reproduce`, `rival`, `secretscan`, `selfmap`, `stages`, `state`, `treehash`, `vectors`, `wiring`.
 
 ```mermaid
 flowchart LR
@@ -457,6 +458,7 @@ flowchart LR
     m_gitio["gitio"]
     m_ledgercheck["ledgercheck"]
     m_secretscan["secretscan"]
+    m_treehash["treehash"]
     m_classify["classify"]
     m_decide["decide"]
     m_exitchecks["exitchecks"]
@@ -467,6 +469,7 @@ flowchart LR
   launcher -->|module| m_gitio
   launcher -->|module| m_ledgercheck
   launcher -->|module| m_secretscan
+  launcher -->|RESERVED_TOP| m_treehash
   launcher -->|LEDGER_FILE, SEED_DIRS, is_founder_record, is_seed_path| m_classify
   launcher -->|counts_against_founder, is_brake_stop| m_decide
   launcher -->|fold, target_names, withheld| m_exitchecks
