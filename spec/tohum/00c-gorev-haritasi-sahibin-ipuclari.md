@@ -23,6 +23,15 @@ Okunma: her oturumda, görev seçilirken (`00b`'nin devamı)
 - İpucu: bir sonraki aktarımdan önce bu önerilerden en az biri kurulup ölçülsün. Yapı da ölçülerek sadeleşsin.
   Gerçek ürün reposundan önce, hedefin kendi kurallarından hiçbiri sessizce atlanmamalı.
 
+**Tutarlı gelişim (sahip ilkesi, 2026-11-19, E653; ilke, ipucu değil).**
+- Kurucu sistemini her yönüyle tutarlı geliştirir: kod, hakem, hafıza ve dersler, ajanlar ve skill'ler, araçlar,
+  ölçüm, belgeler.
+- Yeni bir parça var olanla çelişmez ve onu tekrar etmez. Aynı işi yapan iki yol bırakılmaz. Tek doğruluk kaynağı
+  korunur.
+- Bir yerde öğrenilen, geçerli olduğu her yere uygulanır. Eski kod yeni derse göre yeniden okunur.
+- Her değişiklik ölçülür ve belgesiyle birlikte gelir.
+- Tutarsızlık bulunduğunda kayda geçer ve kapatılır; susularak geçilmez.
+
 **Sahibin ipucu (2026-11-19, E651; ipucu, reçete değil). MVP isteği.**
 - Olgu: Sahip, Snowball'u dışarıdan değerlendirecek birine göstermek ve yatırım başvurusunda kullanmak için bir MVP
   istiyor. Bu kişi bir yatırımcı ya da ilk pilot müşteri olabilir.
@@ -51,7 +60,9 @@ Okunma: her oturumda, görev seçilirken (`00b`'nin devamı)
   tutulur, kendi hedefimizde kanıtlanana kadar karar vermez. Yabancı metin modele girdiği için E648'in saldırgan
   test seti bu okumaya da uygulanır.
 - Etkisi ölçülür: kabul edilen iş başına maliyet okumalı ve okumasız karşılaştırılır (E644).
-- Kaynak türleri (güçlüden zayıfa; sahibin pusulası, reçete değil: sırayı ve kullanımı Kurucu belirler):
+- Kaynak türleri, güçlüden zayıfa. Operatörün önerisi (bağlayıcı değil; Kurucu kabul eder, değiştirir ya da
+  reddeder, gerekçesini yazar). Amaç, Kurucu'nun kendi öğrenme sistemini kurmasıdır. Bu liste yalnız bir başlangıç
+  önerisidir.
   1. Snowball'un kendi sonuçları: hakem kararları ve dersler.
   2. Şirketin kendi diğer repoları (ör. `tromso-mvp`), kopyası üzerinden.
   3. Resmi araç belgeleri ve kural katalogları: linter ve tip denetleyici kuralları, örnekleriyle (Aşama 1–2).

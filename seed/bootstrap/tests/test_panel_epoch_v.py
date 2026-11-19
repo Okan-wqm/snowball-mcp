@@ -252,6 +252,24 @@ class LearningAndPreventionHintsPageTest(unittest.TestCase):
         for row in ("| E649 |", "| E650 |"):
             self.assertIn("sahip kararı, ipucu (2026-11-19", next(line for line in register if line.startswith(row)))
 
+class ConsistentGrowthPrinciplePageTest(unittest.TestCase):
+    """The owner's principle of 2026-11-19 (E653), labelled a principle, not a hint, text only, before E651 in `00c`."""
+
+    def test_00c_states_the_principle_before_the_mvp_request(self):  # consistent_growth_relabelled_a_hint
+        raw = flat(page("00c"))
+        head = "**Tutarlı gelişim (sahip ilkesi, 2026-11-19, E653; ilke, ipucu değil).**"
+        self.assertLess(raw.index(head), raw.index("E651; ipucu, reçete değil)"))
+        text = raw.split(head, 1)[1].split("**Sahibin ipucu (2026-11-19, E651", 1)[0]
+        for words in ("kod, hakem, hafıza ve dersler, ajanlar ve skill'ler, araçlar, ölçüm, belgeler",
+                      "Yeni bir parça var olanla çelişmez ve onu tekrar etmez", "Aynı işi yapan iki yol bırakılmaz",
+                      "Tek doğruluk kaynağı korunur", "Eski kod yeni derse göre yeniden okunur",
+                      "Her değişiklik ölçülür ve belgesiyle birlikte gelir",
+                      "Tutarsızlık bulunduğunda kayda geçer ve kapatılır; susularak geçilmez."):
+            self.assertIn(words, text, words)
+        register = (ROOT / "docs" / "eksik-kaydi.md").read_text(encoding="utf-8").splitlines()
+        self.assertIn("sahip kararı, ilke (2026-11-19", next(line for line in register if line.startswith("| E653 |")))
+
+
 class MvpRequestHintPageTest(unittest.TestCase):
     """The owner's hint of 2026-11-19 (E651), labelled a hint, text only: the owner asks for an MVP; what it is, what it
     proves and in which order is the Founder's, written as a proposal for the owner's approval; no recipe."""
@@ -269,7 +287,7 @@ class MvpRequestHintPageTest(unittest.TestCase):
         for recipe in ("içermeli", "içermelidir", "şunları", "özellikleri", "demo"):
             self.assertNotIn(recipe, text.casefold(), recipe)
         logs = sorted((ROOT / "spec" / "tohum").glob("CHANGELOG*.md"))
-        self.assertIn("2.2 (2026-11-19, E651–E652; sahibin ipuçları): `00c` \"MVP isteği\" (E651",
+        self.assertIn("2.2 (2026-11-19, E651–E653; sahibin ipuçları ve ilkesi): `00c`. Sahip ilkesi (E653, ilke)",
                       flat((ROOT / "spec" / "tohum" / "CHANGELOG.md").read_text(encoding="utf-8")))
         self.assertTrue(all(len(p.read_text(encoding="utf-8").splitlines()) <= 80 for p in logs))
         self.assertLessEqual(len(page("00c").splitlines()), 80)
@@ -299,8 +317,10 @@ class LearnFromOtherReposHintPageTest(unittest.TestCase):
             self.assertIn(words, text, words)
         self.assertTrue(text.lstrip().startswith("- Amaç:"), text[:40])
         # other_repos_compass_made_a_recipe other_repos_criteria_dropped
-        for words in ("Kaynak türleri (güçlüden zayıfa; sahibin pusulası, reçete değil: sırayı ve kullanımı Kurucu "
-                      "belirler)", "1. Snowball'un kendi sonuçları: hakem kararları ve dersler",
+        for words in ("Kaynak türleri, güçlüden zayıfa. Operatörün önerisi (bağlayıcı değil; Kurucu kabul eder, "
+                      "değiştirir ya da reddeder, gerekçesini yazar).",
+                      "Amaç, Kurucu'nun kendi öğrenme sistemini kurmasıdır. Bu liste yalnız bir başlangıç önerisidir.",
+                      "1. Snowball'un kendi sonuçları: hakem kararları ve dersler",
                       "OSV / GitHub Advisory (açıklı ve düzeltilmiş kod çiftleri)", "(güvenlik, K6)",
                       "(mantık hataları, K5)", "öğrenmekten çok bağımsız sınav olarak kullanılır",
                       "hipotez olarak tutulur, kural olarak değil",
@@ -309,6 +329,7 @@ class LearnFromOtherReposHintPageTest(unittest.TestCase):
                       "mu; sürümü sabitlenebilir mi; o aşamanın hata sınıfına uygun mu; etkisi ölçülebilir mi."):
             self.assertIn(words, text, words)
         self.assertIn("Mantık hataları", flat(page("03")))
+        self.assertNotIn("pusula", text)
         self.assertIn("**İthal bilgi hipotezdir.**", page("21a"))
         self.assertLessEqual(len(page("00c").splitlines()), 80)
         self.assertLessEqual(len((ROOT / "spec" / "tohum" / "CHANGELOG.md").read_text(encoding="utf-8").splitlines()), 80)

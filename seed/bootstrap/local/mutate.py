@@ -4112,6 +4112,10 @@ MUTANTS = [
      "2026-11-19, E649)", "E649: the owner's hint is no longer labelled a hint, so measurement cannot tell it apart"),
     ("prevention_hint_unlabelled", "spec/tohum/00c-gorev-haritasi-sahibin-ipuclari.md", "2026-11-19, E650; ipucu, reçete değil)",
      "2026-11-19, E650)", "E650: the owner's hint is no longer labelled a hint, so measurement cannot tell it apart"),
+    # ---- seed epoch X: the owner's principle of consistent growth (E653), labelled a principle, text only
+    ("consistent_growth_relabelled_a_hint", "spec/tohum/00c-gorev-haritasi-sahibin-ipuclari.md",
+     "(sahip ilkesi, 2026-11-19, E653; ilke, ipucu değil)", "(sahibin ipucu, 2026-11-19, E653; ipucu)",
+     "E653: the owner's principle reads as a hint the Founder may set aside"),
     # ---- seed epoch X: the owner's MVP request (E651), labelled as a hint, text only
     ("mvp_hint_unlabelled", "spec/tohum/00c-gorev-haritasi-sahibin-ipuclari.md", "2026-11-19, E651; ipucu, reçete değil)",
      "2026-11-19, E651)", "E651: the owner's MVP request is no longer labelled a hint, so measurement cannot tell it apart"),
@@ -4119,8 +4123,9 @@ MUTANTS = [
      "2026-11-19, E652; ipucu, reçete değil)", "2026-11-19, E652)",
      "E652: the owner's hint on learning from other repositories is no longer labelled a hint"),
     ("other_repos_compass_made_a_recipe", "spec/tohum/00c-gorev-haritasi-sahibin-ipuclari.md",
-     "sahibin pusulası, reçete değil: sırayı ve kullanımı Kurucu belirler", "sahibin sırası, bu sırayla uygulanır",
-     "E652: the owner's compass of sources reads as a recipe the Founder must follow in order"),
+     "Operatörün önerisi (bağlayıcı değil; Kurucu kabul eder, değiştirir ya da",
+     "Operatörün kuralı (bağlayıcı; Kurucu uygular ya da",
+     "E652: the operator's suggested sources read as a binding rule, not a proposal the Founder may reject"),
     ("other_repos_criteria_dropped", "spec/tohum/00c-gorev-haritasi-sahibin-ipuclari.md",
      "  sabitlenebilir mi; o aşamanın hata sınıfına uygun mu; etkisi ölçülebilir mi.\n",
      "  sabitlenebilir mi.\n", "E652: the selection criteria lose the stage's error class and measurability"),
