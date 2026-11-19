@@ -22,3 +22,13 @@ Okunma: her oturumda, görev seçilirken (`00b`'nin devamı)
   hedefin kendi `@nx/enforce-module-boundaries` kuralı, kimse fark etmeden atlanıyor.
 - İpucu: bir sonraki aktarımdan önce bu önerilerden en az biri kurulup ölçülsün. Yapı da ölçülerek sadeleşsin.
   Gerçek ürün reposundan önce, hedefin kendi kurallarından hiçbiri sessizce atlanmamalı.
+
+**Sahibin ipucu (2026-11-19, E651; ipucu, reçete değil). MVP isteği.**
+- Olgu: Sahip, Snowball'u dışarıdan değerlendirecek birine göstermek ve yatırım başvurusunda kullanmak için bir MVP
+  istiyor. Bu kişi bir yatırımcı ya da ilk pilot müşteri olabilir.
+- MVP'nin ne olduğuna, neyi kanıtlayacağına ve hangi sırayla geleceğine Kurucu karar verir. Tanımını ve gerekçesini,
+  ölçülebilir kanıtlarıyla bir öneri olarak yazar. Öneri bir amaç değişikliği olduğu için sahibin onayına gider
+  (anayasal karar: amaç, ilkeler, güvenlik sınırları sahiptedir).
+- Sınırlar değişmez: gerçek ürün reposu için sahip şartları (E648); merge'ü sahibin yapması; her merge'ün geri
+  alınabilir olması; aşama merdiveni ve hakem kuralları.
+- MVP'ye ne kadar yaklaşıldığı ölçüm aynasının sayılarıyla izlenebilir.

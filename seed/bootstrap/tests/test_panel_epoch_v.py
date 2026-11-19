@@ -219,9 +219,10 @@ class AdversarialGateHintPageTest(unittest.TestCase):
             self.assertIn(words, text, words)
         self.assertNotIn("prompt injection", flat(page("30a")).casefold())
         self.assertLessEqual(len(page("00b").splitlines()), 80)
-        log = (ROOT / "spec" / "tohum" / "CHANGELOG.md").read_text(encoding="utf-8")
-        self.assertIn("Sahibin ipucu (E648; ipucu olarak işaretli): `00b`", flat(log))
-        self.assertLessEqual(len(log.splitlines()), 80)
+        logs = sorted((ROOT / "spec" / "tohum").glob("CHANGELOG*.md"))  # wherever the 80-line cap moved it (E651)
+        self.assertIn("Sahibin ipucu (E648; ipucu olarak işaretli): `00b`",
+                      flat("\n".join(p.read_text(encoding="utf-8") for p in logs)))
+        self.assertTrue(all(len(p.read_text(encoding="utf-8").splitlines()) <= 80 for p in logs))
         register = (ROOT / "docs" / "eksik-kaydi.md").read_text(encoding="utf-8").splitlines()
         self.assertIn("sahip kararı, ipucu (2026-11-19",
                       next(line for line in register if line.startswith("| E648 |")))
@@ -250,6 +251,30 @@ class LearningAndPreventionHintsPageTest(unittest.TestCase):
         register = (ROOT / "docs" / "eksik-kaydi.md").read_text(encoding="utf-8").splitlines()
         for row in ("| E649 |", "| E650 |"):
             self.assertIn("sahip kararı, ipucu (2026-11-19", next(line for line in register if line.startswith(row)))
+
+class MvpRequestHintPageTest(unittest.TestCase):
+    """The owner's hint of 2026-11-19 (E651), labelled a hint, text only: the owner asks for an MVP; what it is, what it
+    proves and in which order is the Founder's, written as a proposal for the owner's approval; no recipe."""
+
+    def test_00c_carries_the_labelled_request_and_no_recipe(self):  # mvp_hint_unlabelled
+        text = flat(page("00c")).split("**Sahibin ipucu (2026-11-19, E651; ipucu, reçete değil). MVP isteği.**", 1)[1]
+        for words in ("dışarıdan değerlendirecek birine göstermek ve yatırım başvurusunda kullanmak için bir MVP",
+                      "bir yatırımcı ya da ilk pilot müşteri olabilir",
+                      "neyi kanıtlayacağına ve hangi sırayla geleceğine Kurucu karar verir",
+                      "ölçülebilir kanıtlarıyla bir öneri olarak yazar", "sahibin onayına gider",
+                      "gerçek ürün reposu için sahip şartları (E648)", "merge'ü sahibin yapması",
+                      "her merge'ün geri alınabilir olması", "aşama merdiveni ve hakem kuralları",
+                      "ölçüm aynasının sayılarıyla izlenebilir"):
+            self.assertIn(words, text, words)
+        for recipe in ("içermeli", "içermelidir", "şunları", "özellikleri", "demo"):
+            self.assertNotIn(recipe, text.casefold(), recipe)
+        logs = sorted((ROOT / "spec" / "tohum").glob("CHANGELOG*.md"))
+        self.assertIn("2.2 (2026-11-19, E651; sahibin ipucu): `00c` \"MVP isteği\"",
+                      flat((ROOT / "spec" / "tohum" / "CHANGELOG.md").read_text(encoding="utf-8")))
+        self.assertTrue(all(len(p.read_text(encoding="utf-8").splitlines()) <= 80 for p in logs))
+        self.assertLessEqual(len(page("00c").splitlines()), 80)
+        register = (ROOT / "docs" / "eksik-kaydi.md").read_text(encoding="utf-8").splitlines()
+        self.assertIn("sahip kararı, ipucu (2026-11-19", next(line for line in register if line.startswith("| E651 |")))
 
 class ReferenceBundledReadingTest(unittest.TestCase):
     """The reference MF5 (`local/reference_brain/referee/runner/deps_npm.py`) reads `29g`'s package directories: a
