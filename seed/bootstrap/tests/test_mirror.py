@@ -117,10 +117,12 @@ class PerModelTest(unittest.TestCase):
         high = next(m for m in out["models"] if m["effort"] == "high")
         self.assertEqual((medium["sessions"], medium["pushes"], medium["accepted"]), (3, 2, 1))
         self.assertEqual(medium["verdicts"], {"code:accepted": 1, "code:rejected": 1})
-        self.assertEqual(medium["rejection_reasons"], {"refutation_reproduced": 1, "budget": 1})
-        self.assertEqual((medium["usd"], medium["usd_label"], medium["usd_per_accepted"]), (4.0, "cli_estimate", 4.0))
+        self.assertEqual(medium["rejected_rows_by_reason"], {"refutation_reproduced": 1, "budget": 1})
+        self.assertEqual((medium["founder_cli_usd"], medium["usd_label"], medium["founder_cli_usd_per_accepted"]),
+                         (4.0, "cli_estimate", 4.0))
         self.assertEqual(medium["median_session_minutes"], 20.0)
-        self.assertEqual((high["sessions"], high["rejection_reasons"], high["usd_per_accepted"]), (1, {}, 3.0))
+        self.assertEqual((high["sessions"], high["rejected_rows_by_reason"], high["founder_cli_usd_per_accepted"]),
+                         (1, {}, 3.0))
         self.assertEqual(out["window"], "20261118T010000Z..20261118T040000Z")  # this session and later are not there
 
     def test_a_push_without_a_verdict_takes_the_next_sessions_record(self):  # mirror_late_verdict_ignored
@@ -146,10 +148,26 @@ class PerModelTest(unittest.TestCase):
         w = Work()
         w.rows(cycle("20261118T010000Z", verdict="rejected", cost_usd=None, minutes=None))
         m = w.mirror()["per_model"]["models"][0]
-        self.assertEqual((m["usd"], m["usd_per_accepted"], m["median_session_minutes"]), (None, None, None))
-        self.assertEqual(set(m["null_reasons"]), {"usd", "usd_per_accepted", "median_session_minutes"})
-        self.assertEqual(m["null_reasons"]["usd_per_accepted"], "no accepted verdict")
+        self.assertEqual((m["founder_cli_usd"], m["founder_cli_usd_per_accepted"], m["median_session_minutes"]),
+                         (None, None, None))
+        self.assertEqual(set(m["null_reasons"]),
+                         {"founder_cli_usd", "founder_cli_usd_per_accepted", "median_session_minutes"})
+        self.assertEqual(m["null_reasons"]["founder_cli_usd_per_accepted"], "no accepted verdict")
         self.assertEqual((m["sessions_with_usd"], m["sessions_without_usd"]), (0, 1))
+
+    def test_a_row_counts_once_per_reason_kind_and_accepted_counts_code_and_exit(self):
+        # mirror_reason_kinds_per_reason
+        w = Work()
+        four = [{"kind": "exit_condition", "ref": f"r{i}"} for i in range(4)]
+        w.rows(cycle("20261112T105003Z", verdict="rejected", kind="exit", reasons=four),
+               cycle("20261112T120000Z", verdict="accepted", kind="exit"), cycle("20261112T130000Z"),
+               cycle("20261112T140000Z", model_served="claude-x[1m]"))
+        out = w.mirror()["per_model"]["models"]
+        plain = next(m for m in out if m["model"] == "claude-x")
+        self.assertEqual((plain["rejected_rows_by_reason"], plain["accepted"]), ({"exit_condition": 1}, 2))
+        self.assertIn("claude-x[1m]", [m["model"] for m in out])  # a bracketed id stays itself
+        self.assertIn("not the total cost per accepted change", M.SOURCES["per_model"])
+        self.assertIn("code and exit alike", M.SOURCES["per_model"])
 
     def test_the_versions_are_capped_newest_first(self):  # mirror_models_keep_the_oldest
         w = Work()
@@ -190,6 +208,7 @@ class LiveAttemptsTest(unittest.TestCase):
         self.assertEqual((second["brain_sha"], second["reverted"], second["import_row"], second["outcome"]),
                          (B, False, {"ts": "2026-11-18T01:00:00Z", "stage": 0}, "no_red_in_runs_seen"))
         self.assertEqual([r["id"] for r in out["unattributed_runs"]], [3])
+        self.assertEqual(out["unattributed_red_runs"], 1)  # mirror_unattributed_reds_unsaid
         self.assertEqual(out["unattributed_runs"][0]["red_jobs"][0]["reason"], "head_missing:brain/state")
         self.assertEqual(out["null_reasons"], {})
 
@@ -202,6 +221,12 @@ class LiveAttemptsTest(unittest.TestCase):
             out = w.mirror(facts=facts)["live_attempts"]
             self.assertEqual([t["reverted"] for t in out["transfers"]], [None, None])
             self.assertIn("the referee tarball was not read this cycle", out["null_reasons"]["reverted_exits"])
+
+    def test_the_transfers_are_capped_and_the_newest_kept(self):
+        shas = [f"{i:040x}" for i in range(M.TRANSFERS_MAX + 2)]
+        out = Work().mirror(facts=referee(reverted=shas))["live_attempts"]
+        self.assertEqual(([t["brain_sha"] for t in out["transfers"]], out["transfers_left_out"]), (shas[2:], 2))
+        self.assertEqual(out["unattributed_red_runs"], 0)
 
     def test_the_runs_of_a_transfer_are_capped(self):
         w = Work()
@@ -236,6 +261,41 @@ class RepeatsTest(unittest.TestCase):
         self.assertEqual(got, {("rejection", "refutation_reproduced"): (2, ["20261110", "20261118"]),
                                ("red", "yaz:activation_refused"): (2, ["20261115", "20261118"]),
                                ("red", "getir:unusable_input"): (2, ["20261116", "20261117"])})
+
+
+class RepeatCountTest(unittest.TestCase):
+    """The review of 2026-11-19: a repeat counts rows or runs, each once per class; the list is in class order; the
+    window's edges and frozen verdicts are pinned."""
+
+    def test_a_row_or_a_run_counts_once_per_class(self):
+        # mirror_repeats_count_reasons mirror_red_class_per_job
+        w = Work()
+        four = [{"kind": "exit_condition", "ref": f"r{i}"} for i in range(4)]
+        w.rows(cycle("20261112T105003Z", verdict="rejected", kind="exit", reasons=four))
+        refused = {"job": "yaz", "ok": False, "reason": "activation_refused"}
+        w.folder("20261118T030000Z", loop_runs_jsonl=[
+            run(1, "2026-11-18T01:00:00Z", "failure"), job(1, "yaz", "failure", summary=refused),
+            job(1, "yaz", "failure", summary=refused)])
+        self.assertEqual(w.mirror()["repeats"]["repeats"], [])
+
+    def test_frozen_counts_the_window_edges_hold_and_the_order_is_by_class(self):
+        # mirror_repeats_ranked mirror_repeats_window_ignored
+        w = Work()
+        frozen = dict(verdict="frozen", kind="spec", reasons=[{"kind": "budget"}])
+        rejected = dict(verdict="rejected", reasons=[{"kind": "zz_last"}])
+        w.rows(cycle("20261105T115959Z", **rejected), cycle("20261105T120000Z", **rejected),
+               cycle("20261106T000000Z", **rejected), cycle("20261107T000000Z", **rejected),
+               cycle("20261108T000000Z", **frozen), cycle("20261109T000000Z", **frozen))
+        out = w.mirror()["repeats"]["repeats"]
+        self.assertEqual([(r["class"], r["count"], r["first"]) for r in out],
+                         [("budget", 2, "20261108"), ("zz_last", 3, "20261105")])
+
+    def test_the_repeats_are_capped(self):
+        w = Work()
+        w.rows(*(cycle(f"202611{10 + d}T0{h}0000Z", verdict="rejected", reasons=[{"kind": f"k{i:02d}"}])
+                 for i in range(M.REPEATS_MAX + 2) for d, h in ((0, 1), (1, 2))))
+        out = w.mirror()["repeats"]
+        self.assertEqual((len(out["repeats"]), out["left_out"], out["repeats"][0]["class"]), (M.REPEATS_MAX, 2, "k00"))
 
 
 class SizeTest(unittest.TestCase):
@@ -323,6 +383,45 @@ class WaitingTest(unittest.TestCase):
                                ("20261119T113000Z", None, None)])
         self.assertEqual(out["sessions"][2]["reason"], "the row carries no minutes")
         self.assertEqual((out["gap_total_min"], out["gap_with_launcher_start_min"]), (30.0, 30.0))
+
+
+ADVICE = re.compile(r"\b(should|must|ought|recommend\w*|suggest\w*|consider|please|try|avoid|prefer\w*|improve\w*|"
+                    r"better|worse|best|good|bad|fix(?:es|ing)?|need to|needs to|you|your|build|add|do not|don't|"
+                    r"meli|malı|gerek\w*)\b", re.IGNORECASE)
+
+
+def strings(value):
+    if isinstance(value, dict):
+        for key, item in value.items():
+            yield key
+            yield from strings(item)
+    elif isinstance(value, list):
+        for item in value:
+            yield from strings(item)
+    elif isinstance(value, str):
+        yield value
+
+
+class WordingTest(unittest.TestCase):
+    """Every text the mirror writes is a fact or a label: no advice, no imperative, no pointer to what to build."""
+
+    def test_no_string_of_a_full_mirror_advises(self):
+        w = LiveAttemptsTest().work()
+        w.rows(cycle("20261118T010000Z", verdict="rejected", reasons=[{"kind": "budget"}]),
+               cycle("20261118T020000Z", verdict="rejected", reasons=[{"kind": "budget"}], cost_usd=None,
+                     minutes=None), {"kind": "intervention", "ts": "2026-11-18T03:00:00Z"})
+        note = w.mirror(facts=referee(reverted=[C]))
+        self.assertTrue(all("value" not in v for v in note.values() if isinstance(v, dict)))
+        found = [s for s in strings(note) if ADVICE.search(s)]
+        self.assertEqual(found, [])
+        self.assertEqual(note["size"]["null_reasons"]["fan_in_top"], "not available in this launcher's inputs")
+        self.assertIsNotNone(ADVICE.search("you should build a check"))
+
+    def test_a_too_deeply_nested_line_is_skipped_alone(self):
+        w = Work()
+        w.metrics.write_text("[" * 100000 + "]" * 100000 + "\n" + json.dumps(cycle("20261118T010000Z")) + "\n",
+                             encoding="utf-8")
+        self.assertEqual(w.mirror()["per_model"]["models"][0]["sessions"], 1)
 
 
 class FailOpenTest(unittest.TestCase):
@@ -467,7 +566,7 @@ class PageTest(unittest.TestCase):
                          ("mirror.json", "cli_estimate", 14, 20))
         readme = flat((ROOT / "seed" / "founder" / "README.md").read_text(encoding="utf-8"))
         self.assertIn("ve `mirror.json`, ölçüm aynası (`mirror.py`, sahip kararı 2026-11-19, E647)", readme)
-        self.assertIn("14 günde birden çok kez", readme)
+        self.assertIn("14 günde birden çok satırda ya da koşuda", readme)
         register = (ROOT / "docs" / "eksik-kaydi.md").read_text(encoding="utf-8").splitlines()
         row = next(line for line in register if line.startswith("| E647 |"))
         self.assertIn("sahip kararı 2026-11-19, ölçüm aynası", row)

@@ -24,7 +24,7 @@ from pathlib import Path
 
 VERSION = 1
 FACTS_ONLY = ("observation: the launcher's records and the referee tarball, counted; no advice, no ranking, "
-              "no judgement")
+              "no judgement; lists in a fixed order (time, or class name), never by size")
 WINDOW_DAYS = 14  # the window of `repeats`
 SESSIONS_MAX = 20  # the newest sessions `delegation` and `waiting` read
 MODELS_MAX, TRANSFERS_MAX, RUNS_MAX, UNATTRIBUTED_MAX, REPEATS_MAX, DATES_MAX = 10, 30, 10, 10, 20, 10
@@ -40,7 +40,7 @@ INTERVENTION = "intervention"  # a launcher start's metrics row (launch.py)
 STAMP_RE = re.compile(r"[0-9]{8}T[0-9]{6}Z")
 TIME_RE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z")
 SHA_RE = re.compile(r"[0-9a-f]{40}")
-WORD_RE = re.compile(r"[A-Za-z0-9_.:@/+-]{1,80}")
+WORD_RE = re.compile(r"[A-Za-z0-9_.:@/+\[\]-]{1,80}")  # a model id may carry brackets: claude-x[1m]
 CONTROL, IMPORTS = "control.json", "setup/imports.jsonl"  # the operator's files in the referee repository
 OFF_LIVE, MUTANTS_DIR = "status/off_live.json", "tests/mutants/"  # the brain's own records in its referee/ tree
 TEST_RE = re.compile(rb"(?m)^[ \t]*(?:async[ \t]+)?def[ \t]+test\w*[ \t]*\(")
@@ -48,13 +48,20 @@ TEST_RE = re.compile(rb"(?m)^[ \t]*(?:async[ \t]+)?def[ \t]+test\w*[ \t]*\(")
 SOURCES = {
     "per_model": "pilot-metrics.jsonl cycle rows (model_served or model, effort, pushed, kind, verdict, reasons, "
                  "cost_usd, minutes); a push whose row has no verdict takes the verdict the next session's "
-                 "previous-session.json recorded (verdicts_from_next_session: kind and reasons unknown)",
+                 "previous-session.json recorded (verdicts_from_next_session: kind and reasons unknown). accepted: "
+                 "every accepted verdict, code and exit alike, and those from the next session. rejected_rows_by_reason: "
+                 "rejected or frozen rows carrying a reason kind, a row once per kind. founder_cli_usd: the Founder's "
+                 "own CLI sessions only (cli_estimate); the referee's runs, the rival's calls and any review are not "
+                 "in it, so founder_cli_usd_per_accepted is not the total cost per accepted change",
     "live_attempts": "the referee tarball's control.json reverted_exits and setup/imports.jsonl (a reverted import's "
                      "row is gone with its revert); logs/*/loop-runs.jsonl, each session's read of the newest loop.yml "
                      "runs, the newest read of a run kept; a run belongs to the transfer its cek job's summary names "
-                     "(accepted.transfer_sha); runs no session read are not here",
-    "repeats": "rejection reason kinds of rejected and frozen verdicts in pilot-metrics.jsonl, and red job classes "
-               "(job:reason) of the loop runs in logs/*/loop-runs.jsonl; a class counted more than once",
+                     "(accepted.transfer_sha); runs no session read are not here. A transfer's outcome counts only the "
+                     "runs tied to it: a red run whose cek named no transfer is in unattributed_red_runs and in no "
+                     "transfer's outcome",
+    "repeats": "rejection reason kinds of rejected and frozen rows in pilot-metrics.jsonl, and red job classes "
+               "(job:reason) of the loop runs in logs/*/loop-runs.jsonl; count: the rows or runs that carry the "
+               "class, each once; a class carried by more than one, in class order",
     "size": "the referee repository tarball the launcher downloaded for /vec this cycle: the referee/ tree of the last "
             "transfer (every top folder but the operator's and bootstrap/); spec pages: the launcher's checkout",
     "delegation": "logs/<stamp>/session-<stamp>.jsonl: every Agent or Task tool call (a subagent's own too), its "
@@ -118,7 +125,7 @@ def json_lines(path: Path, limit: int = FILE_MAX) -> list[dict]:
     for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
         try:
             row = json.loads(line)
-        except ValueError:
+        except (ValueError, RecursionError):  # a broken or too deeply nested line is skipped, never the file
             continue
         if isinstance(row, dict):
             out.append(row)
@@ -151,7 +158,7 @@ def late_verdicts(logs: Path, folders: list[str]) -> dict[str, str]:
         path = logs / folder / "previous-session.json"
         try:
             note = json.loads(path.read_text(encoding="utf-8")) if path.is_file() else None
-        except ValueError:
+        except (ValueError, RecursionError):
             continue
         if isinstance(note, dict) and isinstance(note.get("stamp"), str) and word(note.get("verdict")):
             out[note["stamp"]] = note["verdict"]
@@ -176,6 +183,11 @@ def loop_runs(logs: Path, folders: list[str]) -> dict[int, dict]:
 
 
 # ---- per model version -------------------------------------------------------------------------------------------
+def reason_kinds(row: dict) -> list[str]:
+    """The reason kinds a verdict row carries, each once: four `exit_condition` reasons are one rejection."""
+    return sorted({word(r.get("kind")) or "unknown" for r in row.get("reasons") or [] if isinstance(r, dict)})
+
+
 def per_model(rows: list[dict], late: dict[str, str]) -> dict:
     groups: dict[tuple, dict] = {}
     for row in rows:
@@ -189,8 +201,7 @@ def per_model(rows: list[dict], late: dict[str, str]) -> dict:
         if verdict:
             g["verdicts"][f"{word(row.get('kind')) or 'unknown'}:{verdict}"] += 1
             if verdict in REJECTED:
-                g["reasons"].update(word(r.get("kind")) or "unknown" for r in row.get("reasons") or []
-                                    if isinstance(r, dict))
+                g["reasons"].update(reason_kinds(row))
         elif row.get("pushed") is True:
             verdict = word(late.get(row["stamp"]))
             if verdict:
@@ -210,20 +221,20 @@ def per_model(rows: list[dict], late: dict[str, str]) -> dict:
         nulls = {}
         usd = round(sum(g["usd"]), 2) if g["usd"] else None
         if usd is None:
-            nulls["usd"] = "no row of this version carries cost_usd"
+            nulls["founder_cli_usd"] = "no row of this version carries cost_usd"
         per = round(sum(g["usd"]) / g["accepted"], 2) if usd is not None and g["accepted"] else None
         if per is None:
-            nulls["usd_per_accepted"] = "no accepted verdict" if not g["accepted"] else "no cost recorded"
+            nulls["founder_cli_usd_per_accepted"] = "no accepted verdict" if not g["accepted"] else "no cost recorded"
         minutes = round(statistics.median(g["minutes"]), 1) if g["minutes"] else None
         if minutes is None:
             nulls["median_session_minutes"] = "no row of this version carries minutes"
         models.append({"model": model, "effort": effort, "first_session": g["rows"][0], "last_session": g["rows"][-1],
                        "sessions": len(g["rows"]), "pushes": g["pushes"],
                        "verdicts": dict(g["verdicts"]), "verdicts_from_next_session": dict(g["late"]),
-                       "pushes_without_verdict": g["unjudged"], "rejection_reasons": dict(g["reasons"]),
-                       "accepted": g["accepted"], "usd": usd, "usd_label": USD_LABEL,
+                       "pushes_without_verdict": g["unjudged"], "rejected_rows_by_reason": dict(g["reasons"]),
+                       "accepted": g["accepted"], "founder_cli_usd": usd, "usd_label": USD_LABEL,
                        "sessions_with_usd": len(g["usd"]), "sessions_without_usd": g["no_usd"],
-                       "usd_per_accepted": per, "median_session_minutes": minutes, "null_reasons": nulls})
+                       "founder_cli_usd_per_accepted": per, "median_session_minutes": minutes, "null_reasons": nulls})
     models.sort(key=lambda m: (m["last_session"], m["model"], m["effort"]), reverse=True)
     window = f"{rows[0]['stamp']}..{rows[-1]['stamp']}" if rows else None
     return {"window": window, "models": models[:MODELS_MAX], "left_out": max(0, len(models) - MODELS_MAX)}
@@ -329,7 +340,8 @@ def live_attempts(referee: dict | None, runs: dict[int, dict]) -> dict:
             "runs": [{k: f[k] for k in ("id", "created_at", "conclusion", "red")} for f in facts[:RUNS_MAX]],
             "runs_left_out": max(0, len(facts) - RUNS_MAX)})
     loose = by_transfer.get(None, [])
-    return {"window": "every run a session folder recorded", "transfers": transfers[-TRANSFERS_MAX:],
+    return {"window": "every run a session folder recorded", "unattributed_red_runs": sum(f["red"] for f in loose),
+            "transfers": transfers[-TRANSFERS_MAX:],
             "transfers_left_out": max(0, len(transfers) - TRANSFERS_MAX),
             "unattributed_runs": loose[-UNATTRIBUTED_MAX:], "unattributed_left_out": max(0, len(loose) - UNATTRIBUTED_MAX),
             "null_reasons": nulls}
@@ -342,17 +354,16 @@ def repeats(rows: list[dict], runs: dict[int, dict], at: datetime) -> dict:
     for row in rows:
         day = stamp_time(row["stamp"])
         if day >= since and word(row.get("verdict")) in REJECTED:
-            for reason in row.get("reasons") or []:
-                if isinstance(reason, dict):
-                    seen.setdefault(("rejection", word(reason.get("kind")) or "unknown"), []).append(row["stamp"][:8])
+            for kind in reason_kinds(row):
+                seen.setdefault(("rejection", kind), []).append(row["stamp"][:8])
     for rid, one in runs.items():
         created = iso_time(one["run"].get("created_at"))
         if created is not None and created >= since:
-            for job in red_jobs(one):
-                seen.setdefault(("red", red_class(job)), []).append(created.strftime("%Y%m%d"))
+            for name in sorted({red_class(job) for job in red_jobs(one)}):  # a run once per class
+                seen.setdefault(("red", name), []).append(created.strftime("%Y%m%d"))
     found = [{"kind": kind, "class": name, "count": len(days), "first": min(days), "last": max(days),
               "dates": sorted(set(days))[-DATES_MAX:]} for (kind, name), days in seen.items() if len(days) > 1]
-    found.sort(key=lambda f: (-f["count"], f["kind"], f["class"]))
+    found.sort(key=lambda f: (f["kind"], f["class"]))  # a fixed order, never a ranking
     return {"window": f"{since.strftime('%Y%m%dT%H%M%SZ')}..{at.strftime('%Y%m%dT%H%M%SZ')}",
             "repeats": found[:REPEATS_MAX], "left_out": max(0, len(found) - REPEATS_MAX)}
 
@@ -410,9 +421,8 @@ def referee_facts(blob: bytes, reserved) -> dict:
 
 
 def size(referee: dict | None, spec: Path) -> dict:
-    nulls = {"fan_in_top": "the brain's docs/map/brain.md and status.depmap are not in the referee tarball; the "
-                           "launcher reads nothing more of the brain and runs none of its code",
-             "ci_duration_s": "no record on disk holds a CI run's duration"}
+    nulls = {"fan_in_top": "not available in this launcher's inputs",
+             "ci_duration_s": "not available in this launcher's inputs"}
     tree = None
     transfer = None
     if unread(referee):

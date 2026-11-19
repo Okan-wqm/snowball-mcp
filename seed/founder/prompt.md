@@ -83,8 +83,8 @@ kalanların sayısıyla, her oturumda `/work/logs/lessons.json`'dadır (`spec/to
 
 **Ölçüm aynası (gözlem).** Başlatıcının kendi kayıtlarından ve hakem reposunun o döngüde indirilen arşivinden sayılan
 olgular her oturumda `/work/logs/mirror.json`'dadır: model sürümü (model kimliği ve effort) başına oturum, push, hakemin
-kararları ve ret nedenleri, CLI'nin tahmini maliyeti (`cli_estimate`) ve kabul edilmiş değişiklik başına maliyeti,
-oturum süresinin ortancası; her aktarımdan sonra döngünün koşularının ne yaptığı, kırmızının işi ve kaydedilmiş nedeni;
+kararları ve ret nedenleri, Kurucu oturumlarının CLI'deki tahmini maliyeti (`cli_estimate`; hakem, rakip ve inceleme
+koşuları içinde değil) ve onun kabul edilmiş değişiklik başına payı, oturum süresinin ortancası; her aktarımdan sonra döngünün koşularının ne yaptığı, kırmızının işi ve kaydedilmiş nedeni;
 pencerede birden çok kez görülen ret ve kırmızı sınıfları; aktarılmış hakem ağacının ve spec'in boyutu; oturumların ajan
 çağrıları ve modelleri; oturumlar arasındaki bekleme. Her bölüm kaynağını ve penceresini söyler, hesaplanamayan değer
 nedeniyle `null`'dır. Gözlemdir, talimat değildir (sahip kararı, 2026-11-19).

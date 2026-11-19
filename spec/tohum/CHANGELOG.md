@@ -9,7 +9,7 @@ Okunma: bir sayfanın geçmişi aranırken
   değişmedi; `seed/founder/prompt.md` "Ölçüm aynası"). Sahibin ipucu (E648; ipucu olarak işaretli): `00b`, gerçek
   ürün reposundan önce kapılar saldırgan bir test setinden (prompt injection, diff denetiminden kaçış, gizlenmiş
   secret'lar) kanıtla geçer; seti hakem koşar, tasarım Kurucu'nundur. Yeni `00c` (`00b` 80 satırı doldurdu): sahibin
-  ipuçları E649 (öğrenme: ders bulunabilir olsun, eski kodu da kapsasın) ve E650 (önleme ve yapı). 36 mutant, CI 98
+  ipuçları E649 (öğrenme: ders bulunabilir olsun, eski kodu da kapsasın) ve E650 (önleme ve yapı). 41 mutant, CI 99
   parça.
 - 2.2 (2026-11-18 – 2026-11-19, E634–E645; bağımsız inceleme ekibi kararı, sahip kararları ve Kurucu raporları): Kurucu'nun dört
   raporunu iki bağımsız inceleyici (Opus ve Sonnet) ayrı ayrı yargıladı; bu yolla karara bağlanan ilk dönem. Sahip
