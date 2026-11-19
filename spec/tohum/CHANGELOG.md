@@ -4,13 +4,13 @@ Tarih: 2026-10-29 · Sürüm: 2.2
 Okunma: bir sayfanın geçmişi aranırken
 Çapa: git geçmişi ve zincirdeki spec hash satırları
 
-- 2.2 (2026-11-19, E647–E650; sahip kararı ve sahibin ipuçları): E647, ölçüm aynası: başlatıcı her oturumdan önce
-  `/work/logs/mirror.json`'u yazar, kendi kayıtlarından ve hakem arşivinden sayılan olgular, öğüt yok (sayfa
-  değişmedi; `seed/founder/prompt.md` "Ölçüm aynası"). Sahibin ipucu (E648; ipucu olarak işaretli): `00b`, gerçek
-  ürün reposundan önce kapılar saldırgan bir test setinden (prompt injection, diff denetiminden kaçış, gizlenmiş
-  secret'lar) kanıtla geçer; seti hakem koşar, tasarım Kurucu'nundur. Yeni `00c` (`00b` 80 satırı doldurdu): sahibin
-  ipuçları E649 (öğrenme: ders bulunabilir olsun, eski kodu da kapsasın) ve E650 (önleme ve yapı). 41 mutant, CI 99
-  parça.
+- 2.2 (2026-11-19, E651–E653; sahibin ipuçları ve ilkesi): `00c`. Sahip ilkesi (E653, ilke): "Tutarlı gelişim",
+  sistem her yönüyle tutarlı gelişir, çelişen ya da tekrar eden yol bırakılmaz, tutarsızlık kayda geçer. "MVP isteği"
+  (E651, ipucu olarak işaretli): tanımı, kanıtı ve sırası Kurucu'nundur, öneri sahibin onayına gider, sınırlar
+  değişmez. "Başka repolardan öğrenme" (E652, ipucu olarak işaretli): sistemi Kurucu tasarlar; salt okunur, sabit
+  sürüm, izin verici lisans, kod kopyalanmaz, bilgi hipotezdir (`21a`), E648'in seti uygulanır, etkisi ölçülür
+  (E644); kaynak türleri bağlayıcı olmayan öneri. 5 mutant.
+- 2.2 (2026-11-19, E647–E650): ölçüm aynası ve sahibin üç ipucu, yeni `00c`: `CHANGELOG-8.md`.
 - 2.2 (2026-11-18 – 2026-11-19, E634–E645; bağımsız inceleme ekibi kararı, sahip kararları ve Kurucu raporları): Kurucu'nun dört
   raporunu iki bağımsız inceleyici (Opus ve Sonnet) ayrı ayrı yargıladı; bu yolla karara bağlanan ilk dönem. Sahip
   kararları: `13` "Rekor'a yazılamama" (E636; `28:36`): imzalama programının başarısız tek çağrısı yazılamama değildir,
