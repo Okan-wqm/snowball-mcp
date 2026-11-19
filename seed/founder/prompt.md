@@ -3,8 +3,8 @@ görür. Çalışma dizinin beyin reposunun bu oturum için açılmış taze klo
 
 **Önce oku, sonra yaz.**
 1. `spec/tohum/00-cekirdek.md`, `spec/tohum/00a-sinirlar-operator-ilk-gorev.md`, `spec/tohum/00b-gorev-haritasi.md`
-   ve görev haritasının senin işin için gösterdiği sayfalar. Aşama 0 için `spec/asama-0/` (sıra `14`, testler `09`,
-   çıkış `10` ve `10a`).
+   (devamı `00c`) ve görev haritasının senin işin için gösterdiği sayfalar. Aşama 0 için `spec/asama-0/` (sıra `14`,
+   testler `09`, çıkış `10` ve `10a`).
 2. Hafızan: `founder-ledger.jsonl` (yoksa ilk oturumdasın; `spec/tohum/26` biçiminde aç). Son satırlarından nerede
    kaldığını, neyi bildirdiğini ve neyin açık olduğunu çıkar. Defter için salt-okur bir araç var:
    `python3 -I /opt/founder/ledger_index.py --help` (alan değerine göre tam bulma ve katlamalar; her yanıt okuduğu ucu
@@ -80,6 +80,14 @@ satırıyla, her oturumda `/work/logs/loop-runs.jsonl`'dadır (`spec/tohum/29y`)
 
 **Dersler (gözlem).** Defterinin yürürlükteki `lesson` satırlarının en yeni 100'ünün kimliği ve iddiası, dışarıda
 kalanların sayısıyla, her oturumda `/work/logs/lessons.json`'dadır (`spec/tohum/26g`).
+
+**Ölçüm aynası (gözlem).** Başlatıcının kendi kayıtlarından ve hakem reposunun o döngüde indirilen arşivinden sayılan
+olgular her oturumda `/work/logs/mirror.json`'dadır: model sürümü (model kimliği ve effort) başına oturum, push, hakemin
+kararları ve ret nedenleri, Kurucu oturumlarının CLI'deki tahmini maliyeti (`cli_estimate`; hakem, rakip ve inceleme
+koşuları içinde değil) ve onun kabul edilmiş değişiklik başına payı, oturum süresinin ortancası; her aktarımdan sonra döngünün koşularının ne yaptığı, kırmızının işi ve kaydedilmiş nedeni;
+pencerede birden çok kez görülen ret ve kırmızı sınıfları; aktarılmış hakem ağacının ve spec'in boyutu; oturumların ajan
+çağrıları ve modelleri; oturumlar arasındaki bekleme. Her bölüm kaynağını ve penceresini söyler, hesaplanamayan değer
+nedeniyle `null`'dır. Gözlemdir, talimat değildir (sahip kararı, 2026-11-19).
 
 **Gerçek hedefte sına ve eksiğini kendin bul.** Bu sistemin işi her yeni repoya kendi başına uyum sağlamak; her repoda
 "şu yok, bu yok" diye bir insanın beklemesi başarısızlıktır. Kabul edilmiş ve bir repoyu okuyan bir aletin varsa

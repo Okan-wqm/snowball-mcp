@@ -205,6 +205,52 @@ class ReadTheImportedResultHintPageTest(unittest.TestCase):
             self.assertIn(words, text, words)
         self.assertIn("result_sha256", flat(page("26c")))
 
+class AdversarialGateHintPageTest(unittest.TestCase):
+    """The owner's hint of 2026-11-19 (E648), labelled a hint, text only: before a real product repository the
+    gates pass an adversarial set the referee runs; the design is the Founder's."""
+
+    def test_00b_carries_the_labelled_hint(self):  # adversarial_hint_unlabelled adversarial_hint_drops_a_class
+        text = flat(page("00b").split("**Sahibin ipucu (2026-11-19, E648; ipucu, reçete değil).**", 1)[1])
+        for words in ("bir dosyanın içine yazılmış bir talimat (prompt injection)",
+                      "(`30a`) hedefin kendi enjeksiyon açıklarını anlatır, modele yöneleni anlatmaz",
+                      "Snowball gerçek ürün reposunda çalışmadan önce, kapılar saldırgan bir test setinden kanıtla",
+                      "hedef dosyalara gömülü prompt injection, diff denetiminden kaçmaya çalışan değişiklikler, "
+                      "gizlenmiş ya da kodlanmış secret'lar", "Seti hakem koşar", "Tasarım Kurucu'nundur."):
+            self.assertIn(words, text, words)
+        self.assertNotIn("prompt injection", flat(page("30a")).casefold())
+        self.assertLessEqual(len(page("00b").splitlines()), 80)
+        log = (ROOT / "spec" / "tohum" / "CHANGELOG.md").read_text(encoding="utf-8")
+        self.assertIn("Sahibin ipucu (E648; ipucu olarak işaretli): `00b`", flat(log))
+        self.assertLessEqual(len(log.splitlines()), 80)
+        register = (ROOT / "docs" / "eksik-kaydi.md").read_text(encoding="utf-8").splitlines()
+        self.assertIn("sahip kararı, ipucu (2026-11-19",
+                      next(line for line in register if line.startswith("| E648 |")))
+
+class LearningAndPreventionHintsPageTest(unittest.TestCase):
+    """The owner's hints of 2026-11-19 (E649 learning, E650 prevention and structure), labelled hints, text only, in
+    `00c`, where `00b` continues past its 80 lines (`15` 1)."""
+
+    def test_00c_carries_both_labelled_hints_and_00b_points_at_it(self):
+        # learning_hint_unlabelled prevention_hint_unlabelled
+        text = flat(page("00c"))
+        learning = text.split("**Öğrenme (sahibin ipucu, 2026-11-19, E649; ipucu, reçete değil).**", 1)[1]
+        for words in ("20 `lesson` satırı var; 9'una sonraki kararlarda adıyla atıf var, 11'ine hiç yok",
+                      "Hiçbirinde `scope` yok (`22`", "eski kodu yeni derse göre yeniden okuyan olmadı",
+                      "geçerli olduğu iş geldiğinde bulunabilir olmalı", "ondan önce yazılmış kodu da kapsamalı",
+                      "`superseded_at` almalı", "model sürümüne bağlı dersler de buna dahil olmalı (E644)"):
+            self.assertIn(words, learning, words)
+        prevention = text.split("**Önleme ve yapı (sahibin ipucu, 2026-11-19, E650; ipucu, reçete değil).**", 1)[1]
+        for words in ("(f1538, f1546, f1553, f1560, f1567); hiçbiri kurulmadı", "`/work/logs/mirror.json`",
+                      "`cli`'yı 45 modül içe aktarır, `loop.job` 36 modülü içe aktarır",
+                      "`@nx/enforce-module-boundaries`", "en az biri kurulup ölçülsün",
+                      "Yapı da ölçülerek sadeleşsin", "hiçbiri sessizce atlanmamalı"):
+            self.assertIn(words, prevention, words)
+        self.assertIn("(E649 öğrenme, E650 önleme ve yapı) `00c`'dedir", flat(page("00b")))
+        self.assertIn("`scope`", flat(page("22")))
+        register = (ROOT / "docs" / "eksik-kaydi.md").read_text(encoding="utf-8").splitlines()
+        for row in ("| E649 |", "| E650 |"):
+            self.assertIn("sahip kararı, ipucu (2026-11-19", next(line for line in register if line.startswith(row)))
+
 class ReferenceBundledReadingTest(unittest.TestCase):
     """The reference MF5 (`local/reference_brain/referee/runner/deps_npm.py`) reads `29g`'s package directories: a
     scoped one, a nested one, a `binding.gyp`, and not a package.json that only sits deeper in a bundled package."""
