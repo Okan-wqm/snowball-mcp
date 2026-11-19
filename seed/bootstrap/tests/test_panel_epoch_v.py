@@ -174,7 +174,7 @@ class ModelChoicePrinciplePageTest(unittest.TestCase):
     """The owner's principle of 2026-11-19 (E644), text only: a model is chosen by purpose and measured cost per
     accepted result, labelled a principle (not a hint)."""
 
-    def test_00b_states_the_principle(self):  # model_choice_by_token_price
+    def test_00b_states_the_principle(self):  # model_choice_by_token_price, measurement_carried_across_versions
         text = flat(page("00b").split("**Model seçimi amaçla ve ölçümle (sahip ilkesi, 2026-11-19, E644; ilke, ipucu "
                                       "değil).**", 1)[1])
         for words in ("neden çağrıldığını (amacını) ve onu yargılayan kalite denetimini adlandırır",
@@ -184,6 +184,10 @@ class ModelChoicePrinciplePageTest(unittest.TestCase):
                       "100 işin 10'unu, pahalısı 90'ını geçiriyorsa ucuz olan pahalıya gelir",
                       "Yeni bir model çıktı diye görev ona bağlanmaz",
                       "aynı işlerde mevcut modelle ölçülü bir denemeden geçerek girer",
+                      "Her ölçüm ve öğrenim kaydı modelin tam sürümünü taşır: model kimliği (ör. `claude-sonnet-5-5`) "
+                      "ve effort", "Bir modelin başarısı yalnız o sürüm için geçerlidir",
+                      "sürüm değişince eski ölçüm yeni sürüme taşınmaz, yeni sürüm yeniden ölçülür",
+                      "defterde sürümüyle birlikte durur",
                       "Bu fikri geliştirmek Snowball'un işidir; ilke yalnız yönü verir"):
             self.assertIn(words, text, words)
 

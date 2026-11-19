@@ -46,4 +46,7 @@ istisnasıdır; ölçüm ipucuyla bulunanı Kurucu'nun kendi bulduğundan ayır�
 - Örnek: token başına dört kat ucuz bir model 100 işin 10'unu, pahalısı 90'ını geçiriyorsa ucuz olan pahalıya gelir.
 - Yeni bir model çıktı diye görev ona bağlanmaz; yeni model, aynı işlerde mevcut modelle ölçülü bir denemeden geçerek
   girer.
+- Her ölçüm ve öğrenim kaydı modelin tam sürümünü taşır: model kimliği (ör. `claude-sonnet-5-5`) ve effort. Bir
+  modelin başarısı yalnız o sürüm için geçerlidir; sürüm değişince eski ölçüm yeni sürüme taşınmaz, yeni sürüm yeniden
+  ölçülür. Hangi sürümün hangi amaçta ne verdiği defterde sürümüyle birlikte durur.
 - Bu fikri geliştirmek Snowball'un işidir; ilke yalnız yönü verir.

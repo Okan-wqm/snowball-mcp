@@ -4092,6 +4092,9 @@ MUTANTS = [
     # ---- seed epoch V: the owner's principle on model choice (E644), text only
     ("model_choice_by_token_price", "spec/tohum/00b-gorev-haritasi.md", "Token fiyatı ölçü değildir.",
      "Token fiyatı ölçüdür.", "E644: the model is chosen by token price again, not by cost per accepted result"),
+    ("measurement_carried_across_versions", "spec/tohum/00b-gorev-haritasi.md",
+     "sürüm değişince eski ölçüm yeni sürüme taşınmaz", "sürüm değişince eski ölçüm yeni sürüme taşınır",
+     "E644: a model's measured success is carried to its next version instead of measured again"),
 ]
 
 

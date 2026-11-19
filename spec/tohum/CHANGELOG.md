@@ -27,7 +27,7 @@ Okunma: bir sayfanın geçmişi aranırken
   `brain/integration` başı), `25a:41-49` (hedefe yazmış koşu yeniden tetiklenmez), `29j:30` (E636–E638);
   `seed-069-bundled-packages-in-a-lock-and-in-a-tarball` → `29g:31-37` (F1 kabul, E639; F2: `inBundle: true` satırı
   bugün `registry_not_allowed`, kabulü onu isteyen bir hedef kilidini bekler, E640), `29g:60-62`. 80 satır için
-  2026-11-14/17 E585–E599 ve E609–E611 kayıtları `CHANGELOG-8.md`'ye taşındı. 31 mutant, CI 96 parça.
+  2026-11-14/17 E585–E599 ve E609–E611 kayıtları `CHANGELOG-8.md`'ye taşındı. 32 mutant, CI 96 parça.
 - 2.2 (2026-11-17, E630–E633; sahibin onayı, sahip kararı ve Kurucu raporları): tek turda çıkış (E630).
   `exit-request.json` başın atası olan ve ondan başa yalnız isteğin değiştiği commit'i de adlandırabilir: push önce kod
   olarak yargılanır; kod kabul edilirse (A) aynı koşuda aynı başta yargılanır ve geçerse o baş sabitlenir, edilmezse
