@@ -4118,6 +4118,12 @@ MUTANTS = [
     ("other_repos_hint_unlabelled", "spec/tohum/00c-gorev-haritasi-sahibin-ipuclari.md",
      "2026-11-19, E652; ipucu, reçete değil)", "2026-11-19, E652)",
      "E652: the owner's hint on learning from other repositories is no longer labelled a hint"),
+    ("other_repos_compass_made_a_recipe", "spec/tohum/00c-gorev-haritasi-sahibin-ipuclari.md",
+     "sahibin pusulası, reçete değil: sırayı ve kullanımı Kurucu belirler", "sahibin sırası, bu sırayla uygulanır",
+     "E652: the owner's compass of sources reads as a recipe the Founder must follow in order"),
+    ("other_repos_criteria_dropped", "spec/tohum/00c-gorev-haritasi-sahibin-ipuclari.md",
+     "  sabitlenebilir mi; o aşamanın hata sınıfına uygun mu; etkisi ölçülebilir mi.\n",
+     "  sabitlenebilir mi.\n", "E652: the selection criteria lose the stage's error class and measurability"),
     # ---- seed epoch W: the measurement mirror, /work/logs/mirror.json (the owner's decision of 2026-11-19, E647)
     ("mirror_version_ignores_effort", MIRROR,
      '(word(row.get("effort")) or "default") if "effort" in row else "unrecorded")', '"default")',

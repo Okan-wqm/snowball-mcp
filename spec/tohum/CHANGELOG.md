@@ -9,7 +9,7 @@ Okunma: bir sayfanın geçmişi aranırken
   öneri sahibin onayına gider; sınırlar (E648, merge sahipte, geri alınabilirlik, merdiven, hakem) değişmez.
   `00c` "Başka repolardan öğrenme" (E652, ipucu olarak işaretli): hafıza güvenilir açık kaynak projelerden de
   öğrenebilir, sistemi Kurucu tasarlar; salt okunur, sabitlenmiş sürüm, izin verici lisans, kod kopyalanmaz, bilgi
-  hipotezdir (`21a`), E648'in seti uygulanır, etkisi ölçülür (E644). 2 mutant.
+  hipotezdir (`21a`), E648'in seti uygulanır, etkisi ölçülür (E644); kaynak pusulası, reçete değil. 4 mutant.
 - 2.2 (2026-11-19, E647–E650): ölçüm aynası ve sahibin üç ipucu, yeni `00c`: `CHANGELOG-8.md`.
 - 2.2 (2026-11-18 – 2026-11-19, E634–E645; bağımsız inceleme ekibi kararı, sahip kararları ve Kurucu raporları): Kurucu'nun dört
   raporunu iki bağımsız inceleyici (Opus ve Sonnet) ayrı ayrı yargıladı; bu yolla karara bağlanan ilk dönem. Sahip

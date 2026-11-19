@@ -298,6 +298,17 @@ class LearnFromOtherReposHintPageTest(unittest.TestCase):
                       "hakemin bugünkü desteği (npm) yetmez"):
             self.assertIn(words, text, words)
         self.assertTrue(text.lstrip().startswith("- Amaç:"), text[:40])
+        # other_repos_compass_made_a_recipe other_repos_criteria_dropped
+        for words in ("Kaynak türleri (güçlüden zayıfa; sahibin pusulası, reçete değil: sırayı ve kullanımı Kurucu "
+                      "belirler)", "1. Snowball'un kendi sonuçları: hakem kararları ve dersler",
+                      "OSV / GitHub Advisory (açıklı ve düzeltilmiş kod çiftleri)", "(güvenlik, K6)",
+                      "(mantık hataları, K5)", "öğrenmekten çok bağımsız sınav olarak kullanılır",
+                      "hipotez olarak tutulur, kural olarak değil",
+                      "Kaçınılacaklar: rastgele popüler repolar; doğrulanamayan forum veya blog tavsiyeleri",
+                      "Seçim ölçütleri: otoriter mi; izin verici lisanslı mı; içinde bir doğrulama (test, kural) taşıyor "
+                      "mu; sürümü sabitlenebilir mi; o aşamanın hata sınıfına uygun mu; etkisi ölçülebilir mi."):
+            self.assertIn(words, text, words)
+        self.assertIn("Mantık hataları", flat(page("03")))
         self.assertIn("**İthal bilgi hipotezdir.**", page("21a"))
         self.assertLessEqual(len(page("00c").splitlines()), 80)
         self.assertLessEqual(len((ROOT / "spec" / "tohum" / "CHANGELOG.md").read_text(encoding="utf-8").splitlines()), 80)

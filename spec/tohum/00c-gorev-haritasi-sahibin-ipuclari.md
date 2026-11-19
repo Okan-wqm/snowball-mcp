@@ -51,3 +51,16 @@ Okunma: her oturumda, görev seçilirken (`00b`'nin devamı)
   tutulur, kendi hedefimizde kanıtlanana kadar karar vermez. Yabancı metin modele girdiği için E648'in saldırgan
   test seti bu okumaya da uygulanır.
 - Etkisi ölçülür: kabul edilen iş başına maliyet okumalı ve okumasız karşılaştırılır (E644).
+- Kaynak türleri (güçlüden zayıfa; sahibin pusulası, reçete değil: sırayı ve kullanımı Kurucu belirler):
+  1. Snowball'un kendi sonuçları: hakem kararları ve dersler.
+  2. Şirketin kendi diğer repoları (ör. `tromso-mvp`), kopyası üzerinden.
+  3. Resmi araç belgeleri ve kural katalogları: linter ve tip denetleyici kuralları, örnekleriyle (Aşama 1–2).
+  4. Bilinen açık veritabanları: OSV / GitHub Advisory (açıklı ve düzeltilmiş kod çiftleri), CWE / OWASP, Semgrep
+     ve CodeQL kuralları test örnekleriyle (güvenlik, K6).
+  5. Bakımlı projelerde testli düzeltme commit'leri (mantık hataları, K5). Hazır setler (ör. SWE-bench türü)
+     öğrenmekten çok bağımsız sınav olarak kullanılır.
+  6. Makaleler: yöntem kaynağıdır; hipotez olarak tutulur, kural olarak değil.
+- Kaçınılacaklar: rastgele popüler repolar; doğrulanamayan forum veya blog tavsiyeleri; lisansı kopyalamaya izin
+  vermeyen kod.
+- Seçim ölçütleri: otoriter mi; izin verici lisanslı mı; içinde bir doğrulama (test, kural) taşıyor mu; sürümü
+  sabitlenebilir mi; o aşamanın hata sınıfına uygun mu; etkisi ölçülebilir mi.
