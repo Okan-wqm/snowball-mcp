@@ -4095,6 +4095,9 @@ MUTANTS = [
     ("measurement_carried_across_versions", "spec/tohum/00b-gorev-haritasi.md",
      "sürüm değişince eski ölçüm yeni sürüme taşınmaz", "sürüm değişince eski ölçüm yeni sürüme taşınır",
      "E644: a model's measured success is carried to its next version instead of measured again"),
+    # ---- seed epoch V: the owner's hint on reading the imported result (E645), labelled as a hint, text only
+    ("imported_result_hint_unlabelled", "spec/tohum/00b-gorev-haritasi.md", "(2026-11-19, E645; ipucu, reçete değil)",
+     "(2026-11-19, E645)", "E645: the owner's hint is no longer labelled a hint, so measurement cannot tell it apart"),
 ]
 
 

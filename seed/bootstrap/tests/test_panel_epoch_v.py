@@ -191,6 +191,20 @@ class ModelChoicePrinciplePageTest(unittest.TestCase):
                       "Bu fikri geliştirmek Snowball'un işidir; ilke yalnız yönü verir"):
             self.assertIn(words, text, words)
 
+class ReadTheImportedResultHintPageTest(unittest.TestCase):
+    """The owner's hint of 2026-11-19 (E645), labelled a hint, text only: `çek` reads the imported brain SHA's result."""
+
+    def test_00b_carries_the_labelled_hint(self):  # imported_result_hint_unlabelled
+        text = flat(page("00b").split("**Sahibin ipucu (2026-11-19, E645; ipucu, reçete değil).**", 1)[1])
+        for words in ("koşu 44094922317, `referee_tree_mismatch`", "en yeni önyükleme sonucunu okuyor",
+                      "her (B) boyunca `STOP` koyuyor", "1–1,5 saat boş kalıyor",
+                      "`çek` aktarılan beyin SHA'sının sonucunu okusun",
+                      "aktarım satırında (`result_sha256`, `26c`) zaten var",
+                      "Tasarım Kurucu'nundur ve hakemin denetimini gevşetmez",
+                      "çalışan kod yine yalnız kabul edilmiş ve aktarılmış koddur"):
+            self.assertIn(words, text, words)
+        self.assertIn("result_sha256", flat(page("26c")))
+
 class ReferenceBundledReadingTest(unittest.TestCase):
     """The reference MF5 (`local/reference_brain/referee/runner/deps_npm.py`) reads `29g`'s package directories: a
     scoped one, a nested one, a `binding.gyp`, and not a package.json that only sits deeper in a bundled package."""

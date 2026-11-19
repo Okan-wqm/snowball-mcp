@@ -50,3 +50,11 @@ istisnasıdır; ölçüm ipucuyla bulunanı Kurucu'nun kendi bulduğundan ayır�
   modelin başarısı yalnız o sürüm için geçerlidir; sürüm değişince eski ölçüm yeni sürüme taşınmaz, yeni sürüm yeniden
   ölçülür. Hangi sürümün hangi amaçta ne verdiği defterde sürümüyle birlikte durur.
 - Bu fikri geliştirmek Snowball'un işidir; ilke yalnız yönü verir.
+
+**Sahibin ipucu (2026-11-19, E645; ipucu, reçete değil).**
+- Olgu: (B)10 kırmızısı (koşu 44094922317, `referee_tree_mismatch`) şöyle oldu: döngünün `çek`'i en yeni önyükleme
+  sonucunu okuyor; (B) sürerken Kurucu'nun her push'u yeni bir sonuç doğuruyor ve `çek` bozuluyor. Operatör bu yüzden
+  her (B) boyunca `STOP` koyuyor; Kurucu her (B)'de 1–1,5 saat boş kalıyor.
+- İpucu: `çek` aktarılan beyin SHA'sının sonucunu okusun; o sonucun parmak izi aktarım satırında (`result_sha256`,
+  `26c`) zaten var. Böylece (B) sırasındaki push'lar döngüyü bozmaz, `STOP` gerekmez, Kurucu (B) sürerken çalışabilir.
+- Tasarım Kurucu'nundur ve hakemin denetimini gevşetmez: çalışan kod yine yalnız kabul edilmiş ve aktarılmış koddur.
