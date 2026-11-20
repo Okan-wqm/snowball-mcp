@@ -246,5 +246,20 @@ class MirrorPageTest(unittest.TestCase):
             self.assertIn(words, text, words)
 
 
+class RecordsTest(unittest.TestCase):
+    def test_register_changelog_index_and_caps(self):
+        for eid, decided in (("E672", "sahip kararı (2026-11-20"), ("E673", "sahip kararı (2026-11-20"),
+                             ("E674", "operatör yanıtı"), ("E675", "bağımsız inceleme ekibi kararı (2026-11-20"),
+                             ("E677", "operatör kararı (2026-11-20"), ("E678", "operatör kararı (2026-11-20")):
+            with self.subTest(eid=eid):
+                self.assertIn(decided, register_row(eid))
+        self.assertIn("`seed-081-the-time-limit-of-a-manifest-command-is-on-no-page` → `29b:24`", changelogs())
+        self.assertIn("2.2 (2026-11-20, E672–E678", changelogs())
+        index = (ROOT / "spec" / "INDEX.md").read_text(encoding="utf-8")
+        self.assertIn("| `tohum/26h-semalar-asama-1-ilk-dilim.md` | Şemalar, Devam: Aşama 1'in İlk Dilimi |", index)
+        for p in list((ROOT / "spec" / "tohum").glob("*.md")) + list((ROOT / "spec" / "asama-1").glob("*.md")):
+            self.assertLessEqual(len(p.read_text(encoding="utf-8").splitlines()), 80, p.name)
+
+
 if __name__ == "__main__":
     unittest.main()
