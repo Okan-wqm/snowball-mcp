@@ -112,9 +112,8 @@ class FirstSliceTest(unittest.TestCase):
                       "koşusundan önce", "P3'ün tablosu bir tohum döneminde gelir; bu tohum onu taşımaz"):
             self.assertIn(words, text, words)
         rest = flat(page("26h"))
-        for words in ("**Eski P1 MF8**, `operating{}` sınırlarının bant içinde ayarı (test 52). `operating{}`'in "
-                      "değerleri yalnız operatörün ve anayasaldır (`18`, `18a`); döngünün bu değerleri nereye yazacağı "
-                      "açıktır", "**Düzeltme gidiş-dönüşü** `koş` → `çağır` → `koş`",
+        for words in ("**Eski P1 MF8**, `operating{}` sınırlarının bant içinde ayarı (test 52): sahip kararıyla "
+                      "ertelendi.", "**Düzeltme gidiş-dönüşü** `koş` → `çağır` → `koş`",
                       "Bugün `çağır` yalnız (B)'nin kanaryasını çağırır (`asama-0/01`)",
                       "`fixer.llm` (MF4) bu satırla birlikte gelir",
                       "P1 K0 dalını uygular: `match` vektörleri K0'dır, testler 3 ve 5 \"K3 ile\"dir",
@@ -140,20 +139,17 @@ class FirstSliceTest(unittest.TestCase):
 
 
 class ReleaseAndProducerTest(unittest.TestCase):
-    """O3 (the owner's release of H1-H3) and the exit rows' producer sentence."""
+    """O3: H1-H3 labelled as the outside review's table corrections; what is held stays out of the seed."""
 
-    def test_h1_h3_are_table_corrections_and_the_hold_ends_for_them_only(self):  # release_widened
+    def test_h1_h3_are_table_corrections_the_review_found(self):  # release_unlabelled
         text = section("26h", "Bırakma")
         for words in ("(sahip kararı (2026-11-20))", "P1 MF8 (H1), P1 MF9 (H2) ve düzeltme gidiş-dönüşü (H3)",
                       "dış göz incelemesinin (2026-11-20, iki inceleyicinin uzlaşısı) bulduğu tablo düzeltmeleridir",
-                      "Kurucu'nun bir raporundan gelmezler",
-                      "E665'in ölçüm beklemesi yalnız bu üç madde için biter"):
+                      "Kurucu'nun bir raporundan gelmezler"):
             self.assertIn(words, text, words)
-
-    def test_every_exit_row_names_its_producer(self):  # exit_producer_optional
-        text = section("26h", "Çıkış satırlarının üreticisi")
-        self.assertIn("`asama-1/08`'in her çıkış satırı, ölçüsünü üreten MF'yi adlandırır", text)
-        self.assertIn("Üreticisi olmayan satır açık olarak listelenir", text)
+        whole = flat(page("26h"))  # held for measurement, never delivered (the 2026-11-20 review of epoch Z)
+        for held in ("E665", "beklemesi", "üreticisi olmayan", "Üreticisi olmayan", "çıkış satırı, ölçüsünü"):
+            self.assertNotIn(held, whole, held)
 
 
 class ManifestTimeLimitTest(unittest.TestCase):

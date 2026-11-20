@@ -132,8 +132,8 @@ class OperatorHashesTest(unittest.TestCase):
                       "Kurucu'ya ret sayılmaz", "`drift`'i henüz yazılmamış özet kullanılabilir kalır",
                       "`compared: []` ile söyler", "`drift` varsa ve iki hash'ten biri yoksa ya da biçimsizse koşu durur"):
             self.assertIn(words, text, words)
-        self.assertIn("Önyükleme hakemi `vectors_sha256` ve `seats_sha256`'yı her koşuda kendi hash'leriyle "
-                      "karşılaştırır, farkta durur (`25`)", flat(page("01c")))
+        self.assertIn("Önyükleme hakemi `vectors_sha256` ve `seats_sha256`'yı bir başı yargılayan her `pull`'da kendi "
+                      "hash'leriyle karşılaştırır, farkta durur (`25`)", flat(page("01c")))
 
 
 if __name__ == "__main__":

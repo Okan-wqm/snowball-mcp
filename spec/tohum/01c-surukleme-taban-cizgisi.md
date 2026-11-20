@@ -41,7 +41,8 @@ yoktur. Politika anahtarı `constitutional_sha256`'dır: genesis `policy_sha256`
   tarifiyle (`sha256("".join(sorted(f"{sha256(içerik)}  {göreli_yol}
 ")))`, git arşivi üzerinden).
 
-Önyükleme hakemi `vectors_sha256` ve `seats_sha256`'yı her koşuda kendi hash'leriyle karşılaştırır, farkta durur (`25`).
+Önyükleme hakemi `vectors_sha256` ve `seats_sha256`'yı bir başı yargılayan her `pull`'da kendi hash'leriyle
+karşılaştırır, farkta durur (`25`); boşta geçen yoklama `pull`'u koşmaz.
 
 **Etkinlik API'si.** `GET /repos/{r}/activity?per_page=100`, süzgeçsiz; `refs/heads/brain/` altındaki ref'ler
 yargılanır. Pencere, `drift.activity.not_before` ile önceki döngünün başlangıç satırının `ts`'sinden 10 dakika

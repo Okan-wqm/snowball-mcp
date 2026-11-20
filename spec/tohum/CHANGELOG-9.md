@@ -58,14 +58,13 @@ Okunma: bir sayfanın geçmişi aranırken
   (test 12 MF4'ten taşındı), P1 MF9 izin listesi ve `accept` yazıcısı `gate.allowlist` (yeni test 55; karşılaştırılan
   hash hakemin kendi hesapladığıdır); Gözcü (MF7) önlerinde; eski MF8 (`operating{}`), düzeltme gidiş-dönüşü ve
   `fixer.llm` ilk organ merge'ünden sonraki P3'te (tablosu bir tohum döneminde gelir); `mcnemar` MF4'le kabul edildiği
-  için kalır, K3+ dalı K3'le; her çıkış satırı ölçüsünün üreticisi MF'yi adlandırır, üreticisiz satır açık listelenir.
-  `stages/stage1-P1.json` 9 MF (MF1–MF7 değişmedi); `26e`, `26a`, `26`, `18a`, `26c`, `24`, `27` hizalandı. Sahip kararı
-  (O3, E673): H1, H2, H3 dış göz incelemesinin bulduğu tablo düzeltmeleridir; E665'in beklemesi yalnız bu üçü için
-  biter. Bağımsız inceleme ekibi kararı (F13, E675): `09` "Kökenin yeri": köken gövdede, yükleyicinin kuralı
+  için kalır, K3+ dalı K3'le.
+  `stages/stage1-P1.json` 9 MF (MF1–MF7'nin numaraları değişmedi); `26e`, `26a`, `26`, `18a`, `26c`, `24`, `27` hizalandı. Sahip kararı
+  (O3, E673): H1, H2, H3 dış göz incelemesinin bulduğu tablo düzeltmeleridir. Bağımsız inceleme ekibi kararı (F13, E675): `09` "Kökenin yeri": köken gövdede, yükleyicinin kuralı
   değişmez, tanım hash'i dosyanın dışındaki kayıttır. Sahibin ipucu (E676): `00d` "Arama ile okuma". Operatör
   kararları: ölçüm aynasına `session_time` ve `path` (E677; `organ_merges_copy` türetilemez, `null` ve nedeni);
   `25` "Karşılaştırmanın tabanı" ve `01c`: önyükleme hakemi `operator_hashes`'i her sonuca yazar, `drift.hashes`'e
   karşı fark koşuyu durdurur (`vectors_hash_mismatch`, `seats_hash_mismatch`), `drift`'siz özet çalışır; teslim aracı `drift.hashes`'i sahnelenen kopyadan yeniden hesaplar (E678).
   Yanıtlanan rapor: `seed-081-the-time-limit-of-a-manifest-command-is-on-no-page` → `29b:24` (bildirim komutunun
   süresi `bootstrap.json` `limits.test_timeout_s`, bugün 600, komut başına; yerel koşucu okur, varsaymaz; E674).
-  39 mutant, CI 103 parça.
+  41 mutant, CI 104 parça.

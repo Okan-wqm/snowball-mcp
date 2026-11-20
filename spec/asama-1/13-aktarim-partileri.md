@@ -19,7 +19,7 @@ protokolünün dar hâlidir (`tohum/01a`, `tohum/02`):
 
 | Parti | Ne zaman | İlk okuyucu |
 |---|---|---|
-| P1 organ ve ölçüm | Aşama 1 MF1'in canlı koşusundan önce | Aşama 1 MF1 `lint.discover`'ın dev ölçümü; MF5'in özerk döngüsü; MF8'in bulgu satırlarını MF1'in keşfi, MF9'un izin listesini MF5'in reddi ve MF6'nın `accept` satırı okur |
+| P1 organ ve ölçüm | Aşama 1 MF1'in canlı koşusundan önce | Aşama 1 MF1 `lint.discover`'ın dev ölçümü; Aşama 1 MF5'in özerk döngüsü; P1 MF8'in bulgu satırlarını Aşama 1 MF1'in keşfi, P1 MF9'un izin listesini Aşama 1 MF5'in reddi ve Aşama 1 MF6'nın `accept` satırı okur |
 | P2 güvenlik gözlemi | Aşama 1 içinde, P1'den sonra | Aşama 1'den güvenlik profili ve testi (`tohum/30d`) |
 | P3 ertelenenler | Aşama 1 MF6'dan (ilk organ merge'ü) ve P2'den sonra, MF4'ten önce (`tohum/26h`) | Aşama 1 MF4 `fixer.llm`'in canlı koşusu |
 | Aşama 1 çıkışı | Aşama 1 (A) ile (B) arasında | Aşama 1 (B)'nin kural sayımı; Aşama 2 spec isteği |
@@ -38,7 +38,7 @@ protokolünün dar hâlidir (`tohum/01a`, `tohum/02`):
 | P1 | 8 | Bulgu yazıcısı `findings.write`: `findings.jsonl` ve `unresolved.jsonl`, parmak izi ve durumlar (§1.13d; `tohum/26h`) | 12 | — |
 | P1 | 9 | İzin listesi ve `accept` yazıcısı `gate.allowlist` (`tohum/26h`) | 55 | — |
 | P2 | 1 | `security.derive` ve `security.run` (`tohum/30d`) | `30d`'nin profil testleri | — |
-| P3 | 1 | `operating{}` sınırlarının bant içinde ayarı (`tohum/18a`); döngünün yazacağı yer açık (`tohum/26h`) | 52 | — |
+| P3 | 1 | `operating{}` sınırlarının bant içinde ayarı (`tohum/18a`); sahip kararıyla ertelendi (`tohum/26h`) | 52 | — |
 | P3 | 2 | Düzeltme gidiş-dönüşü `koş` → `çağır` → `koş` (§1.5 3; `tohum/26h`) | P3'ün tablosuyla | — |
 | Aşama 1 çıkışı | 1 | `exit.sample` (§1.13a); payda tohumun `census` vektörü (`tohum/29za`) | 27 | `census` |
 | Aşama 1 çıkışı | 2 | `spec.lint` (`tohum/02` listesi) | 33 | — |

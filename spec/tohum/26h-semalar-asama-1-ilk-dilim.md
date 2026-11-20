@@ -34,9 +34,7 @@ yazılı kalır; bu sayfa ondan üstündür (`02`).
 **İlk organ merge'ünden sonraya ertelenenler** (sahip kararı (2026-11-20)). Ertelenenler P3 partisidir: Aşama 1
 MF6'dan ve P2'den sonra, MF4 `fixer.llm`'in canlı koşusundan önce. P3'ün tablosu bir tohum döneminde gelir; bu tohum
 onu taşımaz (`stages/`'te tablosu yoktur, `26e` "Çıkış partisi" gibi).
-- **Eski P1 MF8**, `operating{}` sınırlarının bant içinde ayarı (test 52). `operating{}`'in değerleri yalnız
-  operatörün ve anayasaldır (`18`, `18a`); döngünün bu değerleri nereye yazacağı açıktır, satır onu adlandırmadan
-  açılmaz.
+- **Eski P1 MF8**, `operating{}` sınırlarının bant içinde ayarı (test 52): sahip kararıyla ertelendi.
 - **Düzeltme gidiş-dönüşü** `koş` → `çağır` → `koş`: `koş`un ürettiği tipli `fixer.llm` isteğini `çağır` işler, `koş`
   yanıtı deterministik uygulayıcıyla yalnız o aralığa yazar (`asama-1/05` 3). Bugün `çağır` yalnız (B)'nin kanaryasını
   çağırır (`asama-0/01`), `loop.yml` hakem kodudur. `fixer.llm` (MF4) bu satırla birlikte gelir. Testi P3'ün tablosuyla
@@ -47,14 +45,10 @@ onu taşımaz (`stages/`'te tablosu yoktur, `26e` "Çıkış partisi" gibi).
 
 **Bırakma** (sahip kararı (2026-11-20)). P1 MF8 (H1), P1 MF9 (H2) ve düzeltme gidiş-dönüşü (H3), dış göz
 incelemesinin (2026-11-20, iki inceleyicinin uzlaşısı) bulduğu tablo düzeltmeleridir; Kurucu'nun bir raporundan
-gelmezler. E665'in ölçüm beklemesi yalnız bu üç madde için biter.
-
-**Çıkış satırlarının üreticisi** (sahip kararı (2026-11-20)). `asama-1/08`'in her çıkış satırı, ölçüsünü üreten MF'yi
-adlandırır (Aşama 0'ın, Aşama 1'in, bir partinin ya da çıkış partisinin MF'si). Üreticisi olmayan satır açık olarak
-listelenir.
+gelmezler.
 
 **Ölçüm aynası** (operatör kararı, 2026-11-20). `/work/logs/mirror.json`'un `session_time` bölümü oturum başına
-`wall_s`, `api_s`, `blocked_on_own_checks_s` ve yedi günlük kotanın başı ve sonunu (`quota_7d_start`, `quota_7d_end`),
+`wall_s`, `api_s`, `blocked_on_own_checks_s` ve kotanın başı ve sonunu kova adıyla (`quota_start`, `quota_end`),
 `path` bölümü bu dilimin henüz kabul edilmemiş MF'lerini (`path_mfs_left`) ve `organ_merges_copy`'yi verir. Yalnız
 olgudur; tanımları `seed/founder/mirror.py`'nin `SOURCES`'undadır. Türetilemeyen değer `null`'dır ve nedeni
 yazılıdır.
