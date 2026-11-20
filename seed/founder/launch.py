@@ -1550,15 +1550,31 @@ class Pilot:
         (folder / LESSONS_NOTE).write_text(json.dumps(note, ensure_ascii=False, sort_keys=True) + "\n",
                                            encoding="utf-8")
 
-    def mirror_note(self, stamp: str) -> None:
+    def accepted_manifest(self, prior: dict | None) -> dict:
+        """The mirror's `path` input (epoch Z, `26h`): the `done_mf` of the brain's `snowball-tests.json` at the signed
+        state's last accepted SHA, read with `gh api`; ``{"error": <class>}`` when there is no signed state or the read
+        fails, which is the mirror's null and never stops the cycle."""
+        sha = ((prior or {}).get("state") or {}).get("last_accepted_sha")
+        if not isinstance(sha, str) or not re.fullmatch(r"[0-9a-f]{40}", sha):
+            return {"error": "no_signed_state"}
+        try:
+            data = json.loads(gh_read("api", f"repos/{self.brain}/contents/snowball-tests.json?ref={sha}",
+                                      "-H", "Accept: application/vnd.github.raw"))
+        except Exception as exc:  # GitHub down, no file, not JSON: the mirror says which class, the session starts
+            return {"error": type(exc).__name__}
+        return {"sha": sha, "done_mf": data.get("done_mf") if isinstance(data, dict) else None}
+
+    def mirror_note(self, stamp: str, prior: dict | None = None) -> None:
         """`/work/logs/mirror.json` for this session (`mirror.py`, E647): facts only, from the launcher's own records on
-        disk and this cycle's referee tarball, after this session's loop runs were written. Shown by the referee's rule
-        for a target's name (`loop_shown`); a text of a secret's shape, or a mirror that fails, leaves no file and a
-        warning that names the class only; the session still starts."""
+        disk, this cycle's referee tarball, the seed's P1 table and the accepted manifest's `done_mf` (`accepted_manifest`,
+        from ``prior``, the signed result this cycle mounted), after this session's loop runs were written. Shown by the
+        referee's rule for a target's name (`loop_shown`); a text of a secret's shape, or a mirror that fails, leaves no
+        file and a warning that names the class only; the session still starts."""
         folder = self.session_logs(stamp)
         folder.mkdir(parents=True, exist_ok=True)
         try:
-            note = MIRROR.mirror(stamp, self.metrics, self.logs, self.referee_facts, SEED.parent / "spec")
+            note = MIRROR.mirror(stamp, self.metrics, self.logs, self.referee_facts, SEED.parent / "spec",
+                                 self.accepted_manifest(prior), SEED / "bootstrap" / "stages")
             data = json.dumps(loop_shown(note, self.withheld), ensure_ascii=False, sort_keys=True,
                               allow_nan=False) + "\n"
         except Exception as exc:  # no session is lost to the mirror; the text may carry a row's content
@@ -1646,7 +1662,7 @@ class Pilot:
         self.policy_notes(stamp)
         self.lessons_note(stamp, before)
         self.loop_note(stamp)
-        self.mirror_note(stamp)
+        self.mirror_note(stamp, prior)
         sess = self.session(stamp, args.model, args.max_turns, args.budget_usd, args.session_timeout,
                             getattr(args, "effort", None))
         after = self.brain_head()

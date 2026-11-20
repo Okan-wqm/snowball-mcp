@@ -7,6 +7,7 @@ Okunma: P1 partisi yazılırken ve Aşama 1 çalışırken
 ---
 
 Bu sayfa Aşama 0 2.2'nin §0.7'sidir; `findings.jsonl` ilk okuyucusu Aşama 1 MF1'in keşfiyle gelir (§1.13).
+Yazıcısı `findings.write`, P1 MF8'dir (`tohum/26h`).
 
 İki format, tek kaynak: ajan için `findings.jsonl` satırı, insan için üretilmiş sayfa
 (`tohum/15`). Alanların tek tanımı `tohum/26`'dadır; bu sayfa onları tanımlamaz, Aşama 1'deki
