@@ -33,6 +33,13 @@ bugünkü nedenler de denetlenir. Biçim:
 - `operator_checked_at: ISO-8601 UTC`.
 Taslaktaki `apps[]` (hiçbir okuma onu karşılaştıramaz) ve `referee_workflow_permission` (o denetim operatöründür)
 yoktur. Politika anahtarı `constitutional_sha256`'dır: genesis `policy_sha256`'yı bütün dosya için kullanır (`29o`).
+**Hash tarifleri** (operatör tabanı bunlarla yazar, döngü aynılarıyla okur; RFC 8785 `canonical`, küçük harf onaltılık, `13`):
+- `rules.<dal>`: `GET /repos/{r}/rules/branches/{dal}` dizisinin her öğesi `{type, parameters}`'a indirgenir (`parameters`
+  yoksa `{}`), öğeler `canonical(öğe)`'ye göre sıralanır; değer `sha256(canonical(dizi))`'dir;
+- `constitutional_sha256`: `sha256(canonical(policy.json["constitutional"]))`;
+- `vectors_sha256`, `seats_sha256`: hakem reposundaki `vectors/` ve `seats/`'in ağaç hash'i, `25a` 1'deki hakem kodu
+  tarifiyle (`sha256("".join(sorted(f"{sha256(içerik)}  {göreli_yol}
+")))`, git arşivi üzerinden).
 
 **Etkinlik API'si.** `GET /repos/{r}/activity?per_page=100`, süzgeçsiz; `refs/heads/brain/` altındaki ref'ler
 yargılanır. Pencere, `drift.activity.not_before` ile önceki döngünün başlangıç satırının `ts`'sinden 10 dakika

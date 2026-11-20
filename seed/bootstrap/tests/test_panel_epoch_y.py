@@ -390,7 +390,7 @@ class ReviewFixesTest(unittest.TestCase):
         for words in ("sahibin bütçe kararından çıkan adı konmuş bir gevşetmedir",
                       "`stage_budgets.asama_1.founder_usd` 10000, `stage_budgets.asama_1.runtime_llm_usd` 10000, "
                       "`stage_params.fix_acceptance_min` 0,80 ve `stage_params.live_merge_min` 10 yazar",
-                      "(hakem commit'i: <bekliyor>)"):
+                      "(hakem commit'i: 0aa2bad;"):
             self.assertIn(words, row, words)
         for eid in ("E669", "E670"):
             self.assertIsNone(re.search(r"Opus H\d|Sonnet F\d|\(Y6\)", register_row(eid)), eid)
