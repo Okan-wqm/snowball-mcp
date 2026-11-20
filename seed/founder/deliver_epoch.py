@@ -65,6 +65,7 @@ def _load_launch():
 
 launch = _load_launch()
 from snowball_bootstrap.decide import NOTHING_TO_JUDGE  # noqa: E402  (launch put seed/bootstrap on sys.path)
+from snowball_bootstrap import config  # noqa: E402  (the referee's own reading of drift.hashes, `01c`)
 from snowball_bootstrap.treehash import dir_hash  # noqa: E402  (the function the referee's own check uses, `25`)
 
 SOURCE_REPO = "Okan-wqm/snowball-mcp"
@@ -311,15 +312,17 @@ def with_drift_hashes(raw: str, referee: Path) -> tuple[str, dict]:
     clone, by the function the bootstrap referee's check uses (`treehash.dir_hash`, `25`): step 3 re-stages `vectors/`
     and the seats page, so a delivery that changes them would otherwise leave the baseline stale and the next run would
     stop (`vectors_hash_mismatch`). Only when the summary has `drift` (before its baseline there is nothing to keep);
-    nothing else of `drift` changes. Returns the text and ``{key: {"from": old, "to": new}}`` for each value that
-    moved."""
+    nothing else of `drift` changes. A `drift` without both hashes, or with one that is not 64 lower-case hex
+    characters, refuses, as the referee's own reading does (`config.drift_hashes`): this tool never makes a baseline.
+    Returns the text and ``{key: {"from": old, "to": new}}`` for each value that moved."""
     doc = json_doc(raw, SUMMARY)
     if "drift" not in doc:
         return raw, {}
-    drift = doc["drift"]
-    hashes = drift.setdefault("hashes", {}) if isinstance(drift, dict) else None
-    if not isinstance(hashes, dict):
-        raise Refused(f"step 5: {SUMMARY} drift is not an object with a hashes object (`01c`): edit it by hand")
+    try:
+        config.drift_hashes(doc, SUMMARY)
+    except config.ConfigError as exc:
+        raise Refused(f"step 5: {exc}: edit it by hand") from exc
+    hashes = doc["drift"]["hashes"]
     moved = {}
     for key, folder in DRIFT_TREES:
         new = dir_hash(referee / folder)

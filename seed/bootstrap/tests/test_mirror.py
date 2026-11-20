@@ -563,47 +563,56 @@ class SessionTimeTest(unittest.TestCase):
                 "heartbeat": True}
 
     @staticmethod
-    def quota(overage, seven_day=0.9):
-        return {"type": "rate_limit_event", "rate_limit_info": {"unifiedWindows": {
-            "seven_day": {"utilization": seven_day}, "seven_day_overage_included": {"utilization": overage}}}}
+    def quota(overage, seven_day, five_hour=None):
+        windows = {"seven_day": {"utilization": seven_day}, "seven_day_overage_included": {"utilization": overage}}
+        if five_hour is not None:
+            windows["five_hour"] = {"utilization": five_hour}
+        return {"type": "rate_limit_event", "rate_limit_info": {"unifiedWindows": windows}}
 
     def test_the_four_facts_of_a_session(self):
         # mirror_wall_from_transcript mirror_api_takes_last mirror_blocked_counts_all mirror_blocked_counts_background
-        # mirror_quota_wrong_window mirror_quota_end_first
+        # mirror_quota_wrong_window mirror_quota_end_first mirror_blocked_zero_without_result
         w = Work()
         one, two = "20261118T010000Z", "20261118T020000Z"
         w.rows(cycle(one, minutes=50.5), cycle(two, minutes=None))
         w.folder(one, **{f"session-{one}.jsonl": [
-            {"type": "system", "subtype": "init"}, self.quota(0.25),
+            {"type": "system", "subtype": "init"}, self.quota(0.25, 0.50, 0.10),
             self.bash("t1", "python3 local/mutate.py --only x"), self.beat("t1", 30), self.beat("t1", 59),
             self.bash("t2", "python3 tests/prepush.py"), self.beat("t2", 120),
             self.bash("t3", "sleep 300; ls"), self.beat("t3", 300),
             self.bash("t4", "python3 -m unittest discover", background=True), self.beat("t4", 900),
             self.beat("t9", 40), self.beat("t1", 70, tool="Read"),
             {"type": "result", "duration_ms": 1000, "duration_api_ms": 600_400},
-            self.quota(0.31), {"type": "result", "duration_ms": 10, "duration_api_ms": 2_000}]})
+            self.quota(0.31, 0.56), {"type": "result", "duration_ms": 10, "duration_api_ms": 2_000}]})
         w.folder(two)
         out = w.mirror()["session_time"]
         first, second = out["sessions"]
-        self.assertEqual((first["wall_s"], first["api_s"], first["blocked_on_own_checks_s"], first["quota_7d_start"],
-                          first["quota_7d_end"], first["null_reasons"]), (3030, 600, 179, 0.25, 0.31, {}))
+        self.assertEqual((first["wall_s"], first["api_s"], first["blocked_on_own_checks_s"], first["null_reasons"]),
+                         (3030, 600, 179, {}))
+        self.assertEqual(first["quota_start"], {"seven_day_overage_included": 0.25, "seven_day": 0.50, "five_hour": 0.10})
+        self.assertEqual(first["quota_end"], {"seven_day_overage_included": 0.31, "seven_day": 0.56, "five_hour": 0.10})
+        self.assertIn("so it can exceed wall_s", out["blocked_on_own_checks_is"])
         self.assertEqual((second["stamp"], second["wall_s"], second["api_s"]), (two, None, None))
         self.assertEqual(second["null_reasons"]["wall_s"], "no cycle row of this session carries minutes")
         self.assertEqual(second["null_reasons"]["blocked_on_own_checks_s"], "no transcript")
-        self.assertEqual((out["own_checks_pattern"], out["quota_window"]), (M.OWN_CHECKS.pattern,
-                                                                           "seven_day_overage_included"))
+        self.assertEqual((out["own_checks_pattern"], out["quota_buckets"]),
+                         (M.OWN_CHECKS.pattern, ["seven_day_overage_included", "seven_day", "five_hour"]))
+        w.folder(one, **{f"session-{one}.jsonl": [self.bash("t1", "python3 local/mutate.py"), self.beat("t1", 59)]})
+        cut = w.mirror()["session_time"]["sessions"][0]  # a transcript cut before its result event
+        self.assertEqual((cut["blocked_on_own_checks_s"], cut["null_reasons"]["blocked_on_own_checks_s"]),
+                         (None, "no result event: the transcript does not reach the session's end"))
 
     def test_a_transcript_without_the_events_says_so(self):
         w = Work()
         w.rows(cycle("20261118T010000Z"))
         w.folder("20261118T010000Z", **{"session-20261118T010000Z.jsonl": [{"type": "system", "subtype": "init"}]})
         fact = w.mirror()["session_time"]["sessions"][0]
-        self.assertEqual((fact["wall_s"], fact["api_s"], fact["blocked_on_own_checks_s"], fact["quota_7d_start"]),
-                         (1800, None, 0, None))
+        self.assertEqual((fact["wall_s"], fact["api_s"], fact["blocked_on_own_checks_s"], fact["quota_start"]),
+                         (1800, None, None, {"seven_day_overage_included": None, "seven_day": None, "five_hour": None}))
         self.assertEqual(fact["null_reasons"], {
             "api_s": "no result event with duration_api_ms",
-            "quota_7d_start": "no rate_limit_event with seven_day_overage_included.utilization",
-            "quota_7d_end": "no rate_limit_event with seven_day_overage_included.utilization"})
+            "blocked_on_own_checks_s": "no result event: the transcript does not reach the session's end",
+            **{f"quota.{b}": f"no rate_limit_event with {b}.utilization" for b in M.QUOTA_WINDOWS}})
 
 
 class PathTest(unittest.TestCase):

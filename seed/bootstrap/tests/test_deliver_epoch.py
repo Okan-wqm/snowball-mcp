@@ -396,18 +396,20 @@ class DriftHashesTest(unittest.TestCase):
         self.assertNotIn("drift", json.loads(show(world.referee, "main", "setup/summary.json")))
         self.assertEqual(world.checked["compared"], [])
 
-    def test_unchanged_trees_move_nothing_and_a_broken_drift_refuses(self):
+    def test_unchanged_trees_move_nothing_and_a_broken_drift_refuses(self):  # epoch_drift_hashes_made_up
         world = World()
         root = Path(tempfile.mkdtemp(dir=world.tmp))
         for rel, data in (("vectors/a.json", b"{}\n"), ("seats/29.md", b"# s\n")):
             (root / rel).parent.mkdir(parents=True, exist_ok=True)
             (root / rel).write_bytes(data)
-        raw = deliver.dumps({"drift": {"hashes": {}}})
+        raw = deliver.dumps({"drift": {"hashes": dict(self.OLD)}})
         text, moved = deliver.with_drift_hashes(raw, root)
         self.assertEqual(sorted(moved), ["seats_sha256", "vectors_sha256"])
         self.assertEqual(deliver.with_drift_hashes(text, root), (text, {}))
-        with self.assertRaisesRegex(deliver.Refused, "drift is not an object"):
-            deliver.with_drift_hashes(deliver.dumps({"drift": []}), root)
+        for drift in ([], {}, {"hashes": {}}, {"hashes": {"vectors_sha256": "a" * 64}},
+                      {"hashes": {"vectors_sha256": "A" * 64, "seats_sha256": "a" * 64}}):
+            with self.subTest(drift=drift), self.assertRaisesRegex(deliver.Refused, "step 5: .*edit it by hand"):
+                deliver.with_drift_hashes(deliver.dumps({"drift": drift}), root)  # never made up: refused
         with self.assertRaisesRegex(deliver.Refused, "no vectors/"):
             deliver.with_drift_hashes(raw, root.parent / "nowhere")
         self.assertEqual(deliver.with_drift_hashes(deliver.dumps({"x": 1}), root), (deliver.dumps({"x": 1}), {}))

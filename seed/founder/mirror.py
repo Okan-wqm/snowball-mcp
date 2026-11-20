@@ -3,7 +3,7 @@
 Facts the Founder reads at each session start: what each model version cost and what the referee said of its pushes,
 what the live loop's runs did after each transfer, which rejection and red classes came back, how large the transferred
 referee is, how often a session handed work to agents, how long the pilot stood between sessions, where each session's
-time and the seven-day quota went (epoch Z), and which micro-features of Stage 1's first slice (`26h`) are not accepted
+time and the quota buckets went (epoch Z), and which micro-features of Stage 1's first slice (`26h`) are not accepted
 yet. Facts only: no
 advice, no ranking, no judgement of what could have been seen earlier (no-feeding). Every section names its source and
 its window. A metric that cannot be computed is null and its reason is in the section's ``null_reasons``; a section that
@@ -48,7 +48,11 @@ CONTROL, IMPORTS = "control.json", "setup/imports.jsonl"  # the operator's files
 OFF_LIVE, MUTANTS_DIR = "status/off_live.json", "tests/mutants/"  # the brain's own records in its referee/ tree
 # A Bash call counts as the session's own check when its command matches (the epoch Z panels' method, stated, not tuned)
 OWN_CHECKS = re.compile(r"mutant|mutate|prepush|unittest|pytest|test_|tests")
-QUOTA_WINDOW = "seven_day_overage_included"  # rate_limit_info.unifiedWindows.<this>.utilization
+# rate_limit_info.unifiedWindows.<bucket>.utilization, each bucket named as the CLI names it
+QUOTA_WINDOWS = ("seven_day_overage_included", "seven_day", "five_hour")
+BLOCKED_IS = ("a sum over the session's foreground Bash calls whose command matches own_checks_pattern: calls that "
+              "ran at once each count, so it can exceed wall_s; a lower bound otherwise (a call under about 30 s "
+              "sends no heartbeat)")
 P1_TABLE = "stage1-P1.json"  # the seed's batch table of the first slice's batch (`26e`, `26h`)
 SLICE_OWN = (1, 2, 3, 5, 6)  # Stage 1's own micro-features of the first slice, in `26h`'s order
 TEST_RE = re.compile(rb"(?m)^[ \t]*(?:async[ \t]+)?def[ \t]+test\w*[ \t]*\(")
@@ -85,9 +89,10 @@ SOURCES = {
                     "(the CLI sums it over the session); blocked_on_own_checks_s, every foreground Bash call whose "
                     "command matches own_checks_pattern, its largest tool_progress elapsed_time_seconds, summed: a "
                     "lower bound (a call under about 30 s sends no heartbeat, a background call and a wait outside "
-                    "Bash are not counted) and calls that ran at once each count; quota_7d_start and quota_7d_end, "
-                    "the first and the last rate_limit_event's rate_limit_info.unifiedWindows."
-                    "seven_day_overage_included.utilization",
+                    "Bash are not counted) and calls that ran at once each count, so it can exceed wall_s; null for a "
+                    "session whose transcript has no result event; quota_start and quota_end, per bucket "
+                    "(seven_day_overage_included, seven_day, five_hour), the first and the last rate_limit_event's "
+                    "rate_limit_info.unifiedWindows.<bucket>.utilization",
     "path": "26h's first slice: the seed's P1 table (stages/stage1-P1.json), then Stage 1's own MF1, MF2, MF3, MF5 and "
             "MF6. path_mfs_left: P1's micro-features the manifest (snowball-tests.json) at the signed state's "
             "last_accepted_sha does not list in done_mf, the launcher's read of it; none once the referee tarball's "
@@ -542,7 +547,7 @@ def waiting(rows: list[dict], launched: list[str], at: datetime) -> dict:
 # ---- session time and quota (epoch Z) -------------------------------------------------------------------------
 def transcript_time(path: Path) -> dict:
     """api_s, blocked_on_own_checks_s and the quota's first and last utilization, from one session's transcript."""
-    api_ms, commands, elapsed, quota = None, {}, {}, []
+    api_ms, commands, elapsed, quota = None, {}, {}, {bucket: [] for bucket in QUOTA_WINDOWS}
     with path.open("r", encoding="utf-8", errors="replace") as fh:
         for line in fh:
             compact = line.replace(" ", "")
@@ -565,9 +570,10 @@ def transcript_time(path: Path) -> dict:
             elif kind == "rate_limit_event":
                 info = event.get("rate_limit_info") if isinstance(event.get("rate_limit_info"), dict) else {}
                 windows = info.get("unifiedWindows") if isinstance(info.get("unifiedWindows"), dict) else {}
-                window = windows.get(QUOTA_WINDOW) if isinstance(windows.get(QUOTA_WINDOW), dict) else {}
-                if number(window.get("utilization")) is not None:
-                    quota.append(number(window["utilization"]))
+                for bucket in QUOTA_WINDOWS:
+                    window = windows.get(bucket) if isinstance(windows.get(bucket), dict) else {}
+                    if number(window.get("utilization")) is not None:
+                        quota[bucket].append(number(window["utilization"]))
             elif kind == "assistant":
                 content = (event.get("message") or {}).get("content")
                 for item in content if isinstance(content, list) else []:
@@ -579,10 +585,14 @@ def transcript_time(path: Path) -> dict:
     nulls = {}
     if api_ms is None:
         nulls["api_s"] = "no result event with duration_api_ms"
-    if not quota:
-        nulls["quota_7d_start"] = nulls["quota_7d_end"] = f"no rate_limit_event with {QUOTA_WINDOW}.utilization"
-    return {"api_s": None if api_ms is None else round(api_ms / 1000), "blocked_on_own_checks_s": round(blocked),
-            "quota_7d_start": quota[0] if quota else None, "quota_7d_end": quota[-1] if quota else None,
+        nulls["blocked_on_own_checks_s"] = "no result event: the transcript does not reach the session's end"
+    for bucket, seen in quota.items():
+        if not seen:
+            nulls[f"quota.{bucket}"] = f"no rate_limit_event with {bucket}.utilization"
+    return {"api_s": None if api_ms is None else round(api_ms / 1000),
+            "blocked_on_own_checks_s": None if api_ms is None else round(blocked),
+            "quota_start": {b: seen[0] if seen else None for b, seen in quota.items()},
+            "quota_end": {b: seen[-1] if seen else None for b, seen in quota.items()},
             "null_reasons": nulls}
 
 
@@ -591,7 +601,7 @@ def session_time(logs: Path, stamps: list[str], rows: list[dict]) -> dict:
     sessions = []
     for stamp in stamps:
         fact = {"stamp": stamp, "wall_s": None, "api_s": None, "blocked_on_own_checks_s": None,
-                "quota_7d_start": None, "quota_7d_end": None, "null_reasons": {}}
+                "quota_start": None, "quota_end": None, "null_reasons": {}}
         if minutes.get(stamp) is None:
             fact["null_reasons"]["wall_s"] = "no cycle row of this session carries minutes"
         else:
@@ -599,15 +609,16 @@ def session_time(logs: Path, stamps: list[str], rows: list[dict]) -> dict:
         path = logs / stamp / f"session-{stamp}.jsonl"
         if not path.is_file() or path.stat().st_size > TRANSCRIPT_MAX:
             why = "no transcript" if not path.is_file() else "transcript too large"
-            fact["null_reasons"].update({k: why for k in ("api_s", "blocked_on_own_checks_s", "quota_7d_start",
-                                                          "quota_7d_end")})
+            fact["null_reasons"].update({k: why for k in ("api_s", "blocked_on_own_checks_s", "quota_start",
+                                                          "quota_end")})
         else:
             read = transcript_time(path)
             fact["null_reasons"].update(read.pop("null_reasons"))
             fact.update(read)
         sessions.append(fact)
     return {"window": f"the newest {SESSIONS_MAX} session folders before this one", "sessions": sessions,
-            "own_checks_pattern": OWN_CHECKS.pattern, "quota_window": QUOTA_WINDOW}
+            "own_checks_pattern": OWN_CHECKS.pattern, "blocked_on_own_checks_is": BLOCKED_IS,
+            "quota_buckets": list(QUOTA_WINDOWS)}
 
 
 # ---- the first slice's path (epoch Z, `26h`) --------------------------------------------------------------------
