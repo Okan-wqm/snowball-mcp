@@ -669,6 +669,7 @@ class PathTest(unittest.TestCase):
             self.assertEqual(pilot.accepted_manifest(prior), {"error": "GitHubUnavailable"})
 
     def test_a_failed_manifest_read_is_one_attempt_and_never_waits(self):
+        # manifest_read_retries
         # E679: with gh failing, the read is tried once and no retry delay is slept (the suite ran nine minutes longer)
         launch = load_launch()
         pilot = launch.Pilot(Path(tempfile.mkdtemp()), "o/brain", "o/referee", "target")
