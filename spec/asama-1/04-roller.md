@@ -16,5 +16,5 @@ Okunma: Aşama 1 çalışırken
 | Düzeltici, Sonnet yolu | Prompt şablonunu ve yapılandırılmış düzenleme şemasını verir; çağrıyı hakemin `llm.call`'ı yapar; deterministik uygulayıcı çıktıyı yalnız hedef dosyanın o aralığına yazar | Aracı yoktur; bulgu dışı satıra ve test yollarına yazamaz; ders almaz |
 | Tohum rakibi, Sonnet, ayrı bağlam | Kurucu'nun her beyin push'unu önyükleme hakeminin yolunda çürütmeye çalışır; çürütmesi yeniden üreticiyle sayılır | Çalışma zamanındaki düzeltmeleri yargılamaz: K0'da yargıç aracın kendisidir (`tohum/10`) |
 | Gözcü, deterministik | P1 ile: `tohum/28` kuralları | LLM değildir |
-| Güvenlik avcısı | P2 ile: bağımsız, salt okunur gözlem (`tohum/30f`) | Düzeltmez |
+| Güvenlik avcısı | Aşama 1'de yok: araç kullanan ilk çalışma-zamanı ajanıyla, en geç Aşama 4 (`tohum/30f`) | Düzeltmez |
 | Operatör | Döngü dışı; parti ve çıkış aktarımları, `stage-open` | Onay vermez |

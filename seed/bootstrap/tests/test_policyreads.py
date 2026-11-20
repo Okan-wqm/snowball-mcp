@@ -107,7 +107,7 @@ class FixtureTest(unittest.TestCase):
             if paths[0].startswith("operating.") or any(f"`{tool}`" in readers for tool in LOOP_TOOLS):
                 derived.update(paths)
         rows = json.loads((FIXTURES / policyreads.REQUIRED).read_text(encoding="utf-8"))
-        self.assertEqual(sorted(rows), ["0"])
+        self.assertEqual(sorted(rows), ["0", "1"])
         self.assertEqual(sorted(rows["0"]), sorted(derived))
         self.assertIn(CANARY, derived)
         self.assertEqual(len(derived), 11)
@@ -118,6 +118,23 @@ class FixtureTest(unittest.TestCase):
         for bad in ([], {"x": []}, {"0": ["stage_budgets.asama_0.canary_usd"]}, {"0": "operating.a"}):
             with self.subTest(bad=bad), self.assertRaises(ValueError):
                 policyreads.required_paths(bad, 0)
+
+    def test_stage_1_reads_the_harness_keys_29v_names(self):  # required_stage_1_row_dropped
+        """seed-076 (independent review panel, 2026-11-20): Stage 1's row is the harness's five keys, each a row of
+        `18a`, named on `29v`; a stage reads the rows before it too."""
+        rows = json.loads((FIXTURES / policyreads.REQUIRED).read_text(encoding="utf-8"))
+        five = ["constitutional.confidence_level", "constitutional.stage_params.census_min_groups",
+                "constitutional.stage_params.evidence_ref_max_lines", "constitutional.stage_params.match_window_lines",
+                "constitutional.stage_params.planted_max_cases"]
+        self.assertEqual(sorted(rows["1"]), five)
+        keyed = {path for paths, _row in key_rows("18a") for path in paths}
+        self.assertTrue(set(five) <= keyed)
+        self.assertEqual(policyreads.required_paths(rows, 1), sorted(set(rows["0"]) | set(five)))
+        self.assertEqual(policyreads.required_paths(rows, 0), sorted(rows["0"]))
+        said = " ".join(page("29v").split())
+        self.assertIn("Aşama 1'in satırı (bağımsız inceleme ekibi kararı, 2026-11-20, seed-076) harness'in beş yoludur", said)
+        for path in five:
+            self.assertIsNot(policyreads.at(PLAN["full"], path.split(".")), policyreads._ABSENT, path)
 
     def test_the_hoisted_file_moves_each_required_path_to_the_top_with_another_value(self):
         # fixture_decoy_equals_the_section_value

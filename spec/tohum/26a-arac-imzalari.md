@@ -41,7 +41,7 @@ değil). Beyin ağacındaki içe aktarmaları ya da çağrıları `calls`'la kar
 | `activate` | Hakem | `koş`, `yaz` | hedef, `targets[]`, hazır adaylar | genesis satırı, `brain/integration` kesimi, mandal tabanı | `brain/state` | operatörün ilk devri | MF18 |
 | `snapshot.make` | Hakem | `çek` | `base_sha`, vaka listesi, tür | `snapshot_id`, manifest | kısa ömürlü dizin | hakem; Kurucu dev | P1 |
 | `cases.build` | Hakem | `çek` | sınıf, kaynak (geçmiş, mutasyon) | dev vakaları | `cases/` önerisi | hakem; Kurucu yalnız dev | P1 |
-| `harness.score` | Hakem | `yaz` | bulgu dosyası, `snapshot_id` | harness raporu (`26b`) | rapor | Kurucu dev; hakem exit | P1 |
+| `harness.score` | Hakem | `yaz` | bulgu ve vaka dosyaları; rapor için snapshot belgesi ve ağacı (`--snapshot`, `--tree`) | iki dosyayla `{hits}` (`29a`); dördüyle harness raporu (`26b`) | rapor | Kurucu dev; hakem exit | P1 |
 | `drift.check` | Hakem | `yaz` | kurulum özeti | fark | sert duruş | hakem döngü başı | P1 (Aşama 0'da genesis'te bir kez) |
 | `gozcu.evaluate` | Hakem | `yaz` | defter görünümleri | dondurma, işaret | `freeze` satırı | hakem döngü sonu | P1 |
 | `agent.dispatch` | Hakem | `çağır` (iç kullanımda `claude` CLI'si; satışta `koş` + geçit, `08` 5) | rol, prompt, hakemin MCP araç listesi | çıktı, `run_meta` | yok | hakem (güvenlik avcısı; sonra her ajan) | P2 |

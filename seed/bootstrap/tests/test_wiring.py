@@ -639,7 +639,7 @@ class LoopReportsPageTest(unittest.TestCase):
         mf12 = flat(spec_page("tohum", "29j"))
         self.assertIn("Çıktı `verdict` (`green` | `red` | `flaky` | `rerun`), sıralı `red` ve `flaky`", mf12)
         self.assertIn("**Geri alma** (`part: events`, `kind: revert`): üst düzey `cause`", page)
-        self.assertIn("geri alma `part: events`, `kind: revert`, üst düzey `cause` (`26:41-44`), `payload {merge_sha}`",
+        self.assertIn("geri alma `part: events`, `kind: revert`, üst düzey `cause` (`26:41-44`), `payload {merge_sha, head_sha}`",
                       flat(spec_page("tohum", "29m")))
         self.assertIn("(`events` `kind: merge` ya da `drill` `kind: plant`)", page)
         self.assertIn('row.get("kind") == "merge"', Path(stagelock.__file__).read_text(encoding="utf-8"))  # 26d's merge

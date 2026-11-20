@@ -14,9 +14,10 @@ başlangıç fren değerlerini verir. USD liste fiyatı tahminidir (`tohum/06`).
 |---|---|
 | Adapter koşusu | 0 USD; `operating{}` sınırları (`kos_wall_s`) |
 | Sonnet düzeltmesi | Bulgu başına 0,50 USD ve 5 dk; sınırı `llm.call`'ın çağrı başı tavanı uygular (iç kullanımda `claude` CLI'sinin `--max-budget-usd`'si) |
-| Çalışma-zamanı LLM, aşama toplamı | 50 USD |
-| İnşa-zamanı LLM: Kurucu | aşama toplamı 150 USD; oturum başına `session_cap_usd` |
-| İnşa-zamanı LLM: tohum rakibi | 1000 USD; yalnız kaçak freni: rakip `claude` CLI aboneliğiyle koşar (sahibin 2026-11-05 kararı, `tohum/18a`) |
+| Çalışma-zamanı LLM, aşama toplamı | `stage_budgets.asama_1.runtime_llm_usd`: 10.000 USD (`tohum/18a`) |
+| İnşa-zamanı LLM: Kurucu | `stage_budgets.asama_1.founder_usd`: aşama toplamı 10.000 USD; oturum başına `session_cap_usd` |
+| İnşa-zamanı LLM: tohum rakibi | `stage_budgets.asama_1.rival_usd`: 10.000 USD; yalnız kaçak freni (`tohum/18a`) |
+| Güvenlik avcısı | Aşama 1'de yok (`tohum/30f`); `security_hunter_usd` yazılmaz |
 | Actions dakikası | Döngü başına `cycle_caps`; döngü sıklığı aylık anayasal tavandan türetilir (`policy.json`) |
 | Operatör emeği | Parti ve çıkış aktarımları, `stage-open`; her biri sayılır |
 

@@ -38,8 +38,7 @@ def lines(prefix: str, first: int, last: int) -> str:
 class ChainPagesTest(unittest.TestCase):
     def test_13_names_the_integration_head_a_chain_break(self):  # integration_head_break_unsaid
         text = flat(page("13").split("- **Zincir kırığı sert duruştur.**", 1)[1].split("- **Rekor'a yazılamama**", 1)[0])
-        for words in ("son imzalı durum satırının adlandırdığı commit'ten (merge ya da geri alma) başka bir "
-                      "`brain/integration` başı (E637)", "kurcalama kanıtıdır", "Gözcü sert duruş yazar (`28`)",
+        for words in ("son imzalı durum satırının adlandırdığı commit'ten başka bir `brain/integration` başı (E637)", "kurcalama kanıtıdır", "Gözcü sert duruş yazar (`28`)",
                       "bu kırığı (B)'de yalnız `25a` Başarısızlık onarır"):
             self.assertIn(words, text, words)
 
