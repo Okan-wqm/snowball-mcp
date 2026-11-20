@@ -167,7 +167,8 @@ python seed/founder/deliver_epoch.py S [--summary-edit edit.json] [--note "İçe
 İlk uyuşmazlıkta durur (çıkış 2) ve neyin kaldığını söyler. Reddettikleri: `S` `main`'de değilse ya da `ci.yml`'ın
 `S`'deki son push koşusu tamamlanmış ve yeşil değilse (1); başlatıcının kilidi (`launcher.lock`) `--wait` içinde
 boşalmazsa, Kurucu'nun son push'unun (başlatıcının maliyet commit'leri ve önceki teslimler altta kalan) kararı yoksa
-ya da reddi hiçbir oturumun okumadığı bir retse (E385: bir döngünün oturumu o başta başlamış olmalı,
+ve aracın kendisinin bir kez gönderdiği hakem koşusu (`bootstrap.yml`, `--wait` içinde beklenir; başlatıcının bir
+sonraki başlangıcının yapacağı gibi, E168) da onu yargılamadıysa, ya da reddi hiçbir oturumun okumadığı bir retse (E385: bir döngünün oturumu o başta başlamış olmalı,
 `pilot-metrics.jsonl` `brain_before`) (2); `kill_switch` zaten açıksa ve onu bu araç açmadıysa (2); bir klonda
 izlenmeyen ya da yok sayılan bir dosya varsa (2026-11-02'de hakem klonundaki bir `__pycache__` kopyayla sahnelendi),
 sahnelenen bir girdi `S`'nin blob'u ve kipi değilse ya da sahnelenen diff'te bir CR baytı varsa (E242; baytlar `git
@@ -193,7 +194,9 @@ kimlik yardımcısı ve `gh workflow run`). Testler `tests/test_deliver_epoch.py
    `"kill_switch": true` yap ve `main`'e it: dönem boyunca hiçbir hakem koşusu başlamaz. Teslimi yalnız Kurucu'nun
    son push'u yargılanmışken yap: ya kabul edilmiştir ya da reddi bir oturuma ulaşmıştır (E385; `seed_update`
    sonucunda ret bloğu yoktur, dönemden hemen önce yargılanan bir ret sonraki oturuma yalnız seri imzası olarak
-   ulaşır).
+   ulaşır). Başlatıcı `STOP`'ta hakemi göndermeden biter; yargılanmamış bir push'u araç kendisi yargılatır
+   (`bootstrap.yml`'ı bir kez gönderir ve sonucunu bekler, E168). Karar bir retse kural aynıdır: bir oturum onu
+   okumadan teslim yok.
 3. **Hakem kopyası** (`25` madde 3): `S`'deki `seed/bootstrap/` → `bootstrap/`, `seed/bootstrap/vectors/` →
    `vectors/`, `spec/tohum/29-tohum-koltuklari.md` → `seats/`, `seed/bootstrap/workflow/bootstrap.yml` →
    `.github/workflows/bootstrap.yml`, `seed/security-ledger.jsonl` → `setup/security-ledger.jsonl` (genesis okur,

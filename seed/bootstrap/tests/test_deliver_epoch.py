@@ -144,6 +144,8 @@ class FakeGitHub:
                          {"head": world.f, "kind": "code", "verdict": "accepted",
                           "state": {"last_evaluated_sha": world.f}}]
         self.dispatched, self.seen_at_wait, self.answer = [], [], None
+        self.judged_by_dispatch = None  # the referee's results once a dispatched run has judged the brain's head
+        self.active = 0
 
     def remote(self, repo: str) -> str:
         return str({"o/referee": self.world.referee, "o/brain": self.world.brain}[repo])
@@ -160,7 +162,7 @@ class FakeGitHub:
     def active_runs(self):
         control = json.loads(show(self.world.referee, "main", "control.json"))
         self.seen_at_wait.append((control["kill_switch"], self.world.head(self.world.brain)))
-        return 0
+        return self.active
 
     def dispatch(self, timeout_s):
         """The referee's own check (`cli._check_epoch`): the last row names the brain's head, the kill switch is off."""
@@ -168,6 +170,9 @@ class FakeGitHub:
         control = json.loads(show(self.world.referee, "main", "control.json"))
         head = self.world.head(self.world.brain)
         self.dispatched.append((control["kill_switch"], summary["seed_epochs"][-1]["commit"], head))
+        if self.judged_by_dispatch is not None:
+            self.verdicts, self.judged_by_dispatch = self.judged_by_dispatch, None
+            return {"id": 76, "conclusion": "success"}, self.verdicts[0]
         result = self.answer or {"kind": "seed_update", "verdict": "noop", "head": head}
         return {"id": 77, "conclusion": "success"}, result
 
@@ -466,6 +471,43 @@ class DeliveryGuardTest(unittest.TestCase):
         self.assertEqual((world.head(world.referee), world.head(world.brain)), heads)  # nothing written
         self.assertEqual(sorted(p.name for p in world.work.iterdir()),
                          ["launcher.lock", "pilot-log.md", "pilot-metrics.jsonl", "snowball-founder.env"])
+
+    def test_an_unjudged_push_is_judged_by_one_dispatch(self):  # epoch_unjudged_never_dispatched
+        """The launcher ends on STOP without dispatching the referee, so the Founder's last push was often unjudged
+        when a delivery began. Step 2 dispatches `bootstrap.yml` itself (as the launcher's next start would, E168),
+        once, and goes on only on a verdict that is not an unread rejection; the E385 rule is unchanged."""
+        def unjudged(world):
+            return [{"head": "9" * 40, "state": {"last_evaluated_sha": "9" * 40}}]
+
+        def accepted(world):
+            return [{"head": world.f, "kind": "code", "verdict": "accepted", "state": {"last_evaluated_sha": world.f}}]
+
+        def rejected(world):
+            return [dict(accepted(world)[0], verdict="rejected")]
+        world = World()
+        old_row = world.summary["seed_epochs"][-1]["commit"]
+        world.gh.verdicts, world.gh.judged_by_dispatch = unjudged(world), accepted(world)
+        code, _ = world.run()
+        self.assertEqual(code, 0)
+        d = world.head(world.brain)
+        # judged first, with the kill switch off and the brain at the Founder's state; then step 7's verification
+        self.assertEqual(world.gh.dispatched, [(False, old_row, world.c), (False, d, d)])
+        for after, refusal in ((rejected, r"no session has read it \(E385\): let one launcher cycle run"),
+                               (unjudged, r"referee run this tool dispatched \(76, success\) left it unjudged")):
+            world = World()
+            heads = (world.head(world.referee), world.head(world.brain))
+            world.gh.verdicts, world.gh.judged_by_dispatch = unjudged(world), after(world)
+            with self.assertRaisesRegex(deliver.Refused, refusal):
+                world.run()
+            self.assertEqual(len(world.gh.dispatched), 1)  # once: never a loop of dispatches
+            self.assertEqual((world.head(world.referee), world.head(world.brain)), heads)  # nothing written
+            self.assertEqual(sorted(p.name for p in world.work.iterdir()),
+                             ["launcher.lock", "pilot-log.md", "snowball-founder.env"])
+        world = World()  # a referee run already going is waited for, never joined by a second one
+        world.gh.verdicts, world.gh.active = unjudged(world), 1
+        with self.assertRaisesRegex(deliver.Refused, "a referee run is still going after the wait"):
+            world.run()
+        self.assertEqual(world.gh.dispatched, [])
 
     def test_the_operators_stop_stays(self):  # epoch_removes_the_operators_stop
         world = World()

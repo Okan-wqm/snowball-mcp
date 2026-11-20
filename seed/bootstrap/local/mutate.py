@@ -449,6 +449,9 @@ MUTANTS = [
      "E385: a seed epoch lands on the Founder's unjudged push, which is then never judged by its name"),
     ("epoch_unread_rejection_delivered", EPOCH, "    if read:\n", "    if True:\n",
      "E385: a rejection no session read is buried under the seed_update, which carries no rejection block"),
+    ("epoch_unjudged_never_dispatched", EPOCH, "            if state == \"unjudged\" and not going and dispatched is None:\n",
+     "            if False:\n",
+     "E168: the launcher ends on STOP without judging the last push, and every delivery refuses until a cycle runs"),
     ("epoch_removes_the_operators_stop", EPOCH, '        if j.get("stop_created"):\n', "        if True:\n",
      "E526: the operator's own STOP is lifted by the delivery"),
     # The self-improvement scorecard (E310): each mutant is a way the teacher's instrument could flatter the student.

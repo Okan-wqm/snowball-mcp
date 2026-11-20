@@ -9,7 +9,9 @@ stopped (each step is skipped when what it makes is already there; <work>/epoch-
   1. S is on main of the source repository and its last `ci.yml` push run on main is completed and green;
   2. <work>/STOP is set (unless it is already there), the launcher's lock is taken (no launcher runs, none can start
      until the delivery ends), the Founder's last push is judged (E385: accepted, or its rejection read by a
-     session); then the referee's `control.json` `kill_switch` goes on (main) and no referee run is queued or running;
+     session; a push the referee has not judged yet is judged first: the tool dispatches `bootstrap.yml` once and
+     waits for it within --wait, as the launcher's next start would, E168); then the referee's `control.json`
+     `kill_switch` goes on (main) and no referee run is queued or running;
   3. the referee copy (`bootstrap/`, `vectors/`, `seats/29-tohum-koltuklari.md`, `.github/workflows/bootstrap.yml`,
      `setup/security-ledger.jsonl`, E541) is
      staged in a fresh clone from S's git objects (`git archive`, `core.autocrlf=false`), refusing a stray untracked or
@@ -488,7 +490,8 @@ class Delivery:
         lines = [f"Seed epoch of snowball-mcp {s[:7]} ({self.ci}); work {self.work}",
                  f"  journal: {'continues ' + str(self.journal) if self.journal else 'none, a new delivery'}",
                  f"  2. STOP {stop}, the launcher's lock is taken (RUNNING {running}), the Founder's last push must be "
-                 f"judged (E385); {self.gh.referee_repo} {CONTROL} kill_switch true on main, no referee run going",
+                 f"judged (E385; an unjudged push is judged first by one referee dispatch, E168); "
+                 f"{self.gh.referee_repo} {CONTROL} kill_switch true on main, no referee run going",
                  "  3. stage " + ", ".join(f"{a} -> {b}" for a, b in REFEREE_MAP) + " from git objects (no strays, "
                  "S's blobs and modes, 0 CR)",
                  f"  4. brain: spec/tohum = {s[:7]}:spec/tohum, one commit D on main, D's tree checked",
@@ -523,16 +526,31 @@ class Delivery:
                                      metrics.read_text(encoding="utf-8").splitlines() if metrics.is_file() else [])
                   if isinstance(row, dict)]
         deadline = time.monotonic() + self.wait_s
+        dispatched = None
         while True:
             state, why = judgement(chain, self.gh.results(), cycles)
             if state == "ok":
                 return why
-            if state == "unjudged" and self.gh.active_runs() and time.monotonic() < deadline:
+            going = state == "unjudged" and self.gh.active_runs()
+            if going and time.monotonic() < deadline:
                 say(f"step 2: {why}; a referee run is going, waiting")
                 time.sleep(WAIT_POLL_S)
                 continue
-            hint = ("start the launcher for one cycle (it judges an unjudged push first, E168)" if state == "unjudged"
-                    else "let one launcher cycle run so a session reads the rejection")
+            if state == "unjudged" and not going and dispatched is None:
+                # The launcher ends on STOP without judging the Founder's last push: judge it here, as the launcher's
+                # next start would (E168), once and within the wait. A rejection it finds still needs a session (E385).
+                say(f"step 2: {why}; dispatching the referee to judge it (E168)")
+                left = max(0, int(deadline - time.monotonic()))
+                dispatched, _result = self.gh.dispatch(min(self.referee_timeout_s, left))
+                continue
+            if state == "unjudged" and dispatched is None:
+                hint = "a referee run is still going after the wait: let it end"
+            elif state == "unjudged":
+                run = f"{dispatched.get('id')}, {dispatched.get('conclusion')}"
+                hint = (f"the referee run this tool dispatched ({run}) left it unjudged: read that run, or start the "
+                        "launcher for one cycle (E168)")
+            else:
+                hint = "let one launcher cycle run so a session reads the rejection"
             raise Refused(f"step 2: {why}: {hint}, then run this again")
 
     # -- clones
