@@ -346,8 +346,8 @@ class DriftHashesTest(unittest.TestCase):
         its summary's `drift.hashes`; the run stops (ConfigError) on a mismatch."""
         from snowball_bootstrap import cli, config
         root = Path(tempfile.mkdtemp(dir=world.tmp))
-        tar = subprocess.run(["git", "-C", str(world.referee), "archive", "main"], capture_output=True, check=True).stdout
-        subprocess.run(["tar", "-x", "-C", str(root)], input=tar, check=True)
+        from snowball_bootstrap import gitio, treehash  # git's blobs as they are: no line-end filter, as on the runner
+        treehash.extract(gitio.archive(world.referee, "main"), root, max_bytes=10 ** 8)
         doc = json.loads((root / "setup" / "summary.json").read_text(encoding="utf-8"))
         summary = config.Summary("a" * 40, "b" * 64, drift_hashes=config.drift_hashes(doc, "setup/summary.json"))
         return cli.operator_hashes(root, summary)
@@ -376,8 +376,9 @@ class DriftHashesTest(unittest.TestCase):
         self.assertEqual(code, 0)
         drift = json.loads(show(world.referee, "main", "setup/summary.json"))["drift"]
         for key, folder in deliver.DRIFT_TREES:  # the operator's recipe (01c): 25a 1's hash over the git archive
-            tar = subprocess.run(["git", "-C", str(world.referee), "archive", "main", folder], capture_output=True,
-                                 check=True).stdout
+            # with core.autocrlf=false: on Windows git archive would otherwise turn LF into CRLF
+            tar = subprocess.run(["git", "-C", str(world.referee), "-c", "core.autocrlf=false", "archive", "main",
+                                  folder], capture_output=True, check=True).stdout
             self.assertEqual(drift["hashes"][key], tree_hash(tar, folder, forbid_operator_names=False), key)
         self.assertEqual(drift["hashes"]["constitutional_sha256"], "c" * 64)  # nothing else of drift changes
         self.assertEqual((drift["writer_app_id"], drift["operator_checked_at"]), (7, None))
