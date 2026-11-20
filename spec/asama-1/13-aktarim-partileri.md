@@ -1,6 +1,6 @@
 # Aşama 1 §1.13 — Aktarım partileri
 
-Tarih: 2026-10-29 · Sürüm: 2.2 · Durum: taslak · Sahibi: operatör
+Tarih: 2026-10-29 · Sürüm: 2.2 · Durum: taslak · Sahibi: operatör (sıra: sahip kararı (2026-11-20), `tohum/26h`)
 Okunma: Aşama 0 çıkışından sonra, her parti yazılırken ve aktarılırken
 Çapa: beklemede: her partinin `imports.jsonl` satırı ve (B) satırı
 
@@ -19,8 +19,9 @@ protokolünün dar hâlidir (`tohum/01a`, `tohum/02`):
 
 | Parti | Ne zaman | İlk okuyucu |
 |---|---|---|
-| P1 organ ve ölçüm | Aşama 1 MF1'in canlı koşusundan önce | Aşama 1 MF1 `lint.discover`'ın dev ölçümü; MF5'in özerk döngüsü |
+| P1 organ ve ölçüm | Aşama 1 MF1'in canlı koşusundan önce | Aşama 1 MF1 `lint.discover`'ın dev ölçümü; MF5'in özerk döngüsü; MF8'in bulgu satırlarını MF1'in keşfi, MF9'un izin listesini MF5'in reddi ve MF6'nın `accept` satırı okur |
 | P2 güvenlik gözlemi | Aşama 1 içinde, P1'den sonra | Aşama 1'den güvenlik profili ve testi (`tohum/30d`) |
+| P3 ertelenenler | Aşama 1 MF6'dan (ilk organ merge'ü) ve P2'den sonra, MF4'ten önce (`tohum/26h`) | Aşama 1 MF4 `fixer.llm`'in canlı koşusu |
 | Aşama 1 çıkışı | Aşama 1 (A) ile (B) arasında | Aşama 1 (B)'nin kural sayımı; Aşama 2 spec isteği |
 | Aşama 2 | Aşama 2'nin ilk partisi, ders görünümünden önce | ders provası (`tohum/22a`), sahibin MVP sınavı (`tohum/22b`) |
 | Aşama 4 | ilk LLM avcısından önce | taban kıyası |
@@ -30,12 +31,15 @@ protokolünün dar hâlidir (`tohum/01a`, `tohum/02`):
 | P1 | 1 | Organ koşucusu: `koş`ta yalnız kabul edilmiş organların giriş noktaları | 51 | — |
 | P1 | 2 | `snapshot.make` (§1.13c) | 8 | — |
 | P1 | 3 | K0 mutasyon kataloğu, `cases.build` (dev), hunk eşleme (§1.13a; eşleme kuralı `asama-0/08`) | 2, 4 | — |
-| P1 | 4 | `harness.score`, match-rule v2, istatistik (§1.13e); `26a` ile `29a` CLI'si önce uyumlanır | 1, 6, 7, 12, 28 | `match`, `cp_lower`, `mcnemar` |
+| P1 | 4 | `harness.score`, match-rule v2'nin K0 dalı, istatistik (§1.13e); `26a` ile `29a` CLI'si önce uyumlanır | 1, 6, 7, 28 | `match`, `cp_lower`, `mcnemar` |
 | P1 | 5 | LLM yokluğu ve `<state_root>`'un sıfırdan büyümesi | 9, 11 | — |
 | P1 | 6 | `drift.check`, her devir (`tohum/21`) | 24 | — |
 | P1 | 7 | `gozcu.evaluate` (`tohum/28`) | 41 | — |
-| P1 | 8 | `operating{}` sınırlarının bant içinde ayarı (`tohum/18a`) | 52 | — |
+| P1 | 8 | Bulgu yazıcısı `findings.write`: `findings.jsonl` ve `unresolved.jsonl`, parmak izi ve durumlar (§1.13d; `tohum/26h`) | 12 | — |
+| P1 | 9 | İzin listesi ve `accept` yazıcısı `gate.allowlist` (`tohum/26h`) | 55 | — |
 | P2 | 1 | `security.derive` ve `security.run` (`tohum/30d`) | `30d`'nin profil testleri | — |
+| P3 | 1 | `operating{}` sınırlarının bant içinde ayarı (`tohum/18a`); döngünün yazacağı yer açık (`tohum/26h`) | 52 | — |
+| P3 | 2 | Düzeltme gidiş-dönüşü `koş` → `çağır` → `koş` (§1.5 3; `tohum/26h`) | P3'ün tablosuyla | — |
 | Aşama 1 çıkışı | 1 | `exit.sample` (§1.13a); payda tohumun `census` vektörü (`tohum/29za`) | 27 | `census` |
 | Aşama 1 çıkışı | 2 | `spec.lint` (`tohum/02` listesi) | 33 | — |
 | Aşama 1 çıkışı | 3 | `exit.adversarial`: düzeltici istemine prompt injection, kaçan diff, gizlenmiş ya da kodlanmış sır (`tohum/29za`, E648) | 54 | — |
@@ -51,5 +55,5 @@ gelir; `docs.index` (test 44) Aşama 1 MF7'de `docs.render` ile gelir (§1.6).
 `unit.verify` (6), iş akışı (17). Partilere: 6, 7, 9, 11 (LLM yokluğu), 19, 25 → P1; 22 → araç kullanan ilk
 çalışma-zamanı ajanı (en geç Aşama 4, `tohum/30f`); 8, 12 → Aşama 1 çıkışı; 18'in ders provası → Aşama 2; 10 → Aşama
 4; 29 → Aşama 1 MF7; 4 → ikinci birim ya da hedef. Tohuma: 2 (Kurucu defteri aracı), 3 (`control` komutu), 11'in ad
-denetimi (`asama-0/10` #genellik), 27 (`brain.accept`: önyükleme hakemi itme yargıcı kalır; `accept` satırını Aşama 1
-MF6'da döngünün `yaz`'ı yazar), 28 (`lock.check`: önyükleme hakeminin aşama kapısı `setup/stage.json`).
+denetimi (`asama-0/10` #genellik), 27 (`brain.accept`: önyükleme hakemi itme yargıcı kalır; `accept` satırını P1 MF9'un
+yazıcısıyla döngünün `yaz`'ı yazar, ilk kez Aşama 1 MF6'da), 28 (`lock.check`: önyükleme hakeminin aşama kapısı `setup/stage.json`).

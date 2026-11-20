@@ -16,7 +16,8 @@ Okunma: Aşama 1 çalışırken
    Parmak izi `tohum/07`'deki gibidir; aynı parmak izi yeniden gözlemdir. Bu tabanda `unresolved`
    olmuş parmak izleri atlanır.
 3. **Execute.** `koş`ta bulgu başına worktree açılır. Dosya güvenlik yolundaysa bulgu `blocked`.
-   Önce `fixer.range`. Araç düzeltemezse `fixer.llm` tipli bir istek üretir; `çağır` onu `llm.call`
+   Önce `fixer.range`; ilk organ merge'üne kadar düzeltme yolunda LLM yoktur, aşağıdaki gidiş-dönüş P3'le
+   gelir (`tohum/26h`). Araç düzeltemezse `fixer.llm` tipli bir istek üretir; `çağır` onu `llm.call`
    ile işler (prompt taraması, çağrı başı tavan, sunulan model; iç kullanımda `claude` CLI'siyle, API
    anahtarı yok, `tohum/24`) ve yapılandırılmış düzenlemeyi
    döndürür; `koş` onu deterministik uygulayıcıyla yalnız o aralığa yazar.

@@ -4,6 +4,10 @@ Tarih: 2026-10-29
 Okunma: bir sayfanın geçmişi aranırken
 Çapa: git geçmişi ve zincirdeki spec hash satırları
 
+- 2.2 (2026-11-20, E672, E673; sahip kararı): ilk dilim deterministiktir; §1.6'nın sırası MF1, MF2, MF3, MF5, MF6,
+  sonra P2 ve P3, sonra MF4, MF7, MF8 (numaralar korunur); §1.13'te P1 MF8 bulgu yazıcısı (test 12), P1 MF9 izin
+  listesi ve `accept` yazıcısı (test 55), P3 (eski MF8 ve düzeltme gidiş-dönüşü); §1.5 3 ve §1.13d hizalandı.
+  Bağlayan `tohum/26h`'dir; canlı beyindeki kopyayı Kurucu `tohum/02`'nin öncelik kuralıyla uzlaştırır.
 - 2.2 (2026-11-20, E656, E664): Aşama 1'de güvenlik avcısı yoktur, araç kullanan ilk çalışma-zamanı ajanıyla en geç
   Aşama 4'te gelir; P2'nin MF2'si (`agent.dispatch`, test 22) düştü (§1.4, §1.6, §1.10, §1.12, §1.13); §1.8'in kabul
   oranı ve canlı merge sayısı, §1.10'un Kurucu, çalışma-zamanı LLM ve rakip satırları `tohum/18a`'nın anahtarlarıyla.
