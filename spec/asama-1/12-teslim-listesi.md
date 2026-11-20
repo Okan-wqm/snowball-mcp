@@ -33,7 +33,7 @@ değiştirebildiği aşamada açılır):
 | Bisect | Sıralı olmayan merge'ler |
 | `main` senkronu | Aşama 2; eskimiş bulgu oranı sinyali ve kendi güvenlik kararı |
 | `chain.asof` | İlk zamansal sorgu okuyucusu |
-| Kapsayıcılık özetleri, sandbox kanaryası | Çalışma zamanında araç kullanan ilk ajan: P2'nin güvenlik avcısı ya da en geç Aşama 4 |
+| Kapsayıcılık özetleri, sandbox kanaryası, `agent.dispatch`, güvenlik avcısı | Çalışma zamanında araç kullanan ilk ajan, en geç Aşama 4 (`tohum/30f`) |
 | `profile.propose` | İkinci birim ya da ikinci hedef |
 | `services[]` ile birim | Servis isteyen ilk birim |
 | Taban avcı, `harness.baseline` | Aşama 4 partisi, ilk LLM avcısından önce |

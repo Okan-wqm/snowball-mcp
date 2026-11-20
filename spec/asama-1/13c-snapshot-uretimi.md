@@ -6,8 +6,8 @@ Okunma: P1 partisi yazılırken ve Aşama 1 çalışırken
 
 ---
 
-Bu sayfa Aşama 0 2.2'nin §0.6'sıdır; `snapshot.make` P1 partisiyle, snapshot kanaryası Aşama 1 çıkış
-partisiyle gelir (§1.13).
+Bu sayfa Aşama 0 2.2'nin §0.6'sıdır; `snapshot.make` P1 partisiyle gelir, snapshot kanaryası Aşama 4'e taşındı
+(§1.13, `tohum/29za`).
 
 - **Çıkarma.** Ağaçtaki dosya listesinden çıkarılır; `export-ignore` dikkate alınmaz, böylece
   hiçbir dosya gizlenemez. `.git` yoktur; keşif "tümünü koş" ile çalışır.

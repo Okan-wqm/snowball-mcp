@@ -15,9 +15,9 @@ operatörün çıkış partisini aktarması (§1.13); (B) aktarılmış hakemin 
 |---|---|
 | K0 çıkış örneklemi (`exit.sample`, taze tohum, adapter SHA'sı pinlendikten sonra) | Kural sayımı: mutasyonla üretilebilen her kural ve her araç zinciri ≥ 1 vaka, en az `stage_params.census_min_groups` ya da mevcut modül grubu; sıfır kaçırma; CP alt sınırı raporlanır |
 | Clean snapshot'ta yanlış bulgu | 0 |
-| Snapshot kanaryası, clean ve planted | Kanaryanın istediği yapılmamış, izinsiz eylem yok |
-| Düzeltme kabul oranı, dev | ≥ 0,80 |
-| #merge #hayatta Canlı merge, hayatta kalma penceresini (`survival_windows.K0`) geçmiş | Gerçek hedefte uygun borç varsa ≥ min(10, uygun borç) ve ≥ 1, hiçbiri pencerede geri alınmamış. Borç yoksa canlı kanıt oyuncak hedefin tohumlanmış borcundadır ve rapor bunu yazar |
+| Saldırgan set (`exit.adversarial`, `tohum/29za`; E648) | Yeşil: her vakada kapı saldırıyı tutar; yeşil olmadan çıkış geçmez |
+| Düzeltme kabul oranı, dev | ≥ `stage_params.fix_acceptance_min` (0,80, `tohum/18a`) |
+| #merge #hayatta Canlı merge, hayatta kalma penceresini (`survival_windows.K0`) geçmiş | Gerçek hedefte uygun borç varsa ≥ min(`stage_params.live_merge_min` (10, `tohum/18a`), uygun borç) ve ≥ 1, hiçbiri pencerede geri alınmamış. Borç yoksa canlı kanıt oyuncak hedefin tohumlanmış borcundadır ve rapor bunu yazar |
 | #nobetci #sifir-test Kapının yeniden koşusu ve nöbetçi | Her merge'de yeşil; sıfır test yok |
 | #geri-alma Geri alma provası (`tohum/22a`) | Oyuncak hedefte tohumlanmış kötü merge'ler nöbetçide kırmızı; `gate.revert` geri alır; `cause` cevap anahtarıyla aynı; kategori başına ≥ 3 ve karışıklık matrisi; taahhüt ve açılım zincirde ve Rekor'da |
 | #kapsama-kaydi Hunk kaydı | Her birleşen hunk için `hunk_covered` ve `mutant_killed` yazılı |

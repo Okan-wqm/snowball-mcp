@@ -4,6 +4,11 @@ Tarih: 2026-10-29
 Okunma: bir sayfanın geçmişi aranırken
 Çapa: git geçmişi ve zincirdeki spec hash satırları
 
+- 2.2 (2026-11-20, E656, E664): Aşama 1'de güvenlik avcısı yoktur, araç kullanan ilk çalışma-zamanı ajanıyla en geç
+  Aşama 4'te gelir; P2'nin MF2'si (`agent.dispatch`, test 22) düştü (§1.4, §1.6, §1.10, §1.12, §1.13); §1.8'in kabul
+  oranı ve canlı merge sayısı, §1.10'un Kurucu, çalışma-zamanı LLM ve rakip satırları `tohum/18a`'nın anahtarlarıyla.
+  Tohum teslimi bu sayfaları taşımaz (E180); bağlayan `tohum/30f`, `26e` ve `18a`'dır, canlı beyindeki kopyayı Kurucu
+  `tohum/02`'nin öncelik kuralıyla uzlaştırır.
 - 2.2 (2026-11-05, E553): §1.10'un tohum rakibi satırı 15 USD'den 1000 USD'ye: sahibin kararı, rakip `claude` CLI
   aboneliğiyle koşar ve fren yalnız kaçak frenidir (`tohum/18a`, `asama-0/12`'deki ilke).
 - 2.2 (2026-10-31, E317): §1.13'ün Aşama 2 satırı: ders provası Aşama 2'nin ilk partisidir, ders görünümünden önce, ve sahibin MVP sınavıdır (`tohum/22b`). Tohum teslimi bu sayfayı taşımaz (E180); bağlayan `tohum/03` ve `tohum/22b`'dir, canlı beyindeki kopyayı Kurucu `tohum/02`'nin öncelik kuralıyla uzlaştırır.

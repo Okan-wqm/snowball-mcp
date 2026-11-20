@@ -14,9 +14,11 @@ Okunma: sayfa ararken; görev seçmek için `tohum/00b-gorev-haritasi.md`
 | `tohum/00a-sinirlar-operator-ilk-gorev.md` | Kurucu'nun Sınırları, Operatörün İşi, İlk Görev | her oturumda, çekirdekten hemen sonra |
 | `tohum/00b-gorev-haritasi.md` | Görev Haritası | her oturumda, görev seçilirken |
 | `tohum/00c-gorev-haritasi-sahibin-ipuclari.md` | Görev Haritası, Devam: Sahibin İpuçları | her oturumda, görev seçilirken (`00b`'nin devamı) |
+| `tohum/00d-gorev-haritasi-sahibin-ipuclari-devam.md` | Görev Haritası, Devam: Sahibin İpuçları II | her oturumda, görev seçilirken (`00c`'nin devamı) |
 | `tohum/01-hedef-sistem.md` | Hedef Sistem | ilk oturumda |
 | `tohum/01a-mimari-ve-yetki.md` | Mimari ve Yetki: Dört Yer | ilk oturumda ve her yeni repoya bağlanırken |
 | `tohum/01b-kapi-kurallari.md` | Kapı Kuralları, Tetik, Döngü İşlemi | her merge ve her state yazımında |
+| `tohum/01c-surukleme-taban-cizgisi.md` | Kapı Kuralları, Devam: `drift.check`'in Taban Çizgisi | `drift.check` yazılırken ve operatör kurulum özetinin `drift` nesnesini yazarken |
 | `tohum/02-asama-protokolu.md` | Aşama Protokolü | her aşama başında ve sonunda |
 | `tohum/03-sinif-merdiveni.md` | Sınıf Merdiveni ve Aşama Sırası | yeni sınıf ya da aşama açılırken |
 | `tohum/04-is-boyutu-ve-gercek-test.md` | İş Boyutu ve Gerçek Test | her mikro görevde ve her test yazarken |
@@ -89,13 +91,14 @@ Okunma: sayfa ararken; görev seçmek için `tohum/00b-gorev-haritasi.md`
 | `tohum/29v-politika-okumasi.md` | Politika Okuması: Anahtarın Yolu ve Döngünün Okumaları | `policy.json`'dan değer okuyan kod ya da test yazılırken ve bir `policy_reads_*` bulgusu okunurken |
 | `tohum/29y-dongu-kosulari.md` | Döngünün Koşuları: Kurucu'nun Gördüğü Son Koşular | döngünün koşuları ve `/work/logs/loop-runs.jsonl` okunurken |
 | `tohum/29z-cikis-kanaryasi.md` | Çıkış Kanaryası: (B)'den Önce Gerçek Bir Konteyner | çıkış isteği yazılırken, bir `canary:` eksiği okunurken ve `runner.contained`'ın `run` komutu değişirken |
+| `tohum/29za-vektor-arayuzleri-asama-1-cikisi.md` | Vektör Arayüzleri: Aşama 1 Çıkışının Sayımı ve Saldırgan Set | `cases.build` ve `exit.sample` yazılırken ve Aşama 1 çıkış partisi tasarlanırken |
 | `tohum/30-guvenlik-katalogu.md` | Güvenlik Kataloğu: İlkeler, Zamanlama, Ortak Kader | her güvenlik işinde, her bildirimde ve yeni bir hedefe bağlanırken |
 | `tohum/30a-katalog-erisim-ve-enjeksiyon.md` | Güvenlik Kataloğu I: Erişim, Kimlik, Enjeksiyon, Web | kapsam bu sınıflara dokunduğunda; güvenlik avcısı, Kurucu ve K6 düzeltme işinde |
 | `tohum/30b-katalog-kiracilik-ve-graphql.md` | Güvenlik Kataloğu II: Çok Kiracılık, GraphQL, Kaynak Tüketimi | profil `tenancy.model` `none` değilse ya da hedef GraphQL sunuyorsa; güvenlik avcısı ve K6 işinde |
 | `tohum/30c-katalog-bellek-sir-tedarik.md` | Güvenlik Kataloğu III: Bellek, Kripto, Sır, Tedarik Zinciri, Hata İşleme, Ajanlar | kapsam bu sınıflara dokunduğunda; hakemin ve beynin kendi denetiminde her zaman |
 | `tohum/30d-hedef-guvenlik-profili.md` | Hedef Güvenlik Profili: Tehdit Modeli ve Kural–Test Bağı | yeni bir hedefe bağlanırken, her güvenlik testi bağlanırken ve her K6 işinde |
 | `tohum/30e-guvenlik-defteri.md` | Güvenlik Defteri: Zincirli Kayıt, Yaşam Döngüsü, Öğrenme | her güvenlik bulgusunda, düzeltmesinde, testinde ve feragatinde; yeni bir hedefe bağlanırken |
-| `tohum/30f-guvenlik-avcisi.md` | Güvenlik Avcısı: Bağımsız, Salt Okunur, Ölçülen | P2 aktarımında (koltuk), her güvenlik koşusunda ve avcının kanaryası tasarlanırken |
+| `tohum/30f-guvenlik-avcisi.md` | Güvenlik Avcısı: Bağımsız, Salt Okunur, Ölçülen | araç kullanan ilk çalışma-zamanı ajanının aktarımında (koltuk), her güvenlik koşusunda ve kanarya tasarlanırken |
 | `tohum/31-mimari-ilkeler.md` | Mimari İlkeler Kataloğu: Danışma, Seçim, Kanıt | bir tasarım ya da düzeltme biçimi seçilirken; iki yerde bulunan hata, aynı veriyi isteyen ikinci servis, yeni ekosistem, kaynakla ya da kodla çelişen rapor ve doküman; rakip tekrar ve ikinci kaynak iddiası kurarken |
 | `tohum/31a-dogruluk-ve-veri-sahipligi.md` | Mimari İlkeler I: Doğruluk ve Veri Sahipliği | bir gerçek birden çok yerde durduğunda; ikinci servis aynı veriyi istediğinde; rapor kaynakla çeliştiğinde; iki yazar ya da iki tanım bulunduğunda |
 | `tohum/31b-tekrar-ve-uyum.md` | Mimari İlkeler II: Tekrar ve Uyum | bir hata iki yerde bulunduğunda; klon dedektörü bir eşleşme bildirdiğinde; ortak bir soyutlama ya da paylaşılan kütüphane önerilirken; rakip tekrar iddiası kurarken |
@@ -107,6 +110,7 @@ Okunma: sayfa ararken; görev seçmek için `tohum/00b-gorev-haritasi.md`
 | `tohum/31h-catismalar-ve-tarama.md` | Mimari İlkeler VIII: Çatışmalar ve Tarama Sinyalleri | iki ilke aynı durumda farklı yön gösterdiğinde; bir repo ilkeler açısından taranırken; rakip bir tasarımı çürütmeye çalışırken |
 | `tohum/CHANGELOG.md` | Değişiklik Günlüğü — Tohum | bir sayfanın geçmişi aranırken |
 | `tohum/CHANGELOG-8.md` | Değişiklik Günlüğü — Tohum, 2.2'nin Yedinci Kayıtları | bir sayfanın geçmişi aranırken |
+| `tohum/CHANGELOG-9.md` | Değişiklik Günlüğü — Tohum, 2.2'nin Sekizinci Kayıtları | bir sayfanın geçmişi aranırken |
 | `tohum/CHANGELOG-7.md` | Değişiklik Günlüğü — Tohum, 2.2'nin Altıncı Kayıtları | bir sayfanın geçmişi aranırken |
 | `tohum/CHANGELOG-6.md` | Değişiklik Günlüğü — Tohum, 2.2'nin Beşinci Kayıtları | bir sayfanın geçmişi aranırken |
 | `tohum/CHANGELOG-5.md` | Değişiklik Günlüğü — Tohum, 2.2'nin Dördüncü Kayıtları | bir sayfanın geçmişi aranırken |

@@ -33,13 +33,14 @@ kodudur (`tohum/08` 1). Kurucu `cases.build`'i yalnız dev için, oyuncak repoda
 **Dev seti.** P1 aktarımından sonraki ilk koşuda her hedef için kurulur, `<state_root>/cases/`'e yazılır
 ve Kurucu'ya vaka bazında açıktır. Bölme modül grubuna göredir.
 
-**K0 çıkış örneklemi, held-out havuzu değil.** K0 için mühürlü bir havuz tutulmaz. `exit.sample`
-her çıkış isteğinde, adapter SHA'sı pinlendikten sonra gizli tohumla taze bir örneklem çeker:
-profildeki etkin kataloğun mutasyonla üretilebilen **her kuralı** ve her araç zinciri için en az bir
-vaka, dev gruplarının dışındaki en az `stage_params.census_min_groups` (45) ya da mevcut modül grubundan.
-Ölçü kural sayımıdır: sıfır kaçırma. Deterministik bir sarıcıda kaçırma örneklem gürültüsü değil, o
-kuralın sarma kusurudur; CP alt sınırı raporlanır, kapılamaz (`tohum/19`). Seçici kod Aşama 1 çıkış
-partisiyle gelir ve o aktarımda donar.
+**K0 çıkış örneklemi, held-out havuzu değil.** K0 için mühürlü bir havuz tutulmaz. `exit.sample` her çıkış isteğinde,
+adapter SHA'sı pinlendikten sonra gizli tohumla taze bir örneklem çeker: profildeki etkin kataloğun mutasyonla
+üretilebilen **her kuralı** ve her araç zinciri için en az bir vaka, dev gruplarının dışındaki en az
+`stage_params.census_min_groups` (45) ya da mevcut modül grubundan. Payda hedefin tohumdaki `census` vektörünün kural
+kümesidir (oyuncağınki var; kopyanınki operatörün açık işidir, o gelene kadar kopyanın sayımı geçmez), Kurucu'nun
+kataloğu onu daraltamaz; `exit.sample` ve `cases.build` tek mutasyon kütüphanesini paylaşır (`tohum/29za`). Ölçü kural
+sayımıdır: sıfır kaçırma. Deterministik bir sarıcıda kaçırma örneklem gürültüsü değil, o kuralın sarma kusurudur; CP
+alt sınırı raporlanır, kapılamaz (`tohum/19`). Seçici kod Aşama 1 çıkış partisiyle gelir ve o aktarımda donar.
 
 **Held-out havuzu.** İlk held-out havuzu ve mühürlü depo Aşama 4'ün ön koşuludur; bakış bütçesi,
 ileriye dönük kesim ve üyelik testi onunla gelir (`asama-4/03`).

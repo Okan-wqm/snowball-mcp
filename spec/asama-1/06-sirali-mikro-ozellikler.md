@@ -24,7 +24,8 @@ numarasızdır; kendi MF'leri, (A)'ları ve aktarımlarıyla araya girer.
    hash'lerini döngünün `yaz`'ı `accept` satırına yazar; 5'teki aday aynı koşulda merge olur. **Organ
    çıktısının ilk canlı merge'ü budur**; hazır adayların ilk merge'ü Aşama 0'dadır.
 
-- **Sonra: P2 partisi** (güvenlik gözlemi): (A), aktarım, (B); güvenlik avcısının ilk koşusu.
+- **Sonra: P2 partisi** (güvenlik gözlemi): (A), aktarım, (B); güvenlik profili (`tohum/30d`). Güvenlik avcısı
+  Aşama 1'de yoktur (`tohum/30f`).
 
 7. `docs.render`: bulgu ve organ sayfaları iki formatta, sabit şablondan; hakem yazar. Sayfaların
    dizini (`docs.index`, test 44) aynı üreticinin çıktısıdır.
