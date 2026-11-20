@@ -117,7 +117,7 @@ class StageOneInterfaceTest(unittest.TestCase):
         for words in ("test 6, bulgunun bir `evidence_refs` yolu snapshot manifestinde yoksa ya da o yolun baytlarının "
                       "hash'i manifesttekine uymuyorsa", "`rules_total` aracın kataloğunda vaka üretilebilen "
                       "kuralların sayısıdır", "yarım yukarı yuvarlar (`29a`)", "İmza `26a`'dadır",
-                      "yoklukları operatörün eksiğiydi"):
+                      "okunması zorunlu yollardır"):
             self.assertIn(words, text, words)
         row = next(line for line in page("26a").splitlines() if line.startswith("| `harness.score` |"))
         self.assertIn("bulgu ve vaka dosyaları; rapor için snapshot belgesi ve ağacı (`--snapshot`, `--tree`)", row)
@@ -310,7 +310,10 @@ class CensusDenominatorTest(unittest.TestCase):
                       "`exit.sample` ve `cases.build` tek bir mutasyon operatörü kütüphanesini paylaşır",
                       "Test 27'nin tanımı (`asama-0/09`, donmuş tablo) böyle okunur"):
             self.assertIn(words, text, words)
-        self.assertIn("paydası tohumun `census` vektörü", flat(page("26a")))
+        self.assertIn("paydası hedefin tohumdaki `census` vektörü, oyuncağınki var, kopyanınki operatörün açık işi",
+                      flat(page("26a")))
+        self.assertIn("`produce <araç> <kural>` (`29za`)",
+                      next(l for l in page("26a").splitlines() if l.startswith("| `cases.build` |")))
         self.assertIn("sahip kararı (anayasal", register_row("E669"))
 
 
@@ -339,6 +342,65 @@ class AdversarialExitRowTest(unittest.TestCase):
         self.assertIn("| Aşama 1 çıkışı | 3 | `exit.adversarial`", stage1)
         self.assertNotIn("ve snapshot kanaryası | 27, 16 |", stage1)
         self.assertIn("sahip kararı (anayasal", register_row("E670"))
+
+
+class ReviewFixesTest(unittest.TestCase):
+    """The adversarial review of epoch Y (2026-11-20): the census is the toy's, the copy's vector is the operator's open
+    item; producible alone is not a case; no drift is unusable with one reading; the pages no longer put agent.dispatch
+    in P2 nor the snapshot canary in the Stage 1 exit; the budget loosening and the delivery values are recorded."""
+
+    def test_the_census_is_scoped_to_the_toy_and_the_copy_waits_for_its_vector(self):
+        # census_copy_from_toy
+        text = flat(page("29za"))
+        for words in ("Oyuncak hedefte kural sayımının paydası",
+                      "Çıkışta `producible` cevabı tek başına yetmez, o Kurucu'nun kendi cevabıdır: vektörün her kuralının "
+                      "en az bir geçerli `asama-1/13a` vakası olmalıdır",
+                      "**Kopya hedefin vektörü** (operatör kararı, 2026-11-20)",
+                      "kopyanın sabitlenmiş `base_sha`'sındaki etkin ESLint kural kümesidir",
+                      "her birim üzerinde `eslint --print-config` ile üretir ve tohum vektörü olarak commit'ler",
+                      "O vektör var olana kadar kopyanın sayımı Aşama 1 çıkışını geçemez",
+                      "asla Kurucu'nun kataloğu değildir, asla oyuncağın yedi kuralı da değildir"):
+            self.assertIn(words, text, words)
+        self.assertTrue(register_row("E671").endswith("| açık (operatörün işi) |"))
+
+    def test_a_summary_without_drift_has_one_reading(self):  # drift_missing_falls_back
+        text = flat(page("01c"))
+        self.assertIn("`drift`'siz bir özet kullanılamaz girdidir ve döngü durur; `drift.check` bugünkü nedenlerine asla "
+                      "geri düşmez.", text)
+        self.assertNotIn("taban olarak kalır", text)
+
+    def test_the_pages_agree_with_e656_and_e670(self):
+        row = next(l for l in page("26a").splitlines() if l.startswith("| `agent.dispatch` |"))
+        self.assertTrue(row.endswith("| Araç kullanan ilk çalışma-zamanı ajanı, en geç Aşama 4 (`30f`) |"))
+        work = flat(page("24"))
+        self.assertIn("`agent.dispatch`'i araç kullanan ilk çalışma-zamanı ajanıyla, en geç Aşama 4'te gelir", work)
+        self.assertIn("`exit.sample`, `spec.lint`, `exit.adversarial` (Aşama 1 çıkışı)", work)
+        self.assertNotIn("`agent.dispatch`, `security.*` (P2)", work)
+        snapshot = (ROOT / "spec" / "asama-1" / "13c-snapshot-uretimi.md").read_text(encoding="utf-8")
+        self.assertIn("snapshot kanaryası Aşama 4'e taşındı", flat(snapshot))
+        for prefix in ("24", "26a", "30f", "03", "08", "09"):
+            self.assertNotIn("P2 partisiyle", flat(page(prefix)), prefix)
+
+    def test_13_leaves_the_toys_first_comparison_point_open(self):
+        self.assertIn("oyuncağın ilk merge'ünden önce `base_sha` `null`'dır ve karşılaştırma noktası henüz "
+                      "adlandırılmamıştır (açık, `29o`)", flat(page("13")))
+
+    def test_the_budget_loosening_and_the_delivery_values_are_recorded(self):
+        row = register_row("E664")
+        for words in ("sahibin bütçe kararından çıkan adı konmuş bir gevşetmedir",
+                      "`stage_budgets.asama_1.founder_usd` 10000, `stage_budgets.asama_1.runtime_llm_usd` 10000, "
+                      "`stage_params.fix_acceptance_min` 0,80 ve `stage_params.live_merge_min` 10 yazar",
+                      "(hakem commit'i: <bekliyor>)"):
+            self.assertIn(words, row, words)
+        for eid in ("E669", "E670"):
+            self.assertIsNone(re.search(r"Opus H\d|Sonnet F\d|\(Y6\)", register_row(eid)), eid)
+
+    def test_29v_and_26e_say_the_five_are_required_from_y(self):
+        self.assertIn("Y döneminin tesliminden Aşama 1'in beş yolu okunması zorunlu yollardır: beynin politika okuması "
+                      "onları adlandırana kadar üzerlerindeki `policy_reads_required_absent` kırmızıdır", flat(page("29v")))
+        self.assertIn("anahtarları Y'nin tesliminden okunması zorunlu yollardır: beynin politika okuması onları "
+                      "adlandırana kadar üzerlerindeki `policy_reads_required_absent` kırmızıdır (`29v`)",
+                      flat(page("26e")))
 
 
 class RecordsTest(unittest.TestCase):

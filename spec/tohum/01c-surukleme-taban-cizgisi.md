@@ -23,7 +23,8 @@ hiçbir kimliğinde `administration` yoktur); `bypass_actors` (`29o`'nun genesis
 `operator_checked_at` 7 günden eskiyse döngü sert duruşla değil, temiz bir duruşla biter ("operator check stale").
 
 **Taban: `setup/summary.json`'un `drift` nesnesi.** Üst düzeydedir, asla `targets[]`'in içinde değildir. `drift`'siz
-özette `drift.check` kullanılamaz girdidir; bugünkü nedenler taban olarak kalır. Biçim:
+bir özet kullanılamaz girdidir ve döngü durur; `drift.check` bugünkü nedenlerine asla geri düşmez. `drift` varken
+bugünkü nedenler de denetlenir. Biçim:
 - `writer_app_id` (tamsayı);
 - `targets.<id>.{rulesets: [kimlik], rules: {<dal>: etkin kural içeriğinin sha256'sı}}`;
 - `activity: {operator_logins: [login], not_before: ISO-8601 UTC}`;

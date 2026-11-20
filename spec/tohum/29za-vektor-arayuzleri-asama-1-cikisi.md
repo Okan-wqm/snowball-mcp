@@ -6,13 +6,20 @@ Okunma: `cases.build` ve `exit.sample` yazılırken ve Aşama 1 çıkış partis
 
 ---
 
-**K0 sayımının paydası hakemin tarafında sabittir** (sahip kararı, anayasal, 2026-11-20). Kural sayımının paydası
-Kurucu'nun mutasyon kataloğu değil, tohumun `census` vektör grubunun kural kümesidir: oyuncak hedefin ESLint
-yapılandırmasında etkin yedi kural (`textkit/eslint.config.js`, oyuncağın `de5b57c` commit'i). Hakem her kural için
-etkin ile üretilebilir olanı vektöre karşı raporlar; vektördeki bir kuralı düşüren katalog daha küçük bir payda değil,
-kırmızı bir nedendir. `exit.sample` ve `cases.build` tek bir mutasyon operatörü kütüphanesini paylaşır: örneklem ile
-sayım ayrışamaz. Test 27'nin tanımı (`asama-0/09`, donmuş tablo) böyle okunur: "mutasyonla üretilebilen her kural"
-`census` vektörünün her kuralıdır; bu sayfa ondan üstündür (`02`).
+**K0 sayımının paydası hakemin tarafında sabittir** (sahip kararı, anayasal, 2026-11-20). Oyuncak hedefte kural
+sayımının paydası Kurucu'nun mutasyon kataloğu değil, tohumun `census` vektör grubunun kural kümesidir: oyuncak
+hedefin ESLint yapılandırmasında etkin yedi kural (`textkit/eslint.config.js`, oyuncağın `de5b57c` commit'i). Hakem
+her kural için etkin ile üretilebilir olanı vektöre karşı raporlar; vektördeki bir kuralı düşüren katalog daha küçük
+bir payda değil, kırmızı bir nedendir. `exit.sample` ve `cases.build` tek bir mutasyon operatörü kütüphanesini
+paylaşır: örneklem ile sayım ayrışamaz. Test 27'nin tanımı (`asama-0/09`, donmuş tablo) böyle okunur: "mutasyonla
+üretilebilen her kural" `census` vektörünün her kuralıdır; bu sayfa ondan üstündür (`02`). Çıkışta `producible` cevabı
+tek başına yetmez, o Kurucu'nun kendi cevabıdır: vektörün her kuralının en az bir geçerli `asama-1/13a` vakası
+olmalıdır.
+
+**Kopya hedefin vektörü** (operatör kararı, 2026-11-20). Kopyanın `census` vektörü, kopyanın sabitlenmiş
+`base_sha`'sındaki etkin ESLint kural kümesidir: operatör onu her birim üzerinde `eslint --print-config` ile üretir ve
+tohum vektörü olarak commit'ler. O vektör var olana kadar kopyanın sayımı Aşama 1 çıkışını geçemez. Kopyanın paydası
+asla Kurucu'nun kataloğu değildir, asla oyuncağın yedi kuralı da değildir. Bugün açık bir operatör işidir.
 
 **`census` grubu.** Komut `python -m cases.build produce <araç> <kural>`, `referee/` dizininde; son satır
 `{"producible": bool}`: bu araç ve kural için kütüphanenin bir mutasyon operatörü var mı. Araç `eslint`'tir. Her vaka

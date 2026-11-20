@@ -42,9 +42,10 @@ Okunma: bir sayfanın geçmişi aranırken
   `seed-080-drift-check-has-no-recorded-baseline-in-the-summary` → `01c:9-46`, `01b:67-69`, `26c:36` (döngünün
   ve operatörün okumaları, `drift` nesnesi, etkinlik API'si, hedef türü). Operatör `drift` tabanını bu dönemin
   teslimiyle hakem reposunun `setup/summary.json`'una yazar. 2 mutant.
-- 2.2 (2026-11-20, E669; sahip kararı, anayasal): yeni `29za`. K0 sayımının paydası hakemin tarafında sabittir:
-  tohumun `census` vektörü, oyuncağın etkin yedi ESLint kuralı; kuralı düşüren katalog kırmızıdır; `exit.sample` ve
-  `cases.build` tek mutasyon kütüphanesini paylaşır; test 27 böyle okunur. 2 mutant.
+- 2.2 (2026-11-20, E669; sahip kararı, anayasal): yeni `29za`. oyuncak hedefte K0 sayımının paydası hakemin tarafında
+  sabittir: tohumun `census` vektörü, oyuncağın etkin yedi ESLint kuralı; her kuralın en az bir geçerli `13a` vakası;
+  kopyanın vektörü operatörün açık işi (E671); kuralı düşüren katalog kırmızıdır; `exit.sample` ve `cases.build` tek
+  mutasyon kütüphanesini paylaşır; test 27 böyle okunur. 2 mutant.
 - 2.2 (2026-11-20, E670; sahip kararı, anayasal): `29za` "Saldırgan set": E648'in kapı seti Aşama 1 çıkış partisinin
   `exit.adversarial` satırıdır (test 54; düzeltici istemine prompt injection, kaçan diff, gizlenmiş sır); Aşama 1
   çıkışı onsuz geçmez; snapshot kanaryası (test 16) Aşama 4'e taşındı. 1 mutant.

@@ -4182,12 +4182,19 @@ MUTANTS = [
      '"cmd": "python -m cases.build produce eslint no-var",',
      "E669: the seed's census vector loses a rule the toy enables, and the denominator shrinks"),
     ("census_drop_shrinks_denominator", "spec/tohum/29za-vektor-arayuzleri-asama-1-cikisi.md",
-     "katalog daha küçük bir payda değil,", "katalog paydayı küçültür,",
+     "bir payda değil, kırmızı bir nedendir.", "bir paydadır.",
      "E669: a catalog that drops a vector rule reads as a smaller denominator, not a red reason"),
     # ---- seed epoch Y: the owner's constitutional decision, E648's adversarial set as a Stage 1 exit row (E670)
     ("adversarial_not_required", "spec/tohum/29za-vektor-arayuzleri-asama-1-cikisi.md",
      "yeşil olmadan geçmez:", "yeşil olmadan da geçer:",
      "E670: the Stage 1 exit passes without the owner's adversarial set, the real repository's precondition"),
+    # ---- seed epoch Y, the review's fixes: the copy's census vector (E671) and drift without a baseline
+    ("census_copy_from_toy", "spec/tohum/29za-vektor-arayuzleri-asama-1-cikisi.md",
+     "asla oyuncağın yedi kuralı da değildir.", "oyuncağın yedi kuralıdır.",
+     "E671: the copy's census borrows the toy's seven rules instead of its own vector"),
+    ("drift_missing_falls_back", "spec/tohum/01c-surukleme-taban-cizgisi.md",
+     "nedenlerine asla geri düşmez.", "nedenlerine geri düşer.",
+     "E668: a summary without drift falls back to the current reasons instead of stopping"),
     # ---- seed epoch W: the measurement mirror, /work/logs/mirror.json (the owner's decision of 2026-11-19, E647)
     ("mirror_version_ignores_effort", MIRROR,
      '(word(row.get("effort")) or "default") if "effort" in row else "unrecorded")', '"default")',

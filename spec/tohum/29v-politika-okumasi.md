@@ -46,7 +46,8 @@ ile.
 
 **Aşama.** Aşama 0'da bulgu imzalı sonucun `warnings`'ine yazılır; karar, ret nedenleri, seriler ve imzalı çıkış
 değişmez. Kilit Aşama 1'i açınca aynı ad ret nedenidir, `ref`'i yoldur; Kurucu'nun düzeltebildiği rettir ve ret
-hafızasında sayılır (`29b`).
+hafızasında sayılır (`29b`). Y döneminin tesliminden Aşama 1'in beş yolu okunması zorunlu yollardır: beynin politika
+okuması onları adlandırana kadar üzerlerindeki `policy_reads_required_absent` kırmızıdır (seed-076).
 
 **Okunuş.** `29t` "Okunuş" gibidir: bulgu yalnız testleri koşulan push'ta vardır, kırmızı push'ta da koşu yapılır;
 Docker'ın kendi hatası (125) bulgu değil kesintidir (`kos:docker`). Geçmek, komutun adlandırdığı değerlerin kendi

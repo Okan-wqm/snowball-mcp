@@ -73,8 +73,8 @@ Kurucu'nundur.
   aracın kataloğunda vaka üretilebilen kuralların sayısıdır, yalnız puanlanan vakalardakiler değil. Vektör
   karşılaştırması tablonun basamağına yarım yukarı yuvarlar (`29a`). İmza `26a`'dadır. `confidence_level` ve
   `stage_params`'ın `census_min_groups`, `planted_max_cases`, `evidence_ref_max_lines`, `match_window_lines`
-  anahtarları `18a`'daydı; hakemin `policy.json`'unda yoklukları operatörün eksiğiydi, 2026-11-20'den oradadır ve
-  Aşama 1'in zorunlu okuma yollarıdır (`29v`).
+  anahtarları Y'nin tesliminden okunması zorunlu yollardır: beynin politika okuması onları adlandırana kadar
+  üzerlerindeki `policy_reads_required_absent` kırmızıdır (`29v`).
 - **Test 9** (`asama-0/09`; seed-077): harness, `referee/harness/` paketi ve onun import kapanışıdır; model istemcisi
   `dispatcher/llm_call`'dur; ağı `koş` kapatır. Test 11'in sözü (`01a`'nın boş oyuncak reposu, sıfırdan büyüyen
   `<state_root>`) gevşetilmez.
