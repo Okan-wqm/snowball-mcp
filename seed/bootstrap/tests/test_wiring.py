@@ -1733,10 +1733,12 @@ class MutationShardTest(unittest.TestCase):
     41366571302, 931 mutants in 24 shards, 39 a shard) the suite had grown and a mutant took up to 177 seconds; eight
     shards hit the timeout. The bound is now set by the worst mutant seen, three minutes. 2026-11-20: a shard runs four
     mutants at a time (`--jobs`, the runner's four cores), so the bound holds per worker: with no hint at all (each
-    mutant runs the whole suite), a worker's share at three minutes a mutant ends in three quarters of the timeout."""
+    mutant runs the whole suite), a worker's share at the worst mutant seen ends in three quarters of the timeout. Four
+    at a time a mutant takes longer: run 44763833954 (1513 mutants, 20 shards, no hint) took 118 s on average (88 s
+    alone in run 44718091394) and at worst 332 s, so the worst is now six minutes."""
 
-    WORST_MINUTES = 3  # the worst mutant seen, the whole suite (E502)
-    SHARE = 0.75  # of the job's timeout: 15 mutants at 3 minutes in 60, as before (E410)
+    WORST_MINUTES = 6  # the worst mutant seen, the whole suite, four at a time (run 44763833954: 332 s)
+    SHARE = 0.75  # of the job's timeout, as before (E410: 15 mutants at 3 minutes in 60)
     CORES = 4  # a standard Linux runner of a public repository
 
     @staticmethod

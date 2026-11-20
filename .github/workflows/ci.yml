@@ -125,14 +125,14 @@ jobs:
     needs: mutation-plan
     if: needs.mutation-plan.outputs.mode == 'full'
     runs-on: ubuntu-24.04
-    timeout-minutes: 90
+    timeout-minutes: 180
     strategy:
       fail-fast: false
       # the account runs at most 20 jobs at once; 16 shards leave the referee's jobs room to start (E525)
       max-parallel: 16
       matrix:
         # four mutants at a time on the runner's four cores; at most 22 a worker even with no hint: at the worst seen
-        # 3 minutes a mutant a shard ends in 66 of its 90 (E410, E502; `test_wiring.MutationShardTest`)
+        # 6 minutes a mutant four at a time, a shard ends in 132 of its 180 (E410, E502; `test_wiring.MutationShardTest`)
         shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
