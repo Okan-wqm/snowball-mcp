@@ -5,20 +5,32 @@ The check copies the repository layout to a temporary directory, applies the cha
 tests there and demands a failure. A mutant that survives names behaviour no test measures. An
 anchor that no longer matches fails loudly, so the list cannot rot while the code moves on.
 
-    cd seed/bootstrap && python3 local/mutate.py [--only NAME[,NAME...]] [--list] [--shard K/N]
+    cd seed/bootstrap && python3 local/mutate.py [--only NAME[,NAME...]] [--list] [--shard K/N] [--jobs J]
+                                                 [--hints FILE] [--record FILE]
+    cd seed/bootstrap && python3 local/mutate.py --check-records DIR [--hints-out FILE]
 
 Run it on Linux (several tests need a POSIX shell). Exit 0 means every mutant was killed.
+
+`--jobs J` runs J mutants at a time, each in its own copy and its own interpreter (CI: four on a four-core runner).
+`--hints FILE` names, per mutant, the test that killed it in an earlier run. A hint is never a verdict: that test runs
+alone against this tree with the mutant, and the mutant counts as killed only when it fails there and passes alone on
+the unmutated tree; otherwise the whole suite runs, as without a hint. A stale or forged hint can only cost time.
+`--record FILE` writes one line per mutant run; `--check-records` reads the shards' records and fails unless every
+mutant was run exactly once and killed (the CI job `mutation-complete`).
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 BOOT = Path(__file__).resolve().parents[1]
@@ -2689,6 +2701,34 @@ MUTANTS = [
      "        shard: [" + ", ".join(str(k) for k in range(_ci_mutation_shards())) + "]\n",
      "        shard: [0, 1, 2, 3, 4, 5, 6, 7]\n",
      "E410: fewer shards than the mutants need, and the mutation run hits its timeout and is cancelled"),
+    # CI speed (2026-11-20): main's runs are never cancelled, the shards are every mutant once, a hint is re-run and
+    # verified, never replayed, and the daily run uses none
+    ("ci_main_run_cancellable", ".github/workflows/ci.yml",
+     "  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}\n", "  cancel-in-progress: true\n",
+     "a second push to main cancels the first run, so delivery step 1 finds no green run for it (E383)"),
+    ("mutation_hints_on_the_daily_run", ".github/workflows/ci.yml",
+     '          if [ "$EVENT" != schedule ] && [ "$HINTS_INPUT" != off ]; then hints=',
+     '          if [ "$HINTS_INPUT" != off ]; then hints=',
+     "no run on main ever runs every mutant against the whole suite without an earlier run's killers"),
+    ("mutation_check_skipped_after_a_red_shard", ".github/workflows/ci.yml",
+     "    if: ${{ !cancelled() && needs.mutation-plan.outputs.mode == 'full' }}\n",
+     "    if: needs.mutation-plan.outputs.mode == 'full'\n",
+     "a red shard skips the completeness check, so a shard that ran nothing is never named"),
+    ("mutate_shard_partition_overlaps", "seed/bootstrap/local/mutate.py",
+     "    return [(i, m) for i, m in chosen if i % n == k]\n", "    return [(i, m) for i, m in chosen if i % n <= k]\n",
+     "the shards overlap: a mutant runs in several, and the run costs more than the whole list"),
+    ("mutate_check_misses_a_mutant", "seed/bootstrap/local/mutate.py",
+     '    problems += [f"no shard ran {name}" for name in names if name not in seen]\n', "",
+     "a mutant no shard ran passes the completeness check"),
+    ("mutate_check_passes_a_survivor", "seed/bootstrap/local/mutate.py",
+     "    problems += [f\"{row.get('name')} survived\" for row in records if row.get(\"killed\") is not True]\n", "",
+     "a shard's survivor passes the completeness check"),
+    ("mutate_hint_replayed", "seed/bootstrap/local/mutate.py",
+     "        if failed and baseline.passes(hint):\n", "        if failed:\n",
+     "a hinted test that fails alone on the unmutated tree too counts as the mutant's killer"),
+    ("mutate_hint_not_a_test", "seed/bootstrap/local/mutate.py",
+     "    if hint and HINT.fullmatch(hint):\n", "    if hint:\n",
+     "a hint that names no test of tests/ (a forged cache) is run as a module"),
     # E450: the brain's agent and skill definitions, checked in the capsule before claude starts (seed/founder/brain_defs.py)
     ("brain_agent_tools_unchecked", DEFS, "        for tool in tools:\n            if tool in DENIED_TOOLS:",
      "        for tool in tools[:0]:\n            if tool in DENIED_TOOLS:",
@@ -4413,8 +4453,10 @@ def stale_anchors(root: Path = ROOT, mutants=MUTANTS) -> list[str]:
 ROOT_FILES_READ = ("README.md", ".gitattributes")  # the repo-root files the unit tests read, copied with each mutant
 
 
-def run_mutant(index: int, mutant: tuple[str, str, str, str, str] | None) -> tuple[bool, str, float]:
-    """Apply one mutant (or none: the baseline) to a fresh copy and run the unit tests there."""
+def run_mutant(index: int, mutant: tuple[str, str, str, str, str] | None,
+               tests: tuple[str, ...] = ()) -> tuple[bool, str, float]:
+    """Apply one mutant (or none: the baseline) to a fresh copy and run the unit tests there: the whole suite, or only
+    `tests` (a hint's test, `judge`). Returns (failed, the first failing test's id, seconds)."""
     started = time.monotonic()
     with tempfile.TemporaryDirectory(prefix=f"mutant-{index}-") as tmp:
         work = Path(tmp)
@@ -4442,11 +4484,52 @@ def run_mutant(index: int, mutant: tuple[str, str, str, str, str] | None) -> tup
         boot = work / "seed" / "bootstrap"
         env = {"PATH": "/usr/local/bin:/usr/bin:/bin", "PYTHONDONTWRITEBYTECODE": "1", "PYTHONPATH": ".:tests",
                "HOME": str(work)}
-        proc = subprocess.run([sys.executable, "-m", "unittest", "discover", "-s", "tests", "-f"], cwd=boot, env=env,
+        argv = ([sys.executable, "-m", "unittest", "-f", *tests] if tests
+                else [sys.executable, "-m", "unittest", "discover", "-s", "tests", "-f"])
+        proc = subprocess.run(argv, cwd=boot, env=env,
                               capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=900)
     output = proc.stdout + proc.stderr
-    killers = [line.split(" ")[1] for line in output.splitlines() if line.startswith(("FAIL: ", "ERROR: "))]
+    killers = [failed_test(line) for line in output.splitlines() if line.startswith(("FAIL: ", "ERROR: "))]
     return proc.returncode != 0, (killers[0] if killers else "(no test named)"), time.monotonic() - started
+
+
+def failed_test(line: str) -> str:
+    """The test id of unittest's `FAIL: name (module.Class.name)` line; the name alone when no id follows it."""
+    found = re.search(r"\(([\w.]+)\)\s*$", line)
+    return found.group(1) if found else line.split(" ")[1]
+
+
+HINT = re.compile(r"test_\w+(\.\w+){0,2}")  # a module, class or test of tests/: nothing else is run as a hint
+
+
+class IsolatedBaseline:
+    """Whether a test passes when it runs alone on the unmutated tree; each test is run once, whichever worker asks."""
+
+    def __init__(self) -> None:
+        self.lock = threading.Lock()
+        self.known: dict[str, bool] = {}
+
+    def passes(self, test: str) -> bool:
+        with self.lock:
+            if test in self.known:
+                return self.known[test]
+        failed, _detail, _seconds = run_mutant(-1, None, (test,))
+        with self.lock:
+            self.known[test] = not failed
+        return not failed
+
+
+def judge(index: int, mutant, hint: str | None, baseline: IsolatedBaseline) -> tuple[bool, str, float, str]:
+    """(killed, killer, seconds, via) of one mutant. With a hint, its test runs alone with the mutant first; a failure
+    there kills the mutant only when the same test passes alone on the unmutated tree (so it is the mutant that failed
+    it, not the test's isolation). Anything else runs the whole suite, exactly as a run without hints."""
+    spent = 0.0
+    if hint and HINT.fullmatch(hint):
+        failed, killer, spent = run_mutant(index, mutant, (hint,))
+        if failed and baseline.passes(hint):
+            return True, killer, spent, "hint"
+    killed, killer, seconds = run_mutant(index, mutant)
+    return killed, killer, spent + seconds, "suite"
 
 
 PAGE_PREFIXES = ("spec/", "docs/")  # what a pages-only push may change; anything else is code and runs every mutant
@@ -4467,6 +4550,54 @@ def mutants_for_changed(mutants, paths: list[str]):
     return [m for m in mutants if m[1] in changed]
 
 
+def shard(chosen: list, k: int, n: int) -> list:
+    """Shard K of N: every N-th mutant from K on, by its place in MUTANTS. The N shards hold each mutant exactly once."""
+    if not 0 <= k < n:
+        raise ValueError(f"shard {k}/{n} does not exist")
+    return [(i, m) for i, m in chosen if i % n == k]
+
+
+def check_records(records: list[dict], mutants=MUTANTS) -> list[str]:
+    """What is wrong with the shards' records of one full run: a mutant no shard ran, one run twice, a name that is
+    no mutant's, a mutant that survived. Empty: the union of the shards is every mutant, once, and every one killed."""
+    names = [m[0] for m in mutants]
+    problems = [f"two mutants are named {name}" for name in sorted({n for n in names if names.count(n) > 1})]
+    seen: dict[str, int] = {}
+    for row in records:
+        seen[str(row.get("name"))] = seen.get(str(row.get("name")), 0) + 1
+    problems += [f"no shard ran {name}" for name in names if name not in seen]
+    problems += [f"{name} ran {count} times" for name, count in sorted(seen.items()) if count > 1]
+    problems += [f"{name} is no mutant" for name in sorted(set(seen) - set(names))]
+    problems += [f"{row.get('name')} survived" for row in records if row.get("killed") is not True]
+    return problems
+
+
+def read_hints(path: str | None) -> dict[str, str]:
+    """{mutant name: test id} from an earlier run's records, or {} when there is none or it cannot be read."""
+    if not path:
+        return {}
+    try:
+        doc = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        print(f"no readable hints at {path}: every mutant runs the whole suite", flush=True)
+        return {}
+    return {str(k): str(v) for k, v in doc.items()} if isinstance(doc, dict) else {}
+
+
+def check_main(folder: str, hints_out: str | None) -> int:
+    records = []
+    for path in sorted(Path(folder).rglob("*.jsonl")):
+        records += [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    problems = check_records(records, MUTANTS)
+    for problem in problems:
+        print(problem)
+    print(f"{len(records)} records, {len(MUTANTS)} mutants: {'complete' if not problems else 'INCOMPLETE'}")
+    if hints_out:
+        hints = {r["name"]: r["killer"] for r in records if r.get("killed") is True and HINT.fullmatch(str(r.get("killer")))}
+        Path(hints_out).write_text(json.dumps(hints, indent=0, sort_keys=True) + "\n", encoding="utf-8")
+    return 1 if problems else 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--only", help="run only the mutants with these names (comma-separated)")
@@ -4474,7 +4605,17 @@ def main() -> int:
     parser.add_argument("--shard", help="K/N: run every N-th mutant starting at K, so N containers can share the list")
     parser.add_argument("--changed", help="a file of the paths a push changed, one a line: a pages-only push runs only "
                                           "the mutants anchored in its pages (`mutants_for_changed`)")
+    parser.add_argument("--jobs", type=int, default=1, help="run this many mutants at a time")
+    parser.add_argument("--hints", help="JSON {mutant: test} of earlier kills; each is re-run here, never replayed")
+    parser.add_argument("--record", help="write one JSON line per mutant run to this file")
+    parser.add_argument("--check-records", help="a folder of the shards' records: fail unless they are every mutant "
+                                                "once, each killed")
+    parser.add_argument("--hints-out", help="with --check-records: write the killers as the next run's hints")
     args = parser.parse_args()
+    if args.check_records:
+        return check_main(args.check_records, args.hints_out)
+    if args.jobs < 1:
+        parser.error("--jobs must be at least 1")
     if args.changed:
         paths = [line.strip() for line in Path(args.changed).read_text(encoding="utf-8").splitlines() if line.strip()]
         names = {m[0] for m in mutants_for_changed(MUTANTS, paths)}
@@ -4490,7 +4631,7 @@ def main() -> int:
     chosen = [(i, m) for i, m in enumerate(MUTANTS) if not wanted or m[0] in wanted]
     if args.shard:
         k, n = (int(part) for part in args.shard.split("/"))
-        chosen = [(i, m) for i, m in chosen if i % n == k]
+        chosen = shard(chosen, k, n)
     if not chosen:
         print("no such mutant", file=sys.stderr)
         return 2
@@ -4506,17 +4647,26 @@ def main() -> int:
     if killed:
         print(f"the unmutated code already fails its tests ({detail}); fix that first", file=sys.stderr)
         return 2
-    survivors = []
-    for i, m in chosen:
-        killed, detail, seconds = run_mutant(i, m)
-        print(f"{'killed  ' if killed else 'SURVIVED'} {m[0]:34} {seconds:5.1f}s  {detail}", flush=True)
-        if not killed:
-            survivors.append(m[0])
-    print(f"\n{len(chosen) - len(survivors)}/{len(chosen)} mutants killed")
+    hints, baseline = read_hints(args.hints), IsolatedBaseline()
+    rows: dict[int, dict] = {}
+    with ThreadPoolExecutor(max_workers=args.jobs) as pool:
+        running = {pool.submit(judge, i, m, hints.get(m[0]), baseline): (i, m) for i, m in chosen}
+        for done in as_completed(running):
+            i, m = running[done]
+            killed, detail, seconds, via = done.result()
+            print(f"{'killed  ' if killed else 'SURVIVED'} {m[0]:34} {seconds:5.1f}s  {detail}  [{via}]", flush=True)
+            rows[i] = {"name": m[0], "killed": killed, "killer": detail, "via": via, "seconds": round(seconds, 1)}
+    survivors = [rows[i]["name"] for i, _m in chosen if not rows[i]["killed"]]
+    if args.record:
+        Path(args.record).parent.mkdir(parents=True, exist_ok=True)
+        Path(args.record).write_text("".join(json.dumps(rows[i], sort_keys=True) + "\n" for i, _m in chosen),
+                                     encoding="utf-8")
+    by_hint = sum(1 for row in rows.values() if row["via"] == "hint")
+    print(f"\n{len(chosen) - len(survivors)}/{len(chosen)} mutants killed ({by_hint} by a re-run hint, "
+          f"{len(chosen) - by_hint} by the whole suite; {args.jobs} at a time)")
     if survivors:
         print("not measured by any test:", ", ".join(survivors))
     return 1 if survivors else 0
-
 
 if __name__ == "__main__":
     sys.exit(main())
