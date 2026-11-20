@@ -38,10 +38,10 @@ gelir ve o tablo yeniden açılana kadar kalır; hakemin hiçbir komutu `cProfil
 değilse `exit_request_wrong_batch`.
 P2'nin MF2'si düştü (aşağıda "P2'nin tek MF'si", seed-072).
 
-**Çıkış partisi.** `asama-1/13`'ün "Aşama 1 çıkışı" satırları (`exit.sample` 27 ve 16, `spec.lint` 33) bu tohumda tablo
-değildir: o parti Aşama 1'in kendi çıkışının (A)'sıyla gelir (`asama-1/08`) ve bu tohum Aşama 1'in çıkış isteğini
-yargılamaz (`batch`'siz istek `exit_request_wrong_stage`'dir). Tablosu o yargıyla, bir tohum döneminde gelir. P1 ve P2
-aktarılınca açık tablo boştur, `done_mf` `[]`'dir.
+**Çıkış partisi.** `asama-1/13`'ün "Aşama 1 çıkışı" satırları (`exit.sample` 27, `spec.lint` 33, `exit.adversarial`
+54; `29za`) bu tohumda tablo değildir: o parti Aşama 1'in kendi çıkışının (A)'sıyla gelir (`asama-1/08`) ve bu tohum
+Aşama 1'in çıkış isteğini yargılamaz (`batch`'siz istek `exit_request_wrong_stage`'dir). Tablosu o yargıyla, bir tohum
+döneminde gelir. P1 ve P2 aktarılınca açık tablo boştur, `done_mf` `[]`'dir.
 
 **Önyükleme hakemi Aşama 1'de.** Rakip freni açık aşamanın `constitutional.stage_budgets.asama_<k>.rival_usd`'sidir: `k`
 kilidin `stage`'idir, kilit yokken 0; Aşama 1'inki `asama-1/10`'un tablosundadır (`18a`). Aşamanın harcaması kilidin

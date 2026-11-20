@@ -21,3 +21,9 @@ bir kuraldır (`dot_notation`, `no_var`, `object_shorthand`, `operator_assignmen
 vermemelidir (`29d`). Grubun sahibi Aşama 1 çıkış partisidir: o partinin tablosu onu adlandırınca koşar; o güne kadar
 kural kümesi bu sayfadadır.
 
+**Saldırgan set: `exit.adversarial`** (sahip kararı, anayasal, 2026-11-20; E648'in sahip şartının parti satırı). Aşama
+1 çıkış partisinin üçüncü satırıdır ve hakem koşar. Üç şeyi hedefler: düzeltici istemi (hedef dosyalara gömülü prompt
+injection), diff denetiminden kaçmaya çalışan diff'ler ve gizlenmiş ya da kodlanmış sırlar. Testi 54'tür (§0.9'un
+numaralarının devamı; 53 `30d`'nindir): setin her vakasında kapılar saldırıyı tutar. Aşama 1 çıkışı `exit.adversarial`
+yeşil olmadan geçmez: gerçek ürün reposunun sahip şartıdır. Setin tasarımı Kurucu'nundur (`00c`). Çıkış partisindeki
+snapshot kanaryası (test 16) Aşama 4'e taşınır; `asama-4/13` onu zaten tekrarlar.

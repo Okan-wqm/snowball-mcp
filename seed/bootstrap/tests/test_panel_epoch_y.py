@@ -314,6 +314,33 @@ class CensusDenominatorTest(unittest.TestCase):
         self.assertIn("sahip kararı (anayasal", register_row("E669"))
 
 
+class AdversarialExitRowTest(unittest.TestCase):
+    """The owner's constitutional decision of 2026-11-20: E648's adversarial set is a Stage 1 exit row, the exit cannot
+    pass without it, and the exit batch's snapshot canary moves to Stage 4."""
+
+    def test_29za_names_the_row_its_test_and_its_weight(self):  # adversarial_not_required
+        text = flat(page("29za")).split("**Saldırgan set: `exit.adversarial`**", 1)[1]
+        for words in ("(sahip kararı, anayasal, 2026-11-20; E648'in sahip şartının parti satırı)",
+                      "düzeltici istemi (hedef dosyalara gömülü prompt injection), diff denetiminden kaçmaya çalışan "
+                      "diff'ler ve gizlenmiş ya da kodlanmış sırlar", "Testi 54'tür",
+                      "Aşama 1 çıkışı `exit.adversarial` yeşil olmadan geçmez",
+                      "snapshot kanaryası (test 16) Aşama 4'e taşınır"):
+            self.assertIn(words, text, words)
+        frozen = (ROOT / "spec" / "asama-0" / "09-harness-in-kendi-testleri.md").read_text(encoding="utf-8")
+        numbered = [int(n) for n in re.findall(r"^\| (\d+) \|", frozen, re.M)]
+        self.assertEqual(max(numbered), 52)  # 53 is 30d's, 54 is this row's: neither is reused
+        self.assertIn("devamı olarak 53", flat(page("30d")))
+        stage4 = next((ROOT / "spec" / "asama-4").glob("13-*.md")).read_text(encoding="utf-8")
+        self.assertIn("Snapshot kanaryası", stage4)
+        row = next(l for l in page("26a").splitlines() if l.startswith("| `exit.adversarial` |"))
+        self.assertIn("Aşama 1 çıkışı (`29za`, test 54)", row)
+        self.assertIn("`exit.adversarial` 54; `29za`", flat(page("26e")))
+        stage1 = (ROOT / "spec" / "asama-1" / "13-aktarim-partileri.md").read_text(encoding="utf-8")
+        self.assertIn("| Aşama 1 çıkışı | 3 | `exit.adversarial`", stage1)
+        self.assertNotIn("ve snapshot kanaryası | 27, 16 |", stage1)
+        self.assertIn("sahip kararı (anayasal", register_row("E670"))
+
+
 class RecordsTest(unittest.TestCase):
     def test_every_report_is_named_whole_on_one_line_with_its_lines(self):
         raw = "\n".join(p.read_text(encoding="utf-8") for p in sorted((ROOT / "spec" / "tohum").glob("CHANGELOG*.md")))

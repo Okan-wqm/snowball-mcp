@@ -45,3 +45,6 @@ Okunma: bir sayfanın geçmişi aranırken
 - 2.2 (2026-11-20, E669; sahip kararı, anayasal): yeni `29za`. K0 sayımının paydası hakemin tarafında sabittir:
   tohumun `census` vektörü, oyuncağın etkin yedi ESLint kuralı; kuralı düşüren katalog kırmızıdır; `exit.sample` ve
   `cases.build` tek mutasyon kütüphanesini paylaşır; test 27 böyle okunur. 2 mutant.
+- 2.2 (2026-11-20, E670; sahip kararı, anayasal): `29za` "Saldırgan set": E648'in kapı seti Aşama 1 çıkış partisinin
+  `exit.adversarial` satırıdır (test 54; düzeltici istemine prompt injection, kaçan diff, gizlenmiş sır); Aşama 1
+  çıkışı onsuz geçmez; snapshot kanaryası (test 16) Aşama 4'e taşındı. 1 mutant.

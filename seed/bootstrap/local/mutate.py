@@ -4184,6 +4184,10 @@ MUTANTS = [
     ("census_drop_shrinks_denominator", "spec/tohum/29za-vektor-arayuzleri-asama-1-cikisi.md",
      "katalog daha küçük bir payda değil,", "katalog paydayı küçültür,",
      "E669: a catalog that drops a vector rule reads as a smaller denominator, not a red reason"),
+    # ---- seed epoch Y: the owner's constitutional decision, E648's adversarial set as a Stage 1 exit row (E670)
+    ("adversarial_not_required", "spec/tohum/29za-vektor-arayuzleri-asama-1-cikisi.md",
+     "yeşil olmadan geçmez:", "yeşil olmadan da geçer:",
+     "E670: the Stage 1 exit passes without the owner's adversarial set, the real repository's precondition"),
     # ---- seed epoch W: the measurement mirror, /work/logs/mirror.json (the owner's decision of 2026-11-19, E647)
     ("mirror_version_ignores_effort", MIRROR,
      '(word(row.get("effort")) or "default") if "effort" in row else "unrecorded")', '"default")',
