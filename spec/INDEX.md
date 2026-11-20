@@ -14,6 +14,7 @@ Okunma: sayfa ararken; görev seçmek için `tohum/00b-gorev-haritasi.md`
 | `tohum/00a-sinirlar-operator-ilk-gorev.md` | Kurucu'nun Sınırları, Operatörün İşi, İlk Görev | her oturumda, çekirdekten hemen sonra |
 | `tohum/00b-gorev-haritasi.md` | Görev Haritası | her oturumda, görev seçilirken |
 | `tohum/00c-gorev-haritasi-sahibin-ipuclari.md` | Görev Haritası, Devam: Sahibin İpuçları | her oturumda, görev seçilirken (`00b`'nin devamı) |
+| `tohum/00d-gorev-haritasi-sahibin-ipuclari-devam.md` | Görev Haritası, Devam: Sahibin İpuçları II | her oturumda, görev seçilirken (`00c`'nin devamı) |
 | `tohum/01-hedef-sistem.md` | Hedef Sistem | ilk oturumda |
 | `tohum/01a-mimari-ve-yetki.md` | Mimari ve Yetki: Dört Yer | ilk oturumda ve her yeni repoya bağlanırken |
 | `tohum/01b-kapi-kurallari.md` | Kapı Kuralları, Tetik, Döngü İşlemi | her merge ve her state yazımında |

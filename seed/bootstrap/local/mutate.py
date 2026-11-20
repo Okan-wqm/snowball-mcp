@@ -4129,6 +4129,9 @@ MUTANTS = [
     ("other_repos_criteria_dropped", "spec/tohum/00c-gorev-haritasi-sahibin-ipuclari.md",
      "  sabitlenebilir mi; o aşamanın hata sınıfına uygun mu; etkisi ölçülebilir mi.\n",
      "  sabitlenebilir mi.\n", "E652: the selection criteria lose the stage's error class and measurability"),
+    # ---- seed epoch Y: the owner's hint on re-checking lessons (E654), labelled as a hint, text only
+    ("lesson_recheck_hint_unlabelled", "spec/tohum/00d-gorev-haritasi-sahibin-ipuclari-devam.md", "(2026-11-20, E654; ipucu, reçete değil)",
+     "(2026-11-20, E654)", "E654: the owner's hint is no longer labelled a hint, so measurement cannot tell it apart"),
     # ---- seed epoch W: the measurement mirror, /work/logs/mirror.json (the owner's decision of 2026-11-19, E647)
     ("mirror_version_ignores_effort", MIRROR,
      '(word(row.get("effort")) or "default") if "effort" in row else "unrecorded")', '"default")',
