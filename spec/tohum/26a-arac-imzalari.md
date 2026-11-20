@@ -48,7 +48,7 @@ değil). Beyin ağacındaki içe aktarmaları ya da çağrıları `calls`'la kar
 | `security.derive` | Hakem | `çek`, `koş` | hedef ağacı, `profile.json`, göç uygulanmış test veritabanı | güvenlik profili (`30d`); öneri yalnız ekler | `security/profile.json` | her döngü | P2 |
 | `security.scan` | Hakem | `getir`, `koş` | kilit dosyaları, profil, danışma veritabanları | tarayıcı eşleşmeleri ve dedektör isabetleri (`trust: observed`) | yok | her push, süpürme (`30f`) | P2 |
 | `security.run` | Hakem | `koş` | profilin testleri, avcının kanıtları, ağaçlar | kural durumları, doğrulanmış ve reddedilmiş bildirimler | `security` satırları `yaz`'da | her döngü (`30d`, `30f`) | P2 |
-| `exit.sample` | Hakem | `çek` | sınıf, gizli tohum, profil | çıkış vakaları (kural sayımı) | yok; aktarımında donar | hakem exit | Aşama 1 çıkışı |
+| `exit.sample` | Hakem | `çek` | sınıf, gizli tohum, profil | çıkış vakaları (kural sayımı; paydası tohumun `census` vektörü, mutasyon kütüphanesi `cases.build`'inki, `29za`) | yok; aktarımında donar | hakem exit | Aşama 1 çıkışı |
 | `spec.lint` | Hakem | `koş` | spec dizini, `required_exit_rows` | ihlal listesi | yok | Kurucu, aşama kilidi | Aşama 1 çıkışı (Aşama 0'da tohumun spec denetimi) |
 | `harness.baseline` | Hakem | `çek` | `snapshot_id`, property | bulgu dosyası | yok | hakem | LLM avcı |
 | `lock.check`, `brain.accept` | Önyükleme hakemi | `çek`, `yaz` | aşama, spec hash, `setup/stage.json`; beyin SHA'sı, testler, rakip | kilit; kabul / ret | imzalı sonuç | her push (`29b`) | tohum; Kurucu yazmaz |

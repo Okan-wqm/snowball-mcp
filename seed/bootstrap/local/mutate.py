@@ -4176,6 +4176,14 @@ MUTANTS = [
      "E668: a stale operator check is read as evidence of change and stops the system hard"),
     ("drift_kind_read_as_copy", "spec/tohum/01c-surukleme-taban-cizgisi.md", "ve asla `copy` diye okunmaz;",
      "ve `copy` diye okunur;", "E668: an unknown target kind is read as a copy"),
+    # ---- seed epoch Y: the owner's constitutional decision on the K0 census denominator (E669)
+    ("census_vector_drops_a_rule", "seed/bootstrap/vectors/vectors.json",
+     '"cmd": "python -m cases.build produce eslint yoda",',
+     '"cmd": "python -m cases.build produce eslint no-var",',
+     "E669: the seed's census vector loses a rule the toy enables, and the denominator shrinks"),
+    ("census_drop_shrinks_denominator", "spec/tohum/29za-vektor-arayuzleri-asama-1-cikisi.md",
+     "katalog daha küçük bir payda değil,", "katalog paydayı küçültür,",
+     "E669: a catalog that drops a vector rule reads as a smaller denominator, not a red reason"),
     # ---- seed epoch W: the measurement mirror, /work/logs/mirror.json (the owner's decision of 2026-11-19, E647)
     ("mirror_version_ignores_effort", MIRROR,
      '(word(row.get("effort")) or "default") if "effort" in row else "unrecorded")', '"default")',

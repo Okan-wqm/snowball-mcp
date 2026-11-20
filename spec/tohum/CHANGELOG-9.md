@@ -42,3 +42,6 @@ Okunma: bir sayfanın geçmişi aranırken
   `seed-080-drift-check-has-no-recorded-baseline-in-the-summary` → `01c:9-46`, `01b:67-69`, `26c:36` (döngünün
   ve operatörün okumaları, `drift` nesnesi, etkinlik API'si, hedef türü). Operatör `drift` tabanını bu dönemin
   teslimiyle hakem reposunun `setup/summary.json`'una yazar. 2 mutant.
+- 2.2 (2026-11-20, E669; sahip kararı, anayasal): yeni `29za`. K0 sayımının paydası hakemin tarafında sabittir:
+  tohumun `census` vektörü, oyuncağın etkin yedi ESLint kuralı; kuralı düşüren katalog kırmızıdır; `exit.sample` ve
+  `cases.build` tek mutasyon kütüphanesini paylaşır; test 27 böyle okunur. 2 mutant.

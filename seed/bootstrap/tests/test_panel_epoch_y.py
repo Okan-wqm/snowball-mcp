@@ -258,6 +258,62 @@ class DriftBaselineTest(unittest.TestCase):
         self.assertIn("bağımsız inceleme ekibi kararı (2026-11-20", register_row("E668"))
 
 
+class CensusDenominatorTest(unittest.TestCase):
+    """The owner's constitutional decision of 2026-11-20: the K0 census denominator is the seed's `census` vector, not
+    the Founder's catalog; a catalog that drops a vector rule is red."""
+
+    TOY_RULES = ["dot-notation", "no-var", "object-shorthand", "operator-assignment", "prefer-const", "prefer-template",
+                 "yoda"]  # textkit/eslint.config.js of the toy target at de5b57c
+
+    @classmethod
+    def setUpClass(cls):
+        cls.group = json.loads((BOOT / "vectors" / "vectors.json").read_text(encoding="utf-8"))["census"]
+
+    def test_the_vector_is_the_toys_enabled_rules(self):  # census_vector_drops_a_rule
+        group = self.group
+        self.assertEqual((group["owner"], group["runner"], group["interface"]),
+                         ("asama-1-cikis", "data", "spec/tohum/29za-vektor-arayuzleri-asama-1-cikisi.md"))
+        rules = [case["cmd"].split()[-1] for case in group["cases"]]
+        self.assertEqual(sorted(rules), self.TOY_RULES)
+        for case in group["cases"]:
+            self.assertEqual(case["cmd"], f"python -m cases.build produce eslint {case['cmd'].split()[-1]}")
+            self.assertEqual(case["expect"], {"producible": True})
+            self.assertEqual(case["changed"]["expect_not"], {"producible": True})
+            self.assertTrue(case["changed"]["cmd"].endswith(" no-such-rule"))
+        from snowball_bootstrap import stages
+        tables = [stages.load(0)] + [stages.load(1, done=stages.BATCHES[1][:i]) for i in range(len(stages.BATCHES[1]))]
+        self.assertFalse(any("census" in f.groups for t in tables for f in t.mfs))  # the exit batch's table runs it
+
+    def test_a_catalog_that_drops_a_rule_is_red(self):
+        class Run:
+            def __init__(self, producible):
+                self.producible, self.results = producible, []
+
+            def call(self, cmd, stdin=b""):
+                return {"producible": cmd.split()[-1] in self.producible}
+
+            def record(self, name, ok, detail=""):
+                self.results.append((name, ok))
+
+        whole = Run(set(self.TOY_RULES))
+        vectors._data(whole, self.group)
+        self.assertTrue(all(ok for _name, ok in whole.results))
+        thin = Run(set(self.TOY_RULES) - {"yoda"})
+        vectors._data(thin, self.group)
+        self.assertEqual([name for name, ok in thin.results if not ok], ["census.yoda"])
+
+    def test_29za_fixes_the_denominator_on_the_referee_side(self):  # census_drop_shrinks_denominator
+        text = flat(page("29za"))
+        for words in ("**K0 sayımının paydası hakemin tarafında sabittir** (sahip kararı, anayasal, 2026-11-20)",
+                      "Kurucu'nun mutasyon kataloğu değil, tohumun `census` vektör grubunun kural kümesidir",
+                      "vektördeki bir kuralı düşüren katalog daha küçük bir payda değil, kırmızı bir nedendir",
+                      "`exit.sample` ve `cases.build` tek bir mutasyon operatörü kütüphanesini paylaşır",
+                      "Test 27'nin tanımı (`asama-0/09`, donmuş tablo) böyle okunur"):
+            self.assertIn(words, text, words)
+        self.assertIn("paydası tohumun `census` vektörü", flat(page("26a")))
+        self.assertIn("sahip kararı (anayasal", register_row("E669"))
+
+
 class RecordsTest(unittest.TestCase):
     def test_every_report_is_named_whole_on_one_line_with_its_lines(self):
         raw = "\n".join(p.read_text(encoding="utf-8") for p in sorted((ROOT / "spec" / "tohum").glob("CHANGELOG*.md")))
