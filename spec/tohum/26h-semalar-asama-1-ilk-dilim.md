@@ -53,3 +53,8 @@ gelmezler. E665'in ölçüm beklemesi yalnız bu üç madde için biter.
 adlandırır (Aşama 0'ın, Aşama 1'in, bir partinin ya da çıkış partisinin MF'si). Üreticisi olmayan satır açık olarak
 listelenir.
 
+**Ölçüm aynası** (operatör kararı, 2026-11-20). `/work/logs/mirror.json`'un `session_time` bölümü oturum başına
+`wall_s`, `api_s`, `blocked_on_own_checks_s` ve yedi günlük kotanın başı ve sonunu (`quota_7d_start`, `quota_7d_end`),
+`path` bölümü bu dilimin henüz kabul edilmemiş MF'lerini (`path_mfs_left`) ve `organ_merges_copy`'yi verir. Yalnız
+olgudur; tanımları `seed/founder/mirror.py`'nin `SOURCES`'undadır. Türetilemeyen değer `null`'dır ve nedeni
+yazılıdır.

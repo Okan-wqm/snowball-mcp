@@ -3420,10 +3420,10 @@ MUTANTS = [
     ("loop_note_not_called", "seed/founder/launch.py", "        self.loop_note(stamp)\n", "",
      "E596: no session sees the loop's runs; a red (B) waits for the operator again"),
     ("loop_note_after_the_session", "seed/founder/launch.py",
-     "        self.loop_note(stamp)\n        self.mirror_note(stamp)\n"
+     "        self.loop_note(stamp)\n        self.mirror_note(stamp, prior)\n"
      "        sess = self.session(stamp, args.model, args.max_turns, args.budget_usd, "
      "args.session_timeout,\n                            getattr(args, \"effort\", None))\n",
-     "        self.mirror_note(stamp)\n"
+     "        self.mirror_note(stamp, prior)\n"
      "        sess = self.session(stamp, args.model, args.max_turns, args.budget_usd, args.session_timeout,\n"
      "                            getattr(args, \"effort\", None))\n        self.loop_note(stamp)\n",
      "E596: the file is written after the session it is for"),
@@ -3881,10 +3881,10 @@ MUTANTS = [
     ("lessons_note_not_called", "seed/founder/launch.py", "        self.lessons_note(stamp, before)\n", "",
      "E610: no session sees its lessons; retrieval is luck again"),
     ("lessons_note_after_the_session", "seed/founder/launch.py",
-     "        self.lessons_note(stamp, before)\n        self.loop_note(stamp)\n        self.mirror_note(stamp)\n"
+     "        self.lessons_note(stamp, before)\n        self.loop_note(stamp)\n        self.mirror_note(stamp, prior)\n"
      "        sess = self.session(stamp, args.model, args.max_turns, args.budget_usd, args.session_timeout,\n"
      "                            getattr(args, \"effort\", None))\n",
-     "        self.loop_note(stamp)\n        self.mirror_note(stamp)\n"
+     "        self.loop_note(stamp)\n        self.mirror_note(stamp, prior)\n"
      "        sess = self.session(stamp, args.model, args.max_turns, args.budget_usd, args.session_timeout,\n"
      "                            getattr(args, \"effort\", None))\n        self.lessons_note(stamp, before)\n",
      "E610: the index is written after the session it is for"),
@@ -4216,6 +4216,31 @@ MUTANTS = [
      "    hashes = None  #", "E678: pull judges a head without comparing the hashes"),
     ("hash_reference_unnamed", "spec/tohum/25-kurulum-gunu.md", "(`01c`, tek yer);", "(özetin üst düzeyi);",
      "E678: the comparison's reference is a second copy, not drift.hashes"),
+    # ---- seed epoch Z: the mirror's session time and the first slice's path (E677)
+    ("mirror_wall_from_transcript", MIRROR, 'fact["wall_s"] = round(minutes[stamp] * 60)',
+     'fact["wall_s"] = round(minutes[stamp])', "E677: the wall time is the minutes, not seconds"),
+    ("mirror_api_takes_last", MIRROR, 'api_ms = max(api_ms or 0.0, number(event["duration_api_ms"]))',
+     'api_ms = number(event["duration_api_ms"])', "E677: the API time is the last result's, not the session's"),
+    ("mirror_blocked_counts_all", MIRROR, "if i in commands and OWN_CHECKS.search(commands[i]))",
+     "if i in commands)", "E677: every long Bash call counts as waiting on own checks"),
+    ("mirror_blocked_counts_background", MIRROR, ' and given.get("run_in_background") is not True):', "):",
+     "E677: a background call counts as blocking"),
+    ("mirror_quota_wrong_window", MIRROR, 'QUOTA_WINDOW = "seven_day_overage_included"',
+     'QUOTA_WINDOW = "seven_day"', "E677: the quota is read from another window"),
+    ("mirror_quota_end_first", MIRROR, '"quota_7d_end": quota[-1] if quota else None',
+     '"quota_7d_end": quota[0] if quota else None', "E677: the quota's end is its start"),
+    ("mirror_path_ignores_transfer", MIRROR, '    elif any(r["batch"] == "P1" for r in imports):', "    elif False:",
+     "E677: a transferred P1 still counts its micro-features as left"),
+    ("mirror_path_counts_done", MIRROR, 'left = [f"P1:MF{k}" for k in mfs if k not in accepted["done_mf"]]',
+     'left = [f"P1:MF{k}" for k in mfs]', "E677: accepted micro-features count as left"),
+    ("mirror_path_unread_tarball", MIRROR, "    elif imports is None:", "    elif False:",
+     "E677: without the transfer rows a later batch's done_mf reads as P1's"),
+    ("mirror_organ_merges_guessed", MIRROR, '"organ_merges_copy": None,', '"organ_merges_copy": 0,',
+     "E677: organ-made merges on the copy are reported as zero, a number nothing derives"),
+    ("launcher_accepted_not_passed", "seed/founder/launch.py", "self.accepted_manifest(prior), SEED",
+     "None, SEED", "E677: the mirror never gets the accepted manifest"),
+    ("launcher_accepted_wrong_ref", "seed/founder/launch.py", "contents/snowball-tests.json?ref={sha}",
+     "contents/snowball-tests.json", "E677: the manifest is read at main's head, not the accepted SHA"),
     # ---- seed epoch Z: the owner's decision on Stage 1's first slice (E672) and on the release of H1-H3 (E673)
     ("slice_llm_first", "spec/tohum/26h-semalar-asama-1-ilk-dilim.md", "İlk düzeltme yolunda LLM yoktur.",
      "İlk düzeltme yolu LLM'le başlar.", "E672: the first fix path carries an LLM again"),
@@ -4257,6 +4282,9 @@ MUTANTS = [
      "E675: provenance goes into the front matter, where the loader drops the definition"),
     ("search_hint_prescribes", "spec/tohum/00d-gorev-haritasi-sahibin-ipuclari-devam.md", "Bunu kurarsa tasarım",
      "Bunu kurarsa tasarım operatörün, ölçüm", "E676: the hint takes the design from the Founder"),
+    # the mirror's page in `26h` (E677)
+    ("mirror_page_advises", "spec/tohum/26h-semalar-asama-1-ilk-dilim.md", "Türetilemeyen değer `null`'dır",
+     "Türetilemeyen değer tahmin edilir", "E677: a value the mirror cannot derive is guessed"),
     # ---- seed epoch W: the measurement mirror, /work/logs/mirror.json (the owner's decision of 2026-11-19, E647)
     ("mirror_version_ignores_effort", MIRROR,
      '(word(row.get("effort")) or "default") if "effort" in row else "unrecorded")', '"default")',
@@ -4326,14 +4354,14 @@ MUTANTS = [
      "        except Exception as exc:  # one section's failure is its own null",
      "        except ValueError as exc:  # one section's failure is its own null",
      "E647: one section that fails takes the whole mirror with it"),
-    ("mirror_note_not_called", "seed/founder/launch.py", "        self.mirror_note(stamp)\n", "",
+    ("mirror_note_not_called", "seed/founder/launch.py", "        self.mirror_note(stamp, prior)\n", "",
      "E647: no session sees the mirror"),
     ("mirror_note_after_the_session", "seed/founder/launch.py",
-     "        self.mirror_note(stamp)\n"
+     "        self.mirror_note(stamp, prior)\n"
      "        sess = self.session(stamp, args.model, args.max_turns, args.budget_usd, args.session_timeout,\n"
      "                            getattr(args, \"effort\", None))\n",
      "        sess = self.session(stamp, args.model, args.max_turns, args.budget_usd, args.session_timeout,\n"
-     "                            getattr(args, \"effort\", None))\n        self.mirror_note(stamp)\n",
+     "                            getattr(args, \"effort\", None))\n        self.mirror_note(stamp, prior)\n",
      "E647: the mirror is written after the session it is for"),
     ("mirror_note_not_written", "seed/founder/launch.py",
      "        (folder / MIRROR_NOTE).write_text(data, encoding=\"utf-8\")\n", "        pass\n",

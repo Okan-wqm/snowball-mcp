@@ -2,12 +2,15 @@
 
 Facts the Founder reads at each session start: what each model version cost and what the referee said of its pushes,
 what the live loop's runs did after each transfer, which rejection and red classes came back, how large the transferred
-referee is, how often a session handed work to agents, and how long the pilot stood between sessions. Facts only: no
+referee is, how often a session handed work to agents, how long the pilot stood between sessions, where each session's
+time and the seven-day quota went (epoch Z), and which micro-features of Stage 1's first slice (`26h`) are not accepted
+yet. Facts only: no
 advice, no ranking, no judgement of what could have been seen earlier (no-feeding). Every section names its source and
 its window. A metric that cannot be computed is null and its reason is in the section's ``null_reasons``; a section that
 fails is ``{"value": null, "reason": ...}`` and the others stand. Every list has a cap and says what it left out. The
 same files give the same bytes: no clock is read, the session's stamp is the time. Nothing here reaches the network:
-the launcher's own records on disk, and the referee repository's tarball the launcher downloads for /vec anyway.
+the launcher's own records on disk, the referee repository's tarball the launcher downloads for /vec anyway, the
+seed's own batch table, and the accepted manifest's `done_mf` the launcher read for it (``accepted``).
 """
 
 from __future__ import annotations
@@ -26,7 +29,7 @@ VERSION = 1
 FACTS_ONLY = ("observation: the launcher's records and the referee tarball, counted; no advice, no ranking, "
               "no judgement; lists in a fixed order (time, or class name), never by size")
 WINDOW_DAYS = 14  # the window of `repeats`
-SESSIONS_MAX = 20  # the newest sessions `delegation` and `waiting` read
+SESSIONS_MAX = 20  # the newest sessions `delegation`, `waiting` and `session_time` read
 MODELS_MAX, TRANSFERS_MAX, RUNS_MAX, UNATTRIBUTED_MAX, REPEATS_MAX, DATES_MAX = 10, 30, 10, 10, 20, 10
 TEXT_MAX = 200  # characters of a recorded output line
 OUTPUT_LINES = 2  # of a red job's recorded output
@@ -43,6 +46,11 @@ SHA_RE = re.compile(r"[0-9a-f]{40}")
 WORD_RE = re.compile(r"[A-Za-z0-9_.:@/+\[\]-]{1,80}")  # a model id may carry brackets: claude-x[1m]
 CONTROL, IMPORTS = "control.json", "setup/imports.jsonl"  # the operator's files in the referee repository
 OFF_LIVE, MUTANTS_DIR = "status/off_live.json", "tests/mutants/"  # the brain's own records in its referee/ tree
+# A Bash call counts as the session's own check when its command matches (the epoch Z panels' method, stated, not tuned)
+OWN_CHECKS = re.compile(r"mutant|mutate|prepush|unittest|pytest|test_|tests")
+QUOTA_WINDOW = "seven_day_overage_included"  # rate_limit_info.unifiedWindows.<this>.utilization
+P1_TABLE = "stage1-P1.json"  # the seed's batch table of the first slice's batch (`26e`, `26h`)
+SLICE_OWN = (1, 2, 3, 5, 6)  # Stage 1's own micro-features of the first slice, in `26h`'s order
 TEST_RE = re.compile(rb"(?m)^[ \t]*(?:async[ \t]+)?def[ \t]+test\w*[ \t]*\(")
 
 SOURCES = {
@@ -71,20 +79,40 @@ SOURCES = {
                "gap holds the referee's verdict wait, outage and usage-limit waits and any time the launcher was not "
                "running (a STOP, a crash); launcher_starts_in_gap counts the intervention rows in it. The launcher "
                "logs no wait by its cause",
+    "session_time": "wall_s: the session's pilot-metrics.jsonl minutes (the launcher's clock around the container), "
+                    "times 60; the transcript's result events time only their own turn, so they give no wall time. "
+                    "logs/<stamp>/session-<stamp>.jsonl: api_s, the largest duration_api_ms of its result events "
+                    "(the CLI sums it over the session); blocked_on_own_checks_s, every foreground Bash call whose "
+                    "command matches own_checks_pattern, its largest tool_progress elapsed_time_seconds, summed: a "
+                    "lower bound (a call under about 30 s sends no heartbeat, a background call and a wait outside "
+                    "Bash are not counted) and calls that ran at once each count; quota_7d_start and quota_7d_end, "
+                    "the first and the last rate_limit_event's rate_limit_info.unifiedWindows."
+                    "seven_day_overage_included.utilization",
+    "path": "26h's first slice: the seed's P1 table (stages/stage1-P1.json), then Stage 1's own MF1, MF2, MF3, MF5 and "
+            "MF6. path_mfs_left: P1's micro-features the manifest (snowball-tests.json) at the signed state's "
+            "last_accepted_sha does not list in done_mf, the launcher's read of it; none once the referee tarball's "
+            "setup/imports.jsonl has P1's transfer row. Stage 1's own micro-features are in no table and no signed "
+            "record accepts them, so they are listed apart",
 }
 
 
-def mirror(stamp: str, metrics: Path, logs: Path, referee: dict | None, spec: Path) -> dict:
+def mirror(stamp: str, metrics: Path, logs: Path, referee: dict | None, spec: Path, accepted: dict | None = None,
+           stages: Path | None = None) -> dict:
     """The mirror for the session starting at ``stamp``: ValueError for a stamp that is not one. Each section reads
-    its own inputs, so a file that cannot be read is the null of the sections that need it."""
+    its own inputs, so a file that cannot be read is the null of the sections that need it. ``accepted`` is the
+    launcher's read of the accepted manifest (``{"sha", "done_mf"}`` or ``{"error"}``), ``stages`` the seed's
+    table folder."""
     at = stamp_time(stamp)
+    before = lambda: [f for f in folders(logs, stamp) if f < stamp][-SESSIONS_MAX:]  # noqa: E731
     sections = {
         "per_model": lambda: per_model(cycles(metrics, stamp), late_verdicts(logs, folders(logs, stamp))),
         "live_attempts": lambda: live_attempts(referee, loop_runs(logs, folders(logs, stamp))),
         "repeats": lambda: repeats(cycles(metrics, stamp), loop_runs(logs, folders(logs, stamp)), at),
         "size": lambda: size(referee, spec),
-        "delegation": lambda: delegation(logs, [f for f in folders(logs, stamp) if f < stamp][-SESSIONS_MAX:]),
+        "delegation": lambda: delegation(logs, before()),
         "waiting": lambda: waiting(cycles(metrics, stamp), starts(metrics), at),
+        "session_time": lambda: session_time(logs, before(), cycles(metrics, stamp)),
+        "path": lambda: path(accepted, referee, stages),
     }
     note = {"mirror": VERSION, "stamp": stamp, "facts_only": FACTS_ONLY}
     for name, build in sections.items():
@@ -316,7 +344,8 @@ def operator_records(referee: dict | None) -> tuple[list | None, list | None, di
                 continue
             if isinstance(row, dict) and isinstance(row.get("brain_sha"), str) and SHA_RE.fullmatch(row["brain_sha"]):
                 imports.append({"brain_sha": row["brain_sha"], "ts": row.get("ts") if iso_time(row.get("ts")) else None,
-                                "stage": row.get("stage") if isinstance(row.get("stage"), int) else None})
+                                "stage": row.get("stage") if isinstance(row.get("stage"), int) else None,
+                                "batch": word(row.get("batch"))})
     return reverted, imports, nulls
 
 
@@ -508,3 +537,105 @@ def waiting(rows: list[dict], launched: list[str], at: datetime) -> dict:
             "gap_total_min": round(sum(s["gap_to_next_start_min"] for s in gaps), 1),
             "gap_with_launcher_start_min": round(sum(s["gap_to_next_start_min"] for s in gaps
                                                      if s["launcher_starts_in_gap"]), 1)}
+
+
+# ---- session time and quota (epoch Z) -------------------------------------------------------------------------
+def transcript_time(path: Path) -> dict:
+    """api_s, blocked_on_own_checks_s and the quota's first and last utilization, from one session's transcript."""
+    api_ms, commands, elapsed, quota = None, {}, {}, []
+    with path.open("r", encoding="utf-8", errors="replace") as fh:
+        for line in fh:
+            compact = line.replace(" ", "")
+            if not any(k in compact for k in ('"type":"result"', '"tool_use"', '"type":"tool_progress"',
+                                              '"type":"rate_limit_event"')):
+                continue
+            try:
+                event = json.loads(line)
+            except (ValueError, RecursionError):
+                continue
+            if not isinstance(event, dict):
+                continue
+            kind = event.get("type")
+            if kind == "result" and number(event.get("duration_api_ms")) is not None:
+                api_ms = max(api_ms or 0.0, number(event["duration_api_ms"]))
+            elif kind == "tool_progress" and event.get("tool_name") == "Bash":
+                seconds, parent = number(event.get("elapsed_time_seconds")), event.get("parent_tool_use_id")
+                if seconds is not None and isinstance(parent, str):
+                    elapsed[parent] = max(elapsed.get(parent, 0.0), seconds)
+            elif kind == "rate_limit_event":
+                info = event.get("rate_limit_info") if isinstance(event.get("rate_limit_info"), dict) else {}
+                windows = info.get("unifiedWindows") if isinstance(info.get("unifiedWindows"), dict) else {}
+                window = windows.get(QUOTA_WINDOW) if isinstance(windows.get(QUOTA_WINDOW), dict) else {}
+                if number(window.get("utilization")) is not None:
+                    quota.append(number(window["utilization"]))
+            elif kind == "assistant":
+                content = (event.get("message") or {}).get("content")
+                for item in content if isinstance(content, list) else []:
+                    given = item.get("input") if isinstance(item, dict) and isinstance(item.get("input"), dict) else {}
+                    if (isinstance(item, dict) and item.get("type") == "tool_use" and item.get("name") == "Bash"
+                            and isinstance(item.get("id"), str) and given.get("run_in_background") is not True):
+                        commands[item["id"]] = str(given.get("command") or "")
+    blocked = sum(s for i, s in elapsed.items() if i in commands and OWN_CHECKS.search(commands[i]))
+    nulls = {}
+    if api_ms is None:
+        nulls["api_s"] = "no result event with duration_api_ms"
+    if not quota:
+        nulls["quota_7d_start"] = nulls["quota_7d_end"] = f"no rate_limit_event with {QUOTA_WINDOW}.utilization"
+    return {"api_s": None if api_ms is None else round(api_ms / 1000), "blocked_on_own_checks_s": round(blocked),
+            "quota_7d_start": quota[0] if quota else None, "quota_7d_end": quota[-1] if quota else None,
+            "null_reasons": nulls}
+
+
+def session_time(logs: Path, stamps: list[str], rows: list[dict]) -> dict:
+    minutes = {r["stamp"]: number(r.get("minutes")) for r in rows}
+    sessions = []
+    for stamp in stamps:
+        fact = {"stamp": stamp, "wall_s": None, "api_s": None, "blocked_on_own_checks_s": None,
+                "quota_7d_start": None, "quota_7d_end": None, "null_reasons": {}}
+        if minutes.get(stamp) is None:
+            fact["null_reasons"]["wall_s"] = "no cycle row of this session carries minutes"
+        else:
+            fact["wall_s"] = round(minutes[stamp] * 60)
+        path = logs / stamp / f"session-{stamp}.jsonl"
+        if not path.is_file() or path.stat().st_size > TRANSCRIPT_MAX:
+            why = "no transcript" if not path.is_file() else "transcript too large"
+            fact["null_reasons"].update({k: why for k in ("api_s", "blocked_on_own_checks_s", "quota_7d_start",
+                                                          "quota_7d_end")})
+        else:
+            read = transcript_time(path)
+            fact["null_reasons"].update(read.pop("null_reasons"))
+            fact.update(read)
+        sessions.append(fact)
+    return {"window": f"the newest {SESSIONS_MAX} session folders before this one", "sessions": sessions,
+            "own_checks_pattern": OWN_CHECKS.pattern, "quota_window": QUOTA_WINDOW}
+
+
+# ---- the first slice's path (epoch Z, `26h`) --------------------------------------------------------------------
+def path(accepted: dict | None, referee: dict | None, stages: Path | None) -> dict:
+    nulls = {"organ_merges_copy": "no input of this launcher tells an organ's merge from a ready-made candidate's: the "
+                                  "loop's yaz summary names a merge per target without its candidate's organ_ids, "
+                                  "and the brain's ledger (its accept and merge rows) is not read here",
+             "path_mfs_unrecorded": "Stage 1's own micro-features are in no batch table and no signed record "
+                                    "accepts them before Stage 1's exit (26e)"}
+    table = json.loads((stages / P1_TABLE).read_text(encoding="utf-8")) if stages else None
+    mfs = [f["mf"] for f in table["mfs"]] if table else None
+    _, imports, _ = operator_records(referee)
+    done = word(accepted.get("sha")) if isinstance(accepted, dict) else None
+    left = None
+    if mfs is None:
+        nulls["path_mfs_left"] = "the seed's P1 table was not given"
+    elif imports is None:  # without the transfer rows a later batch's done_mf would read as P1's
+        nulls["path_mfs_left"] = unread(referee) or "setup/imports.jsonl is missing"
+    elif any(r["batch"] == "P1" for r in imports):
+        left = []
+    elif not isinstance(accepted, dict) or accepted.get("error") or not isinstance(accepted.get("done_mf"), list):
+        nulls["path_mfs_left"] = ("the accepted manifest was not read: "
+                                  f"{word((accepted or {}).get('error')) or 'no signed state'}")
+    elif not all(isinstance(k, int) and not isinstance(k, bool) and k in mfs for k in accepted["done_mf"]):
+        nulls["path_mfs_left"] = "the accepted done_mf is not P1's numbering"
+    else:
+        left = [f"P1:MF{k}" for k in mfs if k not in accepted["done_mf"]]
+    return {"window": "now", "accepted_sha": done if done and SHA_RE.fullmatch(done) else None,
+            "path_mfs_left": left, "path_mfs_left_count": None if left is None else len(left),
+            "path_mfs_unrecorded": [f"stage1:MF{k}" for k in SLICE_OWN], "organ_merges_copy": None,
+            "null_reasons": nulls}

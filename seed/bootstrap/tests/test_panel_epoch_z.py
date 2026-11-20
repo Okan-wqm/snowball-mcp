@@ -236,5 +236,15 @@ class SearchReadingHintTest(unittest.TestCase):
         self.assertIn("sahip kararı, ipucu (2026-11-20", register_row("E676"))
 
 
+class MirrorPageTest(unittest.TestCase):
+    def test_26h_names_the_mirrors_new_facts(self):  # mirror_page_advises
+        text = section("26h", "Ölçüm aynası")
+        for words in ("(operatör kararı, 2026-11-20)", "`session_time` bölümü oturum başına `wall_s`, `api_s`, "
+                      "`blocked_on_own_checks_s`", "`path` bölümü bu dilimin henüz kabul edilmemiş MF'lerini "
+                      "(`path_mfs_left`) ve `organ_merges_copy`'yi verir", "Yalnız olgudur",
+                      "Türetilemeyen değer `null`'dır ve nedeni yazılıdır"):
+            self.assertIn(words, text, words)
+
+
 if __name__ == "__main__":
     unittest.main()
