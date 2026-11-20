@@ -2,12 +2,14 @@
 # are free. Every job is read-only and holds no secret; pull requests from forks run under the same limits.
 #
 #   every push and pull request: the referee's unit tests on Linux and Windows, the drill judge's tests
-#   main and weekly, in addition: the mutation checks (referee in shards of at most 15, reference brain, drill
-#   judge), the end-to-end run against Docker, and the claude CLI contract against the pinned binary
+#   main and daily, in addition: the mutation checks (referee in 20 shards of four mutants at a time, reference
+#   brain, drill judge), the end-to-end run against Docker, and the claude CLI contract against the pinned binary
 #   (a made-up token: it spends nothing)
 #
-# The documentation floor is not here: doc-with-change.yml runs it on every push to main with no concurrency
-# group, because cancel-in-progress below would drop a push's check (E383).
+# A run on main is never cancelled or replaced: its concurrency group is its own run (delivery step 1 reads the last
+# push run on main, `seed/founder/deliver_epoch.py`). On any other branch and on pull requests a new push cancels the
+# stale run. The documentation floor is not here: doc-with-change.yml runs it on every push to main with no
+# concurrency group at all (E383).
 
 name: ci
 
@@ -15,15 +17,21 @@ on:
   push:
   pull_request:
   schedule:
-    - cron: "17 3 * * 1"
-  workflow_dispatch: {}
+    - cron: "17 3 * * *"  # daily: the mutation run without hints (`local/mutate.py --hints`)
+  workflow_dispatch:
+    inputs:
+      mutant_hints:
+        description: "on: re-run each mutant's earlier killer first (verified against this tree); off: whole suite"
+        type: choice
+        options: ["on", "off"]
+        default: "on"
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ github.ref == 'refs/heads/main' && format('main-{0}', github.run_id) || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 env:
   PYTHONDONTWRITEBYTECODE: "1"
@@ -111,29 +119,76 @@ jobs:
         working-directory: seed/bootstrap
         env:
           BEFORE: ${{ github.event.before }}
-        run: git diff --name-only "$BEFORE" HEAD > /tmp/changed.txt && python3 local/mutate.py --changed /tmp/changed.txt
+        run: git diff --name-only "$BEFORE" HEAD > /tmp/changed.txt && python3 local/mutate.py --changed /tmp/changed.txt --jobs 4
 
   mutation:
     needs: mutation-plan
     if: needs.mutation-plan.outputs.mode == 'full'
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: 180
     strategy:
       fail-fast: false
       # the account runs at most 20 jobs at once; 16 shards leave the referee's jobs room to start (E525)
       max-parallel: 16
       matrix:
-        # at most 15 mutants a shard: at the worst seen 3 minutes a mutant a shard ends in 45 of its 60 (E410, E502)
-        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103]
+        # four mutants at a time on the runner's four cores; at most 22 a worker even with no hint: at the worst seen
+        # 6 minutes a mutant four at a time, a shard ends in 132 of its 180 (E410, E502; `test_wiring.MutationShardTest`)
+        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # Hints are the killers of an earlier run (`mutation-complete` saves them). Each is re-run against this tree and
+      # counts only when its test fails with the mutant and passes alone without it; a miss runs the whole suite. The
+      # daily run and a dispatch with mutant_hints=off use none.
+      - name: Earlier killers as hints
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: mutant-hints.json
+          key: mutant-hints-${{ github.run_id }}
+          restore-keys: mutant-hints-
       - name: Referee mutants (every one must be killed)
         working-directory: seed/bootstrap
         env:
           SHARD: ${{ matrix.shard }}
-        run: python3 local/mutate.py --shard "$SHARD/104"
+          EVENT: ${{ github.event_name }}
+          HINTS_INPUT: ${{ inputs.mutant_hints }}
+        run: |
+          hints=()
+          if [ "$EVENT" != schedule ] && [ "$HINTS_INPUT" != off ]; then hints=(--hints "$GITHUB_WORKSPACE/mutant-hints.json"); fi
+          python3 local/mutate.py --shard "$SHARD/20" --jobs 4 "${hints[@]}" --record "$RUNNER_TEMP/records/shard-$SHARD.jsonl"
+      - name: This shard's records
+        if: success() || failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: mutation-records-${{ matrix.shard }}
+          path: ${{ runner.temp }}/records/shard-${{ matrix.shard }}.jsonl
+          if-no-files-found: error
+          retention-days: 7
+
+  # The union of the shards is every mutant, each once and killed; a shard that ran nothing, or a partition that
+  # lost or repeated a mutant, turns the run red here. Its killers become the next run's hints.
+  mutation-complete:
+    needs: [mutation-plan, mutation]
+    if: ${{ !cancelled() && needs.mutation-plan.outputs.mode == 'full' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: mutation-records-*
+          path: ${{ runner.temp }}/records
+      - name: Every mutant once, every one killed
+        working-directory: seed/bootstrap
+        run: python3 local/mutate.py --check-records "$RUNNER_TEMP/records" --hints-out "$GITHUB_WORKSPACE/mutant-hints.json"
+      - name: The killers as the next run's hints
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: mutant-hints.json
+          key: mutant-hints-${{ github.run_id }}-${{ github.run_attempt }}
 
   fixture-mutation:
     if: github.event_name != 'pull_request' && (github.event_name != 'push' || github.ref == 'refs/heads/main')

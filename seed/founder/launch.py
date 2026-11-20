@@ -187,11 +187,12 @@ GH_RETRY_DELAYS_S = (10, 20, 40, 60, 60)  # about three minutes before a read co
 GH_OUTAGE_WAIT_S = 300
 
 
-def gh_read(*args: str, timeout: float = 120) -> bytes:
+def gh_read(*args: str, timeout: float = 120, delays: tuple[int, ...] = GH_RETRY_DELAYS_S) -> bytes:
     """Stdout of a read-only `gh` call, retried on a failure or a timeout: one dropped connection must not end
-    the pilot (E245). Writes (`gh workflow run`) never come through here; repeating one is not harmless."""
+    the pilot (E245). Writes (`gh workflow run`) never come through here; repeating one is not harmless. ``delays=()``
+    is one attempt, for a read whose failure is a recorded null and must not hold the session (E679)."""
     last = ""
-    for delay in (*GH_RETRY_DELAYS_S, None):
+    for delay in (*delays, None):
         try:
             proc = run("gh", *args, check=False, timeout=timeout)
             if proc.returncode == 0:
@@ -1553,13 +1554,14 @@ class Pilot:
     def accepted_manifest(self, prior: dict | None) -> dict:
         """The mirror's `path` input (epoch Z, `26h`): the `done_mf` of the brain's `snowball-tests.json` at the signed
         state's last accepted SHA, read with `gh api`; ``{"error": <class>}`` when there is no signed state or the read
-        fails, which is the mirror's null and never stops the cycle."""
+        fails, which is the mirror's null and never stops the cycle. One attempt, no retry (E679): the three minutes of
+        retries an outage costs every other read would hold each session's start for a fact that may be null."""
         sha = ((prior or {}).get("state") or {}).get("last_accepted_sha")
         if not isinstance(sha, str) or not re.fullmatch(r"[0-9a-f]{40}", sha):
             return {"error": "no_signed_state"}
         try:
             data = json.loads(gh_read("api", f"repos/{self.brain}/contents/snowball-tests.json?ref={sha}",
-                                      "-H", "Accept: application/vnd.github.raw"))
+                                      "-H", "Accept: application/vnd.github.raw", delays=()))
         except Exception as exc:  # GitHub down, no file, not JSON: the mirror says which class, the session starts
             return {"error": type(exc).__name__}
         return {"sha": sha, "done_mf": data.get("done_mf") if isinstance(data, dict) else None}

@@ -11,6 +11,7 @@ is capped; the same files give the same bytes. Nothing reaches GitHub here.
 import importlib.util
 import json
 import re
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -666,6 +667,21 @@ class PathTest(unittest.TestCase):
         self.assertEqual(pilot.accepted_manifest(None), {"error": "no_signed_state"})
         with mock.patch.object(launch, "gh_read", side_effect=launch.GitHubUnavailable("down")):
             self.assertEqual(pilot.accepted_manifest(prior), {"error": "GitHubUnavailable"})
+
+    def test_a_failed_manifest_read_is_one_attempt_and_never_waits(self):
+        # manifest_read_retries
+        # E679: with gh failing, the read is tried once and no retry delay is slept (the suite ran nine minutes longer)
+        launch = load_launch()
+        pilot = launch.Pilot(Path(tempfile.mkdtemp()), "o/brain", "o/referee", "target")
+        calls = []
+
+        def run(*args, **kw):
+            calls.append(args)
+            return subprocess.CompletedProcess(args, 4, b"", b"gh: not logged in")
+        with mock.patch.object(launch, "run", run),                 mock.patch.object(launch.time, "sleep", side_effect=AssertionError("a retry delay was slept")):
+            self.assertEqual(pilot.accepted_manifest({"state": {"last_accepted_sha": A}}),
+                             {"error": "GitHubUnavailable"})
+        self.assertEqual(len(calls), 1)
 
 
 class PageTest(unittest.TestCase):
