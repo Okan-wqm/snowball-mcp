@@ -1909,6 +1909,10 @@ class MutationShardTest(unittest.TestCase):
                          "test_wiring.MutationShardTest.test_a")
         self.assertEqual(mutate.failed_test("ERROR: setUpClass (test_wiring.MutationShardTest)"),
                          "test_wiring.MutationShardTest")
+        self.assertEqual(mutate.failed_test("FAIL: test_a (test_wiring.MutationShardTest.test_a) (kind='x (y)')"),
+                         "test_wiring.MutationShardTest.test_a")  # a subtest: run 44789512937 lost 287 hints to it
+        self.assertEqual(mutate.failed_test("FAIL: test_a (test_wiring.MutationShardTest.test_a) [case 1]"),
+                         "test_wiring.MutationShardTest.test_a")
         self.assertEqual(mutate.failed_test("FAIL: test_a"), "test_a")
 
     def test_main_runs_are_never_cancelled_and_the_check_sees_every_shard(self):

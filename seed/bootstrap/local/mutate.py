@@ -4494,8 +4494,10 @@ def run_mutant(index: int, mutant: tuple[str, str, str, str, str] | None,
 
 
 def failed_test(line: str) -> str:
-    """The test id of unittest's `FAIL: name (module.Class.name)` line; the name alone when no id follows it."""
-    found = re.search(r"\(([\w.]+)\)\s*$", line)
+    """The test id of unittest's `FAIL: name (module.Class.name)` line, a subtest's parameters after it or not (a hint
+    that is the name alone names no module, so it never verifies and costs the whole suite); the name alone when no id
+    follows it."""
+    found = re.search(r"\(([\w.]+)\)", line)
     return found.group(1) if found else line.split(" ")[1]
 
 
