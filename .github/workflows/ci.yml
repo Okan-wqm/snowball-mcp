@@ -6,8 +6,10 @@
 #   judge), the end-to-end run against Docker, and the claude CLI contract against the pinned binary
 #   (a made-up token: it spends nothing)
 #
-# The documentation floor is not here: doc-with-change.yml runs it on every push to main with no concurrency
-# group, because cancel-in-progress below would drop a push's check (E383).
+# A run on main is never cancelled or replaced: its concurrency group is its own run (delivery step 1 reads the last
+# push run on main, `seed/founder/deliver_epoch.py`). On any other branch and on pull requests a new push cancels the
+# stale run. The documentation floor is not here: doc-with-change.yml runs it on every push to main with no
+# concurrency group at all (E383).
 
 name: ci
 
@@ -22,8 +24,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ github.ref == 'refs/heads/main' && format('main-{0}', github.run_id) || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 env:
   PYTHONDONTWRITEBYTECODE: "1"
