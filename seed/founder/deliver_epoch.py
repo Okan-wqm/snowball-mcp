@@ -18,7 +18,10 @@ stopped (each step is skipped when what it makes is already there; <work>/epoch-
      tree is S's), pushed fast-forward to the brain's main;
   5. S's own `seed-epoch` prints D's row, appended to `setup/summary.json` `seed_epochs` (the file's format kept);
      `--summary-edit` may change fields of `targets[]` entries and top-level fields (an owner's exception and its
-     commitment, `26c`), each naming the value it replaces;
+     commitment, `26c`), each naming the value it replaces; when the summary has `drift`, its
+     `hashes.vectors_sha256` and `seats_sha256` are recomputed from the staged `vectors/` and `seats/` with the
+     bootstrap referee's own `treehash.dir_hash` (`25`, `01c`), the old and new values named in the commit, the
+     journal and the touch row;
   6. the referee commit is pushed, then the kill switch goes off;
   7. `bootstrap.yml` is dispatched and its signed result must be `kind: seed_update`, `verdict: noop`, `head: D`;
   8. one touch row goes into <work>/pilot-log.md (a seed epoch is a human touch, `27`); STOP is removed only when this
@@ -62,6 +65,7 @@ def _load_launch():
 
 launch = _load_launch()
 from snowball_bootstrap.decide import NOTHING_TO_JUDGE  # noqa: E402  (launch put seed/bootstrap on sys.path)
+from snowball_bootstrap.treehash import dir_hash  # noqa: E402  (the function the referee's own check uses, `25`)
 
 SOURCE_REPO = "Okan-wqm/snowball-mcp"
 CI_WORKFLOW = "ci.yml"
@@ -299,6 +303,38 @@ def with_epoch(raw: str, row: dict, edits: dict | None) -> str:
     return dumps(doc)
 
 
+DRIFT_TREES = (("vectors_sha256", "vectors"), ("seats_sha256", "seats"))  # `01c` drift.hashes the referee compares
+
+
+def with_drift_hashes(raw: str, referee: Path) -> tuple[str, dict]:
+    """Step 5: the summary with `drift.hashes.vectors_sha256` and `seats_sha256` recomputed from the staged referee
+    clone, by the function the bootstrap referee's check uses (`treehash.dir_hash`, `25`): step 3 re-stages `vectors/`
+    and the seats page, so a delivery that changes them would otherwise leave the baseline stale and the next run would
+    stop (`vectors_hash_mismatch`). Only when the summary has `drift` (before its baseline there is nothing to keep);
+    nothing else of `drift` changes. Returns the text and ``{key: {"from": old, "to": new}}`` for each value that
+    moved."""
+    doc = json_doc(raw, SUMMARY)
+    if "drift" not in doc:
+        return raw, {}
+    drift = doc["drift"]
+    hashes = drift.setdefault("hashes", {}) if isinstance(drift, dict) else None
+    if not isinstance(hashes, dict):
+        raise Refused(f"step 5: {SUMMARY} drift is not an object with a hashes object (`01c`): edit it by hand")
+    moved = {}
+    for key, folder in DRIFT_TREES:
+        new = dir_hash(referee / folder)
+        if new is None:
+            raise Refused(f"step 5: the staged referee clone has no {folder}/ to hash for drift.hashes.{key}")
+        if hashes.get(key) != new:
+            moved[key] = {"from": hashes.get(key), "to": new}
+        hashes[key] = new
+    return dumps(doc), moved
+
+
+def moved_text(moved: dict) -> str:
+    return ", ".join(f"{key} {str(change['from'])[:12]} -> {change['to'][:12]}" for key, change in sorted(moved.items()))
+
+
 # ---- what the referee and the CI say (pure, so each refusal is tested) -------------------------------------------
 def ci_green(runs: list[dict], sha: str) -> tuple[bool, str]:
     """README step 1: S's newest `ci.yml` run on a push to main is completed and green. A rerun is newer."""
@@ -456,7 +492,8 @@ class Delivery:
                  "  3. stage " + ", ".join(f"{a} -> {b}" for a, b in REFEREE_MAP) + " from git objects (no strays, "
                  "S's blobs and modes, 0 CR)",
                  f"  4. brain: spec/tohum = {s[:7]}:spec/tohum, one commit D on main, D's tree checked",
-                 f"  5. seed-epoch row of D appended to {SUMMARY}{edits}",
+                 f"  5. seed-epoch row of D appended to {SUMMARY}{edits}; drift.hashes (vectors, seats) recomputed "
+                 "from the staged copy when the summary has drift",
                  "  6. push the referee, then kill_switch false",
                  "  7. dispatch bootstrap.yml: the signed result must be seed_update/noop/D",
                  "  8. touch row in pilot-log.md; STOP removed only if step 2 set it; start the launcher yourself"]
@@ -613,13 +650,17 @@ class Delivery:
             row = self.epoch_row(brain, d, s, expected)
             if last == d:
                 raise Refused(f"step 5: {SUMMARY} already names {d[:7]} but the journal has no referee commit")
-            (referee / SUMMARY).write_text(with_epoch(summary_raw, row, self.summary_edit), encoding="utf-8",
-                                           newline="")
+            text, moved = with_drift_hashes(with_epoch(summary_raw, row, self.summary_edit), referee)
+            (referee / SUMMARY).write_text(text, encoding="utf-8", newline="")
+            if moved:
+                self.save(drift_hashes=moved)
+                say(f"step 5: drift.hashes recomputed from the staged copy: {moved_text(moved)}")
             git(referee, "add", "--", SUMMARY)
             check_index(referee, expected)
             check_staged_only(referee, copy_paths + (SUMMARY,))
             check_no_cr(referee)
             edited = f"; {', '.join(sorted(self.summary_edit))} edited (--summary-edit)" if self.summary_edit else ""
+            edited += f"; drift.hashes recomputed ({moved_text(moved)})" if moved else ""
             sha = self.commit(referee, f"Seed epoch: referee synced to snowball-mcp main {s[:7]}; seed_epochs row for "
                                        f"brain {d[:7]}{edited}")
             self.push(referee)
@@ -668,9 +709,10 @@ class Delivery:
         if not j.get("touched"):
             edits = "".join(f", {key}: {json.dumps(value, ensure_ascii=False)}"
                             for key, value in sorted((self.summary_edit or {}).items()))
+            drift = f", drift.hashes: {moved_text(j['drift_hashes'])}" if j.get("drift_hashes") else ""
             row = (f"\n- {now()} operatör: tohum dönemi teslim edildi (insan dokunuşu, `27`; `deliver_epoch.py`). "
                    f"Kaynak snowball-mcp `{s[:7]}` (CI: {self.ci}); beyin `{j['D'][:7]}`; hakem `{j['kill_on'][:7]}` "
-                   f"(kill switch açık) → `{j['synced'][:7]}` (senkron, seed_epochs satırı{edits}) → kill switch "
+                   f"(kill switch açık) → `{j['synced'][:7]}` (senkron, seed_epochs satırı{edits}{drift}) → kill switch "
                    f"kapalı; doğrulama {j['verified']}: seed_update/noop/`{j['D'][:7]}`."
                    + (f" {self.note}" if self.note else "") + "\n")
             with (self.work / "pilot-log.md").open("a", encoding="utf-8") as fh:  # as the launcher writes it

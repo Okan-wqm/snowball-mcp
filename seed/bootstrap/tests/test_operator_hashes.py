@@ -9,8 +9,10 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from snowball_bootstrap import cli, config
-from snowball_bootstrap.treehash import TreeError, dir_hash
+from snowball_bootstrap import cli, config, gitio
+from snowball_bootstrap.treehash import TreeError, dir_hash, tree_hash
+
+from helpers import make_repo
 
 ROOT = Path(__file__).resolve().parents[3]
 
@@ -48,6 +50,17 @@ class OperatorHashesTest(unittest.TestCase):
         return {"drift": {"hashes": {"constitutional_sha256": "c" * 64,
                                      "vectors_sha256": vectors or dir_hash(self.root / "vectors"),
                                      "seats_sha256": seats or dir_hash(self.root / "seats")}}}
+
+    def test_the_check_and_the_operators_baseline_agree(self):  # dir_hash_drops_folders
+        """01c: the operator writes `drift.hashes` with `tree_hash` over `git archive HEAD vectors` (and `seats`); the
+        check hashes the run's copy of the checkout. On the same tree the two are one value (verified on the referee's
+        main at 0564356 on 2026-11-20: both 6ce4701e... and 7a3073ce..., as its summary says)."""
+        repo = Path(tempfile.mkdtemp()) / "referee"
+        make_repo(repo, {"vectors/vectors.json": b"{}\n", "vectors/x/y/a.json": b"[1]\n", "seats/29.md": b"# s\n",
+                         "policy.json": b"{}\n"})
+        for folder in ("vectors", "seats"):
+            tar = gitio.archive(repo, "HEAD", (folder,))
+            self.assertEqual(dir_hash(repo / folder), tree_hash(tar, folder, forbid_operator_names=False), folder)
 
     def test_the_hash_is_25a_1s_recipe_over_the_folder(self):  # dir_hash_drops_folders dir_hash_follows_links
         lines = sorted(f"{hashlib.sha256(d).hexdigest()}  {r}\n" for r, d in (("vectors.json", b"{}\n"),

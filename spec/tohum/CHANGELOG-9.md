@@ -65,7 +65,7 @@ Okunma: bir sayfanın geçmişi aranırken
   değişmez, tanım hash'i dosyanın dışındaki kayıttır. Sahibin ipucu (E676): `00d` "Arama ile okuma". Operatör
   kararları: ölçüm aynasına `session_time` ve `path` (E677; `organ_merges_copy` türetilemez, `null` ve nedeni);
   `25` "Karşılaştırmanın tabanı" ve `01c`: önyükleme hakemi `operator_hashes`'i her sonuca yazar, `drift.hashes`'e
-  karşı fark koşuyu durdurur (`vectors_hash_mismatch`, `seats_hash_mismatch`), `drift`'siz özet çalışır (E678).
+  karşı fark koşuyu durdurur (`vectors_hash_mismatch`, `seats_hash_mismatch`), `drift`'siz özet çalışır; teslim aracı `drift.hashes`'i sahnelenen kopyadan yeniden hesaplar (E678).
   Yanıtlanan rapor: `seed-081-the-time-limit-of-a-manifest-command-is-on-no-page` → `29b:24` (bildirim komutunun
   süresi `bootstrap.json` `limits.test_timeout_s`, bugün 600, komut başına; yerel koşucu okur, varsaymaz; E674).
   39 mutant, CI 103 parça.

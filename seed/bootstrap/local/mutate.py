@@ -4216,6 +4216,10 @@ MUTANTS = [
      "    hashes = None  #", "E678: pull judges a head without comparing the hashes"),
     ("hash_reference_unnamed", "spec/tohum/25-kurulum-gunu.md", "(`01c`, tek yer);", "(özetin üst düzeyi);",
      "E678: the comparison's reference is a second copy, not drift.hashes"),
+    ("epoch_drift_hashes_stale", EPOCH,
+     "            text, moved = with_drift_hashes(with_epoch(summary_raw, row, self.summary_edit), referee)\n",
+     "            text, moved = with_epoch(summary_raw, row, self.summary_edit), {}\n",
+     "E678: a delivery re-stages vectors/ and seats/ but leaves drift.hashes stale; the next run stops"),
     # ---- seed epoch Z: the mirror's session time and the first slice's path (E677)
     ("mirror_wall_from_transcript", MIRROR, 'fact["wall_s"] = round(minutes[stamp] * 60)',
      'fact["wall_s"] = round(minutes[stamp])', "E677: the wall time is the minutes, not seconds"),
