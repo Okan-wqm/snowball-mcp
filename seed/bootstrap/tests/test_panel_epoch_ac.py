@@ -58,7 +58,7 @@ class FindingStatesTest(unittest.TestCase):
         thirteen = (ROOT / "spec" / "asama-1" / "13d-bulgu-ve-kosu-semasi.md").read_text(encoding="utf-8")
         self.assertIn("`verified` ve `withdrawn` Aşama 1'de yazılmaz (`tohum/26k`)", thirteen)
 
-    def test_mf12s_contracts_and_the_loosening(self):  # t1_after_the_merge t2_cycle_unusable l088_unnamed
+    def test_mf12s_contracts_and_the_loosening(self):  # t1_after_the_merge t2_cycle_unusable l088_unnamed l088_off_page
         text = flat(page("26k"))
         for words in ("**P1 MF12'nin sözleşmeleri.** MF12 (`26j`) bunları karşılar",
                       "T1: `finding_unknown` ve `finding_not_open` D5 nedenleridir ve merge seçilmeden önce verilir. Bir "
@@ -67,6 +67,7 @@ class FindingStatesTest(unittest.TestCase):
                       "reddeder, devri asla geçersiz kılmaz."):
             self.assertIn(words, text, words)
         self.assertIn("MF12'nin sözleşmeleri T1 ve T2 `26k`'dedir (seed-088)", flat(page("26j")))
+        self.assertIn("`asama-1/13d:19` bunları Aşama 1 durumu sayar; bu sayfa onu gevşetir (L-088).", text)
         row = register_row("E691")
         self.assertIn("bağımsız inceleme ekibi kararı (2026-11-21", row)
         self.assertIn("**Gevşetme** L-088 (operatör kararı, sahibin yetkisiyle, 2026-11-21", row)
@@ -77,21 +78,30 @@ class FirstAgentHintTest(unittest.TestCase):
 
     def test_00e_states_the_hint_and_its_guards(self):
         # agent_hint_unlabelled agent_lands_by_itself agent_run_unrecorded agent_unmeasured agent_never_retired
-        # agent_outside_agents agent_design_prescribed
+        # agent_outside_agents agent_design_prescribed agent_on_sonnet agent_new_kind agent_catch_unproven
+        # agent_hints_confounded agent_evidence_overclaimed
         text = flat(page("00e"))
         for words in ("**Sahibin ipucu (bu kez kural esnetildi; 2026-11-21, E692; ipucu, reçete değil; korkuluklar "
                       "bağlayıcıdır). İlk ajan: denetlenen ve ölçülen.**",
                       "f1735, f1748 ve f1799 E667'yi sıradaki işler arasında adlandırır ve yapmaz; f1844 ve f1853 \"alt "
-                      "ajan kullanılmadı\" der", "ilk ajan, push'tan önce koşan ve Sonnet'te çalışan bir uyum denetçisi "
-                      "olsun", "Tasarım (istem, kapsam, ne zaman koştuğu) senindir.",
+                      "ajan kullanılmadı\" der",
+                      "Defterin oturum başlangıç satırları rakibin `refutation_reproduced` ile reddettiği 18 push "
+                      "adlandırır (f32'den f1777'ye); son beşinden üçü bir sayfa sözünün kaçağıdır: f1595",
+                      "ilk ajan, push'tan önce koşan bir uyum denetçisi olsun; inceleme yaptığı için modeli `opus`'tur "
+                      "(E643: `opus` ajanları analiz, inceleme ve planlama içindir", "Tasarım (istem, kapsam, ne zaman "
+                      "koştuğu) senindir.",
                       "Korkuluklar (sahibin koşulu; bağlayıcıdır, kaliteden ödün verilmez)",
                       "1. Ajan kendiliğinden hiçbir şey sokmaz. Her değişiklik yine senin incelemenden, tam prepush'tan, "
                       "önyükleme hakeminden ve rakipten değişmeden geçer. Ajan bir denetim ekler, hiçbirinin yerini almaz.",
-                      "2. Her ajan koşusu bir defter satırıdır: ajan kimliği, model, tanım sha256'sı, girdi (diff'in "
-                      "sha'sı), bulgular, token ve maliyet, duvar süresi.",
-                      "3. Ajanlı ve ajansız oturumlar karşılaştırılarak ölçülür",
-                      "4. Yanlışlanabilir emeklilik: ajanlı 5 oturumdan sonra gerçek yakalama 0 ise ve retler düşmediyse, "
-                      "ya da maliyeti kazandırdığı süreyi aşıyorsa",
+                      "2. Her ajan koşusu bir `founder` defter satırıdır, türü `build` ya da `decision` (türler kapalı "
+                      "kümedir, `26`; yeni tür uydurulmaz); `summary`'si ajan kimliğini, modeli ve çabayı (E644), tanım "
+                      "sha256'sını, diff'in sha'sını, bulguları, token ve maliyeti, duvar süresini taşır.",
+                      "3. Ölçülür: gerçek yakalama, ajanın bir bulgusudur ki onu düzeltmesinden önce kırmızı, sonra yeşil "
+                      "olan bir testle doğruladın ve satıra yazdın; rakibin ya da hakemin doğrulaması da sayılır. Yanlış "
+                      "alarm, nedeniyle reddettiğin bulgudur.",
+                      "E692 ve E693 yalnız oturum başına değil, bulgu başına ayrı ölçülür (atıf), birbirini karıştırmaz",
+                      "4. Yanlışlanabilir emeklilik: ajanlı 5 oturumdan sonra gerçek yakalama 0 ise ya da maliyeti "
+                      "kazandırdığı dakikaları aşıyorsa",
                       "5. Ajanın tanımı `agents/` altındadır ve kökeni gövdesindedir (`09`, E675); kapsülün araç kuralları "
                       "geçerlidir"):
             self.assertIn(words, text, words)
@@ -127,7 +137,7 @@ class SmartCheckHintTest(unittest.TestCase):
 
 
 class FirstTaskTest(unittest.TestCase):
-    def test_this_entry_opens_with_its_first_task(self):  # ac_first_task_not_first ac_t1_t2_unnamed ac_hint_is_a_duty ac_hints_wait_for_p1
+    def test_this_entry_opens_with_its_first_task(self):  # ac_first_task_not_first ac_t1_t2_unnamed ac_hint_is_a_duty ac_hints_wait_for_p1 ac_order_not_superseding
         entry = flat(changelog().split("\n- 2.2 (2026-11-21, E691–E693", 1)[1])
         self.assertIn("**İlk iş** (`25` 10b; Kurucu'nun dersi f1741). Teslimden itibaren önyükleme hakeminin hiçbir "
                       "denetimi kırmızı olmaz", entry[:400])
@@ -143,6 +153,8 @@ class FirstTaskTest(unittest.TestCase):
         self.assertEqual(len(re.findall(r" [1-9]\. ", first)), 4)
         self.assertLess(first.index("1. MF9"), first.index("2. birinci maddeden"))  # the hints right after MF9
         self.assertLess(first.index("2. birinci maddeden"), first.index("3. MF10"))
+        self.assertIn("Bu sıra `CHANGELOG-11`'in E689 ve E690 yerleşiminin yerini alır: E689'un hızlı geçişi artık E693'le "
+                      "birlikte MF9'dan hemen sonradır.", first)
         self.assertEqual(register_row("E692").count("birinci maddeden (MF9) hemen sonra"), 1)
         self.assertEqual(register_row("E693").count("birinci maddeden (MF9) hemen sonra"), 1)
         self.assertTrue(any("`seed-088-finding-states-fixed-verified-withdrawn-have-no-named-writer` →" in line
