@@ -27,7 +27,8 @@ yazmaz.
 
 **`verified` ve `withdrawn`** Aşama 1'de yazılmaz (operatör kararı, sahibin yetkisiyle (2026-11-21)). `verified`'ın
 yazıcısı hayatta kalma ve salınım ölçüsüyle sonra gelir; `withdrawn`'ın tetiği Aşama 4'ün oracle'ıdır (`asama-4/07`).
-İkisi de `26`'nın kapalı kümesinde geçerli değerler olarak kalır ve okunur.
+İkisi de `26`'nın kapalı kümesinde geçerli değerler olarak kalır ve okunur. `asama-1/13d:19` bunları Aşama 1 durumu
+sayar; bu sayfa onu gevşetir (L-088).
 
 **P1 MF12'nin sözleşmeleri.** MF12 (`26j`) bunları karşılar:
 - T1: `finding_unknown` ve `finding_not_open` D5 nedenleridir ve merge seçilmeden önce verilir. Bir merge, kaydın

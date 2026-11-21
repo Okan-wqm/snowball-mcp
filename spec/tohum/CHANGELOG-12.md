@@ -16,6 +16,8 @@ Okunma: bir sayfanın geçmişi aranırken
   3. MF10, organ çıktısının tutulması; MF11, çalışma-zamanı adayının yeniden koşusu (`26j`);
   4. MF12, `yaz`'ın aday okuması (`26j`), sözleşmeleri T1 ve T2 ile (`26k`): `finding_unknown` ve
      `finding_not_open` merge seçilmeden önce verilen D5 nedenleridir; hiçbir adayın içeriği devri kullanılamaz kılmaz.
+  Bu sıra `CHANGELOG-11`'in E689 ve E690 yerleşiminin yerini alır: E689'un hızlı geçişi artık E693'le birlikte MF9'dan
+  hemen sonradır.
   Yeni `26k` "Şemalar, Devam: Bulgu Durumlarının Yazıcıları" (`26j` ve tohumun `asama-1/13d` kopyası ona işaret eder):
   bağımsız inceleme ekibi kararı (seed-088, E691): `fixed`'i merge kararı yazar; yeniden gözlem; geri alınan merge
   bulgusunu aynı devirde yeniden açar (iki uzmanın ayrıldığı yerde daha sıkı olan); açık olmayan bulguya karar adayın
