@@ -65,6 +65,7 @@ Okunma: sayfa ararken; görev seçmek için `tohum/00b-gorev-haritasi.md`
 | `tohum/26e-semalar-asama-1.md` | Şemalar, Devam: Aşama 1'in Parti Tabloları | Aşama 1'de her parti yazılırken ve parti çıkış isteğinden önce; kilidin açılışından önce |
 | `tohum/26h-semalar-asama-1-ilk-dilim.md` | Şemalar, Devam: Aşama 1'in İlk Dilimi | Aşama 1'de sıradaki MF ya da parti seçilirken, P1'in MF8'i ve MF9'u yazılırken, Aşama 1'in çıkış satırları ve harness'in politika değerleri okunurken |
 | `tohum/26i-semalar-gozcu.md` | Şemalar, Devam: Gözcü'nün Satırları ve Görünümleri | Gözcü (P1 MF7) yazılırken, bir `freeze` satırı okunurken ve kapı bir dondurmayı okurken |
+| `tohum/26j-semalar-p1-bulgu-izin-aday.md` | Şemalar, Devam: P1'in Bulgu Yazıcısı, İzin Listesi ve Aday Yolu | P1'in MF8–MF12'si yazılırken ve bir aday paketi, bulgu ya da `accept` satırı okunurken |
 | `tohum/26g-semalar-kurucu-dersi.md` | Şemalar, Devam: Kurucu'nun Dersi ve Ders Dizini | defterine ders yazarken ve `/work/logs/lessons.json` okunurken |
 | `tohum/27-sozluk-ve-okuyucular.md` | Sözlük ve Okuyucular | yeni terim ya da dosya eklerken |
 | `tohum/27a-okuyucular-hedef-durumu.md` | Okuyucular, Devam: Hedefteki Durum Dosyaları | yeni durum dosyası, bölüm ya da görünüm eklerken |
@@ -95,6 +96,7 @@ Okunma: sayfa ararken; görev seçmek için `tohum/00b-gorev-haritasi.md`
 | `tohum/29y-dongu-kosulari.md` | Döngünün Koşuları: Kurucu'nun Gördüğü Son Koşular | döngünün koşuları ve `/work/logs/loop-runs.jsonl` okunurken |
 | `tohum/29z-cikis-kanaryasi.md` | Çıkış Kanaryası: (B)'den Önce Gerçek Bir Konteyner | çıkış isteği yazılırken, bir `canary:` eksiği okunurken ve `runner.contained`'ın `run` komutu değişirken |
 | `tohum/29za-vektor-arayuzleri-asama-1-cikisi.md` | Vektör Arayüzleri: Aşama 1 Çıkışının Sayımı ve Saldırgan Set | `cases.build` ve `exit.sample` yazılırken ve Aşama 1 çıkış partisi tasarlanırken |
+| `tohum/29zb-vektor-arayuzleri-p1-durum-dosyalari.md` | Vektör Arayüzleri: P1'in Durum Dosyalı Kökü | P1 MF8'in kökü yazılırken ve `root_files` grubu okunurken |
 | `tohum/30-guvenlik-katalogu.md` | Güvenlik Kataloğu: İlkeler, Zamanlama, Ortak Kader | her güvenlik işinde, her bildirimde ve yeni bir hedefe bağlanırken |
 | `tohum/30a-katalog-erisim-ve-enjeksiyon.md` | Güvenlik Kataloğu I: Erişim, Kimlik, Enjeksiyon, Web | kapsam bu sınıflara dokunduğunda; güvenlik avcısı, Kurucu ve K6 düzeltme işinde |
 | `tohum/30b-katalog-kiracilik-ve-graphql.md` | Güvenlik Kataloğu II: Çok Kiracılık, GraphQL, Kaynak Tüketimi | profil `tenancy.model` `none` değilse ya da hedef GraphQL sunuyorsa; güvenlik avcısı ve K6 işinde |
@@ -112,6 +114,7 @@ Okunma: sayfa ararken; görev seçmek için `tohum/00b-gorev-haritasi.md`
 | `tohum/31g-karar-rehberi.md` | Mimari İlkeler VII: Karar Rehberi | aşağıdaki durumlardan biri ortaya çıktığında, `decision` satırı yazılmadan önce |
 | `tohum/31h-catismalar-ve-tarama.md` | Mimari İlkeler VIII: Çatışmalar ve Tarama Sinyalleri | iki ilke aynı durumda farklı yön gösterdiğinde; bir repo ilkeler açısından taranırken; rakip bir tasarımı çürütmeye çalışırken |
 | `tohum/CHANGELOG.md` | Değişiklik Günlüğü — Tohum | bir sayfanın geçmişi aranırken |
+| `tohum/CHANGELOG-11.md` | Değişiklik Günlüğü — Tohum, 2.2'nin Onuncu Kayıtları | bir sayfanın geçmişi aranırken |
 | `tohum/CHANGELOG-10.md` | Değişiklik Günlüğü — Tohum, 2.2'nin Dokuzuncu Kayıtları | bir sayfanın geçmişi aranırken |
 | `tohum/CHANGELOG-8.md` | Değişiklik Günlüğü — Tohum, 2.2'nin Yedinci Kayıtları | bir sayfanın geçmişi aranırken |
 | `tohum/CHANGELOG-9.md` | Değişiklik Günlüğü — Tohum, 2.2'nin Sekizinci Kayıtları | bir sayfanın geçmişi aranırken |

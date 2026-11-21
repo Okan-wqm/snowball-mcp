@@ -35,8 +35,11 @@ protokolünün dar hâlidir (`tohum/01a`, `tohum/02`):
 | P1 | 5 | LLM yokluğu ve `<state_root>`'un sıfırdan büyümesi | 9, 11 | — |
 | P1 | 6 | `drift.check`, her devir (`tohum/21`) | 24 | — |
 | P1 | 7 | `gozcu.evaluate` (`tohum/28`) | 41 | — |
-| P1 | 8 | Bulgu yazıcısı `findings.write`: `findings.jsonl` ve `unresolved.jsonl`, parmak izi ve durumlar (§1.13d; `tohum/26h`) | 12 | — |
-| P1 | 9 | İzin listesi ve `accept` yazıcısı `gate.allowlist` (`tohum/26h`) | 55 | — |
+| P1 | 8 | Bulgu yazıcısı `findings.write`: `findings.jsonl` ve `unresolved.jsonl`, parmak izi ve durumlar (§1.13d; `tohum/26h`, `tohum/26j`) | 12 | `root_files` |
+| P1 | 9 | İzin listesi ve `accept` yazıcısı `gate.allowlist` (`tohum/26h`, `tohum/26j`) | 55 | — |
+| P1 | 10 | `koş` bir organın çıktısını koşu sonuçlarında tutar (`tohum/26j`) | 56 | — |
+| P1 | 11 | `koş` bir çalışma-zamanı adayını kapıdan önce yeniden koşar (`tohum/26j`) | 57 | — |
+| P1 | 12 | `yaz` `candidates/<id>/`'yi sonuçlardan hash'iyle okur (`tohum/26j`) | 58 | — |
 | P2 | 1 | `security.derive` ve `security.run` (`tohum/30d`) | `30d`'nin profil testleri | — |
 | P3 | 1 | `operating{}` sınırlarının bant içinde ayarı (`tohum/18a`); sahip kararıyla ertelendi (`tohum/26h`) | 52 | — |
 | P3 | 2 | Düzeltme gidiş-dönüşü `koş` → `çağır` → `koş` (§1.5 3; `tohum/26h`) | P3'ün tablosuyla | — |

@@ -259,6 +259,13 @@ değiştiriyorsa önceki şemayı taşıyabilmelidir (`state.migrate`); taşıya
 4. Yazar App'inin etkinlik akışındaki login'i (`<slug>[bot]`) ilk canlı döngüden önce kopyanın akışında bir kez
    doğrulanır.
 
+**Sert duruştan sonra yeniden başlatma** (seed-085 h, `26i`, `28a`). Operatör yeniden başlatma satırını elle yazmaz:
+```
+python seed/founder/restart_row.py <hakem checkout'u> --target <id> --hard-stop <row_hash> --stage <n> [--note "..."]
+```
+Satırı sayacın son `row_hash`'ine zincirler ve önyükleme hakeminin `canon.row_hash`'iyle hash'ler; kırık sayaçta hiçbir
+şey yazmaz. Commit ve push operatöründür (insan dokunuşu).
+
 ## Etkinleştirme (Aşama 0 → Aşama 1)
 
 Aşama 0 çıkışının (A) parçası kabul edilince yapılan aktarım ve kurulumun ikinci bölümü (`spec/tohum/25a`) bu pilot

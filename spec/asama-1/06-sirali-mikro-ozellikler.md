@@ -11,7 +11,7 @@ geçer ve aktarılmış hakem üzerinden `brain/integration`'da bir canlı koşu
 numarasızdır; kendi MF'leri, (A)'ları ve aktarımlarıyla araya girer. MF'ler numaralarını korur; sıra
 aşağıdaki gibidir (`tohum/26h`): ilk dilim deterministiktir, ilk düzeltme yolunda LLM yoktur.
 
-- **Önce: P1 partisi** (organ ve ölçüm, MF9'a kadar: bulgu yazıcısı ve izin listesi dahil): (A), aktarım, (B).
+- **Önce: P1 partisi** (organ ve ölçüm, MF12'ye kadar: bulgu yazıcısı, izin listesi ve çalışma-zamanı aday yolu dahil, `tohum/26j`): (A), aktarım, (B).
   1'in canlı koşusundan önce biter.
 
 - MF1. `lint.discover`: profildeki lint aracını saran adapter; dev vakalarında her kural isabet alır
