@@ -55,7 +55,7 @@ Okunma: her oturumda, görev seçilirken (`00c`'nin devamı)
   İçe aktarma grafiği `status.depmap`'inkidir ve kökteki `tests/` dizinini kapsamalıdır; damgayı yalnız bütün koşu basar.
 - Olgu: yakalayacağı sınıf tekrarladı: "`referee/` dışındaki bir çağıran atlandı" (dersler f1812 ve f1829 dahil); bütün
   prepush koşularına ve kırmızı bir T46'ya mal oldu.
-- İpucu: önerini `CHANGELOG-11`'in İlk iş maddelerinden sonraki işin olarak kur ve ölç: kazanılan dakikalar ve atlanan
+- İpucu: önerini `CHANGELOG-11`'in İlk iş'inin birinci maddesinden sonraki işin olarak kur ve ölç: kazanılan dakikalar ve atlanan
   çağıran sınıfını yakalayıp yakalamadığı. Nasıl kurulacağı senindir.
 
 **Sahibin ipucu (bu kez kural esnetildi; 2026-11-21, E690; ipucu, reçete değil). Bellekten yazılan ad.**
