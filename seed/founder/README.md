@@ -178,7 +178,7 @@ archive`'dan, `core.autocrlf=false` ile, her biri `ls-tree`'nin blob'una karşı
 `--summary-edit` `targets[]` girdilerinin alanlarını ve özetin üst düzey alanlarını değiştirir: `{"targets": {"copy":
 {"unit_candidates": {"from": [...], "to": [...]}}}, "fields": {"spec_exception": {"from": null, "to": {...}}}}`; `from: null`
 alanın henüz olmadığıdır, `to` null olamaz, `seed_epochs` ve `targets` `fields`'la değişmez (E564: sahibin istisnası ve
-taahhüdü onları okuyan tohumun dönemiyle gelir, `26c`). Özette `drift` varsa 5. adım `drift.hashes.vectors_sha256` ve `seats_sha256`'yı sahnelenen `vectors/` ve `seats/`'ten, önyükleme hakeminin denetiminin kullandığı `treehash.dir_hash`'le yeniden hesaplar (3. adım ikisini de yeniden sahneler; eski değer kalsaydı sonraki koşu `vectors_hash_mismatch` ile dururdu, `25`, `01c`); eski ve yeni değer commit iletisinde, günlükte ve dokunuş satırındadır; `drift` yoksa özet ona dokunmaz. `seed-epoch` `S`'nin kendi `seed/bootstrap/`'ından (git nesnelerinden yazılır, bayt
+taahhüdü onları okuyan tohumun dönemiyle gelir, `26c`). Özette `drift` varsa 5. adım `drift.hashes.vectors_sha256` ve `seats_sha256`'yı sahnelenen `vectors/` ve `seats/`'ten, önyükleme hakeminin denetiminin kullandığı `treehash.dir_hash`'le yeniden hesaplar (3. adım ikisini de yeniden sahneler; eski değer kalsaydı sonraki koşu `vectors_hash_mismatch` ile dururdu, `25`, `01c`), `drift.hashes.constitutional_sha256`'yı da hakem klonunun o anki `policy.json`'undan `01c`'nin tarifiyle, önyükleme hakeminin RFC 8785 `canon.canonical`'ıyla (AA dönemi): anayasal bölümde bir kayan nokta varsa tarifin değeri yoktur ve teslim 5. adımda durur (`policy.json`'u `main`'de düzelt, aynı `S` ile yeniden koştur); eski ve yeni değer commit iletisinde, günlükte ve dokunuş satırındadır; `drift` yoksa özet ona dokunmaz. `seed-epoch` `S`'nin kendi `seed/bootstrap/`'ından (git nesnelerinden yazılır, bayt
 kodu bırakılmaz) koşar. Her adım ya zaten yapılmışsa atlanır ya da uyuşmazlıkta durur: aracın yaptığı
 `<work>/epoch-delivery.json`'dadır, duran bir teslim aynı `S` ile yeniden koşturulunca kaldığı yerden sürer (başka bir
 `S` reddedilir). `kill_switch` açılmadan duran bir koşu klasörü bulduğu gibi bırakır (koyduğu `STOP` kalkar); sonra
@@ -235,6 +235,29 @@ değişikliği sayılmaz ve rakibin diff'ine girmez, push kendi türüne göre y
 kaybolursa hakem son dönemin commit'inden başlar (`25` "Durum kaybolursa"). Yeni `bootstrap/` durumun şemasını
 değiştiriyorsa önceki şemayı taşıyabilmelidir (`state.migrate`); taşıyamıyorsa teslim yapılmaz. Hakem
 `bootstrap_sha256`'yı biçim olarak okur, kendi `bootstrap/` kopyasıyla henüz karşılaştırmaz (E24).
+
+**AA döneminin operatör işleri** (seed-082, seed-083, seed-084; tohum sayfası değil). Teslimden önce, hakem reposunun
+`main`'inde, `deliver_epoch.py` koşmadan:
+1. `policy.json`: `constitutional.confidence_level` `0.9` → `"0.900000"`, `constitutional.stage_params.fix_acceptance_min`
+   `0.8` → `"0.800000"` (dosyada noktalı başka sayı kalmasın, `01c`); `18a`'nın Gözcü yaprakları
+   (`constitutional.regression_freeze` `{min_merges: 50, window_days: 30, revert_rate: "0.020000", min_reverts: 2}`,
+   `constitutional.gate_rules.soft_freeze_limit` 2, `containment_freeze` 2) ve `18b`'nin performans bölümü
+   (`performance.windows.measure` 14 ve öbür satırları; kesirler altı ondalıklı dizgi). Aşama 1'in zorunlu yolları
+   (`29v`) eksikse döngü temiz durur.
+   Politikayı yeniden yazmak ve teslim aynı oturumda yapılır: arada koşan bir hakem işi yeni `policy.json`'u bayat
+   `constitutional_sha256`'ya karşı okur.
+2. `setup/summary.json` `drift`: `writer_app_permissions` bu teslimde **eklenmez** (beynin bugünkü sıkı biçimi onu
+   "not a field of this shape" diye reddeder); `operator_checked_at` ile birlikte sonraki bir operatör dokunuşunda
+   eklenir. `visibility` canlı tabanda zaten vardır. `constitutional_sha256`'yı teslimin 5. adımı yeni `policy.json`'dan
+   yeniden hesaplar (hakemin `canonical`'ı); kayan nokta kaldıysa teslim kill switch'ten ve beyne `D`'den önce, `--dry-run`'da
+   da durur. Teslim dışında elle, hakem reposunun kökünde, `snowball-mcp`'nin `seed/bootstrap`'ı `PYTHONPATH`'teyken
+   (asla `json.dumps` ile değil):
+   ```
+   python -c "import json,hashlib; from snowball_bootstrap.canon import canonical; print(hashlib.sha256(canonical(json.load(open('policy.json', encoding='utf-8'))['constitutional'])).hexdigest())"
+   ```
+3. `operator_checked_at` sahibin kurulu App'ler denetimini bekler (E668).
+4. Yazar App'inin etkinlik akışındaki login'i (`<slug>[bot]`) ilk canlı döngüden önce kopyanın akışında bir kez
+   doğrulanır.
 
 ## Etkinleştirme (Aşama 0 → Aşama 1)
 

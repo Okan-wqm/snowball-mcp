@@ -20,8 +20,9 @@ stopped (each step is skipped when what it makes is already there; <work>/epoch-
      `--summary-edit` may change fields of `targets[]` entries and top-level fields (an owner's exception and its
      commitment, `26c`), each naming the value it replaces; when the summary has `drift`, its
      `hashes.vectors_sha256` and `seats_sha256` are recomputed from the staged `vectors/` and `seats/` with the
-     bootstrap referee's own `treehash.dir_hash` (`25`, `01c`), the old and new values named in the commit, the
-     journal and the touch row;
+     bootstrap referee's own `treehash.dir_hash` (`25`, `01c`), and `hashes.constitutional_sha256` from the referee's
+     current `policy.json` with the referee's own RFC 8785 `canonical` (`01c`; a section that holds a float refuses),
+     the old and new values named in the commit, the journal and the touch row;
   6. the referee commit is pushed, then the kill switch goes off;
   7. `bootstrap.yml` is dispatched and its signed result must be `kind: seed_update`, `verdict: noop`, `head: D`;
   8. one touch row goes into <work>/pilot-log.md (a seed epoch is a human touch, `27`); STOP is removed only when this
@@ -67,6 +68,7 @@ launch = _load_launch()
 from snowball_bootstrap.decide import NOTHING_TO_JUDGE  # noqa: E402  (launch put seed/bootstrap on sys.path)
 from snowball_bootstrap import config  # noqa: E402  (the referee's own reading of drift.hashes, `01c`)
 from snowball_bootstrap.treehash import dir_hash  # noqa: E402  (the function the referee's own check uses, `25`)
+from snowball_bootstrap.canon import CanonicalError, canonical  # noqa: E402  (the referee's RFC 8785 form, `01c`, `13`)
 
 SOURCE_REPO = "Okan-wqm/snowball-mcp"
 CI_WORKFLOW = "ci.yml"
@@ -76,7 +78,7 @@ REFEREE_MAP = (("seed/bootstrap", "bootstrap"), ("seed/bootstrap/vectors", "vect
                ("seed/bootstrap/workflow/bootstrap.yml", ".github/workflows/bootstrap.yml"),
                ("seed/security-ledger.jsonl", "setup/security-ledger.jsonl"))  # E541: genesis reads it (`29o`)
 BRAIN_MAP = (("spec/tohum", "spec/tohum"),)  # README step 4: nothing else of the brain changes (E180)
-SUMMARY, CONTROL = "setup/summary.json", "control.json"
+SUMMARY, CONTROL, POLICY = "setup/summary.json", "control.json", "policy.json"
 JOURNAL = "epoch-delivery.json"
 FILE_MODES = ("100644", "100755")
 NO_CRLF = ("-c", "core.autocrlf=false", "-c", "core.eol=lf", "-c", "core.safecrlf=false",
@@ -307,12 +309,45 @@ def with_epoch(raw: str, row: dict, edits: dict | None) -> str:
 DRIFT_TREES = (("vectors_sha256", "vectors"), ("seats_sha256", "seats"))  # `01c` drift.hashes the referee compares
 
 
+def _unique(pairs: list) -> dict:
+    """A JSON object whose keys are each there once: a repeated key has no one value to hash."""
+    keys = [key for key, _value in pairs]
+    if len(keys) != len(set(keys)):
+        raise ValueError("an object repeats a key")
+    return dict(pairs)
+
+
+def constitutional_sha256(referee: Path) -> str:
+    """`01c`'s `drift.hashes.constitutional_sha256` of the referee clone's current `policy.json`:
+    `sha256(canonical(policy["constitutional"]))` with the bootstrap referee's own RFC 8785 `canonical` (`13`). The
+    policy is the operator's file and no step stages it, so the value follows what the operator wrote on the referee's
+    main (an operator's policy edit otherwise leaves the loop's baseline stale, `01c`). The section holds no float
+    (`01c` "Politikanın sayıları": a fraction is a six-decimal string), and `canonical` refuses one: such a policy has
+    no value under the recipe, so the delivery refuses rather than write one the loop cannot reproduce."""
+    try:
+        doc = json.loads((referee / POLICY).read_text(encoding="utf-8"), object_pairs_hook=_unique)
+    except (OSError, ValueError) as exc:
+        raise Refused(f"step 5: the referee's {POLICY} cannot be read as JSON ({exc}): fix it on the referee's main and "
+                      "run this again") from exc
+    section = doc.get("constitutional") if isinstance(doc, dict) else None
+    if not isinstance(section, dict):
+        raise Refused(f"step 5: the referee's {POLICY} has no constitutional object to hash for "
+                      "drift.hashes.constitutional_sha256")
+    try:
+        return hashlib.sha256(canonical(section)).hexdigest()
+    except CanonicalError as exc:
+        raise Refused(f"step 5: the referee's {POLICY} constitutional section has no `01c` hash ({exc}): write each "
+                      "fraction as a six-decimal string (\"0.900000\", `01c`) on the referee's main and run this "
+                      "again") from exc
+
+
 def with_drift_hashes(raw: str, referee: Path) -> tuple[str, dict]:
     """Step 5: the summary with `drift.hashes.vectors_sha256` and `seats_sha256` recomputed from the staged referee
     clone, by the function the bootstrap referee's check uses (`treehash.dir_hash`, `25`): step 3 re-stages `vectors/`
     and the seats page, so a delivery that changes them would otherwise leave the baseline stale and the next run would
-    stop (`vectors_hash_mismatch`). Only when the summary has `drift` (before its baseline there is nothing to keep);
-    nothing else of `drift` changes. A `drift` without both hashes, or with one that is not 64 lower-case hex
+    stop (`vectors_hash_mismatch`). `constitutional_sha256` is recomputed from the clone's `policy.json`
+    (`constitutional_sha256` above). Only when the summary has `drift` (before its baseline there is nothing to keep);
+    nothing else of `drift` changes. A `drift` without both tree hashes, or with one that is not 64 lower-case hex
     characters, refuses, as the referee's own reading does (`config.drift_hashes`): this tool never makes a baseline.
     Returns the text and ``{key: {"from": old, "to": new}}`` for each value that moved."""
     doc = json_doc(raw, SUMMARY)
@@ -331,6 +366,10 @@ def with_drift_hashes(raw: str, referee: Path) -> tuple[str, dict]:
         if hashes.get(key) != new:
             moved[key] = {"from": hashes.get(key), "to": new}
         hashes[key] = new
+    policy_hash = constitutional_sha256(referee)
+    if hashes.get("constitutional_sha256") != policy_hash:
+        moved["constitutional_sha256"] = {"from": hashes.get("constitutional_sha256"), "to": policy_hash}
+    hashes["constitutional_sha256"] = policy_hash
     return dumps(doc), moved
 
 
@@ -496,7 +535,8 @@ class Delivery:
                  "S's blobs and modes, 0 CR)",
                  f"  4. brain: spec/tohum = {s[:7]}:spec/tohum, one commit D on main, D's tree checked",
                  f"  5. seed-epoch row of D appended to {SUMMARY}{edits}; drift.hashes (vectors, seats) recomputed "
-                 "from the staged copy when the summary has drift",
+                 "from the staged copy and constitutional_sha256 from the referee's policy.json when the summary has "
+                 "drift",
                  "  6. push the referee, then kill_switch false",
                  "  7. dispatch bootstrap.yml: the signed result must be seed_update/noop/D",
                  "  8. touch row in pilot-log.md; STOP removed only if step 2 set it; start the launcher yourself"]
@@ -539,6 +579,12 @@ class Delivery:
             raise Refused(f"step 2: {why}: {hint}, then run this again")
 
     # -- clones
+    def policy_preflight(self, referee: Path) -> None:
+        """Step 5's `constitutional_sha256` computed before anything is written (and in `--dry-run`): a policy whose
+        constitutional section has no `01c` hash refuses before the kill switch goes on and before the brain gets D."""
+        if "drift" in json_doc(head_text(referee, SUMMARY), SUMMARY):
+            constitutional_sha256(referee)
+
     def clone(self, repo: str, name: str) -> Path:
         dest = Path(tempfile.mkdtemp(prefix=name + "-", dir=self.scratch))  # always fresh, never a used clone
         git(self.scratch, "clone", "-q", "-c", "core.autocrlf=false", "-c", "core.eol=lf", "--branch", "main",
@@ -610,6 +656,8 @@ class Delivery:
         self.load(s)
         s = self.resolve()
         if dry_run:
+            self.scratch.mkdir(parents=True, exist_ok=True)
+            self.policy_preflight(self.clone(self.gh.referee_repo, "referee"))
             print(self.plan(s))
             return 0
         say(f"step 1: {s[:7]} on main, {self.ci}")
@@ -626,6 +674,7 @@ class Delivery:
         referee, brain = self.clone(self.gh.referee_repo, "referee"), self.clone(self.gh.brain_repo, "brain")
         summary_raw = head_text(referee, SUMMARY)
         epochs = json_doc(summary_raw, SUMMARY).get("seed_epochs") or []
+        self.policy_preflight(referee)  # before the kill switch and before the brain gets D
         if not j.get("kill_on"):
             say("step 2: " + self.judged(brain, {str(e.get("commit")) for e in epochs if isinstance(e, dict)}))
             if json_doc(head_text(referee, CONTROL), CONTROL).get("kill_switch"):
@@ -657,7 +706,8 @@ class Delivery:
             (referee / SUMMARY).write_text(text, encoding="utf-8", newline="")
             if moved:
                 self.save(drift_hashes=moved)
-                say(f"step 5: drift.hashes recomputed from the staged copy: {moved_text(moved)}")
+                say("step 5: drift.hashes recomputed from the staged copy and the referee's policy.json: "
+                    f"{moved_text(moved)}")
             git(referee, "add", "--", SUMMARY)
             check_index(referee, expected)
             check_staged_only(referee, copy_paths + (SUMMARY,))
