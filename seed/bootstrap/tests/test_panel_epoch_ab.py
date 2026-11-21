@@ -135,15 +135,20 @@ class Seed085Test(unittest.TestCase):
         text = flat(page("28a"))
         for words in ("**seed-085'in açık maddeleri** (operatör kararı (2026-11-21); gevşetmeler L-b, L-c ve L-j "
                       "sahip kararı (2026-11-21))",
-                      "`çağır` kapsamında `loop` olan bir dondurma yürürlükteyken hiçbir çağrı, bütçe dondurmasında "
-                      "hiçbir ücretli çağrı yapmaz", "Dondurma yalnız adayların merge'ünü kapatır; geri almalar, prova "
+                      "`çağır` kapsamında `loop` olan bir dondurma yürürlükteyken hiçbir çağrı yapmaz; bütçe "
+                      "dondurmasının kapsamı `loop`'tur (`26i`)", "Dondurma yalnız adayların merge'ünü kapatır; geri almalar, prova "
                       "ekmeleri ve satırlar sürer", "`koş` her dondurmada koşmayı sürdürür (gevşetme L-b)",
                       "`yaz` işinin sunduğu her hedefin defteri üzerinden toplanır ve tek tavanla bir kez yargılanır "
                       "(gevşetme L-c: işin sunmadığı hedefin harcaması o işte sayılmaz)",
                       "Aşama 1'de her merge ve geri alma K0'dır (`asama-1/13b`, `26i`); merge satırında sınıf alanı yoktur",
                       "`setup/imports.jsonl`'da bitirdiği `hard_stop` satırını adlandıran bir satırdır (`26i`). "
                       "`soft_freeze_limit` sayımını sıfırlamaz",
-                      "Kapalı kapının reddi `cause` taşımaz ve bulgusunu açık bırakır (`26j`; gevşetme L-j)"):
+                      "Kapalı kapının reddi `cause` taşımaz ve bulgusunu olduğu durumda bırakır (`26j`; gevşetme L-j)"):
+            self.assertIn(words, text, words)
+        self.assertNotIn("ücretli çağrı", text)
+        self.assertIn("insan dokunuşu sayacı; aktarım dışı yeniden başlatma satırı da buradadır (`26i`)",
+                      flat(page("26c")))
+        for words in ():
             self.assertIn(words, text, words)
         gozcu = flat(page("26i"))
         for words in ("Dondurma yalnız adayların merge'ünü kapatır: geri almalar, prova ekmeleri ve satırlar her "
@@ -209,6 +214,25 @@ class TableCorrectionTest(unittest.TestCase):
         self.assertIn("MF10–MF12 operatörün tablo düzeltmesidir (`26j`)", flat(page("26e")))
 
 
+class ModuleNameRuleTest(unittest.TestCase):
+    """The review of PR #31: two rules of `26e` the compression dropped are stated again (the code's are stages.py's)."""
+
+    def test_the_stdlib_rule_and_the_batch_column(self):  # cprofile_rule_dropped batch_column_unnamed
+        text = flat(page("26j"))
+        self.assertIn("**Modül adı** (`26e`'nin kuralı). Modülün ilk adı (paketi ya da `.py`'siz dosyası) Python'un "
+                      "standart kütüphanesinde bir modülün adı olamaz (`sys.stdlib_module_names`; `profile/` varken "
+                      "`import cProfile` düşer): böyle satırı olan tablo yüklenmez.", text)
+        self.assertIn("Hakem komutu `referee/`'yi `sys.path`'te önde koşar; Aşama 0'ın donmuş `profile`'ı o tablo yeniden "
+                      "açılana kadar kalır ve hakemin hiçbir komutu `cProfile`'ı çağırmaz (`26e`).", text)
+        self.assertEqual(stages.STDLIB_KEPT, {0: frozenset({"profile"})})  # the code keeps the same rule
+        said = flat(page("26e"))
+        self.assertIn("`batch` bu tablonun ilk sütunudur ve açık partininki olmalıdır, değilse `exit_request_wrong_batch`",
+                      said)
+        self.assertIn("Modülün ilk adı standart kütüphanede bir modülün adı olamaz (`sys.stdlib_module_names`; ayrıntısı "
+                      "`26j`'de)", said)
+        self.assertTrue(all(len(line) <= 126 for line in page("26e").splitlines()[31:40]))
+
+
 class FirstTaskTest(unittest.TestCase):
     def test_this_entry_opens_with_its_first_task(self):  # ab_first_task_not_first ab_first_task_row_dropped
         entry = flat(changelog().split("\n- 2.2 (2026-11-21, E685–E690", 1)[1])
@@ -216,16 +240,18 @@ class FirstTaskTest(unittest.TestCase):
                                          "**İlk iş** (`25` 10b; Kurucu'nun dersi f1741)."), entry[:160])
         first = entry.split("Yeni `26j`")[0]
         for words in ("önyükleme hakeminin hiçbir denetimi kırmızı olmaz", "yeni `root_files` grubu yalnız MF8 bitince koşar",
-                      "İlk iş P1'in üç yeni satırıdır", "istek MF1–MF12'nin hepsi bitmeden geçmez",
+                      "İlk iş P1'in üç yeni satırıdır", "`done_mf` önek kaldığı için MF8 ve MF9'dan sonra kurulur",
+                      "P1'in çıkış isteği MF1–MF12'nin hepsi bitmeden geçmez",
                       "1. MF10, organ çıktısının tutulması (`runner/organ_output.py`, test 56);",
                       "2. MF11, çalışma-zamanı adayının yeniden koşusu (`runner/candidate_rerun.py`, test 57);",
                       "3. MF12, `yaz`'ın aday okuması (`loop/candidates.py`, test 58)."):
             self.assertIn(words, first, words)
         self.assertIn("başında **İlk iş**", flat((TOHUM / "CHANGELOG.md").read_text(encoding="utf-8")))
-        self.assertIn("Ardından, kırmızı görev değil, sahibin ipucu (bu kez kural esnetildi; `00d`, E689): sıradaki iş "
-                      "Kurucu'nun kendi önerisidir (f1766), prepush'ın hızlı geçişi, ölçülerek.", first)
-        self.assertIn("Sonra, yine kırmızı görev değil, sahibin ikinci ipucu (bu kez kural esnetildi; `00d`, E690): "
-                      "bellekten yazılan adı defter satırı eklenmeden önce ağaca karşı denetlemek.", first)
+        self.assertIn("Kırmızı görev olmayan iki sahip ipucu (bu kez kural esnetildi; `00d`) İlk iş'in birinci "
+                      "maddesinden sonra gelir, bütün P1'i beklemez: E689 Kurucu'nun kendi önerisi (f1766), prepush'ın "
+                      "hızlı geçişi; E690 bellekten yazılan adı defter satırı eklenmeden önce ağaca karşı denetlemek; "
+                      "ikisi de ölçülerek.", first)
+        self.assertIn("`26i:36-37`, `26i:45-46`", changelog())
 
 
 class MemoryNameHintTest(unittest.TestCase):
@@ -257,7 +283,8 @@ class PrepushHintTest(unittest.TestCase):
                       "İçe aktarma grafiği `status.depmap`'inkidir ve kökteki `tests/` dizinini kapsamalıdır; damgayı "
                       "yalnız bütün koşu basar", "\"`referee/` dışındaki bir çağıran atlandı\" (dersler f1812 ve f1829 "
                       "dahil)", "kırmızı bir T46'ya mal oldu",
-                      "işin olarak kur ve ölç: kazanılan dakikalar ve atlanan çağıran sınıfını yakalayıp yakalamadığı",
+                      "İlk iş'inin birinci maddesinden sonraki işin olarak kur ve ölç: kazanılan dakikalar ve atlanan "
+                      "çağıran sınıfını yakalayıp yakalamadığı",
                       "Nasıl kurulacağı senindir."):
             self.assertIn(words, text, words)
         row = register_row("E689")

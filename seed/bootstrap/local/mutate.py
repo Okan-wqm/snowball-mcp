@@ -4585,7 +4585,7 @@ MUTANTS = [
     ('package_path_26a', 'spec/tohum/26a-arac-imzalari.md', "`candidates/<id>/package.json`'a (`26j`) yazılır", "`candidates/<id>/`'ye yazılır",
      'E686: 26a does not name the package file'),
     # ---- seed epoch AB: seed-085's open items (E687)
-    ('cagir_calls_under_freeze', 'spec/tohum/28a-dondurma-asama-1.md', 'olan bir dondurma yürürlükteyken hiçbir çağrı,', 'olan bir dondurma yürürlükteyken de çağrı yapar,',
+    ('cagir_calls_under_freeze', 'spec/tohum/28a-dondurma-asama-1.md', 'olan bir dondurma yürürlükteyken hiçbir çağrı yapmaz;', 'olan bir dondurma yürürlükteyken de çağrı yapar;',
      'E687: the model is called and paid under a loop freeze'),
     ('kos_stops_under_freeze', 'spec/tohum/28a-dondurma-asama-1.md', '`koş` her dondurmada koşmayı sürdürür (gevşetme L-b).', '`koş` her dondurmada durur.',
      'E687: measurement stops under a freeze and L-b is not named'),
@@ -4649,6 +4649,23 @@ MUTANTS = [
      'E690: the hint says how to build it'),
     ('memory_hint_unmeasured', 'spec/tohum/00d-gorev-haritasi-sahibin-ipuclari-devam.md', 'Ölç: bu tür düzeltmelerin sayısı, önce ve sonra.',
      'Ölçme.', 'E690: the hint asks for no measurement'),
+    # ---- seed epoch AB, review of PR #31: two rules of 26e stated again
+    ('cprofile_rule_dropped', 'spec/tohum/26j-semalar-p1-bulgu-izin-aday.md', "ve hakemin hiçbir komutu `cProfile`'ı çağırmaz (`26e`).",
+     "ve hakemin komutları `cProfile`'ı çağırabilir (`26e`).", 'E688: the page drops the cProfile rule the code keeps'),
+    ('batch_column_unnamed', 'spec/tohum/26e-semalar-asama-1.md', '`batch` bu tablonun ilk sütunudur ve',
+     '`batch` serbesttir ve', 'E688: 26e no longer says where an exit request takes its batch from'),
+    ('restart_row_not_in_counter', 'spec/tohum/26c-semalar-asama-0.md',
+     '; aktarım dışı yeniden başlatma satırı da buradadır (`26i`).', '.',
+     'E687: 26c does not say the counter also holds the restart row'),
+    ('hints_wait_for_p1', 'spec/tohum/CHANGELOG-11.md', "İlk iş'in birinci maddesinden sonra gelir,",
+     "İlk iş'in bütün maddelerinden sonra gelir,", 'E689: the owner hints wait for the whole of P1'),
+    # ---- seed epoch AB, review of PR #31: the operator's restart row tool (E687)
+    ('restart_row_unchained', 'seed/founder/restart_row.py',
+     '"prev_hash": rows[-1][1]["row_hash"] if rows else stagelock.ZERO}', '"prev_hash": stagelock.ZERO}',
+     'E687: the restart row does not chain to the counter and stops every bootstrap run'),
+    ('restart_row_hash_not_the_referees', 'seed/founder/restart_row.py', '    row["row_hash"] = canon.row_hash(row)\n',
+     '    row["row_hash"] = canon.sha256_hex(json.dumps(row).encode())\n',
+     'E687: the restart row is hashed by another recipe than the referee reads'),
 ]
 
 
