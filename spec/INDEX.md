@@ -18,7 +18,7 @@ Okunma: sayfa ararken; görev seçmek için `tohum/00b-gorev-haritasi.md`
 | `tohum/01-hedef-sistem.md` | Hedef Sistem | ilk oturumda |
 | `tohum/01a-mimari-ve-yetki.md` | Mimari ve Yetki: Dört Yer | ilk oturumda ve her yeni repoya bağlanırken |
 | `tohum/01b-kapi-kurallari.md` | Kapı Kuralları, Tetik, Döngü İşlemi | her merge ve her state yazımında |
-| `tohum/01c-surukleme-taban-cizgisi.md` | Kapı Kuralları, Devam: `drift.check`'in Taban Çizgisi | `drift.check` yazılırken ve operatör kurulum özetinin `drift` nesnesini yazarken |
+| `tohum/01c-surukleme-taban-cizgisi.md` | Kapı Kuralları, Devam: `drift.check`'in Taban Çizgisi | `drift.check` yazılırken, operatör kurulum özetinin `drift` nesnesini yazarken ve `policy.json`'a sayı yazılırken |
 | `tohum/02-asama-protokolu.md` | Aşama Protokolü | her aşama başında ve sonunda |
 | `tohum/03-sinif-merdiveni.md` | Sınıf Merdiveni ve Aşama Sırası | yeni sınıf ya da aşama açılırken |
 | `tohum/04-is-boyutu-ve-gercek-test.md` | İş Boyutu ve Gerçek Test | her mikro görevde ve her test yazarken |
@@ -63,11 +63,13 @@ Okunma: sayfa ararken; görev seçmek için `tohum/00b-gorev-haritasi.md`
 | `tohum/26d-semalar-pass-satiri.md` | Şemalar, Devam: Aşama 0'ın PASS Satırı ve Kilidin Açılışı | Aşama 0'ın (B) devirlerini ve genesis, merge, PASS ve kök satırlarını yazan kod yazılırken; kilidin açılışından önce |
 | `tohum/26f-semalar-nobetci-ve-prova.md` | Şemalar, Devam: Döngünün Nöbetçi, Geri Alma ve Prova Satırları | Aşama 0'ın D7 ve D8'ini ve kopyanın genesis kapısını yazan kod yazılırken |
 | `tohum/26e-semalar-asama-1.md` | Şemalar, Devam: Aşama 1'in Parti Tabloları | Aşama 1'de her parti yazılırken ve parti çıkış isteğinden önce; kilidin açılışından önce |
-| `tohum/26h-semalar-asama-1-ilk-dilim.md` | Şemalar, Devam: Aşama 1'in İlk Dilimi | Aşama 1'de sıradaki MF ya da parti seçilirken, P1'in MF8'i ve MF9'u yazılırken ve Aşama 1'in çıkış satırları okunurken |
+| `tohum/26h-semalar-asama-1-ilk-dilim.md` | Şemalar, Devam: Aşama 1'in İlk Dilimi | Aşama 1'de sıradaki MF ya da parti seçilirken, P1'in MF8'i ve MF9'u yazılırken, Aşama 1'in çıkış satırları ve harness'in politika değerleri okunurken |
+| `tohum/26i-semalar-gozcu.md` | Şemalar, Devam: Gözcü'nün Satırları ve Görünümleri | Gözcü (P1 MF7) yazılırken, bir `freeze` satırı okunurken ve kapı bir dondurmayı okurken |
 | `tohum/26g-semalar-kurucu-dersi.md` | Şemalar, Devam: Kurucu'nun Dersi ve Ders Dizini | defterine ders yazarken ve `/work/logs/lessons.json` okunurken |
 | `tohum/27-sozluk-ve-okuyucular.md` | Sözlük ve Okuyucular | yeni terim ya da dosya eklerken |
 | `tohum/27a-okuyucular-hedef-durumu.md` | Okuyucular, Devam: Hedefteki Durum Dosyaları | yeni durum dosyası, bölüm ya da görünüm eklerken |
 | `tohum/28-dondurma.md` | Dondurma: Ne Durur, Nasıl Kalkar | Gözcü kararlarında ve her dondurmada |
+| `tohum/28a-dondurma-asama-1.md` | Dondurma, Devam: Aşama 1'de Gözcü | Gözcü (P1 MF7) yazılırken ve test 41 okunurken |
 | `tohum/29-tohum-koltuklari.md` | Tohum Koltukları: Rakip, Test-Yazıcı, Şerit Yazarı | kurulumda ve Aşama 0 başında |
 | `tohum/29a-tohum-vektorleri.md` | Tohum Vektörleri: Değişmeyen Beklenen Çıktılar | zincir, istatistik ve puanlama kodu yazarken |
 | `tohum/29b-onyukleme-hakemi.md` | Önyükleme Hakemi: Aşama 0'ın Yargıcı | kurulumda ve Aşama 0 boyunca |
@@ -110,6 +112,7 @@ Okunma: sayfa ararken; görev seçmek için `tohum/00b-gorev-haritasi.md`
 | `tohum/31g-karar-rehberi.md` | Mimari İlkeler VII: Karar Rehberi | aşağıdaki durumlardan biri ortaya çıktığında, `decision` satırı yazılmadan önce |
 | `tohum/31h-catismalar-ve-tarama.md` | Mimari İlkeler VIII: Çatışmalar ve Tarama Sinyalleri | iki ilke aynı durumda farklı yön gösterdiğinde; bir repo ilkeler açısından taranırken; rakip bir tasarımı çürütmeye çalışırken |
 | `tohum/CHANGELOG.md` | Değişiklik Günlüğü — Tohum | bir sayfanın geçmişi aranırken |
+| `tohum/CHANGELOG-10.md` | Değişiklik Günlüğü — Tohum, 2.2'nin Dokuzuncu Kayıtları | bir sayfanın geçmişi aranırken |
 | `tohum/CHANGELOG-8.md` | Değişiklik Günlüğü — Tohum, 2.2'nin Yedinci Kayıtları | bir sayfanın geçmişi aranırken |
 | `tohum/CHANGELOG-9.md` | Değişiklik Günlüğü — Tohum, 2.2'nin Sekizinci Kayıtları | bir sayfanın geçmişi aranırken |
 | `tohum/CHANGELOG-7.md` | Değişiklik Günlüğü — Tohum, 2.2'nin Altıncı Kayıtları | bir sayfanın geçmişi aranırken |

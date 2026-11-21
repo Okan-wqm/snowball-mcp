@@ -20,7 +20,7 @@ anlamlarını söyler.
 | `class_level`, `property` | §1.13b |
 | `tool`, `rule_id` | K0–K2 için zorunlu; K0 isabeti kural + eşlenmiş satırdır (`asama-0/08`) |
 | `claim` | Ürün hakkında tek cümle |
-| `evidence_refs` | `[{path, line_start, line_end}]`; manifestte var olmalı; tek birincil ref ≤ `stage_params.evidence_ref_max_lines` (30) satır |
+| `evidence_refs` | `[{path, line_start, line_end}]`; manifestte var olmalı; birincil ref `evidence_refs[0]`'dır, ≤ `stage_params.evidence_ref_max_lines` (30) satır (`tohum/26h`) |
 | `required_change` | Dizi: `[{file, symbol?, op}]`; boşsa gözlemdir, puanlanmaz |
 | `severity_hint` | Yalnız ipucu; şiddeti property ve sınıftan politika haritası türetir |
 | `confidence`, `derivation`, `trust`, `snapshot_id` | `tohum/26` |
