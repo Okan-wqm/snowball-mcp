@@ -124,8 +124,8 @@ class SmartCheckHintTest(unittest.TestCase):
         row = register_row("E693")
         self.assertIn("sahibin ipucu (bu kez kural esnetildi", row)
         self.assertIn("\"Kurucu kendisi bulur\" kuralını bir kez daha esnetmeyi seçti", row)
-        self.assertIn("sahibin ipucu (bu kez kural esnetildi; `00e`, E693), oturum içinde kapsamlı doğrulama, tam koşu "
-                      "bir kez son prepush'ta, ölçülerek", flat(changelog()))
+        self.assertIn("E693 oturum içinde kapsamlı doğrulama, E689'un hızlı geçişiyle, tam koşu bir kez son prepush'ta",
+                      flat(changelog()))
 
 
 class FirstTaskTest(unittest.TestCase):
