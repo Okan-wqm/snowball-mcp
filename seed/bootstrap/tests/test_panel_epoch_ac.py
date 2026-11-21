@@ -129,17 +129,24 @@ class SmartCheckHintTest(unittest.TestCase):
 
 
 class FirstTaskTest(unittest.TestCase):
-    def test_this_entry_opens_with_its_first_task(self):  # ac_first_task_not_first ac_t1_t2_unnamed ac_hint_is_a_duty
+    def test_this_entry_opens_with_its_first_task(self):  # ac_first_task_not_first ac_t1_t2_unnamed ac_hint_is_a_duty ac_hints_wait_for_p1
         entry = flat(changelog().split("\n- 2.2 (2026-11-21, E691–E693", 1)[1])
         self.assertIn("**İlk iş** (`25` 10b; Kurucu'nun dersi f1741). Teslimden itibaren önyükleme hakeminin hiçbir "
                       "denetimi kırmızı olmaz", entry[:400])
         first = entry.split("Yeni `26k`")[0]
         for words in ("bu dönem ne bir tablo, ne bir vektör, ne bir zorunlu politika yolu değiştirir",
                       "1. MF9, izin listesi ve `accept` yazıcısı (`26j`);",
-                      "3. MF12, `yaz`'ın aday okuması (`26j`), sözleşmeleri T1 ve T2 ile (`26k`)",
-                      "P1 maddelerinden sonra, kırmızı görev değil: sahibin ipucu (bu kez kural esnetildi; `00e`, E692)"):
+                      "2. birinci maddeden hemen sonra, kırmızı görev değil, sahibin ipuçları (bu kez kural esnetildi; "
+                      "`00e`): E693 oturum içinde kapsamlı doğrulama, E689'un hızlı geçişiyle, tam koşu bir kez son "
+                      "prepush'ta; E692 ilk ajan olarak push'tan önce koşan bir uyum denetçisi",
+                      "3. MF10, organ çıktısının tutulması; MF11",
+                      "4. MF12, `yaz`'ın aday okuması (`26j`), sözleşmeleri T1 ve T2 ile (`26k`)"):
             self.assertIn(words, first, words)
-        self.assertEqual(len(re.findall(r" [1-9]\. ", first)), 3)
+        self.assertEqual(len(re.findall(r" [1-9]\. ", first)), 4)
+        self.assertLess(first.index("1. MF9"), first.index("2. birinci maddeden"))  # the hints right after MF9
+        self.assertLess(first.index("2. birinci maddeden"), first.index("3. MF10"))
+        self.assertEqual(register_row("E692").count("birinci maddeden (MF9) hemen sonra"), 1)
+        self.assertEqual(register_row("E693").count("birinci maddeden (MF9) hemen sonra"), 1)
         self.assertTrue(any("`seed-088-finding-states-fixed-verified-withdrawn-have-no-named-writer` →" in line
                             for line in changelog().splitlines()))
         index = (ROOT / "spec" / "INDEX.md").read_text(encoding="utf-8")

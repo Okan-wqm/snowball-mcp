@@ -4704,9 +4704,9 @@ MUTANTS = [
      'E692: the hint prescribes the design'),
     ('ac_first_task_not_first', 'spec/tohum/CHANGELOG-12.md', "  **İlk iş** (`25` 10b; Kurucu'nun dersi f1741).", "  Notlar (`25` 10b; Kurucu'nun dersi f1741).",
      'E691: the entry does not open with its first task'),
-    ('ac_t1_t2_unnamed', 'spec/tohum/CHANGELOG-12.md', "3. MF12, `yaz`'ın aday okuması (`26j`), sözleşmeleri T1 ve T2 ile (`26k`):", "3. MF12, `yaz`'ın aday okuması (`26j`):",
+    ('ac_t1_t2_unnamed', 'spec/tohum/CHANGELOG-12.md', "4. MF12, `yaz`'ın aday okuması (`26j`), sözleşmeleri T1 ve T2 ile (`26k`):", "4. MF12, `yaz`'ın aday okuması (`26j`):",
      "E691: the first task does not name MF12's contracts"),
-    ('ac_hint_is_a_duty', 'spec/tohum/CHANGELOG-12.md', 'P1 maddelerinden sonra, kırmızı görev değil:', 'İlk iş olarak, kırmızı görev:',
+    ('ac_hint_is_a_duty', 'spec/tohum/CHANGELOG-12.md', 'birinci maddeden hemen sonra, kırmızı görev değil,', 'birinci maddeden hemen sonra, kırmızı görev,',
      'E692: the owner hint is made a red duty'),
     # ---- seed epoch AC: the owner's hint on smarter checks (E693)
     ('smart_hint_unlabelled', 'spec/tohum/00e-gorev-haritasi-sahibin-ipuclari-3.md', '(bu kez kural esnetildi; 2026-11-21, E693; ipucu, reçete değil)',
@@ -4720,6 +4720,8 @@ MUTANTS = [
      '- Oturum başına CPU dakikası ve duvar süresi ölçülmez;', 'E693: the hint asks for no measurement'),
     ('smart_never_widens', 'spec/tohum/00e-gorev-haritasi-sahibin-ipuclari-3.md', 'Kaçak görülürse kapsamı genişletirsin.', 'Kaçaklar sayılmaz.',
      'E693: an escape does not widen the scope'),
+    ('ac_hints_wait_for_p1', 'spec/tohum/CHANGELOG-12.md', '  2. birinci maddeden hemen sonra,', '  2. P1 bitince,',
+     'E692: the owner hints wait for the whole of P1'),
 ]
 
 

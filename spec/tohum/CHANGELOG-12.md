@@ -10,12 +10,12 @@ Okunma: bir sayfanın geçmişi aranırken
   olmaz: bu dönem ne bir tablo, ne bir vektör, ne bir zorunlu politika yolu değiştirir; `done_mf` 1–8 açık P1
   tablosunun öneki kalır. İlk iş P1'in kalan MF'leridir; P1'in çıkış isteği MF1–MF12'nin hepsi bitmeden geçmez:
   1. MF9, izin listesi ve `accept` yazıcısı (`26j`);
-  2. MF10, organ çıktısının tutulması; MF11, çalışma-zamanı adayının yeniden koşusu (`26j`);
-  3. MF12, `yaz`'ın aday okuması (`26j`), sözleşmeleri T1 ve T2 ile (`26k`): `finding_unknown` ve
+  2. birinci maddeden hemen sonra, kırmızı görev değil, sahibin ipuçları (bu kez kural esnetildi; `00e`): E693 oturum
+     içinde kapsamlı doğrulama, E689'un hızlı geçişiyle, tam koşu bir kez son prepush'ta; E692 ilk ajan olarak push'tan
+     önce koşan bir uyum denetçisi, beş bağlayıcı korkulukla; ikisi de ölçülerek;
+  3. MF10, organ çıktısının tutulması; MF11, çalışma-zamanı adayının yeniden koşusu (`26j`);
+  4. MF12, `yaz`'ın aday okuması (`26j`), sözleşmeleri T1 ve T2 ile (`26k`): `finding_unknown` ve
      `finding_not_open` merge seçilmeden önce verilen D5 nedenleridir; hiçbir adayın içeriği devri kullanılamaz kılmaz.
-  P1 maddelerinden sonra, kırmızı görev değil: sahibin ipucu (bu kez kural esnetildi; `00e`, E692), ilk ajan olarak
-  push'tan önce koşan bir uyum denetçisi, beş bağlayıcı korkulukla; sahibin ipucu (bu kez kural esnetildi; `00e`,
-  E693), oturum içinde kapsamlı doğrulama, tam koşu bir kez son prepush'ta, ölçülerek.
   Yeni `26k` "Şemalar, Devam: Bulgu Durumlarının Yazıcıları" (`26j` ve tohumun `asama-1/13d` kopyası ona işaret eder):
   bağımsız inceleme ekibi kararı (seed-088, E691): `fixed`'i merge kararı yazar; yeniden gözlem; geri alınan merge
   bulgusunu aynı devirde yeniden açar (iki uzmanın ayrıldığı yerde daha sıkı olan); açık olmayan bulguya karar adayın
