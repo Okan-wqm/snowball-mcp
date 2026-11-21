@@ -579,6 +579,12 @@ class Delivery:
             raise Refused(f"step 2: {why}: {hint}, then run this again")
 
     # -- clones
+    def policy_preflight(self, referee: Path) -> None:
+        """Step 5's `constitutional_sha256` computed before anything is written (and in `--dry-run`): a policy whose
+        constitutional section has no `01c` hash refuses before the kill switch goes on and before the brain gets D."""
+        if "drift" in json_doc(head_text(referee, SUMMARY), SUMMARY):
+            constitutional_sha256(referee)
+
     def clone(self, repo: str, name: str) -> Path:
         dest = Path(tempfile.mkdtemp(prefix=name + "-", dir=self.scratch))  # always fresh, never a used clone
         git(self.scratch, "clone", "-q", "-c", "core.autocrlf=false", "-c", "core.eol=lf", "--branch", "main",
@@ -650,6 +656,8 @@ class Delivery:
         self.load(s)
         s = self.resolve()
         if dry_run:
+            self.scratch.mkdir(parents=True, exist_ok=True)
+            self.policy_preflight(self.clone(self.gh.referee_repo, "referee"))
             print(self.plan(s))
             return 0
         say(f"step 1: {s[:7]} on main, {self.ci}")
@@ -666,6 +674,7 @@ class Delivery:
         referee, brain = self.clone(self.gh.referee_repo, "referee"), self.clone(self.gh.brain_repo, "brain")
         summary_raw = head_text(referee, SUMMARY)
         epochs = json_doc(summary_raw, SUMMARY).get("seed_epochs") or []
+        self.policy_preflight(referee)  # before the kill switch and before the brain gets D
         if not j.get("kill_on"):
             say("step 2: " + self.judged(brain, {str(e.get("commit")) for e in epochs if isinstance(e, dict)}))
             if json_doc(head_text(referee, CONTROL), CONTROL).get("kill_switch"):

@@ -61,13 +61,15 @@ class GozcuRowsTest(unittest.TestCase):
                       "`drift.check` yalnız okur ve hiçbir şey yazmaz, duruşu Gözcü yazar"):
             self.assertIn(words, text, words)
 
-    def test_the_scope_and_the_views(self):  # gozcu_drill_reverts_counted gozcu_empty_views_unjudged gozcu_budget_scope_class
+    def test_the_scope_and_the_views(self):
+        # gozcu_drill_reverts_counted gozcu_empty_views_unjudged gozcu_budget_scope_class spend_per_target_answered
         text = flat(page("26i"))
         for words in ("Kapsamda `loop` varsa hiçbir merge yapılmaz; hakemin okuma işleri sürer",
                       "Regresyon dondurmasının kapsamı sayılan geri almaların sınıflarıdır, bütçe dondurmasınınki "
                       "`loop`'tur", "Yalnız sıradan bir `events`/`merge` satırının geri alınması sayılır",
                       "provanındır (`29m`) ve hiçbir görünümde sayılmaz (seed-085 i)",
-                      "`ts`'si `now`'ın UTC takvim ayında olan `cost` satırlarının `usd_micros` toplamıdır",
+                      "bu hedefin defterinde `ts`'si `now`'ın UTC takvim ayında olan `cost` satırlarının `usd_micros` "
+                      "toplamıdır; birden çok hedefte ayın harcamasının nerede toplandığı yanıtsızdır (seed-085 c)",
                       "Görünümleri boştur, kuralları yine yargılanır ve devrin çıktısı onları ölçülmemiş olarak "
                       "adlandırır (seed-085 d, e)"):
             self.assertIn(words, text, words)
@@ -162,14 +164,16 @@ class DriftBaselineTest(unittest.TestCase):
             self.assertIn(words, text, words)
         self.assertNotIn("app_scope", text)
 
-    def test_the_reads_and_reasons(self):  # rulesets_read_from_branches drift_trees_from_brain activity_other_types_allowed
+    def test_the_reads_and_reasons(self):
+        # rulesets_read_from_branches drift_trees_from_brain activity_other_types_allowed visibility_only_targets_read
         text = flat(page("01c"))
         for words in ("Klasörler hakem reposunun kökündeki operatör dosyalarıdır (aktarım onları `main`'den korur, "
                       "`25a` 1), beyinden gelmez", "hakem reposunda `.gitattributes` yoktur",
                       "bağ ya da düzenli olmayan dosya reddedilir",
                       "Ruleset listesi `GET /repos/{r}/rulesets?per_page=100`'dür",
                       "kimlikler tabana küme olarak karşılaştırılır",
-                      "`visibility` `GET /repos/{r}`'nin `visibility` alanıdır; harita her hedefin reposunu adlandırır",
+                      "`visibility` `GET /repos/{r}`'nin `visibility` alanıdır; harita her hedefin reposunu adlandırır, "
+                      "özetin adlandırdığı her repo okunur ve karşılaştırılır",
                       "`writer_app_permissions` `GET /app`'in `permissions`'ıyla eşitlik olarak karşılaştırılır",
                       "`constitutional_hash_mismatch`, `vectors_hash_mismatch`, `seats_hash_mismatch`, "
                       "`rulesets_changed`, `visibility_changed:<repo>`, `writer_app_permissions_changed`",
@@ -222,7 +226,7 @@ class HarnessValuesTest(unittest.TestCase):
 class FirstTaskTest(unittest.TestCase):
     """The convention from the Founder's lesson f1741 (`25` 10b), applied to this epoch's own entry."""
 
-    def test_the_convention_and_this_entry(self):  # first_task_unnamed first_task_not_first
+    def test_the_convention_and_this_entry(self):  # first_task_unnamed first_task_not_first first_task_reads_short
         self.assertIn("Teslimden itibaren bir şeyi kırmızı yapan dönem onu tohum CHANGELOG girdisinin en başında "
                       "\"İlk iş\" olarak adlandırır (Kurucu'nun dersi f1741)", flat(page("25")))
         entry = flat((TOHUM / "CHANGELOG-10.md").read_text(encoding="utf-8").split("\n- 2.2 (2026-11-21, E680–E684", 1)[1])
@@ -232,12 +236,16 @@ class FirstTaskTest(unittest.TestCase):
                       "hepsini adlandırır", "`freeze` ve `lift` satırının biçimi Kurucu'nun MF7'de kurduğu biçimdir ve "
                       "değişmez"):
             self.assertIn(words, entry, words)
-        self.assertEqual(len(re.findall(r" [1-6]\. ", entry.split("`freeze` ve `lift` satırının")[0])), 6)
+        self.assertEqual(len(re.findall(r" [1-9]\. ", entry.split("`freeze` ve `lift` satırının")[0])), 3)
+        self.assertIn("`constitutional.confidence_level`, `constitutional.regression_freeze.revert_rate`, "
+                      "`performance.rules.drift_bound` ve `performance.rules.seat_similarity`", entry)
+        self.assertNotIn("ölçüldü", entry)
         self.assertIn("girdinin başında **İlk iş** listesi vardır", flat((TOHUM / "CHANGELOG.md").read_text(encoding="utf-8")))
 
 
 class RecordsTest(unittest.TestCase):
-    def test_register_changelog_index_caps_and_no_leak(self):  # held_finding_leaks readme_policy_duty_dropped
+    def test_register_changelog_index_caps_and_no_leak(self):
+        # held_finding_leaks readme_policy_duty_dropped readme_permissions_added_now
         for eid, decided in (("E680", "bağımsız inceleme ekibi kararı (2026-11-21"),
                              ("E681", "bağımsız inceleme ekibi kararı (2026-11-21"),
                              ("E682", "bağımsız inceleme ekibi kararı (2026-11-21"),
@@ -251,7 +259,8 @@ class RecordsTest(unittest.TestCase):
                     "seed-084-gozcu-triggers-thresholds-and-row-shapes-unstated",
                     "seed-085-gozcu-wiring-what-a-freeze-closes-and-what-a-cycle-measures"):
             self.assertTrue(any(f"`{rid}` →" in line for line in log.splitlines()), rid)  # one line (E527)
-        self.assertIn("(b) bütçe dondurmasının harcamadan önce okunduğu adım, (c) birden çok hedefte ayın harcaması, (f) "
+        self.assertIn("(b) bütçe dondurmasının harcamadan önce okunduğu adım, (c) birden çok hedefte ayın harcamasının nerede "
+                      "toplandığı, (f) "
                       "merge satırında sınıf ve (j) kapanmış kapının `cause`'u yanıtsızdır", flat(log))
         index = (ROOT / "spec" / "INDEX.md").read_text(encoding="utf-8")
         for name, title in (("26i-semalar-gozcu.md", "Şemalar, Devam: Gözcü'nün Satırları ve Görünümleri"),
@@ -268,7 +277,10 @@ class RecordsTest(unittest.TestCase):
         readme = flat((ROOT / "seed" / "founder" / "README.md").read_text(encoding="utf-8"))
         for words in ("**AA döneminin operatör işleri** (seed-082, seed-083, seed-084; tohum sayfası değil)",
                       "`constitutional.confidence_level` `0.9` → `\"0.900000\"`",
-                      "`drift.hashes.constitutional_sha256`'yı da hakem klonunun o anki `policy.json`'undan"):
+                      "`drift.hashes.constitutional_sha256`'yı da hakem klonunun o anki `policy.json`'undan",
+                      "Politikayı yeniden yazmak ve teslim aynı oturumda yapılır",
+                      "`writer_app_permissions` bu teslimde **eklenmez**", "`visibility` canlı tabanda zaten vardır",
+                      "from snowball_bootstrap.canon import canonical", "(asla `json.dumps` ile değil)"):
             self.assertIn(words, readme, words)
 
 

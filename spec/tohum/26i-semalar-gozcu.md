@@ -38,7 +38,8 @@ K0'dır.
 - merge'ler `events`/`merge` satırlarıdır, geri almalar `events`/`revert` satırlarıdır. Yalnız sıradan bir
   `events`/`merge` satırının geri alınması sayılır: `drill`/`plant` satırı ve bir `plant` satırının adlandırdığı
   merge'ün geri alınması provanındır (`29m`) ve hiçbir görünümde sayılmaz (seed-085 i).
-- harcama, `ts`'si `now`'ın UTC takvim ayında olan `cost` satırlarının `usd_micros` toplamıdır.
+- harcama, bu hedefin defterinde `ts`'si `now`'ın UTC takvim ayında olan `cost` satırlarının `usd_micros`
+  toplamıdır; birden çok hedefte ayın harcamasının nerede toplandığı yanıtsızdır (seed-085 c).
 - dondurmalar `freeze` bölümünün kendi satırlarıdır.
 - sert duruş olguları defter satırı değildir: döngünün kendi çağrılarının bu devirde bulduklarıdır.
 - Actions dakikası, kapsayıcılık ihlali, eşik değişikliği, koltuk benzerliği ve genesis taslağı Aşama 1'de ölçülmez:

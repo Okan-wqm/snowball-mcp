@@ -428,6 +428,7 @@ class DriftHashesTest(unittest.TestCase):
 
     def test_the_constitutional_hash_follows_the_policy_and_a_float_refuses(self):
         # epoch_constitutional_hash_stale epoch_constitutional_hash_float_accepted
+        # epoch_policy_checked_after_the_kill_switch epoch_dry_run_skips_the_policy
         world = World()
         root = Path(tempfile.mkdtemp(dir=world.tmp))
         for rel, data in (("vectors/a.json", b"{}\n"), ("seats/29.md", b"# s\n"), ("policy.json", dumps(self.POLICY))):
@@ -458,8 +459,12 @@ class DriftHashesTest(unittest.TestCase):
         world = self.world({"writer_app_id": 7, "hashes": dict(self.OLD), "operator_checked_at": None},
                            policy={"constitutional": {"confidence_level": 0.9}})
         with self.assertRaisesRegex(deliver.Refused, "six-decimal string"):
-            world.run()  # the delivery refuses at step 5: the referee's main keeps its summary
+            world.run(dry_run=True)  # the plan already refuses
+        with self.assertRaisesRegex(deliver.Refused, "six-decimal string"):
+            world.run()  # refused before the kill switch goes on and before the brain gets D
         self.assertEqual(json.loads(show(world.referee, "main", "setup/summary.json"))["drift"]["hashes"], self.OLD)
+        self.assertFalse(json.loads(show(world.referee, "main", "control.json"))["kill_switch"])
+        self.assertEqual(world.head(world.brain), world.c)
 
 
 class DeliveryGuardTest(unittest.TestCase):

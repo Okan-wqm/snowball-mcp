@@ -244,10 +244,17 @@ değiştiriyorsa önceki şemayı taşıyabilmelidir (`state.migrate`); taşıya
    `constitutional.gate_rules.soft_freeze_limit` 2, `containment_freeze` 2) ve `18b`'nin performans bölümü
    (`performance.windows.measure` 14 ve öbür satırları; kesirler altı ondalıklı dizgi). Aşama 1'in zorunlu yolları
    (`29v`) eksikse döngü temiz durur.
-2. `setup/summary.json` `drift`: `writer_app_permissions` (`GET /app`'in `permissions`'ı, olduğu gibi) ve `visibility`
-   (`GET /repos/{r}`'nin `visibility`'si, en az her hedefin reposu) eklenir; `rules` üç dalı adlandırır.
-   `constitutional_sha256`'yı teslimin 5. adımı yeni `policy.json`'dan yeniden hesaplar (hakemin `canonical`'ı; elle
-   `json.dumps` ile değil); kayan nokta kaldıysa teslim durur.
+   Politikayı yeniden yazmak ve teslim aynı oturumda yapılır: arada koşan bir hakem işi yeni `policy.json`'u bayat
+   `constitutional_sha256`'ya karşı okur.
+2. `setup/summary.json` `drift`: `writer_app_permissions` bu teslimde **eklenmez** (beynin bugünkü sıkı biçimi onu
+   "not a field of this shape" diye reddeder); `operator_checked_at` ile birlikte sonraki bir operatör dokunuşunda
+   eklenir. `visibility` canlı tabanda zaten vardır. `constitutional_sha256`'yı teslimin 5. adımı yeni `policy.json`'dan
+   yeniden hesaplar (hakemin `canonical`'ı); kayan nokta kaldıysa teslim kill switch'ten ve beyne `D`'den önce, `--dry-run`'da
+   da durur. Teslim dışında elle, hakem reposunun kökünde, `snowball-mcp`'nin `seed/bootstrap`'ı `PYTHONPATH`'teyken
+   (asla `json.dumps` ile değil):
+   ```
+   python -c "import json,hashlib; from snowball_bootstrap.canon import canonical; print(hashlib.sha256(canonical(json.load(open('policy.json', encoding='utf-8'))['constitutional'])).hexdigest())"
+   ```
 3. `operator_checked_at` sahibin kurulu App'ler denetimini bekler (E668).
 4. Yazar App'inin etkinlik akışındaki login'i (`<slug>[bot]`) ilk canlı döngüden önce kopyanın akışında bir kez
    doğrulanır.

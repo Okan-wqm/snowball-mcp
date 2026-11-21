@@ -55,12 +55,12 @@ o yolu okuyan okuyucu `policy_invalid:<yol>` ile reddeder. `constitutional_sha25
 `.gitattributes` yoktur, git arşivi ile checkout aynı blob baytlarını verir; bağ ya da düzenli olmayan dosya reddedilir.
 Ruleset listesi `GET /repos/{r}/rulesets?per_page=100`'dür (`includes_parents` varsayılanıyla, her sayfa); kimlikler
 tabana küme olarak karşılaştırılır (taban artan, tekrarsız tamsayılardır). `visibility` `GET /repos/{r}`'nin
-`visibility` alanıdır; harita her hedefin reposunu adlandırır ve kayıtlıdan başka bir değer (`internal` dahil) farktır.
-`writer_app_permissions` `GET /app`'in `permissions`'ıyla eşitlik olarak karşılaştırılır. Nedenler:
-`constitutional_hash_mismatch`, `vectors_hash_mismatch`, `seats_hash_mismatch`, `rulesets_changed`,
-`visibility_changed:<repo>`, `writer_app_permissions_changed`. Aşama 1'de tabanın ve kural hash'inin vektörü yoktur.
-Önyükleme hakemi `vectors_sha256` ve `seats_sha256`'yı bir başı yargılayan her `pull`'da kendi hash'leriyle
-karşılaştırır, farkta durur (`25`); boşta geçen yoklama `pull`'u koşmaz.
+`visibility` alanıdır; harita her hedefin reposunu adlandırır, özetin adlandırdığı her repo okunur ve karşılaştırılır;
+kayıtlıdan başka bir değer (`internal` dahil) farktır. `writer_app_permissions` `GET /app`'in `permissions`'ıyla
+eşitlik olarak karşılaştırılır. Nedenler: `constitutional_hash_mismatch`, `vectors_hash_mismatch`, `seats_hash_mismatch`,
+`rulesets_changed`, `visibility_changed:<repo>`, `writer_app_permissions_changed`. Aşama 1'de tabanın ve kural hash'inin
+vektörü yoktur. Önyükleme hakemi `vectors_sha256` ve `seats_sha256`'yı bir başı yargılayan her `pull`'da kendi
+hash'leriyle karşılaştırır, farkta durur (`25`); boşta geçen yoklama `pull`'u koşmaz.
 
 **Etkinlik API'si.** `GET /repos/{r}/activity?per_page=100`, süzgeçsiz; `refs/heads/brain/` altındaki ref'ler
 yargılanır. Pencere, `drift.activity.not_before` ile önceki döngünün başlangıç satırının `ts`'sinden 10 dakika
