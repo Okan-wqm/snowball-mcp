@@ -54,8 +54,9 @@ inceleyicinin bulduğu eksiktir, Kurucu'nun bir raporundan gelmez). Çalışma-z
 - **MF11, çalışma-zamanı adayının yeniden koşusu** (modül `runner/candidate_rerun.py`; test 57). `koş` bir
   çalışma-zamanı adayını kapıdan önce yeniden koşar (`26a`: hakem hiçbir adaya yeniden koşturmadan güvenmez). Test 57:
   aday hazır aday gibi koşar (üç lint koşusu, test koşusu, kırmızı kontrol); yeniden koşusu olmayan aday kapıya ulaşmaz.
-- **MF12, `yaz`'ın aday okuması** (modül `loop/candidates.py`; test 58; sözleşmeleri T1, T2 `26k`'de). `yaz` `candidates/<id>/`'yi sonuçlardan
+- **MF12, `yaz`'ın aday okuması** (modül `loop/candidates.py`; test 58). `yaz` `candidates/<id>/`'yi sonuçlardan
   hash'iyle okur. Test 58: `organ_ids` kapıya, `finding` bulgu yazıcısına gider; biçimsiz paket yalnız o adayı reddeder.
+  MF12'nin sözleşmeleri T1 ve T2 `26k`'dedir (seed-088).
 Testler §0.9'un numaralarının devamıdır (`26e`). `26e`'nin tablosu ve `stages/stage1-P1.json` bu üç satırı taşır.
 
 **Modül adı** (`26e`'nin kuralı). Modülün ilk adı (paketi ya da `.py`'siz dosyası) Python'un standart kütüphanesinde bir
