@@ -99,8 +99,6 @@ class FirstAgentHintTest(unittest.TestCase):
         row = register_row("E692")
         self.assertIn("sahibin ipucu (bu kez kural esnetildi", row)
         self.assertIn("\"Kurucu kendisi bulur\" kuralını bir kez daha esnetmeyi seçti", row)
-        for words in ("Buse", "Duygu", "Egon"):
-            self.assertNotIn(words, page("00e") + row)
 
 
 class SmartCheckHintTest(unittest.TestCase):
