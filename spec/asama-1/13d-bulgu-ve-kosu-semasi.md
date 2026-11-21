@@ -16,7 +16,7 @@ anlamlarını söyler.
 | Alan | Aşama 1'deki anlamı |
 |---|---|
 | `finding_id`, `fingerprint` | Parmak izi `property + file + symbol + normalize(claim)`; satır girmez (`tohum/07`) |
-| `state` | `open`, `fixed`, `verified`, `reopened`, `withdrawn`, `blocked`, `unresolved` |
+| `state` | `open`, `fixed`, `verified`, `reopened`, `withdrawn`, `blocked`, `unresolved`; `verified` ve `withdrawn` Aşama 1'de yazılmaz (`tohum/26k`) |
 | `class_level`, `property` | §1.13b |
 | `tool`, `rule_id` | K0–K2 için zorunlu; K0 isabeti kural + eşlenmiş satırdır (`asama-0/08`) |
 | `claim` | Ürün hakkında tek cümle |

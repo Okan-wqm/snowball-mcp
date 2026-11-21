@@ -15,6 +15,7 @@ Okunma: sayfa ararken; görev seçmek için `tohum/00b-gorev-haritasi.md`
 | `tohum/00b-gorev-haritasi.md` | Görev Haritası | her oturumda, görev seçilirken |
 | `tohum/00c-gorev-haritasi-sahibin-ipuclari.md` | Görev Haritası, Devam: Sahibin İpuçları | her oturumda, görev seçilirken (`00b`'nin devamı) |
 | `tohum/00d-gorev-haritasi-sahibin-ipuclari-devam.md` | Görev Haritası, Devam: Sahibin İpuçları II | her oturumda, görev seçilirken (`00c`'nin devamı) |
+| `tohum/00e-gorev-haritasi-sahibin-ipuclari-3.md` | Görev Haritası, Devam: Sahibin İpuçları III | her oturumda, görev seçilirken (`00d`'nin devamı) |
 | `tohum/01-hedef-sistem.md` | Hedef Sistem | ilk oturumda |
 | `tohum/01a-mimari-ve-yetki.md` | Mimari ve Yetki: Dört Yer | ilk oturumda ve her yeni repoya bağlanırken |
 | `tohum/01b-kapi-kurallari.md` | Kapı Kuralları, Tetik, Döngü İşlemi | her merge ve her state yazımında |
@@ -66,6 +67,7 @@ Okunma: sayfa ararken; görev seçmek için `tohum/00b-gorev-haritasi.md`
 | `tohum/26h-semalar-asama-1-ilk-dilim.md` | Şemalar, Devam: Aşama 1'in İlk Dilimi | Aşama 1'de sıradaki MF ya da parti seçilirken, P1'in MF8'i ve MF9'u yazılırken, Aşama 1'in çıkış satırları ve harness'in politika değerleri okunurken |
 | `tohum/26i-semalar-gozcu.md` | Şemalar, Devam: Gözcü'nün Satırları ve Görünümleri | Gözcü (P1 MF7) yazılırken, bir `freeze` satırı okunurken ve kapı bir dondurmayı okurken |
 | `tohum/26j-semalar-p1-bulgu-izin-aday.md` | Şemalar, Devam: P1'in Bulgu Yazıcısı, İzin Listesi ve Aday Yolu | P1'in MF8–MF12'si yazılırken ve bir aday paketi, bulgu ya da `accept` satırı okunurken |
+| `tohum/26k-semalar-bulgu-durumlari.md` | Şemalar, Devam: Bulgu Durumlarının Yazıcıları | P1 MF8'in durum geçişleri ve P1 MF12'nin karar okuması yazılırken, bir bulgu satırı okunurken |
 | `tohum/26g-semalar-kurucu-dersi.md` | Şemalar, Devam: Kurucu'nun Dersi ve Ders Dizini | defterine ders yazarken ve `/work/logs/lessons.json` okunurken |
 | `tohum/27-sozluk-ve-okuyucular.md` | Sözlük ve Okuyucular | yeni terim ya da dosya eklerken |
 | `tohum/27a-okuyucular-hedef-durumu.md` | Okuyucular, Devam: Hedefteki Durum Dosyaları | yeni durum dosyası, bölüm ya da görünüm eklerken |
@@ -114,6 +116,7 @@ Okunma: sayfa ararken; görev seçmek için `tohum/00b-gorev-haritasi.md`
 | `tohum/31g-karar-rehberi.md` | Mimari İlkeler VII: Karar Rehberi | aşağıdaki durumlardan biri ortaya çıktığında, `decision` satırı yazılmadan önce |
 | `tohum/31h-catismalar-ve-tarama.md` | Mimari İlkeler VIII: Çatışmalar ve Tarama Sinyalleri | iki ilke aynı durumda farklı yön gösterdiğinde; bir repo ilkeler açısından taranırken; rakip bir tasarımı çürütmeye çalışırken |
 | `tohum/CHANGELOG.md` | Değişiklik Günlüğü — Tohum | bir sayfanın geçmişi aranırken |
+| `tohum/CHANGELOG-12.md` | Değişiklik Günlüğü — Tohum, 2.2'nin On Birinci Kayıtları | bir sayfanın geçmişi aranırken |
 | `tohum/CHANGELOG-11.md` | Değişiklik Günlüğü — Tohum, 2.2'nin Onuncu Kayıtları | bir sayfanın geçmişi aranırken |
 | `tohum/CHANGELOG-10.md` | Değişiklik Günlüğü — Tohum, 2.2'nin Dokuzuncu Kayıtları | bir sayfanın geçmişi aranırken |
 | `tohum/CHANGELOG-8.md` | Değişiklik Günlüğü — Tohum, 2.2'nin Yedinci Kayıtları | bir sayfanın geçmişi aranırken |
