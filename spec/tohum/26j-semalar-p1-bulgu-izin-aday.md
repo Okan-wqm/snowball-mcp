@@ -21,7 +21,7 @@ ile Aşama 1'in MF1, MF5, MF6'sı arasında parti yoktur: o ilk okuyucuların ha
 - **Kararlar.** `unresolved` satırının `snapshot_id`'si kararın verildiği tabandır. Son satırı `unresolved` olan bulgu
   başka bir tabanda gözlenince bir `open` satırıyla yeniden açılır (`reopened` sayılmaz); aynı tabanda hiçbir şey
   yazılmaz. Bir dosyanın eşit iki satırı aynı kuralı çiğniyorsa tek bulgudur. Bilinmeyen bir bulguyu adlandıran
-  karar o adayın reddidir, devrin değil.
+  karar o adayın reddidir, devrin değil. Durumların yazıcıları `26k`'dedir (seed-088).
 - **Kap.** Önerinin kabı organın çıktı listesidir: koşu sonuçlarında (`results`) tutulur, `yaz` onu hash'iyle okur.
   `proposed_by` hakemin o çağrıya dair kendi kaydındaki organ kimliğidir, listenin bir alanı değildir.
 - **Bitti.** MF8, `yaz`'a bağlandığında ve her canlı devirde boş girdiyle koştuğunda biter; ilk gerçek girdi Aşama 1
@@ -54,7 +54,7 @@ inceleyicinin bulduğu eksiktir, Kurucu'nun bir raporundan gelmez). Çalışma-z
 - **MF11, çalışma-zamanı adayının yeniden koşusu** (modül `runner/candidate_rerun.py`; test 57). `koş` bir
   çalışma-zamanı adayını kapıdan önce yeniden koşar (`26a`: hakem hiçbir adaya yeniden koşturmadan güvenmez). Test 57:
   aday hazır aday gibi koşar (üç lint koşusu, test koşusu, kırmızı kontrol); yeniden koşusu olmayan aday kapıya ulaşmaz.
-- **MF12, `yaz`'ın aday okuması** (modül `loop/candidates.py`; test 58). `yaz` `candidates/<id>/`'yi sonuçlardan
+- **MF12, `yaz`'ın aday okuması** (modül `loop/candidates.py`; test 58; sözleşmeleri T1, T2 `26k`'de). `yaz` `candidates/<id>/`'yi sonuçlardan
   hash'iyle okur. Test 58: `organ_ids` kapıya, `finding` bulgu yazıcısına gider; biçimsiz paket yalnız o adayı reddeder.
 Testler §0.9'un numaralarının devamıdır (`26e`). `26e`'nin tablosu ve `stages/stage1-P1.json` bu üç satırı taşır.
 
