@@ -32,11 +32,11 @@ numarasızdır (`asama-1/06`): her tablo kendi MF'lerini 1'den numaralar; Aşama
 Test numaraları §0.9'undur (`asama-0/09`); 53 ve 55 onun numaralarının devamıdır: 53 `asama-1/13`'ün P2 MF1 için andığı
 "`30d`'nin profil testleri", tanımı `30d` "Profil testi"ndedir, 55'inki `26h`'dedir. 56–58 de devamdır, tanımları `26j`'de.
 Öbür testler ve gruplar `asama-1/13`'ündür. Modül yolu `26a`'nın araç adındandır (`snapshot.make` → `snapshot/make.py`),
-aracı olmayan mekanizmada mekanizmanın adından; iki araçlı MF'nin modülü ilk aracınkidir (`asama-0/14` MF1, MF13).
-Modülsüz kırmızı bu yolu siler (`asama-0/14`). Modülün ilk adı standart kütüphanede bir modülün adı olamaz
-(`sys.stdlib_module_names`; `profile/` varken `import cProfile` düşer): böyle satırlı tablo yüklenmez; Aşama 0'ın donmuş
-`profile`'ı (MF4, MF6) bu kuraldan öncedir. Parti çıkış isteği `{stage: 1, sha, spec_sha256, batch}`'tir (`26c`); `batch`
-açık partininki olmalıdır, değilse `exit_request_wrong_batch`. P1'in MF8'i ve MF9'u ve ilk dilimin sırası `26h`'dedir (sahip kararı (2026-11-20)); MF10–MF12 operatörün tablo düzeltmesidir (`26j`); P2'nin MF2'si düştü (seed-072).
+aracı olmayan mekanizmada mekanizmanın adından; iki araçlı MF'nin modülü ilk aracınkidir (`asama-0/14` MF1, MF13). Modülsüz
+kırmızı bu yolu siler (`asama-0/14`). Modülün ilk adı standart kütüphanede bir modülün adı olamaz (`sys.stdlib_module_names`;
+ayrıntısı `26j`'de): böyle satırlı tablo yüklenmez. Parti çıkış isteği `{stage: 1, sha, spec_sha256, batch}`'tir (`26c`);
+`batch` bu tablonun ilk sütunudur ve açık partininki olmalıdır, değilse `exit_request_wrong_batch`. P1'in MF8'i ve MF9'u ve
+ilk dilimin sırası `26h`'dedir (sahip kararı (2026-11-20)); MF10–MF12 operatörün tablo düzeltmesidir (`26j`).
 
 **Çıkış partisi.** `asama-1/13`'ün "Aşama 1 çıkışı" satırları (`exit.sample` 27, `spec.lint` 33, `exit.adversarial`
 54; `29za`) bu tohumda tablo değildir: o parti Aşama 1'in kendi çıkışının (A)'sıyla gelir (`asama-1/08`) ve bu tohum

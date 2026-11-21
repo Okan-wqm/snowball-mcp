@@ -57,3 +57,8 @@ inceleyicinin bulduğu eksiktir, Kurucu'nun bir raporundan gelmez). Çalışma-z
 - **MF12, `yaz`'ın aday okuması** (modül `loop/candidates.py`; test 58). `yaz` `candidates/<id>/`'yi sonuçlardan
   hash'iyle okur. Test 58: `organ_ids` kapıya, `finding` bulgu yazıcısına gider; biçimsiz paket yalnız o adayı reddeder.
 Testler §0.9'un numaralarının devamıdır (`26e`). `26e`'nin tablosu ve `stages/stage1-P1.json` bu üç satırı taşır.
+
+**Modül adı** (`26e`'nin kuralı). Modülün ilk adı (paketi ya da `.py`'siz dosyası) Python'un standart kütüphanesinde bir
+modülün adı olamaz (`sys.stdlib_module_names`; `profile/` varken `import cProfile` düşer): böyle satırı olan tablo
+yüklenmez. Hakem komutu `referee/`'yi `sys.path`'te önde koşar; Aşama 0'ın donmuş `profile`'ı o tablo yeniden açılana
+kadar kalır ve hakemin hiçbir komutu `cProfile`'ı çağırmaz (`26e`).
