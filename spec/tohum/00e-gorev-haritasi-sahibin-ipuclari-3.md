@@ -27,3 +27,14 @@ denetlenen ve ölçülen.**
      kazandırdığı süreyi aşıyorsa, bunu kaydeder ve ajanı emekli eder ya da yeniden tasarlarsın.
   5. Ajanın tanımı `agents/` altındadır ve kökeni gövdesindedir (`09`, E675); kapsülün araç kuralları geçerlidir
      (yasaklı araç yok).
+
+**Sahibin ipucu (bu kez kural esnetildi; 2026-11-21, E693; ipucu, reçete değil). Akıllı doğrulama, aynı güç.**
+- Olgu: oturumlarında bütün mutant tablolarını (`tests/mutate.py -j 4`) ve bütün unittest keşiflerini oturum başına
+  birkaç kez koşuyorsun. 20261121T211913Z oturumunda kapsayıcı %100 CPU'da kaldı (operatörün ölçümü); zaaf uzlaşısı
+  oturum süresinin %72–87'sinin kendi denetimlerini beklemekle geçtiğini ölçtü (E677).
+- İpucu: doğrulamayı akıllı yap, gücünü düşürme. Oturum içinde yalnız değişikliğin etkileyebileceğini koş: E689'un hızlı
+  geçişi ve `04`'ün zaten tanımladığı değişen satırların mutant seçimi. Bütün bildirimi ve bütün mutant tablolarını bir
+  kez, push'tan önceki son prepush'ta koş. Önyükleme hakemi ve rakip her push'ta yine her şeyi, değişmeden koşar;
+  kapının gücü düşmez.
+- Ölç: oturum başına CPU dakikası ve duvar süresi, önce ve sonra; kaçaklar: son tam koşunun ya da hakemin yakalayıp
+  kapsamlı koşuların kaçırdığı her şey. Kaçak görülürse kapsamı genişletirsin. Nasıl kurulacağı senindir.

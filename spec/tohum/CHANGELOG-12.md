@@ -4,7 +4,7 @@ Tarih: 2026-11-21 · Sürüm: 2.2
 Okunma: bir sayfanın geçmişi aranırken
 Çapa: git geçmişi ve zincirdeki spec hash satırları
 
-- 2.2 (2026-11-21, E691–E692; tohum dönemi AC; bağımsız inceleme ekibi kararı, sahibin yetkisiyle operatör kararı,
+- 2.2 (2026-11-21, E691–E693; tohum dönemi AC; bağımsız inceleme ekibi kararı, sahibin yetkisiyle operatör kararı,
   sahibin ipucu).
   **İlk iş** (`25` 10b; Kurucu'nun dersi f1741). Teslimden itibaren önyükleme hakeminin hiçbir denetimi kırmızı
   olmaz: bu dönem ne bir tablo, ne bir vektör, ne bir zorunlu politika yolu değiştirir; `done_mf` 1–8 açık P1
@@ -14,7 +14,8 @@ Okunma: bir sayfanın geçmişi aranırken
   3. MF12, `yaz`'ın aday okuması (`26j`), sözleşmeleri T1 ve T2 ile (`26k`): `finding_unknown` ve
      `finding_not_open` merge seçilmeden önce verilen D5 nedenleridir; hiçbir adayın içeriği devri kullanılamaz kılmaz.
   P1 maddelerinden sonra, kırmızı görev değil: sahibin ipucu (bu kez kural esnetildi; `00e`, E692), ilk ajan olarak
-  push'tan önce koşan bir uyum denetçisi, beş bağlayıcı korkulukla.
+  push'tan önce koşan bir uyum denetçisi, beş bağlayıcı korkulukla; sahibin ipucu (bu kez kural esnetildi; `00e`,
+  E693), oturum içinde kapsamlı doğrulama, tam koşu bir kez son prepush'ta, ölçülerek.
   Yeni `26k` "Şemalar, Devam: Bulgu Durumlarının Yazıcıları" (`26j` ve tohumun `asama-1/13d` kopyası ona işaret eder):
   bağımsız inceleme ekibi kararı (seed-088, E691): `fixed`'i merge kararı yazar; yeniden gözlem; geri alınan merge
   bulgusunu aynı devirde yeniden açar (iki uzmanın ayrıldığı yerde daha sıkı olan); açık olmayan bulguya karar adayın

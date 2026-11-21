@@ -4708,6 +4708,18 @@ MUTANTS = [
      "E691: the first task does not name MF12's contracts"),
     ('ac_hint_is_a_duty', 'spec/tohum/CHANGELOG-12.md', 'P1 maddelerinden sonra, kırmızı görev değil:', 'İlk iş olarak, kırmızı görev:',
      'E692: the owner hint is made a red duty'),
+    # ---- seed epoch AC: the owner's hint on smarter checks (E693)
+    ('smart_hint_unlabelled', 'spec/tohum/00e-gorev-haritasi-sahibin-ipuclari-3.md', '(bu kez kural esnetildi; 2026-11-21, E693; ipucu, reçete değil)',
+     '(2026-11-21, E693)', 'E693: the hint is not labelled as the owner bending the rule once'),
+    ('smart_full_run_every_time', 'spec/tohum/00e-gorev-haritasi-sahibin-ipuclari-3.md',
+     "kez, push'tan önceki son prepush'ta koş.", 'kez, her değişiklikten sonra koş.',
+     'E693: the full run stays inside the session'),
+    ('smart_gate_weakened', 'spec/tohum/00e-gorev-haritasi-sahibin-ipuclari-3.md', 'push\'ta yine her şeyi, değişmeden koşar;',
+     'push\'ta yalnız kapsamlı olanı koşar;', 'E693: the referee and the rival are scoped too'),
+    ('smart_unmeasured', 'spec/tohum/00e-gorev-haritasi-sahibin-ipuclari-3.md', '- Ölç: oturum başına CPU dakikası ve duvar süresi, önce ve sonra;',
+     '- Oturum başına CPU dakikası ve duvar süresi ölçülmez;', 'E693: the hint asks for no measurement'),
+    ('smart_never_widens', 'spec/tohum/00e-gorev-haritasi-sahibin-ipuclari-3.md', 'Kaçak görülürse kapsamı genişletirsin.', 'Kaçaklar sayılmaz.',
+     'E693: an escape does not widen the scope'),
 ]
 
 

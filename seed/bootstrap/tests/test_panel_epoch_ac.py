@@ -103,9 +103,34 @@ class FirstAgentHintTest(unittest.TestCase):
             self.assertNotIn(words, page("00e") + row)
 
 
+class SmartCheckHintTest(unittest.TestCase):
+    """The owner's hint of 2026-11-21 (E693): scoped checks during a session, the full run once, the gate unchanged."""
+
+    def test_00e_states_the_evidence_and_the_duty(self):
+        # smart_hint_unlabelled smart_full_run_every_time smart_gate_weakened smart_unmeasured smart_never_widens
+        text = flat(page("00e"))
+        for words in ("**Sahibin ipucu (bu kez kural esnetildi; 2026-11-21, E693; ipucu, reçete değil). Akıllı "
+                      "doğrulama, aynı güç.**", "bütün mutant tablolarını (`tests/mutate.py -j 4`) ve bütün unittest "
+                      "keşiflerini oturum başına birkaç kez koşuyorsun", "20261121T211913Z oturumunda kapsayıcı %100 "
+                      "CPU'da kaldı (operatörün ölçümü)", "%72–87'sinin kendi denetimlerini beklemekle geçtiğini ölçtü (E677)",
+                      "Oturum içinde yalnız değişikliğin etkileyebileceğini koş: E689'un hızlı geçişi ve `04`'ün zaten "
+                      "tanımladığı değişen satırların mutant seçimi",
+                      "Bütün bildirimi ve bütün mutant tablolarını bir kez, push'tan önceki son prepush'ta koş",
+                      "Önyükleme hakemi ve rakip her push'ta yine her şeyi, değişmeden koşar; kapının gücü düşmez",
+                      "oturum başına CPU dakikası ve duvar süresi, önce ve sonra; kaçaklar",
+                      "Kaçak görülürse kapsamı genişletirsin. Nasıl kurulacağı senindir."):
+            self.assertIn(words, text, words)
+        self.assertIn("mutant öldürme tabanı", flat(page("04")))  # the changed-line selection the hint points at
+        row = register_row("E693")
+        self.assertIn("sahibin ipucu (bu kez kural esnetildi", row)
+        self.assertIn("\"Kurucu kendisi bulur\" kuralını bir kez daha esnetmeyi seçti", row)
+        self.assertIn("sahibin ipucu (bu kez kural esnetildi; `00e`, E693), oturum içinde kapsamlı doğrulama, tam koşu "
+                      "bir kez son prepush'ta, ölçülerek", flat(changelog()))
+
+
 class FirstTaskTest(unittest.TestCase):
     def test_this_entry_opens_with_its_first_task(self):  # ac_first_task_not_first ac_t1_t2_unnamed ac_hint_is_a_duty
-        entry = flat(changelog().split("\n- 2.2 (2026-11-21, E691–E692", 1)[1])
+        entry = flat(changelog().split("\n- 2.2 (2026-11-21, E691–E693", 1)[1])
         self.assertIn("**İlk iş** (`25` 10b; Kurucu'nun dersi f1741). Teslimden itibaren önyükleme hakeminin hiçbir "
                       "denetimi kırmızı olmaz", entry[:400])
         first = entry.split("Yeni `26k`")[0]
