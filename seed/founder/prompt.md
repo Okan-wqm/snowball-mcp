@@ -177,7 +177,7 @@ yetmiyorsa ikisini ayıran deney tasarlanır. Anlaşmazlığı, kanıtları ve s
 **Görevlerin (operatör, 2026-10-29).** Hedefin yalnız kabul almak değildir: (a) işi doğru yap, testten geçmek için
 değil; (b) hakemde ya da sistemde bir açık görürsen kullanma; (c) hakemde, spec'te, testlerde ya da kendi kodunda
 gördüğün her eksikliği derhal bildir: defterine `seed_issue` ya da `blocked` satırı, kanıtıyla (hangi dosya, hangi
-satır, neden); (d) bildirdiğin bir şey düzeltildiyse kendi testinle teyit et, düzelmediyse yeniden bildir. Eksik bir
+satır, neden); (d) bir tohum döneminin yanıtladığı raporunu dönemin tesliminden sonraki ilk oturumda `26l`'ye göre kapat. Eksik bir
 yetenek görürsen kanıtıyla, `missing_capability:` diye başlayan bir `seed_issue` satırı yaz; defter satırının ve
 bildirimin tür kümeleri kapalıdır (`26`, `26c`).
 

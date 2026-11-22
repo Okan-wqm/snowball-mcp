@@ -7,8 +7,8 @@ One cycle:
   4. if the brain moved, dispatch the referee (its schedule fires rarely and irregularly, E32) and wait for it;
   5. write the session's cost as a `kind: cost` founder row on the brain's main (`tohum/24a` 4), when that commit is
      memory alone to the referee; otherwise keep it in <work>/cost-pending.jsonl for a later cycle;
-  6. append what happened to <work>/pilot-log.md (with the brain's open reports and their age, and apart those no
-     changelog of the brain's seed names, the operator's unanswered ones, E527; and the brain's `wip/` branches that
+  6. append what happened to <work>/pilot-log.md (the brain's open reports and their age, split by the referee's own
+     rule into the operator's debt and the Founder's unconfirmed ones, `26l`, E694; and the brain's `wip/` branches that
      hold the Founder's memory or have fallen behind the last accepted head, E592) and one metrics line that names what
      the cycle ran on (prompt, image, model, CLI, seed, rival configuration, target commit).
 
@@ -69,7 +69,6 @@ import tempfile
 import time
 import xml.sax.saxutils
 import zipfile
-from collections import Counter
 from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
@@ -77,8 +76,8 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 SEED = HERE.parent
 sys.path.insert(0, str(SEED / "bootstrap"))
-from snowball_bootstrap import canon, config, gitio, ledgercheck, secretscan  # noqa: E402  (the chain rule, the
-# referee's git, its strict reading of targets[], its ledger check and its secret patterns)
+from snowball_bootstrap import canon, config, gitio, ledgercheck, reportlife, secretscan  # noqa: E402  (the chain
+# rule, the referee's git, its strict reading of targets[], its ledger check, its report counts and secret patterns)
 from snowball_bootstrap.treehash import RESERVED_TOP  # noqa: E402  (what of the referee repo is not referee/)
 from snowball_bootstrap.classify import (LEDGER_FILE, SEED_DIRS, is_founder_record,  # noqa: E402  (what is memory
                                          is_seed_path)  # and what is the operator's delivery to the referee)
@@ -445,79 +444,21 @@ def cost_stamps(ledger: bytes) -> set[str]:
     return found
 
 
-def report_ages(reports: list[dict], seen: dict[str, str], ts: str) -> list[tuple[str, int]]:
-    """The open reports and the hours since the launcher first saw each (``seen`` is updated): a report carries no
+def report_ages(reports: list[dict], seen: dict[str, str], ts: str) -> dict[str, int]:
+    """Every report's hours since the launcher first saw it, by file name (``seen`` is updated): a report carries no
     time of its own, and the ledger's and commits' times are written in the capsule (E316)."""
     now_dt = datetime.strptime(ts, "%Y-%m-%dT%H:%M:%SZ")
-    out = []
+    out = {}
     for r in reports:
-        rid = str(r.get("id") or r.get("file"))
+        rid = str(r.get("stem"))
         first = seen.setdefault(rid, ts)
-        if r.get("state") == "open":
-            out.append((rid, int((now_dt - datetime.strptime(first, "%Y-%m-%dT%H:%M:%SZ")).total_seconds() // 3600)))
-    return sorted(out, key=lambda item: (-item[1], item[0]))
-
-
-CHANGELOG_RE = re.compile(r"CHANGELOG[^/]*\.md")  # the seed's changelogs: spec/tohum/CHANGELOG.md, CHANGELOG-<n>.md
-
-
-def names_report(text: str, rid: str) -> bool:
-    """Whether text names the report by its whole id: `seed-040` is not named by `seed-0401` or `seed-040-x`."""
-    return re.search(r"(?<![\w-])" + re.escape(rid) + r"(?![\w-])", text) is not None
-
-
-def unanswered_reports(ages: list[tuple[str, int]], changelogs: list[str],
-                       unchanged: Callable[[str], bool]) -> list[tuple[str, int]]:
-    """The open reports the operator still owes (E527, E552): the operator answers a report in an epoch's changelog
-    row (`<id> → <page:lines>` or `declined: <id>`, E342), so one named in no seed changelog was never answered or
-    declined, and one the Founder changed after the latest epoch that names it (its update, a re-report) was answered
-    only up to the bytes it had then. ``unchanged(id)`` says, for an id some changelog names, whether its file is byte
-    for byte what it was at that latest naming (`unchanged_since_naming`; never a commit time, E316). For the operator
-    alone (pilot-log, metrics)."""
-    text = "\n".join(changelogs)
-    return [(rid, age) for rid, age in ages if not names_report(text, rid) or not unchanged(rid)]
-
-
-CHANGELOG_PATHSPEC = ":(glob)spec/tohum/CHANGELOG*.md"
-
-
-def naming_epochs(clone: Path, rid: str, head: str, additions: dict[str, Counter] | None = None) -> list[str]:
-    """The commits up to head, newest first (history order, never commit times, E316), whose changelog diff adds a line
-    that names the report (E552). A line moved from one changelog to another, which the compaction of a full changelog
-    does verbatim, is not an addition: a naming is the answer being written, not the page it was filed on. ``additions``
-    keeps each commit's added lines across calls (a commit never changes)."""
-    additions = additions if additions is not None else {}
-    literal = re.sub(r"[^\w-]", lambda m: chr(92) + m.group(0), rid)  # git's -G reads an extended regular expression
-    found = gitio.git(clone, "log", "--topo-order", "--format=%H", "-G", literal, head, "--", CHANGELOG_PATHSPEC,
-                      timeout=GIT_NETWORK_TIMEOUT_S).decode().split()
-    out = []
-    for commit in found:
-        if commit not in additions:
-            diff = gitio.git(clone, "diff-tree", "-p", "--root", "-m", "--first-parent", "--no-renames",
-                             "--no-ext-diff", "-U0", commit, "--", CHANGELOG_PATHSPEC,
-                             timeout=GIT_NETWORK_TIMEOUT_S).decode("utf-8", "replace").splitlines()
-            gone = Counter(line[1:] for line in diff if line.startswith("-") and not line.startswith("---"))
-            additions[commit] = Counter(line[1:] for line in diff if line.startswith("+")
-                                        and not line.startswith("+++")) - gone
-        if any(names_report(line, rid) for line in additions[commit]):
-            out.append(commit)
+        out[rid] = int((now_dt - datetime.strptime(first, "%Y-%m-%dT%H:%M:%SZ")).total_seconds() // 3600)
     return out
 
 
-def unchanged_since_naming(clone: Path, rid: str, file: str, head: str,
-                           additions: dict[str, Counter] | None = None) -> bool:
-    """Whether the report's file at head is byte for byte what it was at the latest commit that names it (git compares
-    the two blobs' ids, in a tree the blob-less clone has). False when no commit names it or the file was not there
-    then: an answer written before the report existed answers nothing (E552)."""
-    for commit in naming_epochs(clone, rid, head, additions)[:1]:
-        def blob(at: str) -> str:
-            return gitio.git(clone, "rev-parse", f"{at}:reports/{file}", timeout=GIT_LOCAL_TIMEOUT_S).decode().strip()
-        try:
-            then = blob(commit)
-        except gitio.GitError:
-            return False
-        return then == blob(head)
-    return False
+def aged(rows: list[dict], ages: dict[str, int]) -> list[tuple[str, int]]:
+    """The rows as ``(file name, age in hours)``, oldest first."""
+    return sorted(((str(r.get("stem")), ages.get(str(r.get("stem")), 0)) for r in rows), key=lambda i: (-i[1], i[0]))
 
 
 def lesson_index(data: bytes, commit: str) -> dict:
@@ -1027,10 +968,10 @@ class Pilot:
             return None
 
     TREE_QUERY = ("query($owner:String!,$name:String!,$expr:String!){repository(owner:$owner,name:$name){"
-                  "object(expression:$expr){... on Tree{entries{name object{... on Blob{text isTruncated}}}}}}}")
+                  "object(expression:$expr){... on Tree{entries{name object{... on Blob{text isTruncated oid}}}}}}}")
 
     def tree_blobs(self, expr: str) -> list[dict] | None:
-        """The entries of the brain's tree `<sha>:<path>`, each `{name, object: {text, isTruncated}}`, in one read-only
+        """The entries of the brain's tree `<sha>:<path>`, each `{name, object: {text, isTruncated, oid}}`, in one read-only
         GraphQL call; [] for no such tree, None when it cannot be read."""
         owner, name = self.brain.split("/", 1)
         proc = run("gh", "api", "graphql", "-f", f"query={self.TREE_QUERY}", "-f", f"owner={owner}", "-f",
@@ -1040,15 +981,6 @@ class Pilot:
         except (ValueError, TypeError, KeyError):
             return None
         return list((tree or {}).get("entries") or []) if proc.returncode == 0 else None
-
-    def seed_changelogs(self, sha: str) -> list[str] | None:
-        """The texts of the brain's `spec/tohum/CHANGELOG*.md` at sha: the seed it holds (E527). None when they cannot
-        be read whole (a failed call, no changelog, a truncated or binary blob): unknown, never "unanswered"."""
-        entries = self.tree_blobs(f"{sha}:spec/tohum")
-        logs = [e.get("object") or {} for e in entries or [] if CHANGELOG_RE.fullmatch(str(e.get("name", "")))]
-        if not logs or any(o.get("isTruncated") or not isinstance(o.get("text"), str) for o in logs):
-            return None
-        return [o["text"] for o in logs]
 
     WIP_QUERY = ("query($owner:String!,$name:String!){repository(owner:$owner,name:$name){refs(refPrefix:"
                  "\"refs/heads/wip/\",first:100){pageInfo{hasNextPage} nodes{name target{oid}}}}}")
@@ -1085,27 +1017,31 @@ class Pilot:
             return None
 
     def open_reports(self, sha: str) -> list[dict] | None:
-        """The brain's root `reports/*.json` at sha, each `{file, id, state}`, in one read-only GraphQL call; None when
-        it cannot be read."""
+        """The brain's root `reports/*.json` at sha, each read by the referee's own `reportlife.read_row` (`26l`), in
+        one read-only GraphQL call; None when the tree cannot be read. A blob's text counts only when its UTF-8 bytes
+        are the blob git names (its `oid`); a truncated, binary or mismatched one is read as unreadable, so it counts
+        open."""
         entries = self.tree_blobs(f"{sha}:reports")
         if entries is None:
             return None
         out = []
         for entry in entries:
-            if not str(entry.get("name", "")).endswith(".json"):
+            name = str(entry.get("name", ""))
+            if not name.endswith(".json"):
                 continue
-            try:
-                doc = json.loads(((entry.get("object") or {}).get("text")) or "")
-            except ValueError:
-                doc = None
-            doc = doc if isinstance(doc, dict) else {}
-            out.append({"file": entry["name"], "id": doc.get("id"), "state": doc.get("state")})
+            blob = entry.get("object") or {}
+            text = blob.get("text")
+            data = text.encode("utf-8") if isinstance(text, str) and not blob.get("isTruncated") else None
+            if data is not None and hashlib.sha1(b"blob %d\0" % len(data) + data).hexdigest() != blob.get("oid"):
+                data = None
+            out.append(reportlife.read_row(name, data))
         return out
 
     def observe(self, head: str, last_accepted: str | None = None) -> dict:
-        """What this cycle's outcome is attributed to, read after the session (E313): the brain's seed text and open
-        reports at head, which of them no changelog of the seed it holds names (E527), the target commit the capsule
-        mounted, and the brain's `wip/` branches the operator should hear of (E592)."""
+        """What this cycle's outcome is attributed to, read after the session (E313): the brain's seed text and its open
+        reports at head split by the referee's rule (`reportlife.split`, `26l`): the operator's debt (`reports_open`)
+        and the Founder's unconfirmed ones (`reports_unconfirmed`), each with its age; the target commit the capsule
+        mounted, and the brain's `wip/` branches the operator should hear of (E592). Unknown is None, never "none"."""
         reports = self.open_reports(head)
         seen_path = self.work / REPORTS_SEEN
         try:
@@ -1114,32 +1050,14 @@ class Pilot:
             seen = {}
         ages = report_ages(reports or [], seen, now())
         seen_path.write_text(json.dumps(seen, ensure_ascii=False, indent=1, sort_keys=True) + "\n", encoding="utf-8")
-        changelogs = self.seed_changelogs(head) if reports is not None else None
-        return {"spec_tohum_tree": self.spec_tohum_tree(head), "target_sha": self.target_head(),
-                "reports_open": None if reports is None else ages,
-                "reports_unanswered": (None if changelogs is None
-                                       else self.owed_reports(head, reports, ages, changelogs)),
-                "wip": self.wip(last_accepted)}
-
-    def owed_reports(self, head: str, reports: list[dict], ages: list[tuple[str, int]],
-                     changelogs: list[str]) -> list[tuple[str, int]] | None:
-        """`unanswered_reports` with the brain's history for the ids a changelog names (E527, E552): one blob-less
-        clone, made only when some open report is named at all. None when the history cannot be read: unknown, never
-        "owed"."""
-        files = {str(r.get("id") or r.get("file")): str(r["file"]) for r in reports}
-        text = "\n".join(changelogs)
-        if not any(names_report(text, rid) for rid, _ in ages):
-            return unanswered_reports(ages, changelogs, lambda rid: False)
-        additions: dict[str, Counter] = {}
         try:
-            with tempfile.TemporaryDirectory(prefix="snowball-reports-") as tmp:
-                clone = Path(tmp) / "brain"
-                gitio.git(Path(tmp), "-c", GH_CREDENTIAL, "clone", "--quiet", "--no-checkout", "--filter=blob:none",
-                          "--branch", "main", self.brain_remote, str(clone), timeout=GIT_NETWORK_TIMEOUT_S)
-                return unanswered_reports(ages, changelogs,
-                                          lambda rid: unchanged_since_naming(clone, rid, files[rid], head, additions))
-        except (gitio.GitError, OSError):
-            return None
+            owed, unconfirmed = reportlife.split(reports, reportlife.load_answers()) if reports is not None else (None, None)
+        except reportlife.AnswersError:
+            owed, unconfirmed = None, None
+        return {"spec_tohum_tree": self.spec_tohum_tree(head), "target_sha": self.target_head(),
+                "reports_open": None if owed is None else aged(owed, ages),
+                "reports_unconfirmed": None if unconfirmed is None else aged(unconfirmed, ages),
+                "wip": self.wip(last_accepted)}
 
     def record_cost(self, stamp: str, sess: dict, head: str, last_accepted: str | None) -> str:
         """The session's cost row (`tohum/24a` 4), with any rows an earlier cycle had to keep; what happened, as a line
@@ -1695,19 +1613,15 @@ class Pilot:
         cost = self.record_cost(stamp, sess, after, last_accepted)
         seen = self.observe(after, last_accepted)
         lines.append(f"- Maliyet satırı (`kind: cost`): {cost}")
-        if seen["reports_open"] is None:
-            lines.append("- Açık raporlar: okunamadı")
-        else:
-            lines.append(f"- Açık raporlar ({len(seen['reports_open'])}, beyin `{after[:7]}`; yaş: başlatıcının ilk "
-                         "görmesinden bu yana saat): " + ", ".join(f"`{rid}` {age} sa" for rid, age in seen["reports_open"]))
-        # E527: an open report no changelog of the brain's seed names was never answered nor declined: the operator's
-        # move (a seed epoch). Its own line, so it cannot hide among the open ones; nothing of it reaches the Founder.
-        if seen.get("reports_unanswered") is None:
-            lines.append("- CEVAPSIZ (operatör): okunamadı (raporlar ya da beyindeki `spec/tohum/CHANGELOG*.md`)")
-        else:
-            lines.append(f"- CEVAPSIZ (operatör) ({len(seen['reports_unanswered'])}; beyindeki tohumun hiçbir "
-                         "`spec/tohum/CHANGELOG*.md`'si adlandırmıyor, yanıt ya da `declined:` bekliyor): "
-                         + (", ".join(f"`{rid}` {age} sa" for rid, age in seen["reports_unanswered"]) or "yok"))
+        # `26l`, E694: the referee's own split (`reportlife.split`): what the operator owes (a seed epoch) and what the
+        # Founder owes (a confirmation, decline or supersession), each on its own line; nothing of it reaches the Founder.
+        for key, label in (("reports_open", "Açık raporlar, operatörün borcu (`reports_open`"),
+                           ("reports_unconfirmed", "Teyit bekleyen raporlar, Kurucu'nun borcu (`reports_unconfirmed`")):
+            if seen.get(key) is None:
+                lines.append(f"- {label}): okunamadı")
+            else:
+                lines.append(f"- {label}; {len(seen[key])}, beyin `{after[:7]}`; yaş: başlatıcının ilk görmesinden bu "
+                             "yana saat): " + (", ".join(f"`{rid}` {age} sa" for rid, age in seen[key]) or "yok"))
         # E592: memory lives on main only; a wip/ branch holding it, or left behind the last accepted head, is the
         # operator's to see (the Founder reads `15` 9, never this log). Unknown is said, never "none".
         if seen.get("wip") is None:
@@ -1751,9 +1665,9 @@ class Pilot:
             "rival_config": ({k: ((verdict or {}).get("rival") or {}).get(k) for k in RIVAL_CONFIG}
                              if (verdict or {}).get("rival") else None),
             "timed_out": bool(sess.get("timed_out")), "cost_row": cost,
-            "reports_open": None if seen["reports_open"] is None else len(seen["reports_open"]),
-            "reports_unanswered": (None if seen.get("reports_unanswered") is None
-                                   else len(seen["reports_unanswered"])),
+            "reports_open": None if seen.get("reports_open") is None else len(seen["reports_open"]),
+            "reports_unconfirmed": (None if seen.get("reports_unconfirmed") is None
+                                    else len(seen["reports_unconfirmed"])),
             "wip": seen.get("wip"),  # E592: the wip/ findings, None when unknown
             "reports_new": [r.get("payload", {}).get("summary", "")[:120] for r in new_rows
                             if r.get("kind") in REPORT_KINDS],

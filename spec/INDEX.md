@@ -68,6 +68,7 @@ Okunma: sayfa ararken; görev seçmek için `tohum/00b-gorev-haritasi.md`
 | `tohum/26i-semalar-gozcu.md` | Şemalar, Devam: Gözcü'nün Satırları ve Görünümleri | Gözcü (P1 MF7) yazılırken, bir `freeze` satırı okunurken ve kapı bir dondurmayı okurken |
 | `tohum/26j-semalar-p1-bulgu-izin-aday.md` | Şemalar, Devam: P1'in Bulgu Yazıcısı, İzin Listesi ve Aday Yolu | P1'in MF8–MF12'si yazılırken ve bir aday paketi, bulgu ya da `accept` satırı okunurken |
 | `tohum/26k-semalar-bulgu-durumlari.md` | Şemalar, Devam: Bulgu Durumlarının Yazıcıları | P1 MF8'in durum geçişleri ve P1 MF12'nin karar okuması yazılırken, bir bulgu satırı okunurken |
+| `tohum/26l-semalar-rapor-yasam-dongusu.md` | Şemalar, Devam: Raporların Yaşam Döngüsü | bir rapor yazılırken ya da durumu değiştirilirken, bir tohum döneminden sonraki ilk oturumda ve imzalı sonucun rapor uyarıları okunurken |
 | `tohum/26g-semalar-kurucu-dersi.md` | Şemalar, Devam: Kurucu'nun Dersi ve Ders Dizini | defterine ders yazarken ve `/work/logs/lessons.json` okunurken |
 | `tohum/27-sozluk-ve-okuyucular.md` | Sözlük ve Okuyucular | yeni terim ya da dosya eklerken |
 | `tohum/27a-okuyucular-hedef-durumu.md` | Okuyucular, Devam: Hedefteki Durum Dosyaları | yeni durum dosyası, bölüm ya da görünüm eklerken |
@@ -116,6 +117,7 @@ Okunma: sayfa ararken; görev seçmek için `tohum/00b-gorev-haritasi.md`
 | `tohum/31g-karar-rehberi.md` | Mimari İlkeler VII: Karar Rehberi | aşağıdaki durumlardan biri ortaya çıktığında, `decision` satırı yazılmadan önce |
 | `tohum/31h-catismalar-ve-tarama.md` | Mimari İlkeler VIII: Çatışmalar ve Tarama Sinyalleri | iki ilke aynı durumda farklı yön gösterdiğinde; bir repo ilkeler açısından taranırken; rakip bir tasarımı çürütmeye çalışırken |
 | `tohum/CHANGELOG.md` | Değişiklik Günlüğü — Tohum | bir sayfanın geçmişi aranırken |
+| `tohum/CHANGELOG-13.md` | Değişiklik Günlüğü — Tohum, 2.2'nin On İkinci Kayıtları | bir sayfanın geçmişi aranırken |
 | `tohum/CHANGELOG-12.md` | Değişiklik Günlüğü — Tohum, 2.2'nin On Birinci Kayıtları | bir sayfanın geçmişi aranırken |
 | `tohum/CHANGELOG-11.md` | Değişiklik Günlüğü — Tohum, 2.2'nin Onuncu Kayıtları | bir sayfanın geçmişi aranırken |
 | `tohum/CHANGELOG-10.md` | Değişiklik Günlüğü — Tohum, 2.2'nin Dokuzuncu Kayıtları | bir sayfanın geçmişi aranırken |
