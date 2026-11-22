@@ -3296,8 +3296,14 @@ class WeeklyLimitTest(unittest.TestCase):
         with mock.patch.object(launch, "run", side_effect=docker):
             sess = pilot.session("20261122T100000Z", "m", 1, 1, 60)
         self.assertEqual(sess["key_mtime_ns"], before)  # taken at the session's start, not its end
+        clock = {"t": 0.0}
         slept = []
-        with self.key_unreadable(key), mock.patch.object(launch.time, "sleep", side_effect=slept.append), \
+
+        def sleep(seconds):  # a clock of its own: a wait that never looks at the key still ends, after a week
+            clock["t"] += seconds
+            slept.append(seconds)
+        with self.key_unreadable(key), mock.patch.object(launch.time, "sleep", side_effect=sleep), \
+                mock.patch.object(launch.time, "monotonic", side_effect=lambda: clock["t"]), \
                 mock.patch.object(launch, "say"):
             pilot.wait(7 * 86400, key, sess["key_mtime_ns"])
         self.assertEqual(slept, [])  # the new key is there: no minute of the week is waited
