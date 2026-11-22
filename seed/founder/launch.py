@@ -801,6 +801,9 @@ class Pilot:
         self.metrics = work / "pilot-metrics.jsonl"  # one machine-readable line per cycle (what docs/pilot-gunlugu.md counts)
         self.seed = ""  # the brain commit the referee's setup summary pins; the capsule cuts history there
         self.epoch: str | None = None  # the last seed epoch's brain commit (`26c` seed_epochs[]), if any
+        # every seed epoch's brain commit, read at preflight: a confirmation's epoch must be one (`26l`, seed-096); None
+        # before preflight, when only the form is read
+        self.epochs: frozenset[str] | None = None
         self.targets: list[dict] = []  # `target_ids` of the summary, each session's targets.json (E571, E577)
         self.withheld: list = []  # the targets' folded names (`target_names`), kept out of policy.json's copy (E588)
         self.brain_remote = f"https://github.com/{brain}.git"
@@ -831,6 +834,7 @@ class Pilot:
                 problems.append(f"{self.referee} setup/summary.json has no seed_commit")
             try:
                 summary = self.summary()
+                self.epochs = reportlife.epoch_commits(summary)
                 self.targets = target_ids(summary)
                 self.withheld = target_names(target_rows(summary))
             except ValueError as exc:  # a summary the referee refuses, or an id that would carry a name (E290)
@@ -1020,7 +1024,7 @@ class Pilot:
         """The brain's root `reports/*.json` at sha, each read by the referee's own `reportlife.read_row` (`26l`), in
         one read-only GraphQL call; None when the tree cannot be read. A blob's text counts only when its UTF-8 bytes
         are the blob git names (its `oid`); a truncated, binary or mismatched one is read as unreadable, so it counts
-        open."""
+        open. A confirmation's `epoch` must be one of the summary's seed epochs (``epochs``, read at preflight)."""
         entries = self.tree_blobs(f"{sha}:reports")
         if entries is None:
             return None
@@ -1034,7 +1038,7 @@ class Pilot:
             data = text.encode("utf-8") if isinstance(text, str) and not blob.get("isTruncated") else None
             if data is not None and hashlib.sha1(b"blob %d\0" % len(data) + data).hexdigest() != blob.get("oid"):
                 data = None
-            out.append(reportlife.read_row(name, data))
+            out.append(reportlife.read_row(name, data, self.epochs))
         return out
 
     def observe(self, head: str, last_accepted: str | None = None) -> dict:

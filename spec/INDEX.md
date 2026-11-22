@@ -69,6 +69,8 @@ Okunma: sayfa ararken; görev seçmek için `tohum/00b-gorev-haritasi.md`
 | `tohum/26j-semalar-p1-bulgu-izin-aday.md` | Şemalar, Devam: P1'in Bulgu Yazıcısı, İzin Listesi ve Aday Yolu | P1'in MF8–MF12'si yazılırken ve bir aday paketi, bulgu ya da `accept` satırı okunurken |
 | `tohum/26k-semalar-bulgu-durumlari.md` | Şemalar, Devam: Bulgu Durumlarının Yazıcıları | P1 MF8'in durum geçişleri ve P1 MF12'nin karar okuması yazılırken, bir bulgu satırı okunurken |
 | `tohum/26l-semalar-rapor-yasam-dongusu.md` | Şemalar, Devam: Raporların Yaşam Döngüsü | bir rapor yazılırken ya da durumu değiştirilirken, bir tohum döneminden sonraki ilk oturumda ve imzalı sonucun rapor uyarıları okunurken |
+| `tohum/26m-semalar-p1-kalanlar.md` | Şemalar, Devam: P1'in Kurulmuş Satırlarının Kalanları | P1 MF2–MF4 (`snapshot.make`, `cases.build`, `harness.score`) yazılırken ya da değiştirilirken ve P1'in çıkış isteğinden önce |
+| `tohum/26n-semalar-p1-kalanlar-devam.md` | Şemalar, Devam: Test 9 ve 11, Sürükleme Etkinliği, Ertelenenler | P1 MF5 ve MF6 (`harness/offline.py`, `drift/check.py`) yazılırken ya da değiştirilirken, Aşama 1'in bütçe anahtarları adlandırılırken ve P1'in çıkış isteğinden önce |
 | `tohum/26g-semalar-kurucu-dersi.md` | Şemalar, Devam: Kurucu'nun Dersi ve Ders Dizini | defterine ders yazarken ve `/work/logs/lessons.json` okunurken |
 | `tohum/27-sozluk-ve-okuyucular.md` | Sözlük ve Okuyucular | yeni terim ya da dosya eklerken |
 | `tohum/27a-okuyucular-hedef-durumu.md` | Okuyucular, Devam: Hedefteki Durum Dosyaları | yeni durum dosyası, bölüm ya da görünüm eklerken |
@@ -117,6 +119,7 @@ Okunma: sayfa ararken; görev seçmek için `tohum/00b-gorev-haritasi.md`
 | `tohum/31g-karar-rehberi.md` | Mimari İlkeler VII: Karar Rehberi | aşağıdaki durumlardan biri ortaya çıktığında, `decision` satırı yazılmadan önce |
 | `tohum/31h-catismalar-ve-tarama.md` | Mimari İlkeler VIII: Çatışmalar ve Tarama Sinyalleri | iki ilke aynı durumda farklı yön gösterdiğinde; bir repo ilkeler açısından taranırken; rakip bir tasarımı çürütmeye çalışırken |
 | `tohum/CHANGELOG.md` | Değişiklik Günlüğü — Tohum | bir sayfanın geçmişi aranırken |
+| `tohum/CHANGELOG-15.md` | Değişiklik Günlüğü — Tohum, 2.2'nin On Dördüncü Kayıtları | bir sayfanın geçmişi aranırken |
 | `tohum/CHANGELOG-14.md` | Değişiklik Günlüğü — Tohum, 2.2'nin On Üçüncü Kayıtları | bir sayfanın geçmişi aranırken |
 | `tohum/CHANGELOG-13.md` | Değişiklik Günlüğü — Tohum, 2.2'nin On İkinci Kayıtları | bir sayfanın geçmişi aranırken |
 | `tohum/CHANGELOG-12.md` | Değişiklik Günlüğü — Tohum, 2.2'nin On Birinci Kayıtları | bir sayfanın geçmişi aranırken |
@@ -131,6 +134,7 @@ Okunma: sayfa ararken; görev seçmek için `tohum/00b-gorev-haritasi.md`
 | `tohum/CHANGELOG-3.md` | Değişiklik Günlüğü — Tohum, 2.2'nin İkinci Kayıtları | bir sayfanın geçmişi aranırken |
 | `tohum/CHANGELOG-2.md` | Değişiklik Günlüğü — Tohum, 2.2'nin İlk Kayıtları | bir sayfanın geçmişi aranırken |
 | `tohum/CHANGELOG-1.md` | Değişiklik Günlüğü — Tohum, 2.1 ve öncesi | bir sayfanın geçmişi aranırken |
+| `tohum/CHANGELOG-arsiv.md` | Değişiklik Günlüğü — Tohum, Dizinin Arşivi | bir sayfanın geçmişi aranırken |
 
 ## Aşama 0 — Yürüyen İskelet: İlk Canlı Döngü
 
