@@ -41,14 +41,16 @@ yetkisiyle). Arayüz olgularıdır; kodun nasıl yazılacağı Kurucu'nundur.
 - (5) Komutun kendi çıkış numarası arayüz değildir. Arayüz: iş kırmızı bitmez, hiçbir şey yazılmaz ve eski denetim
   farktan ve kullanılamaz girdiden komutun JSON satırıyla (`stale: true`, `hard_stop: false`) ayrılır, metin okunmadan.
 
-**Aşama 1'in bulgu başı frenleri** (`asama-1/10:16`; seed-095). Ertelendi: `fixer.llm`'i (Aşama 1 MF4, ilk organ
-merge'ünden sonra, `26h:12-15`) getiren döneme. O zamana kadar hiçbir kod iki sayıyı okumaz (ilk dilimin düzeltme
-yolunda LLM yoktur) ve hücrenin tek evi aşama sayfasıdır; zorunlu bir politika okuması yoktur, hiçbir
+**Aşama 1'in bulgu başı frenleri** (`asama-1/10:16`; seed-095; gevşetme L-AF1, geçici). Ertelendi: `fixer.llm`'i
+(Aşama 1 MF4, ilk organ merge'ünden sonra, `26h:12-15`) getiren döneme. O zamana kadar hiçbir kod iki sayıyı okumaz
+(ilk dilimin düzeltme yolunda LLM yoktur) ve hücrenin tek evi aşama sayfasıdır; zorunlu bir politika okuması yoktur, hiçbir
 `policy_reads_required_absent` kırmızı olmaz. Anahtarlar anayasal bütçe anahtarlarıdır: o dönemde sahip karar verir.
 Başlangıç noktası olarak kayıtlıdır: değerler 0,50 USD ve 5 dk (`"0.500000"`, `300`); adlar
 `constitutional.stage_params.fix_call_max_usd` ve `constitutional.stage_params.fix_call_max_s`. `stage_budgets` değil:
 oradaki anahtarlar aşama toplamıdır, her biri `monthly_cap_usd` ile karşılaştırılır (`18a:57`, `02:23`); bunlar
-`llm.call`'ın çağrı başı tavanıdır (`26a:39`). `02:22`'nin eşik maddesi bu hücreye o dönemde uygulanır.
+`llm.call`'ın çağrı başı tavanıdır (`26a:39`). **Gevşetme L-AF1** (geçici): `02:22`'nin eşik maddesi ("her eşik ya
+`policy.json`'a ya da anayasal tabana atıf") bu hücreye o döneme kadar uygulanmaz; L-AF1 `fixer.llm`'in (MF4) döneminde,
+sahip anahtarlara karar verince biter ve o dönemden sonra hiçbir `spec.lint` bu hücreyi muaf tutmaz.
 
 **Açıkça ertelenenler** (rapor masası uzlaşısı; her biri adlı bir döneme ya da aşamaya, nedeniyle):
 - K4'ün sayımı (seed-091 (4)) → Aşama 3: K4 orada gelir (`03:63`).
@@ -57,10 +59,13 @@ oradaki anahtarlar aşama toplamıdır, her biri `monthly_cap_usd` ile karşıla
   her parmak izini hakemin kendi yazıcısı yapar.
 - Test 11'in tam yol listesi (seed-092 (4)) → P1 çıkış dönemi: bugün yukarıdaki kural yeter.
 - Özel bir hedefin etkinlik okumasının kimliği ve izni (seed-094 (3)) → ilk özel hedefin dönemi: Aşama 1'in hedefleri açık.
+  Sayfalar özel hedefe bir aşama vermez (`01a:23-25`, `25` 0 ve 5: önce hakem reposu özel olur, okuyucu App'i kurulur);
+  aşama sınırının yerine kapı: bu okumanın kimliği bir sayfada adlandırılmadan hiçbir özel hedef bağlanmaz.
 - Geri çekilen vaka satırının (`01b:34`) biçimi ve yazıcısı (seed-090 (3)) → Aşama 2: Aşama 1'de yazıcısı yoktur,
   geçerlilik girişte yargılanır; biçimi ne olursa olsun eklenen bir satırdır, düzenleme değildir.
 - Boş olmayan `finding_id_patterns` ve yazıcısı (seed-089 (4)) → "yorum satırı"nın tanımıyla aynı dönem (`26e:65-66`),
   en geç ilk ekilmiş snapshot'tan (Aşama 4, `26h:69-70`) önce.
-- Kimlik olarak bulgu kimlikleri ve başlıkları (seed-089) → `system_tp` vakası üreten ilk partinin dönemi: Aşama 1'in
-  vaka kaynakları `human_fix` ve `mutation`dur (`asama-1/13a:11-13`).
+- Kimlik olarak bulgu kimlikleri ve başlıkları (seed-089) → `system_tp` vakası üreten ilk partinin dönemi, en geç
+  Aşama 4 (`asama-4/07:29`: panelin TP'si `system_tp` vaka adayıdır; bunu o sayfa belirler): Aşama 1'in vaka
+  kaynakları `human_fix` ve `mutation`dur (`asama-1/13a:11-13`).
 - Bulgu başı frenlerin anahtarları (seed-095) → `fixer.llm`'in dönemi (yukarıda).
