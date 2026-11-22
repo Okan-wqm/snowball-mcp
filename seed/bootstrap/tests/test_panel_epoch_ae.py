@@ -43,17 +43,22 @@ class AgentRulesHintTest(unittest.TestCase):
     Founder's."""
 
     def test_00e_states_the_evidence(self):
-        # rules_evidence_overclaimed rules_evidence_unrecorded rules_first_agent_only_unsaid
+        # rules_evidence_overclaimed rules_evidence_unrecorded rules_governing_lesson_unnamed rules_f1906_unnamed
+        # rules_prompts_praised
         text = hint()
         for words in ("20261122T091521Z oturumunda ilk ajanlarını koştun: altı salt-okur `opus` ajanı (\"Judge report "
                       "answers A-F\"), yanıtlanan 16 raporu `26l`'ye göre kapatmak için (sonuç a74914f: 9 `confirmed`, 7 "
-                      "`superseded`, 8 yeni rapor). Dilimleri ayrıktı, istemleri sıkıydı.",
-                      "Ama gelişigüzel kuruldular: istemler yalnız kapsülün `/tmp`'sindeydi (oturumla gitti); `agents/` "
-                      "altında tanım yok (`09`, E675); 49 canlı dersten hiçbiri verilmedi;",
-                      "ajan, model, çaba, token, maliyet, duvar süresi ya da hangi bulguların kullanıldığı için koşu "
-                      "başına kayıt yok (oturum satırları f1905–f1913 yalnız sonucu yazar)",
-                      "E692'nin korkulukları \"ilk ajan\"ı adlandırır; ötekileri hiçbir şey yönetmez."):
+                      "`superseded`, 8 yeni rapor). Dilimleri ayrıktı: tek ortak istem, ajan başına rapor kimlikleri.",
+                      "f1906 (7) altısını tek bir `decision` maddesinde yazar (general-purpose ajan, `opus`, çaba "
+                      "ayarlanmamış, istemin sha256'sı, toplam 314994 token, her biri 72–132 s, maliyet gösterilmedi, üç "
+                      "hükmü değiştirildi).",
+                      "Koşu başına satır yok, maliyet yok; istemin gövdesi beyinde değil (yalnız kapsülün `/tmp`'sindeydi, "
+                      "oturumla gitti); istemde ders yok; `agents/` altında tanım yok (`09`, E675).",
+                      "E692'nin korkulukları \"ilk ajan\"ı adlandırır; bu ajanları yöneten tek şey f1909'un (2) temsilci "
+                      "istemleri üzerine dersidir."):
             self.assertIn(words, text, words)
+        for wrong in ("istemleri sıkıydı", "yalnız sonucu yazar", "hiçbir şey yönetmez"):  # the review of PR #34
+            self.assertNotIn(wrong, text, wrong)
 
     def test_00e_states_the_duty_not_a_recipe(self):
         # rules_hint_unlabelled rules_design_prescribed rules_outside_the_brain rules_knowledge_dropped
@@ -78,26 +83,34 @@ class AgentRulesHintTest(unittest.TestCase):
 
     def test_00e_states_the_guards(self):
         # rules_guards_first_agent_only rules_agent_lands_by_itself rules_run_unrecorded rules_new_kind
-        # rules_catch_unproven rules_gate_changed rules_never_redesigned
+        # rules_catch_unproven rules_gate_changed rules_never_redesigned rules_diff_sha_dropped rules_guard5_unsaid
         text = hint()
         for words in ("Korkuluklar (sahibin koşulu; bağlayıcıdır):",
                       "1. E692'nin 1–3. korkulukları yalnız ilk ajana değil, her ajan koşusuna uygulanır: ajan yalnız bir "
                       "denetim ekler; her koşu bir `build` ya da `decision` satırıdır (kapalı küme, yeni tür yok), ajan "
-                      "kimliği, model, çaba, tanım sha256'sı, token, maliyet, duvar süresi, bulgular ve hangilerinin "
-                      "kullanıldığıyla; gerçek yakalama E692'nin dediği gibi kanıtlanır.",
+                      "kimliği, model, çaba, tanım sha256'sı, diff'in sha'sı (koşu bir diff okuyorsa), token, maliyet, "
+                      "duvar süresi, bulgular ve hangilerinin kullanıldığıyla; gerçek yakalama E692'nin dediği gibi "
+                      "kanıtlanır.",
+                      "E692'nin 5. korkuluğu ilk ajanın kalır; öteki ajanların tanımının nerede durduğu senin kuralındır "
+                      "(`09`).",
                       "2. Önyükleme hakemi, rakip ve tam prepush değişmeden kalır.",
                       "3. Yanlışlanabilir: kurallarla geçen 5 oturumdan sonra ajan koşularında ölçülen bir iyileşme (gerçek "
                       "yakalama, yeniden iş, işe yarar bulgu başına maliyet) görünmezse, bunu kaydeder ve yeniden "
                       "tasarlarsın."):
             self.assertIn(words, text, words)
-        self.assertEqual(len(re.findall(r" [1-9]\. ", text)), 3)
+        raw = page("00e")
+        raw = raw[raw.index("**Sahibin ipucu (bu kez kural esnetildi; 2026-11-22, E697"):]
+        self.assertEqual(len(re.findall(r"(?m)^  [1-9]\. ", raw)), 3)  # three guards, each a list item
         self.assertIn("Sahibin 2026-11-21'den sonraki ipuçları (E692'den başlayarak) `00e`'dedir.", flat(page("00d")))
 
 
 class RecordsTest(unittest.TestCase):
-    def test_the_register_row(self):  # e697_unlabelled e697_recipe e697_open
+    def test_the_register_row(self):  # e697_unlabelled e697_recipe e697_open e697_fact_old
         row = register_row("E697")
-        for words in ("sahibin ipucu (bu kez kural esnetildi; 2026-11-22, Suderra sahip tarafı; panelsiz; E692 ve E693 "
+        for words in ("f1906 (7) altısını tek bir `decision` maddesinde yazar (general-purpose ajan, `opus`, çaba "
+                      "ayarlanmamış, istemin sha256'sı, toplam 314994 token, her biri 72–132 s, maliyet gösterilmedi, üç "
+                      "hükmü değiştirildi)", "bu ajanları yöneten tek şey f1909'un (2) temsilci istemleri üzerine dersidir",
+                      "diff'in sha'sı (koşu bir diff okuyorsa)", "E692'nin 5. korkuluğu ilk ajanın kalır","sahibin ipucu (bu kez kural esnetildi; 2026-11-22, Suderra sahip tarafı; panelsiz; E692 ve E693 "
                       "gibi işaretli)", "\"Kurucu kendisi bulur\" kuralını bir kez daha esnetmeyi seçti",
                       "Görev, reçete değil; hiçbir tasarım verilmez.",
                       "(1) E692'nin 1–3. korkulukları her ajan koşusuna uygulanır",
