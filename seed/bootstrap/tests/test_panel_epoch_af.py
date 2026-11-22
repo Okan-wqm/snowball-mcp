@@ -1,6 +1,6 @@
 """Seed epoch AF (2026-11-22): the report desk's consensus on seed-089 .. seed-096 (E698-E703). A confirmation's
 `epoch` is the brain's delivery commit and both readers check it against the setup summary's epochs (`26l`, seed-096);
-`13:55-56` names the comparison point before a target's first merge (seed-093); the built P1 rows' remaining interface
+`13:54-56` names the comparison point before a target's first merge (seed-093); the built P1 rows' remaining interface
 facts are on `26m` and `26n` (seed-089-092, seed-094); seed-095 is deferred to the epoch that brings `fixer.llm`. Every
 item of each report as written has a line in `CHANGELOG-15` (the desk's rule of 2026-11-22). Only `spec/tohum`
 reaches the brain, so each binding sentence is on a `tohum` page. The trailing comment on a test names the mutants it
@@ -32,7 +32,7 @@ REPORTS = {
     "seed-089-snapshot-path-identity-manifest-form-adapter-tool-and-pattern-writer-unstated":
         ["(1)", "(2)", "(3)", "(4)", "yer tutucu notu", "vaka şeması notu"],
     "seed-090-dev-case-store-layout-carriage-and-two-validity-edges-unstated":
-        ["(1)", "(2)", "(3)", "(4)", "(5)", "(6)", "\"(1)–(4) sayfaya gelene kadar\" notu"],
+        ["(1)", "(2)", "(3)", "(4)", "(5)", "(6)", "\"(1)–(4) sayfaya gelene kadar\" notu", "`build.py`'nin grubu notu"],
     "seed-091-harness-score-fingerprint-hash-observation-verdict-and-k4-census-unstated": ["(1)", "(2)", "(3)", "(4)"],
     "seed-092-test-9-proof-online-reason-and-test-11-scope-unstated":
         ["(1)", "(2)", "(3)", "(4)", "boş olmayan prova oyuncağı notu"],
@@ -194,6 +194,8 @@ class IntegrationComparisonPointTest(unittest.TestCase):
                       "`object.sha`'sı, `29o:45`; seed-093); `null` ise dal yok demektir, her `brain/integration` başı "
                       "kırıktır.", text)
         self.assertNotIn("henüz adlandırılmamıştır", text)
+        self.assertIn("Adlandıran satırı olmayan doğrulanmış defter reddedilir (`integration_unnamed`, kurulduğu gibi "
+                      "benimsendi).", text)
         self.assertIn("`toy`: API'deki `main`'in `object.sha`'sı, özettekini okumaz", flat(page("29o")))
 
 
@@ -289,14 +291,28 @@ class OfflineDriftBrakesPageTest(unittest.TestCase):
             self.assertIn(words, text, words)
         self.assertIn("anahtarları `fixer.llm`'in dönemine ertelendi (`26n`, seed-095)", page("18a"))
 
+    def test_the_suspended_threshold_item_is_labelled_l_af1(self):  # l_af1_unlabelled
+        text = section("26n", "**Aşama 1'in bulgu başı frenleri**", "**Açıkça ertelenenler**")
+        self.assertIn("(`asama-1/10:16`; seed-095; gevşetme L-AF1, geçici)", text)
+        self.assertIn("**Gevşetme L-AF1** (geçici): `02:22`'nin eşik maddesi (\"her eşik ya `policy.json`'a ya da anayasal "
+                      "tabana atıf\") bu hücreye o döneme kadar uygulanmaz; L-AF1 `fixer.llm`'in (MF4) döneminde, sahip "
+                      "anahtarlara karar verince biter ve o dönemden sonra hiçbir `spec.lint` bu hücreyi muaf tutmaz.", text)
+        self.assertNotIn("o dönemde uygulanır", text)
+        self.assertIn("Gevşetme L-AF1 (geçici; `26n:51-53`; sahibe bildirilir)", register_row("E702"))
+        self.assertIn("**Gevşetme L-AF1**", page("26n").splitlines()[50])
+
     def test_each_deferral_names_its_epoch_and_reason(self):  # deferral_unnamed_epoch
         text = flat(page("26n").split("**Açıkça ertelenenler**", 1)[1])
         for words in ("K4'ün sayımı (seed-091 (4)) → Aşama 3: K4 orada gelir",
                       "`cases/dev.jsonl`'un hash zinciri (seed-090 (1)) → P1 çıkış dönemi:",
                       "(seed-091 (1)) → P1 çıkış dönemi:", "Test 11'in tam yol listesi (seed-092 (4)) → P1 çıkış dönemi:",
-                      "(seed-094 (3)) → ilk özel hedefin dönemi:", "(seed-090 (3)) → Aşama 2: Aşama 1'de yazıcısı yoktur",
+                      "(seed-094 (3)) → ilk özel hedefin dönemi:",
+                      "aşama sınırının yerine kapı: bu okumanın kimliği bir sayfada adlandırılmadan hiçbir özel hedef "
+                      "bağlanmaz.", "Sayfalar özel hedefe bir aşama vermez (`01a:23-25`",
+                      "`system_tp` vakası üreten ilk partinin dönemi, en geç Aşama 4 (`asama-4/07:29`: panelin TP'si "
+                      "`system_tp` vaka adayıdır; bunu o sayfa belirler)", "(seed-090 (3)) → Aşama 2: Aşama 1'de yazıcısı yoktur",
                       "(seed-089 (4)) → \"yorum satırı\"nın tanımıyla aynı dönem",
-                      "(seed-089) → `system_tp` vakası üreten ilk partinin dönemi:",
+                      "(seed-089) → `system_tp` vakası üreten ilk partinin dönemi, en geç",
                       "(seed-095) → `fixer.llm`'in dönemi"):
             self.assertIn(words, text, words)
         self.assertIn("Kalanları (seed-089–092, seed-094; rapor masası uzlaşısı, 2026-11-22) `26m` ve `26n`'dedir.",
@@ -327,7 +343,8 @@ class RecordsTest(unittest.TestCase):
         self.assertIn("Bu", page("26l").splitlines()[40])
         self.assertIn("(seed-096, sıkılaştırma)", page("26l").splitlines()[53])
         self.assertIn("Alanlar sonradan da eklenebilir", page("26l").splitlines()[55])
-        self.assertIn("ilk merge'ünden önce kesim satırının", page("13").splitlines()[54])
+        self.assertIn("ilk merge'ünden önce kesim satırının", page("13").splitlines()[53])
+        self.assertIn("`integration_unnamed`", page("13").splitlines()[55])
 
     def test_the_answers_file_names_the_eight_from_changelog_15(self):  # af_answer_partial
         answers = json.loads(reportlife.ANSWERS_FILE.read_text(encoding="utf-8"))["answers"]
@@ -355,7 +372,10 @@ class RecordsTest(unittest.TestCase):
         self.assertEqual(len(re.findall(r" [1-9]\. ", first)), 4)
         positions = [first.index(f"{n}. ") for n in (1, 2, 3, 4)]
         self.assertEqual(positions, sorted(positions))
-        self.assertIn("Gevşetme yok.", entry)
+        self.assertIn("Bir gevşetme, geçici: L-AF1 (`26n:51-53`; `02:22`'nin eşik maddesi `asama-1/10:16`'nın bulgu başı "
+                      "fren hücresine `fixer.llm`'in (MF4) dönemine kadar uygulanmaz; o dönemde sahip anahtarlara karar "
+                      "verince biter)", entry)
+        self.assertNotIn("Gevşetme yok", entry)
         index = (ROOT / "spec" / "INDEX.md").read_text(encoding="utf-8")
         for row in ("| `tohum/CHANGELOG-15.md` | Değişiklik Günlüğü — Tohum, 2.2'nin On Dördüncü Kayıtları |",
                     "| `tohum/CHANGELOG-arsiv.md` | Değişiklik Günlüğü — Tohum, Dizinin Arşivi |",

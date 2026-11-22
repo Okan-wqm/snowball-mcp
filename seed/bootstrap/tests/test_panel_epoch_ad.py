@@ -235,6 +235,7 @@ class SeedAnswersFileTest(unittest.TestCase):
         loaded = reportlife.load_answers()
         ids = sorted({r["id"] for r in answers["answers"] if int(r["changelog"].split("-")[1]) <= 13})  # later epochs
         self.assertEqual(len(ids), 16)  # add their own rows (AF: `test_panel_epoch_af`)
+        self.assertTrue(set(ids) <= set(loaded.kinds))  # the loader reads every one of them
         self.assertEqual(sorted("-".join(i.split("-")[:2]) for i in ids), sorted(OPEN_IDS))
         for row in answers["answers"]:
             with self.subTest(row=row):

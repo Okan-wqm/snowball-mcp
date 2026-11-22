@@ -5045,6 +5045,8 @@ MUTANTS = [
      "E702: the owner's open decision is closed"),
     ('af_changelog_unindexed', 'spec/tohum/CHANGELOG.md', '- 2.2 (2026-11-22, E698–E703; tohum dönemi AF, rapor masası uzlaşısı: seed-089–096, yeni `26m` ve `26n`): `CHANGELOG-15.md`; başında **İlk iş**.\n', '',
      'AF: the changelog index does not name CHANGELOG-15'),
+    ('l_af1_unlabelled', 'spec/tohum/26n-semalar-p1-kalanlar-devam.md', '**Gevşetme L-AF1** (geçici)', 'Not',
+     'L-AF1: the suspended threshold item of 02:22 is not labelled a loosening'),
 ]
 
 
