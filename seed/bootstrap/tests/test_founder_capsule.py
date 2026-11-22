@@ -227,7 +227,8 @@ class PreviousSessionTest(unittest.TestCase):  # E360: how the last session ende
         self.pilot.metrics.write_text("".join(json.dumps(r) + "\n" for r in rows), encoding="utf-8")
         self.pilot.previous_session_note("20261031T210000Z", 10800)
         self.assertEqual(self.note(), {"stamp": "20261031T174316Z", "ended": "timeout", "exit": -1, "minutes": 180.2,
-                                       "limit_minutes": 180.0, "pushed": False, "ledger_rows_added": 0, "verdict": None})
+                                       "limit_minutes": 180.0, "pushed": False, "ledger_rows_added": 0, "verdict": None,
+                                       "evaluated": None, "unjudged": None})
 
     def test_a_normal_end_and_the_limit_it_ran_under(self):
         row = {"stamp": "20261031T170731Z", "session_exit": 0, "minutes": 18.5, "pushed": True,
@@ -275,7 +276,8 @@ class PreviousSessionTest(unittest.TestCase):  # E360: how the last session ende
             self.pilot.intervention(args)  # two starts in a row (a preflight failure, then a start that ran)
         self.pilot.previous_session_note("20261031T210000Z", 10800)
         self.assertEqual(self.note(), {"stamp": "20261031T174316Z", "ended": "timeout", "exit": -1, "minutes": 180.2,
-                                       "limit_minutes": 180.0, "pushed": False, "ledger_rows_added": 0, "verdict": None})
+                                       "limit_minutes": 180.0, "pushed": False, "ledger_rows_added": 0, "verdict": None,
+                                       "evaluated": None, "unjudged": None})
 
     def test_no_earlier_cycle_writes_nothing(self):
         self.pilot.previous_session_note("20261031T210000Z", 10800)
@@ -1235,8 +1237,8 @@ class RefereeRetryTest(unittest.TestCase):  # E166: the loop never waits on the 
             def write(self, text):
                 pass
 
-            def wait(self, seconds):
-                waits.append(seconds)
+            def wait(self, seconds, watch=None):
+                waits.append((seconds, watch))
 
         pilot = Fake(Path(tempfile.mkdtemp()), "o/brain", "o/referee", "target")
         pilot.idle, pilot.seed = 0, "s" * 40
@@ -1246,7 +1248,7 @@ class RefereeRetryTest(unittest.TestCase):  # E166: the loop never waits on the 
             self.assertTrue(pilot.cycle(2, args))  # two limited sessions in a row do not stop the pilot
         self.assertEqual(pilot.idle, 0)
         self.assertEqual(len(waits), 2)
-        self.assertTrue(all(w > 0 for w in waits))
+        self.assertTrue(all(w > 0 and watch == pilot.env_file for w, watch in waits))  # E722: the key file is watched
         rows = [json.loads(line) for line in pilot.metrics.read_text(encoding="utf-8").splitlines()]
         self.assertEqual([r["api_error"] for r in rows], ["usage_limit_reached"] * 2)
 
@@ -1526,16 +1528,27 @@ class CostRowTest(unittest.TestCase):
         self.assertEqual(row["payload"], {
             "summary": "session 20261031T174316Z: exit -1, 180.2 min, turns unknown, cost_usd_micros unknown, "
                        "CLI result none, model unknown, models unknown, "
-                       "tokens in unknown out unknown cache_read unknown cache_write unknown",
+                       "tokens in unknown out unknown cache_read unknown cache_write unknown, per model: unknown",
             "refs": ["logs/20261031T174316Z/session-20261031T174316Z.jsonl"]})
         self.assertEqual(ledgercheck.check(ledger + line, ledger, whole=False), [])
         paid = launch.cost_summary(dict(self.FACT, exit=0, minutes=14.5, turns=88, cost_usd=2.3456789,
                                         subtype="success",
                                         model_served="claude-fable-5-2", models=["claude-opus-5-5", "claude-fable-5-2"],
-                                        tokens={"in": 174, "out": 64993, "cache_read": 7801687, "cache_write": 206492}))
+                                        tokens={"in": 174, "out": 64993, "cache_read": 7801687, "cache_write": 206492},
+                                        per_model={"claude-opus-5-5": {"in": 4, "out": 93, "cache_read": 179,
+                                                                       "cache_write": 49, "cost_usd_micros": 7925367,
+                                                                       "basis": "list"},
+                                                   "claude-fable-5-2": {"in": 170, "out": None, "basis": "unknown"},
+                                                   "bad model name!": {"in": 1}}))
         self.assertEqual(paid, "session 20261031T174316Z: exit 0, 14.5 min, turns 88, cost_usd_micros 2345679, "
                                "CLI result success, model claude-fable-5-2, models claude-fable-5-2+claude-opus-5-5, "
-                               "tokens in 174 out 64993 cache_read 7801687 cache_write 206492")
+                               "tokens in 174 out 64993 cache_read 7801687 cache_write 206492, per model: "
+                               "claude-fable-5-2 in 170 out unknown cache_read unknown cache_write unknown "
+                               "cost_usd_micros unknown basis unknown; claude-opus-5-5 in 4 out 93 cache_read 179 "
+                               "cache_write 49 cost_usd_micros 7925367 basis list")
+        # E720: a record with an empty modelUsage says none; one that is no record of it says unknown
+        self.assertTrue(launch.cost_summary(dict(self.FACT, per_model={})).endswith(", per model: none"))
+        self.assertTrue(launch.cost_summary(dict(self.FACT, per_model=["x"])).endswith(", per model: unknown"))
         # mutants: cost_row_drops_tokens cost_row_drops_model
         first = json.loads(launch.cost_line(b"", self.FACT, "2026-10-31T21:00:00Z"))
         self.assertEqual((first["row_id"], first["prev_hash"]), ("f1", "0" * 64))
@@ -1770,18 +1783,36 @@ class TranscriptTest(unittest.TestCase):
     def test_the_closing_result_event_is_what_the_report_reads(self):
         launch = load_launch()
         path = Path(tempfile.mkdtemp()) / "s.jsonl"
+        # E720: every result event is a turn's end; turns are summed, the rest is the last event's whole-session sums
         events = [{"type": "system", "subtype": "init"}, {"type": "result", "num_turns": 1, "total_cost_usd": 0.1},
-                  "not json", {"type": "result", "subtype": "success", "num_turns": 7, "total_cost_usd": 1.5,
-                               "result": "pushed MF1",
-                               "usage": {"input_tokens": 5, "output_tokens": 6, "cache_read_input_tokens": 7,
-                                         "cache_creation_input_tokens": True},
-                               "modelUsage": {"claude-fable-5-2": {}, "claude-opus-5-5": {}}}]
+                  "not json", {"type": "assistant", "message": {"content": [{"type": "result"}]}},
+                  {"type": "result", "subtype": "success", "num_turns": 7, "total_cost_usd": 1.5,
+                   "result": "pushed MF1",
+                   "usage": {"input_tokens": 5, "output_tokens": 6, "cache_read_input_tokens": 7,
+                             "cache_creation_input_tokens": 8},
+                   "modelUsage": {"claude-fable-5-2": {"inputTokens": 100, "outputTokens": 20, "cacheReadInputTokens": 3000,
+                                                       "cacheCreationInputTokens": 400, "costUSD": 1.25,
+                                                       "costBasis": "unknown"},
+                                  "claude-opus-5-5": {"inputTokens": 1, "outputTokens": 2, "cacheReadInputTokens": 3,
+                                                      "cacheCreationInputTokens": True, "costUSD": 0.25,
+                                                      "costBasis": "list"}}}]
         path.write_text("\n".join(e if isinstance(e, str) else json.dumps(e) for e in events), encoding="utf-8")
         self.assertEqual(launch.Pilot.transcript_summary(path),  # cost_row_tokens_not_read
-                         {"turns": 7, "cost_usd": 1.5, "subtype": "success", "final": "pushed MF1",
+                         {"turns": 8, "cost_usd": 1.5, "subtype": "success", "final": "pushed MF1",
                           "api_error": None, "api_error_status": None,
-                          "tokens": {"in": 5, "out": 6, "cache_read": 7, "cache_write": None},
+                          "tokens": {"in": 101, "out": 22, "cache_read": 3003, "cache_write": None},
+                          "per_model": {"claude-fable-5-2": {"in": 100, "out": 20, "cache_read": 3000, "cache_write": 400,
+                                                             "cost_usd_micros": 1250000, "basis": "unknown"},
+                                        "claude-opus-5-5": {"in": 1, "out": 2, "cache_read": 3, "cache_write": None,
+                                                            "cost_usd_micros": 250000, "basis": "list"}},
                           "models": ["claude-fable-5-2", "claude-opus-5-5"]})
+        events[1] = {"type": "result", "total_cost_usd": 0.1}  # a turn whose count is not there: unknown, never a part
+        path.write_text("\n".join(e if isinstance(e, str) else json.dumps(e) for e in events), encoding="utf-8")
+        self.assertIsNone(launch.Pilot.transcript_summary(path)["turns"])
+        events[-1] = dict(events[-1], modelUsage={})  # no models: the totals are unknown, never 0
+        path.write_text("\n".join(e if isinstance(e, str) else json.dumps(e) for e in events), encoding="utf-8")
+        self.assertEqual(launch.Pilot.transcript_summary(path)["tokens"],
+                         {"in": None, "out": None, "cache_read": None, "cache_write": None})
         self.assertEqual(launch.Pilot.transcript_summary(path.with_name("missing.jsonl")), {"transcript": "missing"})
 
 
@@ -2817,6 +2848,378 @@ class LedgerIndexCapsuleTest(unittest.TestCase):  # E506, owner 2026-11-02 (gap 
             messages = [c[0][0] for c in say.call_args_list]
             self.assertEqual(any("build files are " + "b" * 64 in m and base in m for m in messages), said, messages)
             self.assertEqual(len(messages), 1 if said else 0)  # the prompt agrees: only the stale files are said
+
+
+# ---- seed epoch AG (report desk, 2026-11-22): the whole session's cost row and its wait (E720), the rival's outage
+# (E721), the weekly limit and the key file (E722)
+OUTAGE_REASONS = [{"kind": "rival_unresolved", "ref": "api_error:http_429"}]
+
+
+def outage_result(head, evaluated=False, reasons=OUTAGE_REASONS):
+    return {"head": head, "kind": "code", "verdict": "rejected", "reasons": reasons, "warnings": [],
+            "state": {"last_evaluated_sha": head if evaluated else "0" * 40, "last_accepted_sha": "0" * 40}}
+
+
+class SessionCostTest(unittest.TestCase):
+    """E720 (seed-097; the owner approved the fix): the cost row carries the whole session, not its last turn, and per
+    model the CLI's tokens, costUSD and costBasis; a row that waits is in each session's `cost-pending.json`."""
+
+    def setUp(self):
+        self.launch = load_launch()
+        self.pilot = self.launch.Pilot(Path(tempfile.mkdtemp()), "o/brain", "o/referee", "target")
+
+    def transcript(self, stamp, turns=(3, 4), usage=None):
+        folder = self.pilot.session_logs(stamp)
+        folder.mkdir(parents=True, exist_ok=True)
+        usage = usage or {"claude-opus-5-5": {"inputTokens": 10, "outputTokens": 20, "cacheReadInputTokens": 30,
+                                              "cacheCreationInputTokens": 40, "costUSD": 0.5, "costBasis": "list"}}
+        events = [{"type": "result", "num_turns": n, "total_cost_usd": 0.5, "modelUsage": usage,
+                   "usage": {"input_tokens": 1}} for n in turns]
+        (folder / f"session-{stamp}.jsonl").write_text("".join(json.dumps(e) + "\n" for e in events), encoding="utf-8")
+
+    def note(self, stamp):
+        path = self.pilot.session_logs(stamp) / self.launch.COST_PENDING_NOTE
+        return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else None
+
+    def test_a_waiting_row_is_in_the_next_sessions_note_as_the_row_will_read(self):
+        # cost_pending_note_unwritten cost_pending_rows_dropped
+        old, new = "20261122T102334Z", "20261122T130912Z"
+        self.transcript(old)
+        pending = [{"stamp": old, "head": "b" * 40, "exit": 0, "minutes": 9.0, "turns": 3, "cost_usd": 0.5,
+                    "tokens": {"in": 1}},  # kept before E720: its record is read again from its transcript
+                   {"stamp": new, "head": "c" * 40, "exit": 0, "minutes": 5.0, "turns": 2, "cost_usd": 0.25,
+                    "per_model": {}}]
+        (self.pilot.work / self.launch.COST_PENDING).write_text(
+            "".join(json.dumps(f) + "\n" for f in pending) + "not json\n", encoding="utf-8")
+        self.pilot.cost_pending_note("20261122T144240Z")
+        note = self.note("20261122T144240Z")
+        self.assertEqual([(r["stamp"], r["snapshot_id"]) for r in note["pending"]], [(old, "b" * 40), (new, "c" * 40)])
+        self.assertEqual(note["pending"][0]["refs"], [f"logs/{old}/session-{old}.jsonl"])
+        self.assertIn("turns 7,", note["pending"][0]["summary"])  # 3 + 4: the whole session, not the last turn
+        self.assertIn("per model: claude-opus-5-5 in 10 out 20 cache_read 30 cache_write 40 cost_usd_micros 500000 "
+                      "basis list", note["pending"][0]["summary"])
+        self.assertIn("turns 2,", note["pending"][1]["summary"])  # a record with per-model figures is kept as it is
+        self.assertTrue(note["pending"][1]["summary"].endswith("per model: none"))
+        self.assertIn("written", note)
+        (self.pilot.work / self.launch.COST_PENDING).unlink()
+        self.pilot.cost_pending_note("20261122T150000Z")
+        self.assertEqual(self.note("20261122T150000Z")["pending"], [])  # nothing waits: said, not left out
+
+    def test_an_older_row_without_its_transcript_is_kept_as_it_was(self):  # pending_reread_without_transcript
+        (self.pilot.work / self.launch.COST_PENDING).write_text(json.dumps(
+            {"stamp": "20261122T102334Z", "head": "b" * 40, "turns": 3}) + "\n" + json.dumps(
+            {"stamp": "../x", "head": "b" * 40, "turns": 5}) + "\n", encoding="utf-8")
+        facts = self.pilot.pending_costs()
+        self.assertEqual([f["turns"] for f in facts], [3, 5])
+        self.assertTrue(all("per_model" not in f for f in facts))
+
+    def test_a_failing_note_leaves_no_file_and_names_the_class(self):  # cost_pending_note_failure_stops
+        with mock.patch.object(self.pilot, "pending_costs", side_effect=RuntimeError("row text")), \
+                mock.patch.object(self.launch, "say") as said:
+            self.pilot.cost_pending_note("20261122T144240Z")
+        self.assertIsNone(self.note("20261122T144240Z"))
+        self.assertEqual(said.call_args[0][0], "cost-pending.json not written for 20261122T144240Z: RuntimeError")
+
+    def test_the_session_record_keeps_the_per_model_figures_and_an_older_row_goes_out_read_again(self):
+        # cost_fact_drops_per_model pending_not_reread
+        old = "20261122T102334Z"
+        self.transcript(old, turns=(1, 1, 1))
+        (self.pilot.work / self.launch.COST_PENDING).write_text(json.dumps(
+            {"stamp": old, "head": "b" * 40, "turns": 1}) + "\n", encoding="utf-8")
+        sent = []
+
+        def push(remote, facts, last_accepted, ts, epoch=None, credential=True):
+            sent.append(facts)
+            return "deferred: 1 path(s)"
+        per = {"claude-opus-5-5": {"in": 1, "out": 2, "cache_read": 3, "cache_write": 4, "cost_usd_micros": 5,
+                                   "basis": "list"}}
+        with mock.patch.object(self.launch, "push_cost_rows", side_effect=push):
+            self.pilot.record_cost("20261122T130912Z", {"exit": 0, "turns": 9, "per_model": per}, "c" * 40, "a" * 40)
+        self.assertEqual((sent[0][0]["turns"], sent[0][1]["per_model"]), (3, per))
+        kept = [json.loads(x) for x in (self.pilot.work / self.launch.COST_PENDING).read_text(encoding="utf-8").splitlines()]
+        self.assertEqual([k["turns"] for k in kept], [3, 9])  # written back read again: the ledger gets the session's
+
+    def test_the_cycle_writes_the_note_before_the_session(self):  # cost_pending_note_not_called
+        launch = self.launch
+        seen = {}
+
+        class Fake(quiet_pilot(launch)):
+            def fetch_result(self):
+                return None
+
+            def brain_head(self):
+                return "a" * 40
+
+            def ledger_bytes(self, sha):
+                return b""
+
+            def refresh_inputs(self):
+                pass
+
+            def session(self, stamp, *a):
+                seen["note"] = (self.session_logs(stamp) / launch.COST_PENDING_NOTE).is_file()
+                return {"exit": 0, "minutes": 1, "timed_out": False}
+
+            def write(self, text):
+                pass
+
+        pilot = Fake(Path(tempfile.mkdtemp()), "o/brain", "o/referee", "target")
+        pilot.idle, pilot.seed = 0, "a" * 40
+        args = type("Args", (), dict(model="m", max_turns=1, budget_usd=1, session_timeout=1, referee_timeout=1))
+        with mock.patch.object(launch, "say"), mock.patch.object(launch.MIRROR, "mirror", return_value={}):
+            pilot.cycle(1, args)
+        self.assertTrue(seen["note"])
+
+    def test_the_operators_price_table_reaches_the_mirror(self):  # prices_not_passed
+        launch = self.launch
+        table = launch.prices()
+        self.assertEqual(launch.MIRROR.price_table(table)["models"]["claude-opus-5-5"]["out"], 20_000_000)
+        self.assertEqual(launch.prices(Path(tempfile.mkdtemp()) / "none.json"), {"error": "FileNotFoundError"})
+        with mock.patch.object(launch.MIRROR, "mirror", return_value={}) as made, mock.patch.object(launch, "say"):
+            self.pilot.mirror_note("20261122T144240Z")
+        self.assertEqual(made.call_args[0][7], table)
+
+
+class RivalOutageTest(unittest.TestCase):
+    """E721 (the owner approved the fix): a result whose every reason is the rival's own `api_error` leaves the head
+    unjudged; the launcher records it as an outage, never a rejection, and starts no session on it."""
+
+    def setUp(self):
+        self.launch = load_launch()
+        self.pilot = self.launch.Pilot(Path(tempfile.mkdtemp()), "o/brain", "o/referee", "target")
+        self.pilot.verdict_on = lambda head: None
+
+    def test_only_the_rivals_own_failure_on_an_unevaluated_head_is_an_outage(self):
+        # outage_reads_any_rival_reason outage_reads_an_evaluated_head outage_counts_isolation
+        out = self.pilot.rival_outage
+        head = "b" * 40
+        self.assertTrue(out(outage_result(head)))
+        self.assertTrue(out(outage_result(head, reasons=OUTAGE_REASONS + [
+            {"kind": "rival_unresolved", "ref": "api_error:timeout"}])))
+        self.assertFalse(out(outage_result(head, evaluated=True)))
+        self.assertFalse(out(outage_result(head, reasons=[])))
+        self.assertFalse(out(None))
+        for other in ({"kind": "refutation_reproduced", "ref": "repro:x"},  # a real reason beside it: not only an outage
+                      {"kind": "rival_unresolved", "ref": "api_error:isolation_network"},  # the referee's own stop
+                      {"kind": "rival_unresolved", "ref": "max_turns"}, {"kind": "rival_missing", "ref": "api_error:x"}):
+            with self.subTest(other=other):
+                self.assertFalse(out(outage_result(head, reasons=OUTAGE_REASONS + [other])))
+
+    def cycle(self, verdict):
+        launch = self.launch
+        report = []
+
+        class Fake(quiet_pilot(launch)):
+            heads = ["a" * 40, "b" * 40]
+            dispatches = 0
+
+            def fetch_result(self):
+                return verdict if self.dispatches else None
+
+            def dispatch_referee(self, timeout_s):
+                self.dispatches += 1
+                return {"id": "1", "conclusion": "success", "url": "u"}
+
+            def brain_head(self):
+                return self.heads.pop(0)
+
+            def ledger_rows(self, sha):
+                return []
+
+            def refresh_inputs(self):
+                pass
+
+            def session(self, *a):
+                return {"exit": 0, "minutes": 1}
+
+            def write(self, text):
+                report.append(text)
+
+        pilot = Fake(Path(tempfile.mkdtemp()), "o/brain", "o/referee", "target")
+        pilot.idle, pilot.seed = 0, "a" * 40
+        args = type("Args", (), dict(model="m", max_turns=1, budget_usd=1, session_timeout=1, referee_timeout=1))
+        with mock.patch.object(launch, "say"):
+            pilot.cycle(1, args)
+        return json.loads(pilot.metrics.read_text(encoding="utf-8").splitlines()[-1]), "".join(report)
+
+    def test_the_cycles_row_names_the_outage_not_a_verdict(self):
+        # outage_row_keeps_the_verdict outage_row_unnamed row_evaluated_unsaid outage_report_says_rejected
+        row, report = self.cycle(outage_result("b" * 40))
+        self.assertEqual((row["verdict"], row["evaluated"], row["unjudged"]),
+                         (None, False, {"cause": "outage", "owner": "rival"}))
+        self.assertEqual(row["reasons"], [{"kind": "rival_unresolved", "ref": "api_error:http_429", "owner": "rival"}])
+        self.assertIn("rakip kesintisi", report)
+        self.assertNotIn("**rejected**", report)
+        row, report = self.cycle(outage_result("b" * 40, evaluated=True, reasons=[{"kind": "x", "ref": "y"}]))
+        self.assertEqual((row["verdict"], row["evaluated"], row["unjudged"]), ("rejected", True, None))
+        self.assertIn("**rejected**", report)
+
+    def note(self, row, prior=None):
+        self.pilot.metrics.write_text(json.dumps(row) + "\n", encoding="utf-8")
+        self.pilot.previous_session_note("20261122T144240Z", 10800, prior)
+        return json.loads((self.pilot.session_logs("20261122T144240Z") / "previous-session.json").read_text(
+            encoding="utf-8"))
+
+    def test_the_next_session_reads_an_outage_never_a_rejection(self):
+        # note_lends_the_outage_a_verdict note_old_outage_row_rejected note_evaluated_unsaid
+        head = "b" * 40
+        row = {"stamp": "20261122T130912Z", "brain_after": head, "pushed": True, "session_exit": 0, "minutes": 9.0,
+               "ledger_new": {}, "verdict": None, "evaluated": False, "unjudged": {"cause": "outage", "owner": "rival"},
+               "reasons": [dict(OUTAGE_REASONS[0], owner="rival")], "session_timeout_s": 10800}
+        unjudged = {"verdict": None, "evaluated": False, "unjudged": {"cause": "outage", "owner": "rival"}}
+        self.assertEqual({k: self.note(row)[k] for k in unjudged}, unjudged)
+        older = dict(row, verdict="rejected")  # written before E721: the word was the referee's rejected
+        del older["unjudged"], older["evaluated"]
+        self.assertEqual({k: self.note(older)[k] for k in unjudged}, unjudged)
+        judged = {"head": head, "verdict": "accepted", "state": {"last_evaluated_sha": head}}  # a later run judged it
+        self.assertEqual({k: self.note(row, judged)[k] for k in unjudged},
+                         {"verdict": "accepted", "evaluated": True, "unjudged": None})
+        plain = dict(older, reasons=[{"kind": "refutation_reproduced", "ref": "repro:x", "owner": "founder"}])
+        self.assertEqual({k: self.note(plain)[k] for k in unjudged},
+                         {"verdict": "rejected", "evaluated": None, "unjudged": None})  # an older row: unknown
+
+    def hold(self, results, before="b" * 40):
+        launch = self.launch
+        calls = []
+
+        class Fake(quiet_pilot(launch)):
+            def fetch_result(self):
+                return results[min(len(calls), len(results) - 1)]
+
+            def dispatch_referee(self, timeout_s):
+                calls.append("referee")
+                return {"id": "1", "conclusion": "success", "url": "u"}
+
+            def brain_head(self):
+                return before
+
+            def ledger_rows(self, sha):
+                return []
+
+            def refresh_inputs(self):
+                calls.append("refresh")
+
+            def session(self, *a):
+                calls.append("session")
+                return {"exit": 0, "minutes": 1}
+
+            def write(self, text):
+                pass
+
+        pilot = Fake(Path(tempfile.mkdtemp()), "o/brain", "o/referee", "target")
+        pilot.idle, pilot.seed = 0, "s" * 40
+        args = type("Args", (), dict(model="m", max_turns=1, budget_usd=1, session_timeout=1, referee_timeout=1))
+        with mock.patch.object(launch, "say"):
+            try:
+                pilot.cycle(1, args)
+            except launch.RivalOutage:
+                calls.append("held")
+        return calls
+
+    def test_no_session_starts_on_an_outage_and_a_probe_that_judges_the_head_resumes(self):
+        # outage_session_starts outage_never_probed outage_probe_result_ignored
+        head = "b" * 40
+        self.assertEqual(self.hold([outage_result(head)]), ["referee", "held"])
+        judged = {"head": head, "verdict": "accepted", "state": {"last_evaluated_sha": head}}
+        self.assertEqual(self.hold([outage_result(head), judged]), ["referee", "refresh", "session"])
+
+    def test_a_caught_up_push_the_rival_could_not_judge_holds_too(self):  # catch_up_outage_starts_a_session
+        """The start's catch-up (E168) judges an unjudged push; an outage there is no verdict to work from either."""
+        older = {"head": "a" * 40, "verdict": "accepted", "state": {"last_evaluated_sha": "a" * 40}}
+        calls = self.hold([older, outage_result("b" * 40)])
+        self.assertEqual(calls[-1], "held")
+        self.assertNotIn("session", calls)
+
+    def test_the_hold_uses_no_cycle_and_probes_each_half_hour(self):
+        # rival_outage_counts_a_cycle rival_outage_probe_interval rival_outage_ignores_stop
+        launch = self.launch
+        calls, waits = [], []
+
+        class Fake:
+            idle, stop = 0, False
+
+            def stopped(self):
+                return self.stop
+
+            def cycle(self, n, args):
+                calls.append(n)
+                if len(calls) <= 2:
+                    raise launch.RivalOutage("held")
+                return True
+
+            def wait(self, seconds):
+                waits.append(seconds)
+
+        args = type("Args", (), dict(cycles=2))
+        with mock.patch.object(launch, "say"):
+            launch.run_cycles(Fake(), args)
+        self.assertEqual((calls, waits), ([1, 1, 1, 2], [launch.RIVAL_PROBE_S] * 2))
+        self.assertEqual(launch.RIVAL_PROBE_S, 30 * 60)
+        self.assertTrue(issubclass(launch.RivalOutage, launch.Outage))
+        class Stopping(Fake):
+            def wait(self, seconds):
+                waits.append(seconds)
+                self.stop = True  # the operator's STOP while the run is held
+
+        calls.clear(), waits.clear()
+        with mock.patch.object(launch, "say"):
+            launch.run_cycles(Stopping(), args)  # a STOP while held ends the run instead of probing again
+        self.assertEqual((calls, waits), ([1], [launch.RIVAL_PROBE_S]))
+
+
+class WeeklyLimitTest(unittest.TestCase):
+    """E722 (the owner approved the fix): the weekly limit names a dated reset; the wait runs to it, capped, and ends
+    within a minute of a change to the key file (its mtime; the launcher never reads it)."""
+
+    def test_a_dated_reset_is_read_and_waited_for(self):
+        # limit_dated_reset_unread limit_dated_wait_uncapped limit_dated_next_year
+        wait = load_launch().usage_limit_wait
+        launch = load_launch()
+        at = datetime(2026, 11, 22, 21, 30, tzinfo=timezone.utc)
+        hit = {"api_error": "usage_limit_reached", "api_error_status": 429}
+        self.assertEqual(wait(dict(hit, final="You've hit your weekly limit · resets Nov 25, 4pm (UTC)"), at),
+                         2 * 86400 + 18 * 3600 + 30 * 60 + 120)
+        self.assertEqual(wait(dict(hit, final="resets nov 25, 4:15pm (UTC)"), at), 2 * 86400 + 18 * 3600 + 45 * 60 + 120)
+        self.assertEqual(wait(dict(hit, final="resets Jan 2, 1am (UTC)"), at),  # next year's, 40 days away: capped
+                         launch.LIMIT_MAX_DATED_WAIT_S)
+        self.assertEqual(wait(dict(hit, final="resets Jan 1, 1am (UTC)"),
+                              datetime(2026, 12, 31, 23, 0, tzinfo=timezone.utc)), 2 * 3600 + 120)  # next year's
+        self.assertEqual(wait(dict(hit, final="resets Nov 22, 9pm (UTC)"), at), 120)  # just past: no wait but the two
+        self.assertEqual(wait(dict(hit, final="resets Feb 30, 1am (UTC)"), at), launch.LIMIT_FALLBACK_S)  # no such day
+        self.assertEqual(wait(dict(hit, final="resets 3:99am (UTC)"), at), launch.LIMIT_FALLBACK_S)  # no such minute
+        self.assertEqual(launch.LIMIT_MAX_DATED_WAIT_S, 8 * 24 * 3600)
+
+    def test_the_wait_ends_when_the_key_file_changes_and_never_reads_it(self):
+        # limit_wait_ignores_the_key limit_wait_reads_the_key
+        launch = load_launch()
+        work = Path(tempfile.mkdtemp())
+        pilot = launch.Pilot(work, "o/brain", "o/referee", "target")
+        key = work / "snowball-founder.env"
+        key.write_text("SECRET=1\n", encoding="utf-8")
+        clock = {"t": 0.0, "slept": 0}
+
+        def sleep(seconds):
+            clock["t"] += seconds
+            clock["slept"] += 1
+            if clock["slept"] == 3:
+                os.utime(key, ns=(key.stat().st_atime_ns, key.stat().st_mtime_ns + 10 ** 9))
+        real_open = open
+
+        def guarded(file, *a, **kw):
+            if Path(file) == key:
+                raise AssertionError("the key file was read")
+            return real_open(file, *a, **kw)
+        with mock.patch.object(launch.time, "sleep", side_effect=sleep), \
+                mock.patch.object(launch.time, "monotonic", side_effect=lambda: clock["t"]), \
+                mock.patch("builtins.open", side_effect=guarded), mock.patch.object(launch, "say"):
+            pilot.wait(10 * 3600, key)
+        self.assertEqual(clock["slept"], 3)  # three minutes, not ten hours
+        clock.update(t=0.0, slept=0)
+        with mock.patch.object(launch.time, "sleep", side_effect=lambda s: clock.update(t=clock["t"] + s)), \
+                mock.patch.object(launch.time, "monotonic", side_effect=lambda: clock["t"]):
+            pilot.wait(300)  # no file watched: the whole wait
+        self.assertEqual(clock["t"], 300)
+        self.assertIsNone(launch.mtime(work / "none"))
 
 
 
