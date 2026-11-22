@@ -89,7 +89,7 @@ flowchart LR
 
 ## 2. Referee package: `seed/bootstrap/snowball_bootstrap`
 
-32 modules, 98 imports inside the package, 1 started as a separate process. Areas are roles. The overview has 5 areas and 13 edges; an arrow's number is how many imports cross from one area to the other.
+33 modules, 100 imports inside the package, 1 started as a separate process. Areas are roles. The overview has 5 areas and 13 edges; an arrow's number is how many imports cross from one area to the other.
 
 ```mermaid
 flowchart LR
@@ -97,9 +97,9 @@ flowchart LR
   a_Intake["Intake<br/>10 modules"]
   a_Sandbox["Sandbox<br/>9 modules"]
   a_Rival["Rival<br/>4 modules"]
-  a_Judgement["Judgement<br/>6 modules"]
+  a_Judgement["Judgement<br/>7 modules"]
   a_Entry -->|10| a_Intake
-  a_Entry -->|6| a_Judgement
+  a_Entry -->|7| a_Judgement
   a_Entry -->|2| a_Rival
   a_Entry -->|8| a_Sandbox
   a_Intake -->|1| a_Judgement
@@ -115,7 +115,7 @@ flowchart LR
 
 ### Entry
 
-3 modules, 27 edges out of them.
+3 modules, 28 edges out of them.
 
 ```mermaid
 flowchart LR
@@ -140,6 +140,7 @@ flowchart LR
     m_decide["decide"]:::outside
     m_exitchecks["exitchecks"]:::outside
     m_ledgercheck["ledgercheck"]:::outside
+    m_reportlife["reportlife"]:::outside
     m_stages["stages"]:::outside
     m_state["state"]:::outside
     m_wiring["wiring"]:::outside
@@ -176,6 +177,7 @@ flowchart LR
   m_cli --> m_moduleless
   m_cli --> m_parts
   m_cli --> m_policyreads
+  m_cli --> m_reportlife
   m_cli --> m_reproduce
   m_cli --> m_rival
   m_cli --> m_selfmap
@@ -354,7 +356,7 @@ flowchart LR
 
 ### Judgement
 
-6 modules, 23 edges out of them.
+7 modules, 24 edges out of them.
 
 ```mermaid
 flowchart LR
@@ -362,6 +364,7 @@ flowchart LR
     m_decide["decide"]
     m_exitchecks["exitchecks"]
     m_ledgercheck["ledgercheck"]
+    m_reportlife["reportlife"]
     m_stages["stages"]
     m_state["state"]
     m_wiring["wiring"]
@@ -387,6 +390,7 @@ flowchart LR
   m_decide --> m_exitchecks
   m_decide --> m_ledgercheck
   m_decide --> m_policyreads
+  m_decide --> m_reportlife
   m_decide --> m_reproduce
   m_decide --> m_rival
   m_decide --> m_secretscan
@@ -413,6 +417,7 @@ flowchart LR
 | `decide` | The acceptance decision (`tohum/29b`, "Kabul" and "Aşama 0 çıkışının (A) parçası"). | `cli` |
 | `exitchecks` | The (A) conditions of `asama-0/10` that `pull` checks on the brain archive it already holds (`29b`; the narrowing note's draft `29e` "Tohum denetimleri": in `çek`, read from ... | `cli`, `decide` |
 | `ledgercheck` | The Founder's ledger (`asama-0/10` #kurucu-defteri, `asama-0/09` test 30, `tohum/26`, `00a`; E107, E280). | `cli`, `decide`, `exitchecks` |
+| `reportlife` | The life of the brain's reports as the bootstrap referee counts it (`tohum/26l`, seed epoch AD, E694). | `cli`, `decide` |
 | `stages` | The stage tables (`asama-0/14`, `tohum/26c` "Aşama tablosu"): the machine copy of a stage's micro-features. | `cli`, `decide`, `manifest`, `moduleless`, `stagelock`, `vectors`, `wiring` |
 | `state` | The bootstrap's memory between runs: the last signed result's ``state`` block. | `cli`, `decide` |
 | `wiring` | The loop workflow's wiring rules (`asama-0/10` #is-akisi, `asama-0/09` test 46, `asama-0/14` MF17; `tohum/08`, `01a`, `29p`; E100, E162, E281-E283). | `cli`, `exitchecks` |
@@ -428,7 +433,7 @@ Every subcommand of `cli.py`, the jobs that run it, and the package modules its 
 | `poll` | `cek` | `cmd_poll` | `config`, `decide`, `ghapi`, `gitio`, `stagelock`, `state`, `treehash` |
 | `licenses` | `cek`, `yaz` | `cmd_licenses` | `canon`, `config`, `licenses` |
 | `fetch-state` | `cek` | `cmd_fetch_state` | `canon`, `config`, `decide`, `ghapi`, `importer`, `state` |
-| `pull` | `cek` | `cmd_pull` | `canon`, `classify`, `config`, `decide`, `exitchecks`, `gitio`, `ledgercheck`, `manifest`, `rival`, `selfmap`, `stagelock`, `stages`, `state`, `treehash`, `wiring` |
+| `pull` | `cek` | `cmd_pull` | `canon`, `classify`, `config`, `exitchecks`, `gitio`, `ledgercheck`, `manifest`, `reportlife`, `rival`, `selfmap`, `stagelock`, `stages`, `state`, `treehash`, `wiring` |
 | `fetch-deps` | `getir` | `cmd_fetch_deps` | `canon`, `manifest`, `treehash` |
 | `run-tests` | operator / local | `cmd_run_tests` | `canon`, `config`, `container`, `licenses`, `moduleless`, `parts`, `policyreads`, `selfmap`, `stagelock`, `treehash`, `vectors` |
 | `run-part` | `kos_parca` | `cmd_run_part` | `canon`, `config`, `container`, `licenses`, `moduleless`, `parts`, `policyreads`, `selfmap`, `stagelock`, `treehash`, `vectors` |
@@ -447,7 +452,7 @@ Every subcommand of `cli.py`, the jobs that run it, and the package modules its 
 
 ## 3. Launcher links
 
-`seed/founder/launch.py` runs on the operator's machine and imports 10 referee modules, so the launcher applies the referee's own rules instead of a copy (E244). Through them it loads 20: `canon`, `classify`, `config`, `container`, `decide`, `exitcanary`, `exitchecks`, `gitio`, `ledgercheck`, `moduleless`, `policyreads`, `reproduce`, `rival`, `secretscan`, `selfmap`, `stages`, `state`, `treehash`, `vectors`, `wiring`.
+`seed/founder/launch.py` runs on the operator's machine and imports 11 referee modules, so the launcher applies the referee's own rules instead of a copy (E244). Through them it loads 21: `canon`, `classify`, `config`, `container`, `decide`, `exitcanary`, `exitchecks`, `gitio`, `ledgercheck`, `moduleless`, `policyreads`, `reportlife`, `reproduce`, `rival`, `secretscan`, `selfmap`, `stages`, `state`, `treehash`, `vectors`, `wiring`.
 
 ```mermaid
 flowchart LR
@@ -457,6 +462,7 @@ flowchart LR
     m_config["config"]
     m_gitio["gitio"]
     m_ledgercheck["ledgercheck"]
+    m_reportlife["reportlife"]
     m_secretscan["secretscan"]
     m_treehash["treehash"]
     m_classify["classify"]
@@ -468,6 +474,7 @@ flowchart LR
   launcher -->|module| m_config
   launcher -->|module| m_gitio
   launcher -->|module| m_ledgercheck
+  launcher -->|module| m_reportlife
   launcher -->|module| m_secretscan
   launcher -->|RESERVED_TOP| m_treehash
   launcher -->|LEDGER_FILE, SEED_DIRS, is_founder_record, is_seed_path| m_classify
