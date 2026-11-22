@@ -2905,7 +2905,7 @@ class SessionCostTest(unittest.TestCase):
         self.pilot.cost_pending_note("20261122T150000Z")
         self.assertEqual(self.note("20261122T150000Z")["pending"], [])  # nothing waits: said, not left out
 
-    def test_an_older_row_without_its_transcript_is_kept_as_it_was(self):  # pending_reread_without_transcript
+    def test_an_older_row_without_its_transcript_is_kept_as_it_was(self):
         (self.pilot.work / self.launch.COST_PENDING).write_text(json.dumps(
             {"stamp": "20261122T102334Z", "head": "b" * 40, "turns": 3}) + "\n" + json.dumps(
             {"stamp": "../x", "head": "b" * 40, "turns": 5}) + "\n", encoding="utf-8")

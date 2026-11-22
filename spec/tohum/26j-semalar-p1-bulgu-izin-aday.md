@@ -50,10 +50,10 @@ inceleyicinin bulduğu eksiktir, Kurucu'nun bir raporundan gelmez). Çalışma-z
 çıkışından öncedir: Aşama 1 MF1, MF5 ve MF6 hakem değişikliği olmadan canlı koşar. MF1–MF9'un numaraları değişmez.
 - **MF10, organ çıktısının tutulması** (modül `runner/organ_output.py`; test 56). `koş` bir organın çıktısını koşu
   sonuçlarında tutar. Test 56: organın çıktısı sonuçlarda hash'iyle durur ve `yaz` onu o hash'le okur; bir baytı
-  değişmiş çıktı okunmaz (çıktının biçimi ve tutma kuralı: `26p`, seed-098).
+  değişmiş çıktı okunmaz. Çıktının biçimi ve tutma kuralı `26p`'dedir (seed-098).
 - **MF11, çalışma-zamanı adayının yeniden koşusu** (modül `runner/candidate_rerun.py`; test 57). `koş` bir
   çalışma-zamanı adayını kapıdan önce yeniden koşar (`26a`: hakem hiçbir adaya yeniden koşturmadan güvenmez). Test 57:
-  aday hazır aday gibi koşar (üç lint koşusu, test koşusu, kırmızı kontrol); yeniden koşusu olmayan aday kapıya ulaşmaz (`26p`).
+  aday hazır aday gibi koşar (üç lint koşusu, test koşusu, kırmızı kontrol); yeniden koşusu olmayan aday kapıya ulaşmaz. Ayrıntısı `26p`'dedir.
 - **MF12, `yaz`'ın aday okuması** (modül `loop/candidates.py`; test 58). `yaz` `candidates/<id>/`'yi sonuçlardan
   hash'iyle okur. Test 58: `organ_ids` kapıya, `finding` bulgu yazıcısına gider; biçimsiz paket yalnız o adayı reddeder.
   MF12'nin sözleşmeleri T1 ve T2 `26k`'dedir (seed-088).

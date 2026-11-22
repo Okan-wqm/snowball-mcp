@@ -164,8 +164,8 @@ class OrganOutputPageTest(unittest.TestCase):
     def test_26j_points_to_26p(self):  # ag_26j_unpointed
         text = page("26j")
         self.assertIn("(`26p`).", text.split("**Kap.**")[1].splitlines()[0])
-        self.assertIn("değişmiş çıktı okunmaz (çıktının biçimi ve tutma kuralı: `26p`, seed-098).", text)
-        self.assertIn("yeniden koşusu olmayan aday kapıya ulaşmaz (`26p`).", text)
+        self.assertIn("değişmiş çıktı okunmaz. Çıktının biçimi ve tutma kuralı `26p`'dedir (seed-098).", text)
+        self.assertIn("yeniden koşusu olmayan aday kapıya ulaşmaz. Ayrıntısı `26p`'dedir.", text)
 
 
 class RecordsTest(unittest.TestCase):
@@ -200,7 +200,7 @@ class RecordsTest(unittest.TestCase):
         self.assertIn("ertelendi: Aşama 1 MF5'i (`candidate.publish`) getiren döneme", items(REPORTS[2])[5])
         self.assertTrue(any(line.startswith("operatörün maddesi") for line in items(REPORTS[0])))
 
-    def test_the_register_rows(self):  # ag_rows_open ag_e721_rejection ag_e720_last_turn
+    def test_the_register_rows(self):  # ag_rows_open ag_e721_rejection
         for eid in ("E720", "E721", "E722", "E723", "E724"):
             with self.subTest(eid=eid):
                 self.assertTrue(register_row(eid).endswith("|"))

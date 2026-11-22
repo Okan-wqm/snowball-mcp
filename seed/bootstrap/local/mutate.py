@@ -4599,7 +4599,7 @@ MUTANTS = [
      "E688: the run-time candidate path waits past P1's exit"),
     ('organ_output_unhashed', 'spec/tohum/26j-semalar-p1-bulgu-izin-aday.md', "organın çıktısı sonuçlarda hash'iyle durur", 'organın çıktısı sonuçlarda durur',
      "E688: an organ's output is read without its hash"),
-    ('rerun_skipped', 'spec/tohum/26j-semalar-p1-bulgu-izin-aday.md', 'yeniden koşusu olmayan aday kapıya ulaşmaz (`26p`).', 'yeniden koşusu olmayan aday da kapıya gider (`26p`).',
+    ('rerun_skipped', 'spec/tohum/26j-semalar-p1-bulgu-izin-aday.md', 'yeniden koşusu olmayan aday kapıya ulaşmaz.', 'yeniden koşusu olmayan aday da kapıya gider.',
      'E688: a run-time candidate reaches the gate unrerun'),
     ('package_bad_stops_cycle', 'spec/tohum/26j-semalar-p1-bulgu-izin-aday.md', 'biçimsiz paket yalnız o adayı reddeder.', 'biçimsiz paket devri durdurur.',
      'E688: one malformed package stops every candidate'),
