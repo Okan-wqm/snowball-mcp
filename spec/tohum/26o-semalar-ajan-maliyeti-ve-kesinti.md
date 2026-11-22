@@ -50,7 +50,9 @@ yazılınca oradan düşer. Bu dönemden önce bekletilmiş bir satır yazılmad
 **Rakip kesintisi** (E721; sayfalar onu zaten kesinti sayar: `24a` 2, `24a` "Oturumun maliyet satırı", `29b`). Her
 nedeni rakibin kendi tarafındaki hatası olan sonuç (`rival_unresolved`, `ref`'i `api_error:` ile başlar ve yalıtım
 hatası `api_error:isolation_…` değildir; ör. `api_error:http_429`) başı değerlendirmez: kesintidir, Kurucu'nun reddi
-değildir.
+değildir. Kural hakeminkinden dardır: hakem bir `api_error` nedeni olan her başı değerlendirmez (`29b`), ama başka bir
+nedeni de olan sonuç kesinti değil, `evaluated: false` bir rettir; başlatıcı onu her değerlendirilmemiş baş gibi yeniden
+yargılatır (en çok iki kez), sonra oturum o nedenleri okur.
 - Başlatıcının metrik satırı ve `previous-session.json` onu `verdict: null`, `evaluated: false`, `unjudged: {cause:
   "outage", owner: "rival"}` diye yazar. Öteki notlarda `evaluated` değerlendirilmiş baş için `true`, bilinmeyende
   `null`, `unjudged` `null`'dır. Bu dönemden önce `rejected` diye yazılmış böyle bir satır da notta kesintidir.
@@ -58,9 +60,10 @@ değildir.
   `repeats`'te değil. Böyle bir push sonraki bir karar ancak onu değerlendirilmiş diye adlandıran bir nottan alır.
 - En yeni sonuç böyle bir kesintiyken başlatıcı yeni oturum açmaz (`24a` 2): hakemi bir kez yoklar, baş
   değerlendirilince sürer, değilse 30 dakika sonra yeniden yoklar; bu bekleyiş bir döngü sayılmaz. Değerlendirilen
-  başın imzalı kararı geçerlidir.
+  başın imzalı kararı geçerlidir. Bekleyişin başını ve sonunu operatöre `pilot-log.md`'de birer satır söyler.
 
 **Haftalık kota** (E722). Başlatıcı kotanın açılış anını "resets 3:50am (UTC)" biçiminden başka "resets Nov 25, 4pm
 (UTC)" biçiminden (`<Ay> <gün>, <saat>[:dk](am|pm)`) de okur. O ana kadar bekler (tarihli açılışta en çok 8 gün);
-operatörün anahtar dosyasının değişme zamanı değişirse bir dakika içinde sürer (dosyanın içeriği okunmaz). Bu bir
+operatörün anahtar dosyasının değişme zamanı oturumun başından beri değiştiyse (oturum sürerken konan anahtar da) bir
+dakika içinde sürer (dosyanın içeriği okunmaz). Bu bir
 kesintidir, Kurucu'nun boş oturumu değildir (`24a` "Oturumun maliyet satırı").

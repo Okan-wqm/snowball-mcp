@@ -166,6 +166,7 @@ MIRROR_NOTE = "mirror.json"
 COST_PENDING_NOTE = "cost-pending.json"  # the cost rows that wait, as each session reads them (seed-097, E720)
 PRICES = HERE / "prices.json"  # the operator's price table the mirror derives an agent run's cost from (E720)
 RIVAL_PROBE_S = 30 * 60  # while the newest result is the rival's outage: one probe run each half hour (E721)
+NOW = object()  # `Pilot.wait`'s mark when none is given: the key file's mtime as the wait begins
 TASK_NAME = "Snowball Founder launcher"
 TASK_EVERY = "PT15M"
 
@@ -876,6 +877,7 @@ class Pilot:
         self.image_id: str | None = None
         self._ledger_read: tuple[str, bytes] | None = None  # the last ledger read, by commit (`ledger_bytes`)
         self.referee_facts: dict | None = None  # what the mirror reads of this cycle's referee tarball (E647)
+        self.held: str | None = None  # the head the rival's outage holds the run on, while it does (E721)
 
     # ---- checks -------------------------------------------------------------------------------------------
     def stopped(self) -> bool:
@@ -1318,6 +1320,7 @@ class Pilot:
                 effort: str | None = None) -> dict:
         self.session_logs(stamp).mkdir(parents=True, exist_ok=True)
         cmd = self.capsule_argv(stamp, model, max_turns, budget_usd, effort)
+        key_mark = mtime(self.env_file)  # a key changed from here on ends a usage-limit wait after the session (E722)
         started = time.monotonic()
         err = ""
         try:
@@ -1332,6 +1335,7 @@ class Pilot:
         out.update(self.transcript_summary(self.session_logs(stamp) / f"session-{stamp}.jsonl"))
         out.update(self.transcript_init(self.session_logs(stamp) / f"session-{stamp}.jsonl"))
         out["timed_out"] = exit_code == -1 and tail == ["session timed out"]
+        out["key_mtime_ns"] = key_mark
         return out
 
     @staticmethod
@@ -1619,6 +1623,16 @@ class Pilot:
         return memory_alone(self.brain_remote, ((prior or {}).get("state") or {}).get("last_accepted_sha"), evaluated,
                             head, self.epoch)
 
+    def hold(self, head: str) -> RivalOutage:
+        """The rival's outage holds the run on head (E721): the operator is told once, in pilot-log.md, when the hold
+        starts (`24a` 2), never at every probe; the exception the cycle raises."""
+        if self.held is None:
+            self.write(f"\n- {now()} rakip kesintisi: en yeni sonuç `{head[:7]}` başını değerlendirmedi (her nedeni "
+                       f"rakibin kendi `api_error`'ü); yeni oturum açılmıyor, hakem {RIVAL_PROBE_S // 60} dakikada bir "
+                       "yoklanıyor (`26o`, E721)\n")
+        self.held = head
+        return RivalOutage(f"{head[:7]} is still unjudged: the rival's outage (E721)")
+
     def rival_outage(self, result: dict | None) -> bool:
         """Whether a signed result is the rival's own outage (E721): every reason is a rival-side `api_error`
         (`MIRROR.rival_outage`) and the result did not evaluate its head."""
@@ -1672,7 +1686,7 @@ class Pilot:
             self.dispatch_referee(args.referee_timeout)
             prior = self.fetch_result()
             if self.rival_outage(prior):
-                raise RivalOutage(f"{str(prior.get('head'))[:7]} is still unjudged: the rival's outage (E721)")
+                raise self.hold(str(prior.get("head")))
         if (before != self.seed and not self.evaluated(prior, before) and not self.stopped()
                 and not self.memory_alone(prior, before)):
             # A push the referee never judged (the launcher stopped in between, an outage): judge it before the
@@ -1684,8 +1698,12 @@ class Pilot:
             if caught_up is None:  # a session now would read an older verdict and work blind (E168, E248)
                 raise NoVerdict(f"{before[:7]} is still unjudged (referee run {dispatched['conclusion']})")
             if self.rival_outage(caught_up):  # judged only by the rival's outage: no session on it (E721)
-                raise RivalOutage(f"{before[:7]} is still unjudged: the rival's outage (E721)")
+                raise self.hold(before)
             prior = caught_up
+        if self.held is not None:  # the hold ends: said once in the operator's log (`24a` 2)
+            self.write(f"\n- {now()} rakip kesintisi bitti: en yeni sonuç artık bir kesinti değil (tutulan baş "
+                       f"`{self.held[:7]}`); oturumlar sürüyor (E721)\n")
+            self.held = None
         rows_before = self.ledger_rows(before)
         try:
             self.refresh_inputs()
@@ -1809,21 +1827,23 @@ class Pilot:
         if limit_wait is not None and after == before:  # it could not work: an outage, not an idle session (E243)
             say(f"cycle {n}: the session hit the account's usage limit; waiting {limit_wait // 60} min for the reset, "
                 "or less when the key file changes")
-            self.wait(limit_wait, self.env_file)
+            since = sess.get("key_mtime_ns", NOW)  # a key put in during the session counts too
+            self.wait(limit_wait, self.env_file, since)
             return not self.stopped()
         self.idle = self.idle + 1 if after == before else 0
         return not (self.stopped() or self.idle >= 2 or sess.get("exit") == -1)
 
-    def wait(self, seconds: int, watch: Path | None = None) -> None:
+    def wait(self, seconds: int, watch: Path | None = None, since=NOW) -> None:
         """Sleep, waking each minute to honour STOP; with ``watch``, also ending within a minute of that file's change
-        (its mtime only: the operator's new key ends a usage-limit wait, E722; the file is never read)."""
-        mark = mtime(watch) if watch is not None else None
+        (its mtime only: the operator's new key ends a usage-limit wait, E722; the file is never read). ``since`` is
+        the mtime the change is measured from, the session's start; a key changed before the wait ends it at once."""
+        mark = (mtime(watch) if since is NOW else since) if watch is not None else None
         deadline = time.monotonic() + seconds
         while time.monotonic() < deadline and not self.stopped():
-            time.sleep(min(60, max(0.0, deadline - time.monotonic())))
             if watch is not None and mtime(watch) != mark:
                 say(f"{watch.name} changed: the wait ends")
                 return
+            time.sleep(min(60, max(0.0, deadline - time.monotonic())))
 
 
 def mtime(path: Path) -> int | None:

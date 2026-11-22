@@ -54,8 +54,10 @@ COST_IS = ("derived: the run's tokens by kind times the operator's price table r
            "one carries no input or cache count or no split of its cache writes")
 EXACTNESS = ("models_cli is the CLI's figure per model for the whole session: it equals one run's cost only when the "
              "session ran that agent once on that model and the session's own model is another one")
-# A rival-side failure (the referee's rule, decide.py: any api_error reason leaves the head unevaluated): an outage,
-# never the Founder's rejection (E721). An isolation fault is the referee's own stop, not the rival's.
+# A rival-side failure: an outage, never the Founder's rejection (E721). Narrower than the referee's rule
+# (decide.py: any api_error reason leaves the head unevaluated): a result is an outage only when every reason is the
+# rival's api_error; one with another reason too is a rejection the Founder can act on, unevaluated, and the launcher
+# judges it again as any unevaluated head (`26o`). An isolation fault is the referee's own stop, not the rival's.
 OUTAGE_REF, ISOLATION_REF = "api_error:", "api_error:isolation_"
 UNJUDGED_OUTAGE = {"cause": "outage", "owner": "rival"}
 RED = ("failure", "timed_out", "startup_failure")
@@ -177,7 +179,8 @@ def word(value) -> str | None:
 
 def rival_outage(reasons) -> bool:
     """Whether every reason is the rival's own failure on its side (`rival_unresolved` with an `api_error:` ref other
-    than an isolation fault): the referee leaves such a head unevaluated (decide.py), so it is an outage (E721)."""
+    than an isolation fault): the referee leaves such a head unevaluated (decide.py), so it is an outage (E721). Every,
+    not any: a mixed result carries a reason that is the Founder's to read (``OUTAGE_REF``'s comment)."""
     if not isinstance(reasons, list) or not reasons:
         return False
     return all(isinstance(r, dict) and r.get("kind") == "rival_unresolved"

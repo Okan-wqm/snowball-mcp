@@ -93,7 +93,7 @@ class SessionCostPageTest(unittest.TestCase):
 
     def test_the_rivals_outage_and_the_weekly_limit(self):
         # ag_outage_a_rejection ag_outage_isolation_counted ag_outage_session_starts ag_outage_probe_counted
-        # ag_limit_date_unread ag_limit_key_read
+        # ag_limit_date_unread ag_limit_key_read ag_limit_mark_at_wait ag_outage_rule_as_referee ag_hold_unlogged
         text = flat(page("26o"))
         for words in ("(`rival_unresolved`, `ref`'i `api_error:` ile başlar ve yalıtım hatası `api_error:isolation_…` "
                       "değildir; ör. `api_error:http_429`) başı değerlendirmez: kesintidir, Kurucu'nun reddi değildir.",
@@ -105,8 +105,11 @@ class SessionCostPageTest(unittest.TestCase):
                       "baş değerlendirilince sürer, değilse 30 dakika sonra yeniden yoklar; bu bekleyiş bir döngü sayılmaz.",
                       "\"resets Nov 25, 4pm (UTC)\" biçiminden (`<Ay> <gün>, <saat>[:dk](am|pm)`) de okur. O ana kadar "
                       "bekler (tarihli açılışta en çok 8 gün);",
-                      "operatörün anahtar dosyasının değişme zamanı değişirse bir dakika içinde sürer (dosyanın içeriği "
-                      "okunmaz)."):
+                      "operatörün anahtar dosyasının değişme zamanı oturumun başından beri değiştiyse (oturum sürerken "
+                      "konan anahtar da) bir dakika içinde sürer (dosyanın içeriği okunmaz).",
+                      "Kural hakeminkinden dardır: hakem bir `api_error` nedeni olan her başı değerlendirmez (`29b`), ama "
+                      "başka bir nedeni de olan sonuç kesinti değil, `evaluated: false` bir rettir;",
+                      "Bekleyişin başını ve sonunu operatöre `pilot-log.md`'de birer satır söyler."):
             self.assertIn(words, text, words)
 
     def test_the_pages_that_point_to_26o(self):  # ag_24a_unpointed ag_26h_unpointed

@@ -20,7 +20,8 @@ Okunma: bir sayfanın geçmişi aranırken
   `costUSD`'sini ve `costBasis`'ini taşır; bekleyen satır `/work/logs/cost-pending.json`'dadır; `mirror.json`
   `delegation.runs` her ajan koşusunu çağrının `tool_use_id`'siyle, operatörün fiyat tablosundan türetilmiş maliyetle
   verir; rakibin `api_error`'ü kesintidir (`verdict: null`, `evaluated: false`, `unjudged`), oturum açılmaz, hakem
-  yoklanır; haftalık kotanın tarihli açılışı okunur, anahtar dosyasının değişmesi bekleyişi bitirir. Doğrulama: oturum
+  yoklanır, bekleyiş `pilot-log.md`'de söylenir; haftalık kotanın tarihli açılışı okunur, anahtar dosyasının oturumun başından beri değişmesi
+  bekleyişi bitirir. Doğrulama: oturum
   günlüğündeki mesajların `output_tokens`'ı akışın başındaki sayıdır, son sayı değildir (`26o:34-36`).
   Yanıtlanan raporlar; her madde raporun yazıldığı hâliyle, kendi etiketiyle bir satırdır:
   `seed-097-an-agent-runs-cost-is-shown-to-no-session` → `26o:12-49`:
@@ -43,7 +44,7 @@ Okunma: bir sayfanın geçmişi aranırken
     `seed/founder/prices.json`'dadır, `26o:37-39`);
   - "olduğunda koşu satırları ölçülen değerle düzeltilir (`agent_run`'ın `amends`'i)": yanıtlandı (`26o:46-48`: satır
     `mirror.json`'u, damgayı ve `tool_use_id`'yi adlandırır; düzeltmenin biçimi Kurucu'nun);
-  - operatörün maddesi (raporda yok): rakibin `api_error:http_429`'u: yanıtlandı (`26o:50-62`, E721).
+  - operatörün maddesi (raporda yok): rakibin `api_error:http_429`'u: yanıtlandı (`26o:50-64`, E721).
   `seed-098-the-form-of-an-organs-output-is-on-no-page` → `26p:13-34`:
   - (a) çıktı ne (stdout, `/out`'taki dosyalar ya da ikisi): yanıtlandı (`26p:14-16`);
   - (b) çıktı listesinin dosya adı ya da biçimi: ad yanıtlandı (`26p:28-30`, `findings.json`); satır biçimi ertelendi:

@@ -1232,13 +1232,13 @@ class RefereeRetryTest(unittest.TestCase):  # E166: the loop never waits on the 
 
             def session(self, *a):
                 return {"exit": 0, "minutes": 0.1, "api_error": "usage_limit_reached", "api_error_status": 429,
-                        "final": "You've hit your session limit · resets 3:50am (UTC)"}
+                        "final": "You've hit your session limit · resets 3:50am (UTC)", "key_mtime_ns": 7}
 
             def write(self, text):
                 pass
 
-            def wait(self, seconds, watch=None):
-                waits.append((seconds, watch))
+            def wait(self, seconds, watch=None, since=None):
+                waits.append((seconds, watch, since))
 
         pilot = Fake(Path(tempfile.mkdtemp()), "o/brain", "o/referee", "target")
         pilot.idle, pilot.seed = 0, "s" * 40
@@ -1248,7 +1248,8 @@ class RefereeRetryTest(unittest.TestCase):  # E166: the loop never waits on the 
             self.assertTrue(pilot.cycle(2, args))  # two limited sessions in a row do not stop the pilot
         self.assertEqual(pilot.idle, 0)
         self.assertEqual(len(waits), 2)
-        self.assertTrue(all(w > 0 and watch == pilot.env_file for w, watch in waits))  # E722: the key file is watched
+        # E722: the key file is watched from the session's start (the review of PR #36: a key put in mid-session)
+        self.assertTrue(all(w > 0 and watch == pilot.env_file and since == 7 for w, watch, since in waits), waits)
         rows = [json.loads(line) for line in pilot.metrics.read_text(encoding="utf-8").splitlines()]
         self.assertEqual([r["api_error"] for r in rows], ["usage_limit_reached"] * 2)
 
@@ -3123,6 +3124,62 @@ class RivalOutageTest(unittest.TestCase):
         judged = {"head": head, "verdict": "accepted", "state": {"last_evaluated_sha": head}}
         self.assertEqual(self.hold([outage_result(head), judged]), ["referee", "refresh", "session"])
 
+    def test_the_hold_is_written_once_when_it_starts_and_once_when_it_ends(self):
+        # hold_start_unlogged hold_logged_every_probe hold_end_unlogged
+        launch = self.launch
+        head = "b" * 40
+        report = []
+        judged = {"head": head, "verdict": "accepted", "state": {"last_evaluated_sha": head}}
+
+        class Fake(quiet_pilot(launch)):
+            results = [outage_result(head)] * 4 + [judged] * 2  # two cycles held, then the probe judges the head
+
+            def fetch_result(self):
+                return self.results.pop(0)
+
+            def dispatch_referee(self, timeout_s):
+                return {"id": "1", "conclusion": "success", "url": "u"}
+
+            def brain_head(self):
+                return head
+
+            def ledger_rows(self, sha):
+                return []
+
+            def refresh_inputs(self):
+                pass
+
+            def session(self, *a):
+                return {"exit": 0, "minutes": 1}
+
+            def write(self, text):
+                report.append(text)
+
+        pilot = Fake(Path(tempfile.mkdtemp()), "o/brain", "o/referee", "target")
+        pilot.idle, pilot.seed = 0, "s" * 40
+        args = type("Args", (), dict(model="m", max_turns=1, budget_usd=1, session_timeout=1, referee_timeout=1))
+        with mock.patch.object(launch, "say"):
+            for _ in range(2):
+                with self.assertRaises(launch.RivalOutage):
+                    pilot.cycle(1, args)
+            pilot.cycle(1, args)
+        held = [r for r in report if "rakip kesintisi" in r]
+        self.assertEqual(len(held), 2, report)
+        self.assertIn("rakip kesintisi: en yeni sonuç `bbbbbbb` başını değerlendirmedi", held[0])
+        self.assertIn("rakip kesintisi bitti", held[1])
+        self.assertIsNone(pilot.held)
+
+    def test_a_mixed_result_is_a_rejection_judged_again_then_read(self):  # outage_reads_any_rival_reason
+        """The rule is narrower than the referee's (`26o`): a result with a rival api_error and another reason is no
+        outage. The referee left the head unevaluated, so the launcher sends it back as any unevaluated head, at most
+        MAX_REFEREE_RETRIES times, and the session then reads its reasons; the row says rejected, not evaluated."""
+        mixed = outage_result("b" * 40, reasons=OUTAGE_REASONS + [{"kind": "test_failed", "ref": "t1"}])
+        retries = self.launch.MAX_REFEREE_RETRIES
+        self.assertEqual(self.hold([mixed]), ["referee"] * (1 + retries) + ["refresh", "session"])
+        row, report = self.cycle(mixed)
+        self.assertEqual((row["verdict"], row["evaluated"], row["unjudged"]), ("rejected", False, None))
+        self.assertNotIn("rakip kesintisi", report)
+
     def test_a_caught_up_push_the_rival_could_not_judge_holds_too(self):  # catch_up_outage_starts_a_session
         """The start's catch-up (E168) judges an unjudged push; an outage there is no verdict to work from either."""
         older = {"head": "a" * 40, "verdict": "accepted", "state": {"last_evaluated_sha": "a" * 40}}
@@ -3189,8 +3246,64 @@ class WeeklyLimitTest(unittest.TestCase):
         self.assertEqual(wait(dict(hit, final="resets 3:99am (UTC)"), at), launch.LIMIT_FALLBACK_S)  # no such minute
         self.assertEqual(launch.LIMIT_MAX_DATED_WAIT_S, 8 * 24 * 3600)
 
+    @staticmethod
+    @contextlib.contextmanager
+    def key_unreadable(key: Path):
+        """Every way Python opens a file, closed for the key file: builtins.open, io.open, os.open and pathlib's
+        open, read_text and read_bytes (the review of PR #36: patching builtins.open alone leaves pathlib's reads)."""
+        import builtins
+        import io as io_module
+        import pathlib
+
+        def guard(real, path_of):
+            def guarded(*args, **kwargs):
+                target = path_of(args, kwargs)
+                if isinstance(target, (str, os.PathLike)) and Path(target).resolve() == key.resolve():
+                    raise AssertionError("the key file was read")
+                return real(*args, **kwargs)
+            return guarded
+        first = lambda args, kwargs: args[0] if args else kwargs.get("file", kwargs.get("path"))  # noqa: E731
+        with mock.patch.object(builtins, "open", guard(builtins.open, first)), \
+                mock.patch.object(io_module, "open", guard(io_module.open, first)), \
+                mock.patch.object(os, "open", guard(os.open, first)), \
+                mock.patch.object(pathlib.Path, "open", guard(pathlib.Path.open, first)), \
+                mock.patch.object(pathlib.Path, "read_text", guard(pathlib.Path.read_text, first)), \
+                mock.patch.object(pathlib.Path, "read_bytes", guard(pathlib.Path.read_bytes, first)):
+            yield
+
+    def test_the_guard_closes_every_read(self):
+        key = Path(tempfile.mkdtemp()) / "snowball-founder.env"
+        key.write_text("SECRET=1\n", encoding="utf-8")
+        with self.key_unreadable(key):
+            for read in (key.read_text, key.read_bytes, lambda: open(key), lambda: io.open(key, "rb"),
+                         lambda: os.open(key, os.O_RDONLY), lambda: key.open()):
+                with self.assertRaises(AssertionError):
+                    read()
+            self.assertGreater(key.stat().st_mtime_ns, 0)  # its mtime stays readable
+
+    def test_a_key_put_in_during_the_session_ends_the_wait_at_once(self):
+        # limit_key_mark_at_wait_start limit_key_mark_after_the_session
+        launch = load_launch()
+        work = Path(tempfile.mkdtemp())
+        pilot = launch.Pilot(work, "o/brain", "o/referee", "target")
+        key = pilot.env_file
+        key.write_text("SECRET=1\n", encoding="utf-8")
+
+        def docker(*argv, **kw):  # the operator puts a new key in while the capsule runs
+            os.utime(key, ns=(key.stat().st_atime_ns, key.stat().st_mtime_ns + 10 ** 9))
+            return subprocess.CompletedProcess(argv, 0, b"done\n", b"")
+        before = key.stat().st_mtime_ns
+        with mock.patch.object(launch, "run", side_effect=docker):
+            sess = pilot.session("20261122T100000Z", "m", 1, 1, 60)
+        self.assertEqual(sess["key_mtime_ns"], before)  # taken at the session's start, not its end
+        slept = []
+        with self.key_unreadable(key), mock.patch.object(launch.time, "sleep", side_effect=slept.append), \
+                mock.patch.object(launch, "say"):
+            pilot.wait(7 * 86400, key, sess["key_mtime_ns"])
+        self.assertEqual(slept, [])  # the new key is there: no minute of the week is waited
+
     def test_the_wait_ends_when_the_key_file_changes_and_never_reads_it(self):
-        # limit_wait_ignores_the_key limit_wait_reads_the_key
+        # limit_wait_ignores_the_key limit_wait_reads_the_key limit_wait_reads_and_stats_the_key
         launch = load_launch()
         work = Path(tempfile.mkdtemp())
         pilot = launch.Pilot(work, "o/brain", "o/referee", "target")
@@ -3203,15 +3316,9 @@ class WeeklyLimitTest(unittest.TestCase):
             clock["slept"] += 1
             if clock["slept"] == 3:
                 os.utime(key, ns=(key.stat().st_atime_ns, key.stat().st_mtime_ns + 10 ** 9))
-        real_open = open
-
-        def guarded(file, *a, **kw):
-            if Path(file) == key:
-                raise AssertionError("the key file was read")
-            return real_open(file, *a, **kw)
-        with mock.patch.object(launch.time, "sleep", side_effect=sleep), \
+        with self.key_unreadable(key), mock.patch.object(launch.time, "sleep", side_effect=sleep), \
                 mock.patch.object(launch.time, "monotonic", side_effect=lambda: clock["t"]), \
-                mock.patch("builtins.open", side_effect=guarded), mock.patch.object(launch, "say"):
+                mock.patch.object(launch, "say"):
             pilot.wait(10 * 3600, key)
         self.assertEqual(clock["slept"], 3)  # three minutes, not ten hours
         clock.update(t=0.0, slept=0)

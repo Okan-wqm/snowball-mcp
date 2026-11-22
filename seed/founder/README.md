@@ -108,8 +108,8 @@ yeniden okunur.
 **Rakip kesintisi** (E721): her nedeni rakibin kendi `api_error`'ü olan sonuç başı değerlendirmez; metrik satırı ve
 `previous-session.json` `verdict: null`, `evaluated: false`, `unjudged: {cause: outage, owner: rival}` yazar, ayna onu
 `outages`'ta sayar. En yeni sonuç böyle bir kesintiyken oturum açılmaz: hakem yoklanır, baş değerlendirilince sürülür,
-değilse 30 dakika sonra yeniden (döngü sayılmaz). **Haftalık kota** (E722): `resets <Ay> <gün>, <saat>(am|pm) (UTC)`
-de okunur, en çok 8 gün beklenir; `snowball-founder.env`'in değişme zamanı değişirse bekleyiş bir dakika içinde biter
+değilse 30 dakika sonra yeniden (döngü sayılmaz); bekleyişin başı ve sonu `pilot-log.md`'de birer satırdır. Başka bir nedeni de olan sonuç kesinti değil, yeniden yargılanan bir rettir. **Haftalık kota** (E722): `resets <Ay> <gün>, <saat>(am|pm) (UTC)`
+de okunur, en çok 8 gün beklenir; `snowball-founder.env`'in değişme zamanı oturumun başından beri değişirse bekleyiş bir dakika içinde biter
 (dosya okunmaz).
 Zaman aşımına uğrayan oturumun satırı da yazılır. Başlatıcının commit'i Kurucu push'u sayılmaz (push'suz iki oturum) ve
 sonraki oturumdan önce başlatıcıca yargılatılmaz; hakemin zamanlayıcısı onu yine de yargılayabilir: yalnız başlatıcının
