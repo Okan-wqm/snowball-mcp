@@ -71,6 +71,8 @@ Okunma: sayfa ararken; görev seçmek için `tohum/00b-gorev-haritasi.md`
 | `tohum/26l-semalar-rapor-yasam-dongusu.md` | Şemalar, Devam: Raporların Yaşam Döngüsü | bir rapor yazılırken ya da durumu değiştirilirken, bir tohum döneminden sonraki ilk oturumda ve imzalı sonucun rapor uyarıları okunurken |
 | `tohum/26m-semalar-p1-kalanlar.md` | Şemalar, Devam: P1'in Kurulmuş Satırlarının Kalanları | P1 MF2–MF4 (`snapshot.make`, `cases.build`, `harness.score`) yazılırken ya da değiştirilirken ve P1'in çıkış isteğinden önce |
 | `tohum/26n-semalar-p1-kalanlar-devam.md` | Şemalar, Devam: Test 9 ve 11, Sürükleme Etkinliği, Ertelenenler | P1 MF5 ve MF6 (`harness/offline.py`, `drift/check.py`) yazılırken ya da değiştirilirken, Aşama 1'in bütçe anahtarları adlandırılırken ve P1'in çıkış isteğinden önce |
+| `tohum/26o-semalar-ajan-maliyeti-ve-kesinti.md` | Şemalar, Devam: Oturumun ve Ajan Koşusunun Maliyeti, Rakip Kesintisi, Haftalık Kota | bir ajan koşusunun maliyeti ya da bir `cost` satırı okunurken; `previous-session.json`, `mirror.json` ya da `cost-pending.json` okunurken |
+| `tohum/26p-semalar-organ-ciktisi-ve-yeniden-kosu.md` | Şemalar, Devam: Organın Çıktısı ve Çalışma-Zamanı Adayının Yeniden Koşusu | P1 MF10–MF12 yazılırken ya da değiştirilirken, bir organın çıktısı ya da bir aday paketi okunurken |
 | `tohum/26g-semalar-kurucu-dersi.md` | Şemalar, Devam: Kurucu'nun Dersi ve Ders Dizini | defterine ders yazarken ve `/work/logs/lessons.json` okunurken |
 | `tohum/27-sozluk-ve-okuyucular.md` | Sözlük ve Okuyucular | yeni terim ya da dosya eklerken |
 | `tohum/27a-okuyucular-hedef-durumu.md` | Okuyucular, Devam: Hedefteki Durum Dosyaları | yeni durum dosyası, bölüm ya da görünüm eklerken |
@@ -119,6 +121,7 @@ Okunma: sayfa ararken; görev seçmek için `tohum/00b-gorev-haritasi.md`
 | `tohum/31g-karar-rehberi.md` | Mimari İlkeler VII: Karar Rehberi | aşağıdaki durumlardan biri ortaya çıktığında, `decision` satırı yazılmadan önce |
 | `tohum/31h-catismalar-ve-tarama.md` | Mimari İlkeler VIII: Çatışmalar ve Tarama Sinyalleri | iki ilke aynı durumda farklı yön gösterdiğinde; bir repo ilkeler açısından taranırken; rakip bir tasarımı çürütmeye çalışırken |
 | `tohum/CHANGELOG.md` | Değişiklik Günlüğü — Tohum | bir sayfanın geçmişi aranırken |
+| `tohum/CHANGELOG-16.md` | Değişiklik Günlüğü — Tohum, 2.2'nin On Beşinci Kayıtları | bir sayfanın geçmişi aranırken |
 | `tohum/CHANGELOG-15.md` | Değişiklik Günlüğü — Tohum, 2.2'nin On Dördüncü Kayıtları | bir sayfanın geçmişi aranırken |
 | `tohum/CHANGELOG-14.md` | Değişiklik Günlüğü — Tohum, 2.2'nin On Üçüncü Kayıtları | bir sayfanın geçmişi aranırken |
 | `tohum/CHANGELOG-13.md` | Değişiklik Günlüğü — Tohum, 2.2'nin On İkinci Kayıtları | bir sayfanın geçmişi aranırken |
