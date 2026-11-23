@@ -74,6 +74,8 @@ Okunma: sayfa ararken; görev seçmek için `tohum/00b-gorev-haritasi.md`
 | `tohum/26o-semalar-ajan-maliyeti-ve-kesinti.md` | Şemalar, Devam: Oturumun ve Ajan Koşusunun Maliyeti, Rakip Kesintisi, Haftalık Kota | bir ajan koşusunun maliyeti ya da bir `cost` satırı okunurken; `previous-session.json`, `mirror.json` ya da `cost-pending.json` okunurken |
 | `tohum/26p-semalar-organ-ciktisi-ve-yeniden-kosu.md` | Şemalar, Devam: Organın Çıktısı ve Çalışma-Zamanı Adayının Yeniden Koşusu | P1 MF10–MF12 yazılırken ya da değiştirilirken, bir organın çıktısı ya da bir aday paketi okunurken |
 | `tohum/26q-semalar-paket-bulgusu-ve-kosu.md` | Şemalar, Devam: Paketin Bulgusu, Avcı Koşusu ve Puanlamanın Paydası | P1 MF12 ve MF4 (`loop/candidates.py`, `loop/decide.py`, `harness/score.py`) ve `cases.build` yazılırken ya da değiştirilirken, bir paketin `finding`'i ya da bir koşunun puanı okunurken ve P1'in çıkış isteğinden önce |
+| `tohum/26r-semalar-organ-dosyasi.md` | Şemalar, Devam: Organın Dosyası, Taşınması ve İmajı | P1 MF1 ve MF9 (`runner/organs.py`, `gate/allowlist.py`) ve `çek`'in organ okuması yazılırken ya da değiştirilirken, bir organ dosyası, `pulled`'ın organları ya da `accept.json` okunurken |
+| `tohum/26s-semalar-p3-tablosu.md` | Şemalar, Devam: P3'ün Tablosu | Aşama 1'de P3 seçilirken ya da yazılırken, P3'ün çıkış isteğinden önce ve `fixer.llm`'in çağrı başı frenleri okunurken |
 | `tohum/26g-semalar-kurucu-dersi.md` | Şemalar, Devam: Kurucu'nun Dersi ve Ders Dizini | defterine ders yazarken ve `/work/logs/lessons.json` okunurken |
 | `tohum/27-sozluk-ve-okuyucular.md` | Sözlük ve Okuyucular | yeni terim ya da dosya eklerken |
 | `tohum/27a-okuyucular-hedef-durumu.md` | Okuyucular, Devam: Hedefteki Durum Dosyaları | yeni durum dosyası, bölüm ya da görünüm eklerken |
@@ -122,6 +124,7 @@ Okunma: sayfa ararken; görev seçmek için `tohum/00b-gorev-haritasi.md`
 | `tohum/31g-karar-rehberi.md` | Mimari İlkeler VII: Karar Rehberi | aşağıdaki durumlardan biri ortaya çıktığında, `decision` satırı yazılmadan önce |
 | `tohum/31h-catismalar-ve-tarama.md` | Mimari İlkeler VIII: Çatışmalar ve Tarama Sinyalleri | iki ilke aynı durumda farklı yön gösterdiğinde; bir repo ilkeler açısından taranırken; rakip bir tasarımı çürütmeye çalışırken |
 | `tohum/CHANGELOG.md` | Değişiklik Günlüğü — Tohum | bir sayfanın geçmişi aranırken |
+| `tohum/CHANGELOG-18.md` | Değişiklik Günlüğü — Tohum, 2.2'nin On Yedinci Kayıtları | bir sayfanın geçmişi aranırken |
 | `tohum/CHANGELOG-17.md` | Değişiklik Günlüğü — Tohum, 2.2'nin On Altıncı Kayıtları | bir sayfanın geçmişi aranırken |
 | `tohum/CHANGELOG-16.md` | Değişiklik Günlüğü — Tohum, 2.2'nin On Beşinci Kayıtları | bir sayfanın geçmişi aranırken |
 | `tohum/CHANGELOG-15.md` | Değişiklik Günlüğü — Tohum, 2.2'nin On Dördüncü Kayıtları | bir sayfanın geçmişi aranırken |

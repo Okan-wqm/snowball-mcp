@@ -4,6 +4,10 @@ Tarih: 2026-10-29
 Okunma: bir sayfanın geçmişi aranırken
 Çapa: git geçmişi ve zincirdeki spec hash satırları
 
+- 2.2 (2026-11-23, E735; tohum dönemi AI, P1 çıkış dönemi): §1.10'un Sonnet düzeltmesi satırı çağrı başı anahtarlarını
+  adlandırır (`constitutional.stage_params.fix_call_max_usd`, `fix_call_max_s`; sahip kararı (2026-11-23)); §1.13'te P3
+  MF2'nin testi 59, yeni P3 MF3 sonda döngüsü ve kalkışı (test 60). Tohum teslimi bu sayfaları taşımaz (E180); bağlayan
+  `tohum/18a` ve `tohum/26s`'dir, canlı beyindeki kopyayı Kurucu `tohum/02`'nin öncelik kuralıyla uzlaştırır.
 - 2.2 (2026-11-20, E672, E673; sahip kararı): ilk dilim deterministiktir; §1.6'nın sırası MF1, MF2, MF3, MF5, MF6,
   sonra P2 ve P3, sonra MF4, MF7, MF8 (numaralar korunur); §1.13'te P1 MF8 bulgu yazıcısı (test 12), P1 MF9 izin
   listesi ve `accept` yazıcısı (test 55), P3 (eski MF8 ve düzeltme gidiş-dönüşü); §1.5 3 ve §1.13d hizalandı.
