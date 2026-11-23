@@ -93,7 +93,7 @@ class ClassRuleHintTest(unittest.TestCase):
                       "1. E697'nin sınıf kuralı yalnız ajanlarına değil, bütün işine uygulanır: bir ret, rakibin bir "
                       "çürütmesi, kendi denetimlerinin ya da ajanlarının yakaladığı bir hata ve işe yarayan kabul edilmiş "
                       "bir değişiklik, her biri yanlışlanabilir bir kaydın kaynağıdır (`22`'nin ders satırları). Kaydın "
-                      "neyi adlandırdığı ve nasıl gruplandığı senindir.",
+                      "biçimi senindir.",
                       "2. Geri gelen bir neden (aynı sınıf iki kez) doğduğu katmanda, dönerse kırmızı olan bir denetimle "
                       "kapanır; ikinci bir vaka başına düzeltmeyle değil (`23`'ün test sorusu, `23:12-15`). `22:64-65`'in "
                       "genesis kuralı olduğu gibi kalır.",
@@ -109,6 +109,14 @@ class ClassRuleHintTest(unittest.TestCase):
         self.assertEqual(re.findall(r" ([1-9])\. ", duty), ["1", "2", "3", "4"])  # four duty items, in order
         for recipe in ("şablon", "şu adımlarla", "operatör yazar"):  # the duty hands over no design
             self.assertNotIn(recipe, text, recipe)
+
+    def test_00f_keeps_its_line_count(self):  # classrule_00f_lines_shifted
+        """The review of PR #39 (D1) shortened duty 1's last sentence in place: 00f keeps 38 lines and its duty items
+        their lines, so nothing that cites 00f moves."""
+        lines = page("00f").splitlines()
+        self.assertEqual(len(lines), 38)
+        self.assertEqual(lines[25], "     Kaydın biçimi senindir.")  # 00f:26
+        self.assertTrue(lines[26].startswith("  2. Geri gelen bir neden"))  # 00f:27
 
     def test_00f_states_the_guards(self):  # classrule_referee_loosened classrule_new_referee_rule classrule_rework_demanded
         text = hint()
@@ -131,7 +139,8 @@ class ClassRuleHintTest(unittest.TestCase):
 
 
 class RecordsTest(unittest.TestCase):
-    def test_the_register_rows(self):  # e736_unlabelled e736_open e736_recipe e737_open e737_bound_kept
+    def test_the_register_rows(self):  # e736_unlabelled e736_open e736_recipe e737_open e737_bound_kept e738_open
+        # e738_kill_claimed
         row = register_row("E736")
         for words in ("sahibin ipucu (bu kez kural esnetildi; 2026-11-23, Suderra sahip tarafı; panelsiz; E697 gibi "
                       "işaretli)", "Görev, reçete değil: hiçbir tasarım verilmez.",
@@ -145,10 +154,18 @@ class RecordsTest(unittest.TestCase):
         self.assertTrue(row.endswith("| kapandı (tohum dönemi AJ; ölçüm Kurucu'nun) |"), row[-80:])
         row = register_row("E737")
         for words in ("`mutate.shard_count`", "en az 24", "256", "`test_wiring.MutationShardTest`",
-                      "`mutation-complete`"):
+                      "`mutation-complete`", "`mutate.py --check-plan`", "planı borusuz bir dosyaya yazar"):
             self.assertIn(words, row, words)
         self.assertEqual(row.count("|"), 7)
         self.assertTrue(row.endswith("| kapandı (tohum dönemi AJ) |"), row[-80:])
+        row = register_row("E738")
+        for words in ("45180563969", "`04:28-29`", "`MUTANT_TIMEOUT_S` (900)", "hiçbir zaman öldürme değildir",
+                      "132 + 9, 180 dakikanın", "`MutantTimeoutTest`"):
+            self.assertIn(words, row, words)
+        self.assertEqual(row.count("|"), 7)
+        self.assertTrue(row.endswith("| kapandı (tohum dönemi AJ) |"), row[-80:])
+        self.assertIn("bir mutant ancak içe aktarma ya da sözdizimi hatası olmayan bir kırmızıyla öldürülmüş sayılır",
+                      cited("04", 26, 29))  # E738's cited rule
 
     def test_this_entry_opens_with_its_first_task(self):
         # aj_first_task_not_first aj_order_changed aj_rework_demanded aj_changelog_unindexed aj_index_missing

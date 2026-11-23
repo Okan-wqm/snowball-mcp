@@ -22,8 +22,8 @@ yanlıştan da öğren; her sorunu bir sınıf olarak kapat; hiçbirinin üstün
 - Görev (tasarım senindir):
   1. E697'nin sınıf kuralı yalnız ajanlarına değil, bütün işine uygulanır: bir ret, rakibin bir çürütmesi, kendi
      denetimlerinin ya da ajanlarının yakaladığı bir hata ve işe yarayan kabul edilmiş bir değişiklik, her biri
-     yanlışlanabilir bir kaydın kaynağıdır (`22`'nin ders satırları). Kaydın neyi adlandırdığı ve nasıl gruplandığı
-     senindir.
+     yanlışlanabilir bir kaydın kaynağıdır (`22`'nin ders satırları).
+     Kaydın biçimi senindir.
   2. Geri gelen bir neden (aynı sınıf iki kez) doğduğu katmanda, dönerse kırmızı olan bir denetimle kapanır; ikinci bir
      vaka başına düzeltmeyle değil (`23`'ün test sorusu, `23:12-15`). `22:64-65`'in genesis kuralı olduğu gibi kalır.
   3. Hiçbir şey üstü örtülerek kapanmaz: zayıflatılmış, atlanmış ya da silinmiş test ya da denetim yok, düşürülmüş eşik

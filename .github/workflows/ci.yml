@@ -108,7 +108,10 @@ jobs:
           fi
           echo "mode=$mode" >> "$GITHUB_OUTPUT"
           echo "mutation mode: $mode"
-          python3 seed/bootstrap/local/mutate.py --shard-plan | tee -a "$GITHUB_OUTPUT"
+          # no pipe: under the default bash -e a failed plan ends the step red; the check reads the file back
+          python3 seed/bootstrap/local/mutate.py --shard-plan > "$RUNNER_TEMP/plan.txt"
+          python3 seed/bootstrap/local/mutate.py --check-plan "$RUNNER_TEMP/plan.txt"
+          tee -a "$GITHUB_OUTPUT" < "$RUNNER_TEMP/plan.txt"
 
   mutation-pages:
     needs: mutation-plan

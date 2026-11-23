@@ -9,6 +9,7 @@ anchor that no longer matches fails loudly, so the list cannot rot while the cod
                                                  [--hints FILE] [--record FILE]
     cd seed/bootstrap && python3 local/mutate.py --check-records DIR [--hints-out FILE]
     cd seed/bootstrap && python3 local/mutate.py --shard-plan
+    cd seed/bootstrap && python3 local/mutate.py --check-plan FILE
 
 Run it on Linux (several tests need a POSIX shell). Exit 0 means every mutant was killed.
 
@@ -17,8 +18,10 @@ Run it on Linux (several tests need a POSIX shell). Exit 0 means every mutant wa
 alone against this tree with the mutant, and the mutant counts as killed only when it fails there and passes alone on
 the unmutated tree; otherwise the whole suite runs, as without a hint. A stale or forged hint can only cost time.
 `--record FILE` writes one line per mutant run; `--check-records` reads the shards' records and fails unless every
-mutant was run exactly once and killed (the CI job `mutation-complete`). `--shard-plan` prints how many shards a full
-run needs (`shard_count`): the CI job `mutation-plan` sizes the matrix with it, so the shards follow the mutants.
+mutant was run exactly once and killed (the CI job `mutation-complete`). A run past MUTANT_TIMEOUT_S is a recorded
+outcome, never a kill: the shard runs the rest, names the mutant and its file in its log and record, and fails. `--shard-plan` prints how many shards a full
+run needs (`shard_count`): the CI job `mutation-plan` sizes the matrix with it, so the shards follow the mutants;
+`--check-plan FILE` fails unless FILE is exactly that plan, so a failed or empty plan turns the plan job red.
 """
 
 from __future__ import annotations
@@ -46,6 +49,10 @@ SHARD_TIMEOUT_MINUTES = 180  # the mutation job's timeout-minutes in ci.yml
 SHARD_JOBS = 4  # mutants at a time in a shard (`--jobs`), the four cores of a standard Linux runner
 WORST_MUTANT_MINUTES = 6  # the worst mutant seen, the whole suite, four at a time (run 44763833954: 332 s)
 TIMEOUT_SHARE = 0.75  # of the job's timeout a shard may fill (E410: 15 mutants at 3 minutes in 60)
+# One mutant's run (the whole suite, or a hint's test) is stopped at MUTANT_TIMEOUT_S and recorded as timed out, never
+# as killed (E738). The limit is above the worst finished mutant (15 against 6 minutes), and a worker's full share at
+# the worst seen plus one mutant at the limit still ends inside the job's timeout (132 + 9 of 180 minutes).
+MUTANT_TIMEOUT_S = 900
 SHARDS_MIN = 24  # never fewer: the run's wall time stays what it was at 24 shards, 16 at a time (E525)
 MATRIX_MAX = 256  # GitHub runs at most 256 jobs of one matrix; a plan past it cannot run
 
@@ -58,7 +65,8 @@ def shard_cap() -> int:
 
 def shard_count(total: int) -> int:
     """The shards a full run of TOTAL mutants needs: enough that none holds more than `shard_cap()`, never fewer than
-    SHARDS_MIN. A count past MATRIX_MAX is refused, so the plan job turns red instead of a shard timing out."""
+    SHARDS_MIN. A count past MATRIX_MAX is refused: `--shard-plan` exits 1 and the plan job turns red (its step writes
+    the plan to a file, no pipe, and `--check-plan` reads it back) instead of a shard timing out."""
     count = max(SHARDS_MIN, -(-total // shard_cap()))
     if count > MATRIX_MAX:
         raise ValueError(f"{total} mutants need {count} shards of at most {shard_cap()}; a matrix holds {MATRIX_MAX}")
@@ -69,6 +77,25 @@ def shard_plan(total: int) -> str:
     """The plan job's outputs (`$GITHUB_OUTPUT` lines): the shard count and the matrix of shard numbers."""
     count = shard_count(total)
     return f"count={count}\nshards={json.dumps(list(range(count)))}\n"
+
+
+def check_plan(text: str, total: int) -> list[str]:
+    """What is wrong with a plan the plan job is about to hand the matrix: it must be the two lines `count=N` and
+    `shards=[0, ..., N-1]`, N the shards TOTAL mutants need. Empty: it is. An empty or cut plan is named here, so the
+    plan job turns red instead of the matrix failing on `fromJSON('')` (E737)."""
+    lines = text.splitlines()
+    pairs = dict(line.split("=", 1) for line in lines if "=" in line)
+    if len(lines) != 2 or set(pairs) != {"count", "shards"}:
+        return [f"the plan is not the two lines count=N and shards=[...]: {text!r}"]
+    want = shard_count(total)
+    problems = [] if pairs["count"] == str(want) else [f"count={pairs['count']}, but {total} mutants need {want}"]
+    try:
+        shards = json.loads(pairs["shards"])
+    except ValueError:
+        return problems + [f"shards is no JSON: {pairs['shards']!r}"]
+    if shards != list(range(want)):
+        problems.append(f"shards is not [0..{want - 1}]: {pairs['shards']!r}")
+    return problems
 
 
 PKG = "seed/bootstrap/snowball_bootstrap"
@@ -2726,9 +2753,19 @@ MUTANTS = [
      "\nSHARD_TIMEOUT_MINUTES = 180  #", "\nSHARD_TIMEOUT_MINUTES = 240  #",
      "E737: the plan assumes a longer timeout than ci.yml gives, and the shards it sizes hit the real one"),
     ("mutation_plan_not_from_the_mutants", ".github/workflows/ci.yml",
-     '          python3 seed/bootstrap/local/mutate.py --shard-plan | tee -a "$GITHUB_OUTPUT"\n',
-     '          echo "count=24" >> "$GITHUB_OUTPUT"\n',
+     '          python3 seed/bootstrap/local/mutate.py --shard-plan > "$RUNNER_TEMP/plan.txt"\n',
+     '          echo "count=24" > "$RUNNER_TEMP/plan.txt"\n',
      "E737: the plan job writes a fixed count again, whatever the mutants"),
+    ("mutation_plan_piped_past_its_failure", ".github/workflows/ci.yml",
+     '          python3 seed/bootstrap/local/mutate.py --shard-plan > "$RUNNER_TEMP/plan.txt"\n',
+     '          python3 seed/bootstrap/local/mutate.py --shard-plan | tee "$RUNNER_TEMP/plan.txt"\n',
+     "E737 (review M1): the plan runs in a pipe under bash -e without pipefail, so a failed plan leaves the job green"),
+    ("mutation_plan_unchecked", ".github/workflows/ci.yml",
+     '          python3 seed/bootstrap/local/mutate.py --check-plan "$RUNNER_TEMP/plan.txt"\n', "",
+     "E737 (review M1): an empty or cut plan reaches the matrix, which fails on fromJSON('') in the wrong job"),
+    ("mutation_plan_check_passes_an_empty_plan", "seed/bootstrap/local/mutate.py",
+     '    if len(lines) != 2 or set(pairs) != {"count", "shards"}:\n', "    if False:\n",
+     "E737 (review M1): the plan check passes an empty plan"),
     ("mutation_run_ignores_the_plan", ".github/workflows/ci.yml",
      '--shard "$SHARD/$SHARDS"', '--shard "$SHARD/24"',
      "E737: the shards split the mutants by a fixed count while the matrix follows the plan"),
@@ -2752,8 +2789,42 @@ MUTANTS = [
      '    problems += [f"no shard ran {name}" for name in names if name not in seen]\n', "",
      "a mutant no shard ran passes the completeness check"),
     ("mutate_check_passes_a_survivor", "seed/bootstrap/local/mutate.py",
-     "    problems += [f\"{row.get('name')} survived\" for row in records if row.get(\"killed\") is not True]\n", "",
+     "    problems += [f\"{row.get('name')} survived\" for row in records\n"
+     "                 if row.get(\"killed\") is not True and row.get(\"via\") != \"timeout\"]\n", "",
      "a shard's survivor passes the completeness check"),
+    # E738: a mutant past its time limit is recorded and named, never killed, and never hides the shard's other results
+    ("mutate_timeout_crashes_the_shard", "seed/bootstrap/local/mutate.py",
+     "    try:\n        killed, killer, seconds = run_mutant(index, mutant)\n"
+     "    except MutantTimeout as timeout:  # recorded and named, never a kill (E738)\n"
+     "        return False, str(timeout), spent + MUTANT_TIMEOUT_S, \"timeout\"\n",
+     "    killed, killer, seconds = run_mutant(index, mutant)\n",
+     "E738: one mutant past its limit crashes the shard, and its records and the mutant's name are lost"),
+    ("mutate_timeout_counted_killed", "seed/bootstrap/local/mutate.py",
+     "        return False, str(timeout), spent + MUTANT_TIMEOUT_S, \"timeout\"\n",
+     "        return True, str(timeout), spent + MUTANT_TIMEOUT_S, \"timeout\"\n",
+     "E738: a run that never ends counts as a kill"),
+    ("mutate_check_passes_a_timeout", "seed/bootstrap/local/mutate.py",
+     "    problems += [f\"{row.get('name')} timed out in {row.get('file')}: no test run finished, not killed\"\n"
+     "                 for row in records if row.get(\"via\") == \"timeout\"]\n", "",
+     "E738: a timed-out mutant passes the completeness check unnamed"),
+    ("mutate_timeout_shard_green", "seed/bootstrap/local/mutate.py",
+     "    return 1 if survivors or timed_out else 0\n", "    return 1 if survivors else 0\n",
+     "E738: a shard whose mutant timed out ends green"),
+    ("mutate_timeout_file_unnamed", "seed/bootstrap/local/mutate.py",
+     "            rows[i] = {\"name\": m[0], \"file\": m[1], ", "            rows[i] = {\"name\": m[0], ",
+     "E738: a timed-out mutant's record does not name its file"),
+    ("mutate_hanging_test_verifies_a_kill", "seed/bootstrap/local/mutate.py",
+     "        except MutantTimeout:  # a test that hangs alone on the unmutated tree verifies no kill\n            failed = True\n",
+     "        except MutantTimeout:  # a test that hangs alone on the unmutated tree verifies no kill\n            failed = False\n",
+     "E738: a hinted test that hangs alone on the unmutated tree counts as passing there, so it verifies kills"),
+    ("mutate_baseline_timeout_crashes", "seed/bootstrap/local/mutate.py",
+     "    except MutantTimeout as timeout:\n        print(f\"the unmutated code's tests {timeout}; fix that first\", "
+     "file=sys.stderr)\n        return 2\n",
+     "    except MutantTimeout:\n        raise\n",
+     "E738: an unmutated run past its limit crashes the shard without saying the tree itself hangs"),
+    ("mutation_mutant_limit_past_the_job", "seed/bootstrap/local/mutate.py",
+     "\nMUTANT_TIMEOUT_S = 900\n", "\nMUTANT_TIMEOUT_S = 4000\n",
+     "E738: one mutant at its limit pushes a worker's full share past the job's timeout"),
     ("mutate_hint_replayed", "seed/bootstrap/local/mutate.py",
      "        if failed and baseline.passes(hint):\n", "        if failed:\n",
      "a hinted test that fails alone on the unmutated tree too counts as the mutant's killer"),
@@ -5635,7 +5706,7 @@ MUTANTS = [
      'E736: the class rule stays with the agents'),
     ('classrule_successes_dropped', 'spec/tohum/00f-gorev-haritasi-sahibin-ipuclari-4.md', ' ve işe yarayan kabul edilmiş bir değişiklik,', ',',
      'E736: an accepted change that worked is no source of a record'),
-    ('classrule_design_prescribed', 'spec/tohum/00f-gorev-haritasi-sahibin-ipuclari-4.md', 'Kaydın neyi adlandırdığı ve nasıl gruplandığı\n     senindir.', 'Kaydı operatörün\n     şablonu adlandırır.',
+    ('classrule_design_prescribed', 'spec/tohum/00f-gorev-haritasi-sahibin-ipuclari-4.md', 'Kaydın biçimi senindir.', 'Kaydın biçimini operatörün şablonu verir.',
      "E736: the record's design is handed over"),
     ('classrule_second_patch', 'spec/tohum/00f-gorev-haritasi-sahibin-ipuclari-4.md', 'ikinci bir\n     vaka başına düzeltmeyle değil', 'gerekirse\n     vaka başına bir düzeltmeyle',
      'E736: a cause that comes back gets a second per-case fix'),
@@ -5677,6 +5748,12 @@ MUTANTS = [
      'E736: the register row stays open'),
     ('e736_recipe', 'docs/eksik-kaydi.md', 'Görev, reçete değil: hiçbir tasarım verilmez. Yeni `00f`', 'Reçete: kayıt operatörün şablonuyla yazılır. Yeni `00f`',
      'E736: the register hands over a design'),
+    ('classrule_00f_lines_shifted', 'spec/tohum/00f-gorev-haritasi-sahibin-ipuclari-4.md', "(`22`'nin ders satırları).\n     Kaydın biçimi senindir.\n", "(`22`'nin ders satırları). Kaydın biçimi senindir.\n",
+     "D1 (review of PR #39): the shortened sentence pulls 00f's later lines up"),
+    ('e738_open', 'docs/eksik-kaydi.md', '| E410; E502; E737; CI koşusu 45180563969 | kapandı (tohum dönemi AJ) |', '| E410; E502; E737; CI koşusu 45180563969 | açık |',
+     'E738: the register row stays open'),
+    ('e738_kill_claimed', 'docs/eksik-kaydi.md', 'sınırı geçen koşu kayıtlı bir sonuçtur, hiçbir zaman öldürme değildir.', 'sınırı geçen koşu öldürülmüş sayılır.',
+     'E738: the register counts a timed-out mutant as killed'),
     ('e737_open', 'docs/eksik-kaydi.md', '| E410; E502; E525; E697 | kapandı (tohum dönemi AJ) |', '| E410; E502; E525; E697 | açık |',
      'E737: the register row stays open'),
     ('e737_bound_kept', 'docs/eksik-kaydi.md', "`mutate.shard_count` commit'in kendi mutantlarından hesaplar", 'matris 24 parçada kalır, sınırı `test_wiring` tutar',
@@ -5745,8 +5822,11 @@ def run_mutant(index: int, mutant: tuple[str, str, str, str, str] | None,
                "HOME": str(work)}
         argv = ([sys.executable, "-m", "unittest", "-f", *tests] if tests
                 else [sys.executable, "-m", "unittest", "discover", "-s", "tests", "-f"])
-        proc = subprocess.run(argv, cwd=boot, env=env,
-                              capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=900)
+        try:
+            proc = subprocess.run(argv, cwd=boot, env=env, capture_output=True, text=True, encoding="utf-8",
+                                  errors="replace", timeout=MUTANT_TIMEOUT_S)
+        except subprocess.TimeoutExpired:
+            raise MutantTimeout(f"timed out: no test run finished in {MUTANT_TIMEOUT_S} s") from None
     output = proc.stdout + proc.stderr
     killers = [failed_test(line) for line in output.splitlines() if line.startswith(("FAIL: ", "ERROR: "))]
     return proc.returncode != 0, (killers[0] if killers else "(no test named)"), time.monotonic() - started
@@ -5763,6 +5843,11 @@ def failed_test(line: str) -> str:
 HINT = re.compile(r"test_\w+(\.\w+){0,2}")  # a module, class or test of tests/: nothing else is run as a hint
 
 
+class MutantTimeout(Exception):
+    """A run of the tests that did not finish in MUTANT_TIMEOUT_S (E738). It is no kill: `04` counts a mutant killed
+    only by a red the tests give, and a run that never ends gives none."""
+
+
 class IsolatedBaseline:
     """Whether a test passes when it runs alone on the unmutated tree; each test is run once, whichever worker asks."""
 
@@ -5774,7 +5859,10 @@ class IsolatedBaseline:
         with self.lock:
             if test in self.known:
                 return self.known[test]
-        failed, _detail, _seconds = run_mutant(-1, None, (test,))
+        try:
+            failed, _detail, _seconds = run_mutant(-1, None, (test,))
+        except MutantTimeout:  # a test that hangs alone on the unmutated tree verifies no kill
+            failed = True
         with self.lock:
             self.known[test] = not failed
         return not failed
@@ -5786,10 +5874,16 @@ def judge(index: int, mutant, hint: str | None, baseline: IsolatedBaseline) -> t
     it, not the test's isolation). Anything else runs the whole suite, exactly as a run without hints."""
     spent = 0.0
     if hint and HINT.fullmatch(hint):
-        failed, killer, spent = run_mutant(index, mutant, (hint,))
+        try:
+            failed, killer, spent = run_mutant(index, mutant, (hint,))
+        except MutantTimeout:  # the hinted test hangs with the mutant: unverified, the whole suite judges
+            failed, spent = False, float(MUTANT_TIMEOUT_S)
         if failed and baseline.passes(hint):
             return True, killer, spent, "hint"
-    killed, killer, seconds = run_mutant(index, mutant)
+    try:
+        killed, killer, seconds = run_mutant(index, mutant)
+    except MutantTimeout as timeout:  # recorded and named, never a kill (E738)
+        return False, str(timeout), spent + MUTANT_TIMEOUT_S, "timeout"
     return killed, killer, spent + seconds, "suite"
 
 
@@ -5829,7 +5923,10 @@ def check_records(records: list[dict], mutants=MUTANTS) -> list[str]:
     problems += [f"no shard ran {name}" for name in names if name not in seen]
     problems += [f"{name} ran {count} times" for name, count in sorted(seen.items()) if count > 1]
     problems += [f"{name} is no mutant" for name in sorted(set(seen) - set(names))]
-    problems += [f"{row.get('name')} survived" for row in records if row.get("killed") is not True]
+    problems += [f"{row.get('name')} timed out in {row.get('file')}: no test run finished, not killed"
+                 for row in records if row.get("via") == "timeout"]
+    problems += [f"{row.get('name')} survived" for row in records
+                 if row.get("killed") is not True and row.get("via") != "timeout"]
     return problems
 
 
@@ -5874,10 +5971,17 @@ def main() -> int:
     parser.add_argument("--hints-out", help="with --check-records: write the killers as the next run's hints")
     parser.add_argument("--shard-plan", action="store_true",
                         help="print CI's plan for every mutant: count=N and shards=[0..N-1] (`shard_count`)")
+    parser.add_argument("--check-plan", help="a file --shard-plan wrote: fail unless it is exactly the plan")
     args = parser.parse_args()
     if args.shard_plan:
         print(shard_plan(len(MUTANTS)), end="")
         return 0
+    if args.check_plan:
+        problems = check_plan(Path(args.check_plan).read_text(encoding="utf-8"), len(MUTANTS))
+        for problem in problems:
+            print(problem, file=sys.stderr)
+        print(f"plan for {len(MUTANTS)} mutants: {'INVALID' if problems else 'valid'}")
+        return 1 if problems else 0
     if args.check_records:
         return check_main(args.check_records, args.hints_out)
     if args.jobs < 1:
@@ -5909,7 +6013,11 @@ def main() -> int:
     if stale:
         print(f"stale mutant anchors, update them first: {'; '.join(stale)}", file=sys.stderr)
         return 2
-    killed, detail, _ = run_mutant(-1, None)  # without this a failing environment makes every mutant "killed"
+    try:
+        killed, detail, _ = run_mutant(-1, None)  # without this a failing environment makes every mutant "killed"
+    except MutantTimeout as timeout:
+        print(f"the unmutated code's tests {timeout}; fix that first", file=sys.stderr)
+        return 2
     if killed:
         print(f"the unmutated code already fails its tests ({detail}); fix that first", file=sys.stderr)
         return 2
@@ -5920,9 +6028,12 @@ def main() -> int:
         for done in as_completed(running):
             i, m = running[done]
             killed, detail, seconds, via = done.result()
-            print(f"{'killed  ' if killed else 'SURVIVED'} {m[0]:34} {seconds:5.1f}s  {detail}  [{via}]", flush=True)
-            rows[i] = {"name": m[0], "killed": killed, "killer": detail, "via": via, "seconds": round(seconds, 1)}
-    survivors = [rows[i]["name"] for i, _m in chosen if not rows[i]["killed"]]
+            mark = "TIMEOUT " if via == "timeout" else "killed  " if killed else "SURVIVED"
+            print(f"{mark} {m[0]:34} {seconds:5.1f}s  {detail}  [{via}]  {m[1]}", flush=True)
+            rows[i] = {"name": m[0], "file": m[1], "killed": killed, "killer": detail, "via": via,
+                       "seconds": round(seconds, 1)}
+    survivors = [rows[i]["name"] for i, _m in chosen if not rows[i]["killed"] and rows[i]["via"] != "timeout"]
+    timed_out = [f"{rows[i]['name']} ({rows[i]['file']})" for i, _m in chosen if rows[i]["via"] == "timeout"]
     if args.record:
         Path(args.record).parent.mkdir(parents=True, exist_ok=True)
         Path(args.record).write_text("".join(json.dumps(rows[i], sort_keys=True) + "\n" for i, _m in chosen),
@@ -5932,7 +6043,9 @@ def main() -> int:
           f"{len(chosen) - by_hint} by the whole suite; {args.jobs} at a time)")
     if survivors:
         print("not measured by any test:", ", ".join(survivors))
-    return 1 if survivors else 0
+    if timed_out:
+        print(f"timed out after {MUTANT_TIMEOUT_S} s, not killed:", ", ".join(timed_out))
+    return 1 if survivors or timed_out else 0
 
 if __name__ == "__main__":
     sys.exit(main())
