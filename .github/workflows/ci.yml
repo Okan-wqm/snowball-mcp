@@ -2,7 +2,7 @@
 # are free. Every job is read-only and holds no secret; pull requests from forks run under the same limits.
 #
 #   every push and pull request: the referee's unit tests on Linux and Windows, the drill judge's tests
-#   main and daily, in addition: the mutation checks (referee in 23 shards of four mutants at a time, reference
+#   main and daily, in addition: the mutation checks (referee in 24 shards of four mutants at a time, reference
 #   brain, drill judge), the end-to-end run against Docker, and the claude CLI contract against the pinned binary
 #   (a made-up token: it spends nothing)
 #
@@ -133,7 +133,7 @@ jobs:
       matrix:
         # four mutants at a time on the runner's four cores; at most 22 a worker even with no hint: at the worst seen
         # 6 minutes a mutant four at a time, a shard ends in 132 of its 180 (E410, E502; `test_wiring.MutationShardTest`)
-        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22]
+        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -156,7 +156,7 @@ jobs:
         run: |
           hints=()
           if [ "$EVENT" != schedule ] && [ "$HINTS_INPUT" != off ]; then hints=(--hints "$GITHUB_WORKSPACE/mutant-hints.json"); fi
-          python3 local/mutate.py --shard "$SHARD/23" --jobs 4 "${hints[@]}" --record "$RUNNER_TEMP/records/shard-$SHARD.jsonl"
+          python3 local/mutate.py --shard "$SHARD/24" --jobs 4 "${hints[@]}" --record "$RUNNER_TEMP/records/shard-$SHARD.jsonl"
       - name: This shard's records
         if: success() || failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

@@ -91,7 +91,7 @@ class PackageFindingPageTest(unittest.TestCase):
             self.assertIn(words, text, words)
 
     def test_t1_reads_the_registry_the_cycle_started_from(self):
-        # ah_t1_after_proposals ah_same_cycle_fix ah_unknown_worked_around
+        # ah_t1_after_proposals ah_same_cycle_fix ah_unknown_worked_around ah_t1_cost_duty
         text = section("26q", *PACKAGE)
         for words in ("T1 (`26k:34-35`) devrin başladığı kaydı okur: `yaz`'ın `brain/state`'ten çektiği "
                       "`findings.jsonl`'u, bu devrin önerileri uygulanmış hâlini değil.",
@@ -99,12 +99,17 @@ class PackageFindingPageTest(unittest.TestCase):
                       "Organın önerilerinin dosyası `26p:28-30`'dadır",
                       "Bu tasarımdır, etrafından dolaşılmaz:"):
             self.assertIn(words, text, words)
+        self.assertNotIn("bedelini", text)  # ah_t1_cost_duty: the lag is a fact, never a measuring duty
 
     def test_the_reason_names(self):
         # ah_reason_standing ah_reason_writes_unresolved ah_reasons_merged ah_decided_order_open ah_id_twice_first_wins
-        # ah_registry_unusable_writes
+        # ah_registry_unusable_writes ah_package_extra_top_key ah_definition_sha_any
         text = section("26q", *PACKAGE)
-        for words in ("hiçbiri duran neden değildir (`26j:43-46`), `cause`'u `unknown`'dır (`26:41-44`) ve "
+        for words in ("yeniden koşunun verdiği paketin biçim denetimi: paket tam olarak `26a:66`'nın dört anahtarıdır, "
+                      "fazla bir üst anahtar (ör. `fingerprint`) da `package_invalid`'dir; `organ_ids` "
+                      "`gate.allowlist`'in okuduğu biçimdedir, `definition_sha256` 64 küçük onaltılık dizgilerdir, "
+                      "`finding` (1)'in biçimidir.",
+                      "hiçbiri duran neden değildir (`26j:43-46`), `cause`'u `unknown`'dır (`26:41-44`) ve "
                       "`unresolved` satırı yazmaz.",
                       "`koş`'un `package_unusable`'ından (`26p:47-48`) ayrı aşamadır, iki ad da durur.",
                       "`finding_decided`: bir bulgunun sonraki adayı; sıra aday kimliklerinin kod noktası sırasıdır.",
@@ -130,7 +135,7 @@ class RunAndDenominatorPageTest(unittest.TestCase):
 
     def test_a_run_and_its_observation_list(self):
         # ah_run_is_file ah_two_runs_one_list ah_reobservation_dropped ah_list_fingerprint_agent ah_foreign_row_skipped
-        # ah_registry_is_run
+        # ah_registry_is_run ah_l_ah1_26q_unqualified
         text = section("26q", *RUN)
         for words in ("Koşu, bir avcı organının bir snapshot üzerindeki bir koşusudur.",
                       "aynı snapshot'taki iki koşu iki ayrı listedir.",
@@ -140,16 +145,17 @@ class RunAndDenominatorPageTest(unittest.TestCase):
                       "Snapshot'ı koşununki olmayan bir satır taşıyan liste kullanılamaz; satır sessizce atlanmaz.",
                       "Ne kendisi ne bir penceresi (bütün dosya ya da bir snapshot'ın satırları) bir koşudur; "
                       "puanlayıcının girdisi değildir.",
-                      "Gevşetme değildir: puanlanan her parmak izini hâlâ yalnız hakem kodu yapar."):
+                      "Gevşetme değildir: puanlanan her parmak izini hâlâ yalnız hakem kodu yapar (L-AH1 dışında, (8))."):
             self.assertIn(words, text, words)
 
     def test_the_deferral_planted_runs_no_run_and_equal_lines(self):
-        # ah_list_place_now ah_planted_in_registry ah_no_run_fail ah_equal_line_allowed
+        # ah_list_place_now ah_planted_in_registry ah_no_run_fail ah_equal_line_allowed ah_registry_other_tree
         text = section("26q", *RUN)
         for words in ("Listenin yeri, adı ve satır biçimi ertelendi: Aşama 1 MF1'i (`lint.discover`, ilk avcı) "
                       "getiren döneme (`26p:28-30`).",
                       "gözlemlerinin hiçbiri `findings.jsonl`'a ya da `unresolved.jsonl`'a yazılmaz",
-                      "hüküm ne `FAIL` ne `PASS`'tir.", "Sıkılaştırma: uydurulmuş kaçırma yoktur.",
+                      "Kayda yalnız hedefin kendi ağacındaki bir koşunun gözlemleri, yazıcıdan geçerek girer.",
+                      "hüküm ne `FAIL` ne `PASS`'tir (Aşama 1 MF1'e kadar).", "Sıkılaştırma: uydurulmuş kaçırma yoktur.",
                       "aynı dosyadaki başka bir ihlalle aynı parmak izini taşıyan vakayı reddeder"):
             self.assertIn(words, text, words)
 
@@ -162,6 +168,7 @@ class RunAndDenominatorPageTest(unittest.TestCase):
                       "**Gevşetme L-AH1** (kapsamlı; sahibe bildirilir): bu komut parmak izlerini verildiği gibi alır",
                       "kuralının istisnası yalnız bu vektör komutudur; canlı puanlama (dört dosyalı biçim, rapor ve "
                       "hüküm) hakemin yaptığı parmak izini tutar.",
+                      "(`fp-f1` hash değildir; boş olmayan bir \"aynı bulgu\" etiketidir)",
                       "Orada kırmızı olabilir."):
             self.assertIn(words, text, words)
 
@@ -170,7 +177,7 @@ class RunAndDenominatorPageTest(unittest.TestCase):
         # ah_no_vector_pass
         text = section("26q", *RUN)
         for words in ("Payda: `rules_total` hedefin `census` vektörünün kural kümesidir (`29za:9-22`;",
-                      "ne kütüphanenin kuralları ne koşunun vakaları",
+                      "ne kütüphanenin kuralları ne koşunun vakaları", "`26e:72-73` aynı kümeyi söyler.",
                       "Kütüphanenin üretemediği vektör kuralı paydada kalır, kırmızı nedendir (`29za:12-13`).",
                       "Kümenin dışındaki bir kuralın vakası `rules_total`'a ve `rules_covered`'a bir şey eklemez, yine "
                       "de vakadır: `n`'de, `recall`'da ve kaçırmalarda sayılır, kaçırması `FAIL`'dır",
@@ -189,6 +196,14 @@ class RunAndDenominatorPageTest(unittest.TestCase):
                       "(seed-101).", text)
         self.assertIn("(`29za:9-22`:", page("26m").splitlines()[66])
 
+    def test_26e_and_26n_carry_no_second_reading(self):  # ah_26e_rules_total_library ah_l_ah1_26n_unqualified
+        text = flat(page("26e"))
+        self.assertIn("`rules_total` hedefin `census` vektörünün kural kümesidir (`29za:9-22`, `26q`)", text)
+        self.assertNotIn("vaka üretilebilen kuralların sayısıdır", text)
+        self.assertEqual(len(page("26e").splitlines()), 80)
+        self.assertIn("bugün puanlanan her parmak izini hakemin kendi yazıcısı yapar (L-AH1 dışında, `26q`).",
+                      flat(page("26n")))
+
     def test_26j_and_26k_point_to_26q(self):  # ah_26j_unpointed ah_26k_unpointed
         self.assertIn("MF12'nin sözleşmeleri T1 ve T2 `26k`'dedir (seed-088). Paketin bulgusu ve nedenleri `26q`'dadır "
                       "(seed-100).", flat(page("26j")))
@@ -200,7 +215,7 @@ class RecordsTest(unittest.TestCase):
     """CHANGELOG-17 (its first task, L-AH1 and a line for every item), the register, INDEX and the answers file."""
 
     def test_the_first_task_keeps_the_order_and_places_the_answers(self):
-        # ah_first_task_not_first ah_order_changed ah_101_after_exit ah_l_ah1_not_in_changelog
+        # ah_first_task_not_first ah_order_changed ah_101_after_exit ah_l_ah1_not_in_changelog ah_changelog_26e_unsaid
         text = flat(changelog())
         self.assertIn("**İlk iş** (`25` 10b).", text)
         self.assertIn("Kurucu'nun bugünkü işi sürer, sırası `CHANGELOG-14`'ünkidir.", text)
@@ -209,6 +224,9 @@ class RecordsTest(unittest.TestCase):
         self.assertIn("**Gevşetme L-AH1** (kapsamlı; sahibe bildirilir; `26q:64-70`): iki dosyalı vektör komutu "
                       "(`29a:73-74`) parmak izlerini verildiği gibi alır; yalnız o komut; canlı puanlama hakemin yaptığı "
                       "parmak izini tutar. Başka gevşetme yok.", text)
+        self.assertIn("`26e:72-73` yerinde düzeltildi: `rules_total` hedefin `census` vektörünün kural kümesidir", text)
+        self.assertIn("listeyi kullanılamaz kılar (`26q:51-52`; masanın kararı: Kurucu'nun süzgeci bir ret olarak okunur",
+                      text)
 
     def test_every_item_of_each_report_has_its_line(self):
         # ah_item_100_dropped ah_item_101_dropped ah_item_101_deferral_unnamed ah_item_unmarked
@@ -227,7 +245,7 @@ class RecordsTest(unittest.TestCase):
         self.assertIn("gevşetme L-AH1, yalnız o komut", items(REPORTS[1])[3])
         self.assertEqual(sum(line.startswith("güncelleme") for line in items(REPORTS[1])), 4)
 
-    def test_the_register_rows(self):  # ah_rows_open ah_e732_unscoped ah_e731_cause_dropped
+    def test_the_register_rows(self):  # ah_rows_open ah_e732_unscoped ah_e731_cause_dropped ah_e731_foreign_row
         for eid in ("E730", "E731", "E732"):
             with self.subTest(eid=eid):
                 self.assertTrue(register_row(eid).endswith("|"))
@@ -237,6 +255,8 @@ class RecordsTest(unittest.TestCase):
         self.assertIn("gevşetme L-AH1 (E732)", register_row("E731"))
         self.assertIn("Neden: AF'nin `26m`'si \"bir koşuda\" puanladı ama koşuyu tanımlamadı", register_row("E731"))
         self.assertIn("Gevşetme yok.", register_row("E730"))
+        self.assertIn("başka snapshot'ın satırı listeyi kullanılamaz kılar, sessizce atlanmaz", register_row("E731"))
+        self.assertIn("paket de tam olarak `26a:66`'nın dört anahtarıdır", register_row("E730"))
 
     def test_the_indexes_and_the_answers(self):  # ah_index_missing ah_changelog_unindexed ah_answers_missing
         index = (ROOT / "spec" / "INDEX.md").read_text(encoding="utf-8")
@@ -250,7 +270,7 @@ class RecordsTest(unittest.TestCase):
             self.assertEqual(sum(1 for line in changelog().splitlines() if line.strip().startswith(f"`{report}` →")), 1)
 
     def test_the_pages_fit(self):
-        for prefix in ("26q", "26m", "26j", "26k"):
+        for prefix in ("26q", "26m", "26j", "26k", "26e", "26n"):
             self.assertLessEqual(len(page(prefix).splitlines()), 80, prefix)
         self.assertLessEqual(len(changelog().splitlines()), 80)
 
