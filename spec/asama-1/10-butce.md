@@ -13,7 +13,7 @@ başlangıç fren değerlerini verir. USD liste fiyatı tahminidir (`tohum/06`).
 | Kalem | Başlangıç fren değeri |
 |---|---|
 | Adapter koşusu | 0 USD; `operating{}` sınırları (`kos_wall_s`) |
-| Sonnet düzeltmesi | Bulgu başına 0,50 USD ve 5 dk; sınırı `llm.call`'ın çağrı başı tavanı uygular (iç kullanımda `claude` CLI'sinin `--max-budget-usd`'si) |
+| Sonnet düzeltmesi | Bulgu başına 0,50 USD ve 5 dk; sınırı `llm.call`'ın çağrı başı tavanı uygular (iç kullanımda `claude` CLI'sinin `--max-budget-usd`'si). Anahtarları çağrı başınadır: `constitutional.stage_params.fix_call_max_usd` (`"0.500000"`) ve `constitutional.stage_params.fix_call_max_s` (`300`); sahip kararı (2026-11-23), `tohum/18a`, `tohum/26s` |
 | Çalışma-zamanı LLM, aşama toplamı | `stage_budgets.asama_1.runtime_llm_usd`: 10.000 USD (`tohum/18a`) |
 | İnşa-zamanı LLM: Kurucu | `stage_budgets.asama_1.founder_usd`: aşama toplamı 10.000 USD; oturum başına `session_cap_usd` |
 | İnşa-zamanı LLM: tohum rakibi | `stage_budgets.asama_1.rival_usd`: 10.000 USD; yalnız kaçak freni (`tohum/18a`) |
