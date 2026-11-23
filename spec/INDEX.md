@@ -16,6 +16,7 @@ Okunma: sayfa ararken; görev seçmek için `tohum/00b-gorev-haritasi.md`
 | `tohum/00c-gorev-haritasi-sahibin-ipuclari.md` | Görev Haritası, Devam: Sahibin İpuçları | her oturumda, görev seçilirken (`00b`'nin devamı) |
 | `tohum/00d-gorev-haritasi-sahibin-ipuclari-devam.md` | Görev Haritası, Devam: Sahibin İpuçları II | her oturumda, görev seçilirken (`00c`'nin devamı) |
 | `tohum/00e-gorev-haritasi-sahibin-ipuclari-3.md` | Görev Haritası, Devam: Sahibin İpuçları III | her oturumda, görev seçilirken (`00d`'nin devamı) |
+| `tohum/00f-gorev-haritasi-sahibin-ipuclari-4.md` | Görev Haritası, Devam: Sahibin İpuçları IV | her oturumda, görev seçilirken (`00e`'nin devamı) |
 | `tohum/01-hedef-sistem.md` | Hedef Sistem | ilk oturumda |
 | `tohum/01a-mimari-ve-yetki.md` | Mimari ve Yetki: Dört Yer | ilk oturumda ve her yeni repoya bağlanırken |
 | `tohum/01b-kapi-kurallari.md` | Kapı Kuralları, Tetik, Döngü İşlemi | her merge ve her state yazımında |
@@ -124,6 +125,7 @@ Okunma: sayfa ararken; görev seçmek için `tohum/00b-gorev-haritasi.md`
 | `tohum/31g-karar-rehberi.md` | Mimari İlkeler VII: Karar Rehberi | aşağıdaki durumlardan biri ortaya çıktığında, `decision` satırı yazılmadan önce |
 | `tohum/31h-catismalar-ve-tarama.md` | Mimari İlkeler VIII: Çatışmalar ve Tarama Sinyalleri | iki ilke aynı durumda farklı yön gösterdiğinde; bir repo ilkeler açısından taranırken; rakip bir tasarımı çürütmeye çalışırken |
 | `tohum/CHANGELOG.md` | Değişiklik Günlüğü — Tohum | bir sayfanın geçmişi aranırken |
+| `tohum/CHANGELOG-19.md` | Değişiklik Günlüğü — Tohum, 2.2'nin On Sekizinci Kayıtları | bir sayfanın geçmişi aranırken |
 | `tohum/CHANGELOG-18.md` | Değişiklik Günlüğü — Tohum, 2.2'nin On Yedinci Kayıtları | bir sayfanın geçmişi aranırken |
 | `tohum/CHANGELOG-17.md` | Değişiklik Günlüğü — Tohum, 2.2'nin On Altıncı Kayıtları | bir sayfanın geçmişi aranırken |
 | `tohum/CHANGELOG-16.md` | Değişiklik Günlüğü — Tohum, 2.2'nin On Beşinci Kayıtları | bir sayfanın geçmişi aranırken |
