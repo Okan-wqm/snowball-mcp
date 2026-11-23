@@ -1,0 +1,10 @@
+{
+  "schema": "snowball-prices/1",
+  "source": "the operator: Anthropic's published API list prices (cache writes 5m 1.25x, 1h 2x input); opus checked against the CLI's costUSD of a one-agent session",
+  "as_of": "2026-11-22",
+  "unit": "usd_micros_per_million_tokens",
+  "models": {
+    "claude-fable-5-2": {"in": 8000000, "out": 40000000, "cache_read": 200000, "cache_write_5m": 10000000, "cache_write_1h": 16000000},
+    "claude-opus-5-5": {"in": 4000000, "out": 20000000, "cache_read": 200000, "cache_write_5m": 5000000, "cache_write_1h": 8000000}
+  }
+}

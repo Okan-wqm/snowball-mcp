@@ -28,10 +28,12 @@ Everything lives in one folder, <work> (the operator deletes it to remove the pi
                                 and lessons.json, the id and claim of the ledger's newest live `lesson` rows at the
                                 head the session starts from, and how many were left out (`26g`, E610), and
                                 mirror.json, the measurement mirror: facts only, from these records and the referee
-                                tarball read for /vec (`mirror.py`; the owner's decision of 2026-11-19, E647)
+                                tarball read for /vec (`mirror.py`; the owner's decision of 2026-11-19, E647), and
+                                cost-pending.json, the cost rows that wait for an accepted head (seed-097, E720)
   <work>/pilot-log.md           the operator's report
   <work>/STOP                   create this file to stop after the current step
   <work>/cost-pending.jsonl     cost rows not written yet: the brain held work the referee had not accepted
+  <work>/snowball-founder.env's mtime  a usage-limit wait ends within a minute of its change (a new key); never read
   <work>/reports-seen.json      when the launcher first saw each brain report (a report's age)
   <work>/launcher.lock          the running launcher's exclusive OS lock: one launcher at a time; the OS frees it when
                                 the process ends, a crash or a reboot too (E505)
@@ -113,6 +115,9 @@ BUILD_FILES = ("founder/Dockerfile", "founder/entrypoint.sh", "founder/prompt.md
 LAUNCHER_NAME, LAUNCHER_EMAIL = "Snowball launcher", "launcher@snowball.invalid"  # its commits are not the Founder's
 GH_CREDENTIAL = "credential.helper=!gh auth git-credential"  # the operator's login, never a token on a command line
 COST_PENDING = "cost-pending.jsonl"
+# A session's cost facts (`cost_summary`); the whole-session ones are read again for an older pending row (E720)
+COST_FACTS = ("exit", "minutes", "turns", "cost_usd", "subtype", "model_served", "models", "tokens", "per_model")
+WHOLE_SESSION = ("turns", "cost_usd", "tokens", "per_model", "models")
 GIT_NETWORK_TIMEOUT_S = 300  # a clone, a blob fetch or a push of the cost row; past it the rows wait for a later cycle
 GIT_LOCAL_TIMEOUT_S = 60
 REPORTS_SEEN = "reports-seen.json"
@@ -158,6 +163,10 @@ LESSONS_MAX = 100  # the newest live lessons listed; the older ones are counted 
 LESSON_CLAIM_MAX = 500  # characters of a claim in the index; a longer one is cut and says so
 # The measurement mirror, written for each session (`mirror.py`; the owner's decision of 2026-11-19, E647).
 MIRROR_NOTE = "mirror.json"
+COST_PENDING_NOTE = "cost-pending.json"  # the cost rows that wait, as each session reads them (seed-097, E720)
+PRICES = HERE / "prices.json"  # the operator's price table the mirror derives an agent run's cost from (E720)
+RIVAL_PROBE_S = 30 * 60  # while the newest result is the rival's outage: one probe run each half hour (E721)
+NOW = object()  # `Pilot.wait`'s mark when none is given: the key file's mtime as the wait begins
 TASK_NAME = "Snowball Founder launcher"
 TASK_EVERY = "PT15M"
 
@@ -180,6 +189,11 @@ class GitHubUnavailable(Outage):
 
 class NoVerdict(Outage):
     """The Founder's last push has no verdict yet: no session works blind on it (E168, E248)."""
+
+
+class RivalOutage(Outage):
+    """The newest signed result is the rival's own outage on its side (E721, `24a` 2): no session starts on it; the
+    referee is probed each RIVAL_PROBE_S and the run goes on when a result evaluates the head. Not a cycle."""
 
 
 GH_RETRY_DELAYS_S = (10, 20, 40, 60, 60)  # about three minutes before a read counts as an outage
@@ -232,9 +246,13 @@ def reason_owner(reason: dict) -> str:
     return "rival" if item["kind"] in ("rival_unresolved", "rival_missing") else "referee"
 
 
-LIMIT_RESET_RE = re.compile(r"resets\s+(\d{1,2})(?::(\d{2}))?\s*([ap]m)\s*\(UTC\)", re.IGNORECASE)
+MONTHS = ("jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec")
+# "resets 3:50am (UTC)" (the five-hour window) or "resets Nov 25, 4pm (UTC)" (the weekly one, E722)
+LIMIT_RESET_RE = re.compile(r"resets\s+(?:(?P<month>" + "|".join(MONTHS) + r")\s+(?P<day>\d{1,2}),\s*)?"
+                            r"(?P<hour>\d{1,2})(?::(?P<minute>\d{2}))?\s*(?P<half>[ap]m)\s*\(UTC\)", re.IGNORECASE)
 LIMIT_FALLBACK_S = 30 * 60
 LIMIT_MAX_WAIT_S = 6 * 3600
+LIMIT_MAX_DATED_WAIT_S = 8 * 24 * 3600  # a dated reset is at most a week away; past it the next session tries
 
 
 BRAKES = ("error_max_turns", "error_max_budget_usd")  # the CLI's closing subtypes for a turn or budget brake
@@ -270,8 +288,17 @@ def usage_limit_wait(sess: dict, at: datetime) -> int | None:
     m = LIMIT_RESET_RE.search(str(sess.get("final") or ""))
     if not m:
         return LIMIT_FALLBACK_S
-    hour = int(m.group(1)) % 12 + (12 if m.group(3).lower() == "pm" else 0)
-    reset = at.replace(hour=hour, minute=int(m.group(2) or 0), second=0, microsecond=0)
+    hour = int(m.group("hour")) % 12 + (12 if m.group("half").lower() == "pm" else 0)
+    try:
+        if m.group("month"):  # a dated reset (the weekly limit, E722): this year's date, or next year's when long past
+            reset = datetime(at.year, MONTHS.index(m.group("month").lower()) + 1, int(m.group("day")), hour,
+                             int(m.group("minute") or 0), tzinfo=timezone.utc)
+            if (at - reset).days > 180:
+                reset = reset.replace(year=at.year + 1)
+            return int(min(max(0.0, (reset - at).total_seconds()) + 120, LIMIT_MAX_DATED_WAIT_S))
+        reset = at.replace(hour=hour, minute=int(m.group("minute") or 0), second=0, microsecond=0)
+    except ValueError:  # a date or a time no calendar has
+        return LIMIT_FALLBACK_S
     wait = (reset - at).total_seconds()
     if wait <= 0:
         wait += 24 * 3600
@@ -294,12 +321,29 @@ def context_sha256(root: Path | None = None) -> str:
     return hashlib.sha256("".join(sorted(f"{rel}\0{digest}\n" for rel, digest in digests.items())).encode()).hexdigest()
 
 
-TOKEN_FIELDS = (("in", "input_tokens"), ("out", "output_tokens"), ("cache_read", "cache_read_input_tokens"),
-                ("cache_write", "cache_creation_input_tokens"))  # the CLI's closing usage, named as the row names them
+TOKEN_FIELDS = (("in", "inputTokens"), ("out", "outputTokens"), ("cache_read", "cacheReadInputTokens"),
+                ("cache_write", "cacheCreationInputTokens"))  # the CLI's closing modelUsage, named as the row names them
 
 
 def _count(value) -> int | None:
     return value if isinstance(value, int) and not isinstance(value, bool) and value >= 0 else None
+
+
+def _micros(value) -> int | None:
+    """USD as whole micros; None for anything but a finite non-negative number."""
+    return (round(value * 1_000_000) if isinstance(value, (int, float)) and not isinstance(value, bool)
+            and math.isfinite(value) and value >= 0 else None)
+
+
+def model_usage(models: dict) -> dict:
+    """The CLI's closing modelUsage per model, as the cost row names it (seed-097, E720): its tokens, its costUSD as
+    micros and its costBasis word. Cumulative for the whole session: every result event repeats the session's sums."""
+    out = {}
+    for model in sorted(m for m in models if MIRROR.word(m)):
+        usage = models[model] if isinstance(models[model], dict) else {}
+        out[model] = dict({name: _count(usage.get(key)) for name, key in TOKEN_FIELDS},
+                          cost_usd_micros=_micros(usage.get("costUSD")), basis=MIRROR.word(usage.get("costBasis")))
+    return out
 
 
 def cost_summary(fact: dict) -> str:
@@ -307,8 +351,7 @@ def cost_summary(fact: dict) -> str:
     turns, USD, the model the CLI was served and every model the session's calls used, and the CLI's token totals
     (input, output, read from and written to the provider's cache). A fact the CLI did not report reads unknown."""
     turns = _count(fact.get("turns"))
-    cost = fact.get("cost_usd")
-    micros = round(cost * 1_000_000) if isinstance(cost, (int, float)) and not isinstance(cost, bool) else None
+    micros = _micros(fact.get("cost_usd"))
     tokens = fact.get("tokens") if isinstance(fact.get("tokens"), dict) else {}
     models = [m for m in fact.get("models") or [] if isinstance(m, str)]
     counts = " ".join(f"{name} {'unknown' if _count(tokens.get(name)) is None else tokens[name]}"
@@ -317,7 +360,21 @@ def cost_summary(fact: dict) -> str:
             f"turns {'unknown' if turns is None else turns}, "
             f"cost_usd_micros {'unknown' if micros is None else micros}, CLI result {fact.get('subtype') or 'none'}, "
             f"model {fact.get('model_served') or 'unknown'}, models {'+'.join(sorted(models)) or 'unknown'}, "
-            f"tokens {counts}")
+            f"tokens {counts}, per model: {per_model_text(fact.get('per_model'))}")
+
+
+def per_model_text(per) -> str:
+    """The cost row's per-model part (E720): each model of the closing modelUsage, by name, with its tokens, its
+    costUSD as micros and its costBasis; unknown for a session whose record has none (an older pending row)."""
+    if not isinstance(per, dict):
+        return "unknown"
+    shown = []
+    for model in sorted(m for m in per if MIRROR.word(m)):
+        one = per[model] if isinstance(per[model], dict) else {}
+        counts = " ".join(f"{name} {'unknown' if _count(one.get(name)) is None else one[name]}"
+                          for name in (*(n for n, _k in TOKEN_FIELDS), "cost_usd_micros"))
+        shown.append(f"{model} {counts} basis {MIRROR.word(one.get('basis')) or 'unknown'}")
+    return "; ".join(shown) or "none"
 
 
 def cost_line(ledger: bytes, fact: dict, ts: str) -> bytes:
@@ -768,6 +825,14 @@ def wip_findings(branches: list[dict], compare: Callable[[str, str], dict], last
     return found
 
 
+def prices(path: Path = PRICES):
+    """The operator's price table (`prices.json`, E720) as JSON, or ``{"error": <class>}``: the mirror judges its form."""
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception as exc:  # no session is lost to it: every run's cost reads price_unknown
+        return {"error": type(exc).__name__}
+
+
 def write_build_context(ctx: Path) -> None:
     """Copy exactly the files the image needs, with LF line ends: a Windows checkout may hand over CRLF, and a CR
     after the entrypoint's shebang makes the container fail before it starts (E152)."""
@@ -812,6 +877,7 @@ class Pilot:
         self.image_id: str | None = None
         self._ledger_read: tuple[str, bytes] | None = None  # the last ledger read, by commit (`ledger_bytes`)
         self.referee_facts: dict | None = None  # what the mirror reads of this cycle's referee tarball (E647)
+        self.held: str | None = None  # the head the rival's outage holds the run on, while it does (E721)
 
     # ---- checks -------------------------------------------------------------------------------------------
     def stopped(self) -> bool:
@@ -1067,13 +1133,8 @@ class Pilot:
         """The session's cost row (`tohum/24a` 4), with any rows an earlier cycle had to keep; what happened, as a line
         for the report. A killed session gets its row too: that is what the next session can learn from (E340)."""
         pending_path = self.work / COST_PENDING
-        facts = []
-        if pending_path.is_file():  # a broken line is kept out, never a reason to lose the session's own row
-            facts = [row for row in map(_json_or_none, pending_path.read_text(encoding="utf-8").splitlines())
-                     if isinstance(row, dict)]
-        facts.append({"stamp": stamp, "head": head, **{k: sess.get(k) for k in ("exit", "minutes", "turns", "cost_usd",
-                                                                               "subtype", "model_served", "models",
-                                                                               "tokens")}})
+        facts = self.pending_costs()
+        facts.append({"stamp": stamp, "head": head, **{k: sess.get(k) for k in COST_FACTS}})
         try:
             outcome = push_cost_rows(self.brain_remote, facts, last_accepted, now(), self.epoch)
         except (gitio.GitError, ValueError, OSError) as exc:
@@ -1083,6 +1144,40 @@ class Pilot:
             return f"{len(facts)} satır bekliyor ({outcome})"
         pending_path.unlink(missing_ok=True)
         return f"{len(facts)} satır yazıldı, beyin `{outcome[:7]}`"
+
+    def pending_costs(self) -> list[dict]:
+        """The facts of the cost rows that wait (<work>/cost-pending.jsonl). A broken line is kept out, never a reason
+        to lose a session's row. A row kept before its record named the per-model figures is read again from its
+        transcript (E720), so the ledger never gets the last turn's figures for a whole session."""
+        path = self.work / COST_PENDING
+        rows = [row for row in map(_json_or_none, path.read_text(encoding="utf-8").splitlines())
+                if isinstance(row, dict)] if path.is_file() else []
+        out = []
+        for row in rows:
+            stamp = str(row.get("stamp"))
+            if "per_model" not in row and re.fullmatch(r"[0-9]{8}T[0-9]{6}Z", stamp):
+                read = self.transcript_summary(self.session_logs(stamp) / f"session-{stamp}.jsonl")
+                if "transcript" not in read:
+                    row = dict(row, **{k: read.get(k) for k in WHOLE_SESSION})
+            out.append(row)
+        return out
+
+    def cost_pending_note(self, stamp: str) -> None:
+        """`/work/logs/cost-pending.json` for this session (seed-097, E720): every cost row that waits for an accepted
+        head, as the row will read (`stamp`, `snapshot_id`, `summary`, `refs`), oldest first; `[]` when none waits. A
+        failure leaves no file and a warning naming its class; the session still starts."""
+        folder = self.session_logs(stamp)
+        folder.mkdir(parents=True, exist_ok=True)
+        try:
+            rows = [{"stamp": f["stamp"], "snapshot_id": f.get("head"), "summary": cost_summary(f),
+                     "refs": [f"logs/{f['stamp']}/session-{f['stamp']}.jsonl"]} for f in self.pending_costs()]
+            data = json.dumps({"pending": rows, "written": "no: the brain holds work the referee has not accepted "
+                               "(tohum/24a 4); the launcher writes each row to the ledger once it does"},
+                              ensure_ascii=False, sort_keys=True) + "\n"
+        except Exception as exc:  # no session is lost to the note; the text may carry a row's content
+            say(f"{COST_PENDING_NOTE} not written for {stamp}: {type(exc).__name__}")
+            return
+        (folder / COST_PENDING_NOTE).write_text(data, encoding="utf-8")
 
     def fetch_result(self) -> dict | None:
         """The newest bootstrap-state artifact made on the referee's main branch, unpacked into <work>/referee.
@@ -1225,6 +1320,7 @@ class Pilot:
                 effort: str | None = None) -> dict:
         self.session_logs(stamp).mkdir(parents=True, exist_ok=True)
         cmd = self.capsule_argv(stamp, model, max_turns, budget_usd, effort)
+        key_mark = mtime(self.env_file)  # a key changed from here on ends a usage-limit wait after the session (E722)
         started = time.monotonic()
         err = ""
         try:
@@ -1239,6 +1335,7 @@ class Pilot:
         out.update(self.transcript_summary(self.session_logs(stamp) / f"session-{stamp}.jsonl"))
         out.update(self.transcript_init(self.session_logs(stamp) / f"session-{stamp}.jsonl"))
         out["timed_out"] = exit_code == -1 and tail == ["session timed out"]
+        out["key_mtime_ns"] = key_mark
         return out
 
     @staticmethod
@@ -1257,25 +1354,33 @@ class Pilot:
 
     @staticmethod
     def transcript_summary(path: Path) -> dict:
-        """The CLI's closing `result` event: turns, cost, whether it ended in an error."""
+        """The whole session from the CLI's `result` events (seed-097, E720): one is written each time a turn ends, its
+        `total_cost_usd` and `modelUsage` are the session's sums so far and its `num_turns` that turn's alone. So turns
+        are summed over every result event (unknown when one has none), and cost, tokens and the per-model figures are
+        the last event's: the tokens are its modelUsage's sums over the models. Its end and final text are the last."""
         if not path.is_file():
             return {"transcript": "missing"}
-        last = None
+        results = []
         for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
             if '"type":"result"' in line.replace(" ", ""):
                 try:
-                    last = json.loads(line)
+                    event = json.loads(line)
                 except ValueError:
-                    pass
-        if last is None:
+                    continue
+                if isinstance(event, dict) and event.get("type") == "result":
+                    results.append(event)
+        if not results:
             return {"transcript": "no result event"}
-        usage = last.get("usage") if isinstance(last.get("usage"), dict) else {}
-        models = last.get("modelUsage") if isinstance(last.get("modelUsage"), dict) else {}
-        return {"turns": last.get("num_turns"), "cost_usd": last.get("total_cost_usd"),
+        last = results[-1]
+        turns = [_count(r.get("num_turns")) for r in results]
+        per = model_usage(last["modelUsage"] if isinstance(last.get("modelUsage"), dict) else {})
+        return {"turns": None if None in turns else sum(turns), "cost_usd": last.get("total_cost_usd"),
                 "subtype": last.get("subtype"), "final": str(last.get("result") or "")[:1500],
                 "api_error": last.get("api_error"), "api_error_status": last.get("api_error_status"),
-                "tokens": {name: _count(usage.get(key)) for name, key in TOKEN_FIELDS},
-                "models": sorted(m for m in models if isinstance(m, str))}
+                "tokens": {name: (sum(m[name] for m in per.values())
+                                  if per and all(m[name] is not None for m in per.values()) else None)
+                           for name, _key in TOKEN_FIELDS},
+                "per_model": per, "models": sorted(per)}
 
     # ---- the report ---------------------------------------------------------------------------------------
     def write(self, text: str) -> None:
@@ -1306,16 +1411,19 @@ class Pilot:
             return
         last = cycles[-1]
         limit_s = last.get("session_timeout_s") or timeout_s
-        verdict = last.get("verdict")
+        verdict, evaluated, unjudged = last.get("verdict"), last.get("evaluated"), None
+        if MIRROR.outage(last):  # the rival's outage left the push unjudged (E721), an older row's word too
+            verdict, evaluated, unjudged = None, False, dict(MIRROR.UNJUDGED_OUTAGE)
         head = last.get("brain_after")
         if last.get("pushed") and head and not self.evaluated(prior, head):
             prior = self.verdict_on(head)  # the newest result is another head's: a seed epoch came between (E420)
         if last.get("pushed") and prior and head and prior.get("head") == head and self.evaluated(prior, head):
-            verdict = prior.get("verdict")
+            verdict, evaluated, unjudged = prior.get("verdict"), True, None
         note = {"stamp": last.get("stamp"), "ended": session_end(last),
                 "exit": last.get("session_exit"), "minutes": last.get("minutes"), "limit_minutes": round(limit_s / 60, 1),
                 "pushed": bool(last.get("pushed")), "ledger_rows_added": sum((last.get("ledger_new") or {}).values()),
-                "verdict": verdict}
+                "verdict": verdict, "evaluated": evaluated if isinstance(evaluated, bool) else None,
+                "unjudged": unjudged}
         folder = self.session_logs(stamp)
         folder.mkdir(parents=True, exist_ok=True)
         (folder / "previous-session.json").write_text(json.dumps(note, ensure_ascii=False, sort_keys=True) + "\n",
@@ -1498,7 +1606,7 @@ class Pilot:
         folder.mkdir(parents=True, exist_ok=True)
         try:
             note = MIRROR.mirror(stamp, self.metrics, self.logs, self.referee_facts, SEED.parent / "spec",
-                                 self.accepted_manifest(prior), SEED / "bootstrap" / "stages")
+                                 self.accepted_manifest(prior), SEED / "bootstrap" / "stages", prices())
             data = json.dumps(loop_shown(note, self.withheld), ensure_ascii=False, sort_keys=True,
                               allow_nan=False) + "\n"
         except Exception as exc:  # no session is lost to the mirror; the text may carry a row's content
@@ -1514,6 +1622,22 @@ class Pilot:
         evaluated = (prior or {}).get("head") if self.evaluated(prior, str((prior or {}).get("head"))) else None
         return memory_alone(self.brain_remote, ((prior or {}).get("state") or {}).get("last_accepted_sha"), evaluated,
                             head, self.epoch)
+
+    def hold(self, head: str) -> RivalOutage:
+        """The rival's outage holds the run on head (E721): the operator is told once, in pilot-log.md, when the hold
+        starts (`24a` 2), never at every probe; the exception the cycle raises."""
+        if self.held is None:
+            self.write(f"\n- {now()} rakip kesintisi: en yeni sonuç `{head[:7]}` başını değerlendirmedi (her nedeni "
+                       f"rakibin kendi `api_error`'ü); yeni oturum açılmıyor, hakem {RIVAL_PROBE_S // 60} dakikada bir "
+                       "yoklanıyor (`26o`, E721)\n")
+        self.held = head
+        return RivalOutage(f"{head[:7]} is still unjudged: the rival's outage (E721)")
+
+    def rival_outage(self, result: dict | None) -> bool:
+        """Whether a signed result is the rival's own outage (E721): every reason is a rival-side `api_error`
+        (`MIRROR.rival_outage`) and the result did not evaluate its head."""
+        return (isinstance(result, dict) and MIRROR.rival_outage(result.get("reasons"))
+                and not self.evaluated(result, str(result.get("head"))))
 
     @staticmethod
     def evaluated(verdict: dict | None, head: str) -> bool:
@@ -1555,6 +1679,14 @@ class Pilot:
         stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
         prior = self.fetch_result()
         before = self.brain_head()
+        if self.rival_outage(prior) and not self.stopped():
+            # The newest result is the rival's outage (E721, `24a` 2): no session on it. One probe run; the run goes on
+            # only when a result evaluates the head, else RivalOutage waits RIVAL_PROBE_S and probes again.
+            say(f"cycle {n}: the newest result ({str(prior.get('head'))[:7]}) is the rival's outage; probing the referee")
+            self.dispatch_referee(args.referee_timeout)
+            prior = self.fetch_result()
+            if self.rival_outage(prior):
+                raise self.hold(str(prior.get("head")))
         if (before != self.seed and not self.evaluated(prior, before) and not self.stopped()
                 and not self.memory_alone(prior, before)):
             # A push the referee never judged (the launcher stopped in between, an outage): judge it before the
@@ -1565,7 +1697,13 @@ class Pilot:
             dispatched, caught_up, _ = self.judge(n, before, args.referee_timeout)
             if caught_up is None:  # a session now would read an older verdict and work blind (E168, E248)
                 raise NoVerdict(f"{before[:7]} is still unjudged (referee run {dispatched['conclusion']})")
+            if self.rival_outage(caught_up):  # judged only by the rival's outage: no session on it (E721)
+                raise self.hold(before)
             prior = caught_up
+        if self.held is not None:  # the hold ends: said once in the operator's log (`24a` 2)
+            self.write(f"\n- {now()} rakip kesintisi bitti: en yeni sonuç artık bir kesinti değil (tutulan baş "
+                       f"`{self.held[:7]}`); oturumlar sürüyor (E721)\n")
+            self.held = None
         rows_before = self.ledger_rows(before)
         try:
             self.refresh_inputs()
@@ -1584,6 +1722,7 @@ class Pilot:
         self.previous_session_note(stamp, args.session_timeout, prior)
         self.targets_note(stamp)
         self.policy_notes(stamp)
+        self.cost_pending_note(stamp)
         self.lessons_note(stamp, before)
         self.loop_note(stamp)
         self.mirror_note(stamp, prior)
@@ -1635,7 +1774,10 @@ class Pilot:
         if dispatched is not None:
             lines.append(f"- Hakem koşusu: {dispatched['conclusion']} {dispatched['url']}"
                          + (f" (aynı commit {retries} kez yeniden incelendi)" if retries else ""))
-            if verdict:
+            if self.rival_outage(verdict):
+                lines.append(f"- Hakemin kararı: yok, rakip kesintisi (`unjudged`: outage, rival), nedenler "
+                             f"{verdict.get('reasons')}")
+            elif verdict:
                 lines.append(f"- Hakemin kararı: **{verdict.get('verdict')}**, nedenler {verdict.get('reasons')}")
                 if verdict.get("learning"):
                     lines.append(f"- Öğrenme ölçümü: {json.dumps(verdict.get('learning'), ensure_ascii=False)[:600]}")
@@ -1648,7 +1790,11 @@ class Pilot:
             "stamp": stamp, "brain_before": before, "brain_after": after, "pushed": after != before,
             "session_exit": sess.get("exit"), "minutes": sess.get("minutes"), "turns": sess.get("turns"),
             "session_timeout_s": args.session_timeout,
-            "cost_usd": sess.get("cost_usd"), "verdict": (verdict or {}).get("verdict"), "kind": (verdict or {}).get("kind"),
+            "cost_usd": sess.get("cost_usd"), "kind": (verdict or {}).get("kind"),
+            # E721: the rival's outage is no verdict: null, not evaluated, unjudged by the rival's outage
+            "verdict": None if self.rival_outage(verdict) else (verdict or {}).get("verdict"),
+            "evaluated": self.evaluated(verdict, after) if verdict else None,
+            "unjudged": dict(MIRROR.UNJUDGED_OUTAGE) if self.rival_outage(verdict) else None,
             "reasons": [{"kind": r.get("kind"), "ref": r.get("ref"), "owner": reason_owner(r)}
                         for r in (verdict or {}).get("reasons", [])],
             "warnings": (verdict or {}).get("warnings", []), "referee_retries": retries,
@@ -1679,17 +1825,33 @@ class Pilot:
         say(f"cycle {n}: done, verdict {(verdict or {}).get('verdict', '-')}")
         limit_wait = usage_limit_wait(sess, datetime.now(timezone.utc))
         if limit_wait is not None and after == before:  # it could not work: an outage, not an idle session (E243)
-            say(f"cycle {n}: the session hit the account's usage limit; waiting {limit_wait // 60} min for the reset")
-            self.wait(limit_wait)
+            say(f"cycle {n}: the session hit the account's usage limit; waiting {limit_wait // 60} min for the reset, "
+                "or less when the key file changes")
+            since = sess.get("key_mtime_ns", NOW)  # a key put in during the session counts too
+            self.wait(limit_wait, self.env_file, since)
             return not self.stopped()
         self.idle = self.idle + 1 if after == before else 0
         return not (self.stopped() or self.idle >= 2 or sess.get("exit") == -1)
 
-    def wait(self, seconds: int) -> None:
-        """Sleep, waking each minute to honour STOP."""
+    def wait(self, seconds: int, watch: Path | None = None, since=NOW) -> None:
+        """Sleep, waking each minute to honour STOP; with ``watch``, also ending within a minute of that file's change
+        (its mtime only: the operator's new key ends a usage-limit wait, E722; the file is never read). ``since`` is
+        the mtime the change is measured from, the session's start; a key changed before the wait ends it at once."""
+        mark = (mtime(watch) if since is NOW else since) if watch is not None else None
         deadline = time.monotonic() + seconds
         while time.monotonic() < deadline and not self.stopped():
+            if watch is not None and mtime(watch) != mark:
+                say(f"{watch.name} changed: the wait ends")
+                return
             time.sleep(min(60, max(0.0, deadline - time.monotonic())))
+
+
+def mtime(path: Path) -> int | None:
+    """A file's modification time in nanoseconds, or None when it is not there: its content is never read."""
+    try:
+        return path.stat().st_mtime_ns
+    except OSError:
+        return None
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -1767,12 +1929,19 @@ def start(parser: argparse.ArgumentParser, args) -> int:
 
 
 def run_cycles(pilot: Pilot, args, intent: Intent | None = None) -> None:
-    for n in range(1, args.cycles + 1):
+    n = 0
+    while n < args.cycles:
+        n += 1
         if pilot.stopped():
             say("STOP file found; stopping")
             break
         try:
             go_on = pilot.cycle(n, args)
+        except RivalOutage as exc:  # the rival's outage holds the run without using a cycle (E721)
+            say(f"cycle {n}: {exc}; no session, probing again in {RIVAL_PROBE_S // 60} min (not counted as a cycle)")
+            pilot.wait(RIVAL_PROBE_S)  # a STOP meanwhile ends the run at the loop's own check
+            n -= 1
+            continue
         except Outage as exc:  # an outage is waited out, not a reason to end the pilot (E245, E248)
             say(f"cycle {n}: {exc}; waiting {GH_OUTAGE_WAIT_S // 60} min, then the next cycle judges any unjudged "
                 "push first (E168)")

@@ -37,6 +37,29 @@ FILE_MAX = 4 * 1024 * 1024  # bytes of one referee tarball member or session-fol
 TRANSCRIPT_MAX = 64 * 1024 * 1024
 USD_LABEL = "cli_estimate"  # the CLI's own total_cost_usd: an estimate, never an invoice
 AGENT_TOOLS = ("Agent", "Task")  # the CLI's subagent tool, under both of its names
+RUNS_MAX = 50  # agent runs listed per session; the rest are counted in runs_left_out
+# The operator's price table (seed/founder/prices.json): USD micros per million tokens of each kind (seed-097, E720)
+PRICE_KEYS = ("in", "out", "cache_read", "cache_write_5m", "cache_write_1h")
+UNKNOWN_BASIS = "unknown"
+IN_KEYS = ("in", "cache_read", "cache_write_5m", "cache_write_1h")  # what a transcript message gives exactly  # the CLI's costBasis for a model whose price basis it does not know
+COST_IS = ("derived: the run's tokens by kind times the operator's price table row of its served model, rounded to "
+           "whole micros; never the CLI's figure. The transcript gives each API message's input, cache read and "
+           "cache write tokens (a foreground run's last message only in its Agent call's tool_use_result usage); "
+           "its output_tokens is the count as the message's stream began, so a run's output "
+           "tokens are the closing modelUsage's outputTokens of its model when it is that model's only run in the "
+           "session and the session's own model is another (out_from cli_model_line), else null. cost_floor: the "
+           "same without output tokens. Null with not_measured: output_tokens_unlogged (cost_floor stands), "
+           "price_unknown:<model> when the table has no row for the model or the session's closing modelUsage gives "
+           "that model no known costBasis, no_usage when no message of the run carries usage, usage_unreadable when "
+           "one carries no input or cache count or no split of its cache writes")
+EXACTNESS = ("models_cli is the CLI's figure per model for the whole session: it equals one run's cost only when the "
+             "session ran that agent once on that model and the session's own model is another one")
+# A rival-side failure: an outage, never the Founder's rejection (E721). Narrower than the referee's rule
+# (decide.py: any api_error reason leaves the head unevaluated): a result is an outage only when every reason is the
+# rival's api_error; one with another reason too is a rejection the Founder can act on, unevaluated, and the launcher
+# judges it again as any unevaluated head (`26o`). An isolation fault is the referee's own stop, not the rival's.
+OUTAGE_REF, ISOLATION_REF = "api_error:", "api_error:isolation_"
+UNJUDGED_OUTAGE = {"cause": "outage", "owner": "rival"}
 RED = ("failure", "timed_out", "startup_failure")
 REJECTED = ("rejected", "frozen")
 INTERVENTION = "intervention"  # a launcher start's metrics row (launch.py)
@@ -60,7 +83,10 @@ TEST_RE = re.compile(rb"(?m)^[ \t]*(?:async[ \t]+)?def[ \t]+test\w*[ \t]*\(")
 SOURCES = {
     "per_model": "pilot-metrics.jsonl cycle rows (model_served or model, effort, pushed, kind, verdict, reasons, "
                  "cost_usd, minutes); a push whose row has no verdict takes the verdict the next session's "
-                 "previous-session.json recorded (verdicts_from_next_session: kind and reasons unknown). accepted: "
+                 "previous-session.json recorded (verdicts_from_next_session: kind and reasons unknown). outages: "
+                 "pushes the rival's own failure left unjudged (the row's unjudged cause outage, or an older row "
+                 "rejected for api_error rival reasons alone), never a verdict or a rejection reason; one takes a "
+                 "later verdict only from a note that names it evaluated. accepted: "
                  "every accepted verdict, code and exit alike, and those from the next session. rejected_rows_by_reason: "
                  "rejected or frozen rows carrying a reason kind, a row once per kind. founder_cli_usd: the Founder's "
                  "own CLI sessions only (cli_estimate); the referee's runs, the rival's calls and any review are not "
@@ -78,7 +104,13 @@ SOURCES = {
             "transfer (every top folder but the operator's and bootstrap/); spec pages: the launcher's checkout",
     "delegation": "logs/<stamp>/session-<stamp>.jsonl: every Agent or Task tool call (a subagent's own too), its "
                   "model (inherit when none is named) and subagent_type; Workflow calls; the models the closing "
-                  "result event lists",
+                  "result event lists. runs: one entry per call, keyed by its tool_use_id: the model its messages "
+                  "were served by, the call's effort, the calling run (parent, null for the session's own call), "
+                  "status and wall_ms from its task_notification (unfinished when none), tokens by kind summed once "
+                  "per API message id over the messages whose parent_tool_use_id is the call's (a nested run is its "
+                  "own entry), and cost_usd_micros (cost_is). models_cli: the closing result event's modelUsage per "
+                  "model (tokens, costUSD as micros, costBasis). prices: seed/founder/prices.json as the operator "
+                  "wrote it",
     "waiting": "pilot-metrics.jsonl: from a session's end (its stamp plus its minutes) to the next session's start; the "
                "gap holds the referee's verdict wait, outage and usage-limit waits and any time the launcher was not "
                "running (a STOP, a crash); launcher_starts_in_gap counts the intervention rows in it. The launcher "
@@ -102,11 +134,11 @@ SOURCES = {
 
 
 def mirror(stamp: str, metrics: Path, logs: Path, referee: dict | None, spec: Path, accepted: dict | None = None,
-           stages: Path | None = None) -> dict:
+           stages: Path | None = None, prices=None) -> dict:
     """The mirror for the session starting at ``stamp``: ValueError for a stamp that is not one. Each section reads
     its own inputs, so a file that cannot be read is the null of the sections that need it. ``accepted`` is the
     launcher's read of the accepted manifest (``{"sha", "done_mf"}`` or ``{"error"}``), ``stages`` the seed's
-    table folder."""
+    table folder, ``prices`` the operator's price table as read (``{"error": <class>}`` when it could not be)."""
     at = stamp_time(stamp)
     before = lambda: [f for f in folders(logs, stamp) if f < stamp][-SESSIONS_MAX:]  # noqa: E731
     sections = {
@@ -114,7 +146,7 @@ def mirror(stamp: str, metrics: Path, logs: Path, referee: dict | None, spec: Pa
         "live_attempts": lambda: live_attempts(referee, loop_runs(logs, folders(logs, stamp))),
         "repeats": lambda: repeats(cycles(metrics, stamp), loop_runs(logs, folders(logs, stamp)), at),
         "size": lambda: size(referee, spec),
-        "delegation": lambda: delegation(logs, before()),
+        "delegation": lambda: delegation(logs, before(), prices),
         "waiting": lambda: waiting(cycles(metrics, stamp), starts(metrics), at),
         "session_time": lambda: session_time(logs, before(), cycles(metrics, stamp)),
         "path": lambda: path(accepted, referee, stages),
@@ -143,6 +175,26 @@ def iso_time(text) -> datetime | None:
 def word(value) -> str | None:
     """A model, kind, class or name as recorded, when it is one bounded word; else None (never a free text)."""
     return value if isinstance(value, str) and WORD_RE.fullmatch(value) else None
+
+
+def rival_outage(reasons) -> bool:
+    """Whether every reason is the rival's own failure on its side (`rival_unresolved` with an `api_error:` ref other
+    than an isolation fault): the referee leaves such a head unevaluated (decide.py), so it is an outage (E721). Every,
+    not any: a mixed result carries a reason that is the Founder's to read (``OUTAGE_REF``'s comment)."""
+    if not isinstance(reasons, list) or not reasons:
+        return False
+    return all(isinstance(r, dict) and r.get("kind") == "rival_unresolved"
+               and str(r.get("ref") or "").startswith(OUTAGE_REF) and not str(r.get("ref")).startswith(ISOLATION_REF)
+               for r in reasons)
+
+
+def outage(row: dict) -> bool:
+    """A cycle row whose push the rival's outage left unjudged: its ``unjudged`` names the outage, or an older row
+    (written before the launcher named outages) says rejected for such reasons alone."""
+    unjudged = row.get("unjudged")
+    if isinstance(unjudged, dict) and unjudged.get("cause") == UNJUDGED_OUTAGE["cause"]:
+        return True
+    return row.get("verdict") == "rejected" and rival_outage(row.get("reasons"))
 
 
 def number(value) -> float | None:
@@ -184,8 +236,9 @@ def folders(logs: Path, stamp: str) -> list[str]:
                   and p.name <= stamp) if logs.is_dir() else []
 
 
-def late_verdicts(logs: Path, folders: list[str]) -> dict[str, str]:
-    """stamp -> the verdict a later session's previous-session.json recorded for it (the launcher's E381 look-up)."""
+def late_verdicts(logs: Path, folders: list[str]) -> dict[str, dict]:
+    """stamp -> {verdict, evaluated} a later session's previous-session.json recorded for it (the launcher's E381
+    look-up; ``evaluated`` is true only when the note says the referee evaluated the head)."""
     out = {}
     for folder in folders:
         path = logs / folder / "previous-session.json"
@@ -194,7 +247,7 @@ def late_verdicts(logs: Path, folders: list[str]) -> dict[str, str]:
         except (ValueError, RecursionError):
             continue
         if isinstance(note, dict) and isinstance(note.get("stamp"), str) and word(note.get("verdict")):
-            out[note["stamp"]] = note["verdict"]
+            out[note["stamp"]] = {"verdict": note["verdict"], "evaluated": note.get("evaluated") is True}
     return out
 
 
@@ -221,24 +274,29 @@ def reason_kinds(row: dict) -> list[str]:
     return sorted({word(r.get("kind")) or "unknown" for r in row.get("reasons") or [] if isinstance(r, dict)})
 
 
-def per_model(rows: list[dict], late: dict[str, str]) -> dict:
+def per_model(rows: list[dict], late: dict[str, dict]) -> dict:
     groups: dict[tuple, dict] = {}
     for row in rows:
         key = (word(row.get("model_served")) or word(row.get("model")) or "unrecorded",
                (word(row.get("effort")) or "default") if "effort" in row else "unrecorded")
         g = groups.setdefault(key, {"rows": [], "pushes": 0, "verdicts": Counter(), "late": Counter(), "unjudged": 0,
-                                    "reasons": Counter(), "accepted": 0, "usd": [], "no_usd": 0, "minutes": []})
+                                    "reasons": Counter(), "accepted": 0, "usd": [], "no_usd": 0, "minutes": [],
+                                    "outages": 0})
         g["rows"].append(row["stamp"])
         g["pushes"] += row.get("pushed") is True
         verdict = word(row.get("verdict"))
-        if verdict:
+        unjudged = outage(row)  # the rival's outage: never a verdict, never a rejection reason (E721)
+        if verdict and not unjudged:
             g["verdicts"][f"{word(row.get('kind')) or 'unknown'}:{verdict}"] += 1
             if verdict in REJECTED:
                 g["reasons"].update(reason_kinds(row))
         elif row.get("pushed") is True:
-            verdict = word(late.get(row["stamp"]))
+            seen = late.get(row["stamp"]) or {}
+            verdict = word(seen.get("verdict")) if seen.get("evaluated") or not unjudged else None
             if verdict:
                 g["late"][verdict] += 1
+            elif unjudged:
+                g["outages"] += 1
             else:
                 g["unjudged"] += 1
         g["accepted"] += verdict == "accepted"
@@ -264,7 +322,8 @@ def per_model(rows: list[dict], late: dict[str, str]) -> dict:
         models.append({"model": model, "effort": effort, "first_session": g["rows"][0], "last_session": g["rows"][-1],
                        "sessions": len(g["rows"]), "pushes": g["pushes"],
                        "verdicts": dict(g["verdicts"]), "verdicts_from_next_session": dict(g["late"]),
-                       "pushes_without_verdict": g["unjudged"], "rejected_rows_by_reason": dict(g["reasons"]),
+                       "pushes_without_verdict": g["unjudged"], "outages": g["outages"],
+                       "rejected_rows_by_reason": dict(g["reasons"]),
                        "accepted": g["accepted"], "founder_cli_usd": usd, "usd_label": USD_LABEL,
                        "sessions_with_usd": len(g["usd"]), "sessions_without_usd": g["no_usd"],
                        "founder_cli_usd_per_accepted": per, "median_session_minutes": minutes, "null_reasons": nulls})
@@ -387,7 +446,7 @@ def repeats(rows: list[dict], runs: dict[int, dict], at: datetime) -> dict:
     seen: dict[tuple[str, str], list[str]] = {}
     for row in rows:
         day = stamp_time(row["stamp"])
-        if day >= since and word(row.get("verdict")) in REJECTED:
+        if day >= since and word(row.get("verdict")) in REJECTED and not outage(row):
             for kind in reason_kinds(row):
                 seen.setdefault(("rejection", kind), []).append(row["stamp"][:8])
     for rid, one in runs.items():
@@ -478,7 +537,166 @@ def size(referee: dict | None, spec: Path) -> dict:
 
 
 # ---- delegation --------------------------------------------------------------------------------------------------
-def delegation(logs: Path, stamps: list[str]) -> dict:
+def price_table(prices) -> dict:
+    """The operator's price table (seed/founder/prices.json) as the mirror shows it, or ValueError naming what is not
+    in its form: ``{source, as_of, unit, models: {<model>: {<PRICE_KEYS>: whole USD micros per million tokens}}}``."""
+    if not isinstance(prices, dict) or prices.get("error"):
+        raise ValueError("not read" + (f": {word(prices.get('error')) or 'error'}" if isinstance(prices, dict) else ""))
+    models = prices.get("models")
+    if not isinstance(models, dict) or not all(
+            word(m) == m and isinstance(row, dict) and set(row) == set(PRICE_KEYS)
+            and all(isinstance(v, int) and not isinstance(v, bool) and v >= 0 for v in row.values())
+            for m, row in models.items()):
+        raise ValueError("models is not {<model>: {in, out, cache_read, cache_write_5m, cache_write_1h}} of whole "
+                         "non-negative micros")
+    if not (isinstance(prices.get("source"), str) and iso_date(prices.get("as_of"))):
+        raise ValueError("source or as_of is missing")
+    return {"source": prices["source"][:TEXT_MAX], "as_of": prices["as_of"], "unit": "usd_micros_per_million_tokens",
+            "models": {m: dict(models[m]) for m in sorted(models)}}
+
+
+def iso_date(text) -> bool:
+    return isinstance(text, str) and re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", text) is not None
+
+
+def message_tokens(usage) -> dict | None:
+    """One API message's input-side tokens by kind (``IN_KEYS``), or None when a count or the split of its cache writes
+    is not there. Its output_tokens is the count as the stream began (``COST_IS``): not read."""
+    if not isinstance(usage, dict):
+        return None
+    split = usage.get("cache_creation")
+    if isinstance(split, dict):
+        writes = (count(split.get("ephemeral_5m_input_tokens")), count(split.get("ephemeral_1h_input_tokens")))
+    else:  # no split: known only when nothing was written
+        writes = (0, 0) if count(usage.get("cache_creation_input_tokens") or 0) == 0 else (None, None)
+    tokens = {"in": count(usage.get("input_tokens")), "cache_read": count(usage.get("cache_read_input_tokens") or 0),
+              "cache_write_5m": writes[0], "cache_write_1h": writes[1]}
+    return None if any(v is None for v in tokens.values()) else tokens
+
+
+def count(value) -> int | None:
+    return value if isinstance(value, int) and not isinstance(value, bool) and value >= 0 else None
+
+
+def model_cli(usage) -> dict:
+    """The closing result event's modelUsage entry of one model, as the mirror shows it."""
+    usage = usage if isinstance(usage, dict) else {}
+    cost = number(usage.get("costUSD"))
+    return {"in": count(usage.get("inputTokens")), "out": count(usage.get("outputTokens")),
+            "cache_read": count(usage.get("cacheReadInputTokens")),
+            "cache_write": count(usage.get("cacheCreationInputTokens")),
+            "cost_usd_micros": None if cost is None else round(cost * 1_000_000), "cost_basis": word(usage.get("costBasis"))}
+
+
+def micros(total: int) -> int:
+    """Tokens times micros per million tokens, as whole micros (half up)."""
+    return (total + 500_000) // 1_000_000
+
+
+def run_cost(messages: list, out: int | None, prices: dict | None, basis: dict) -> tuple:
+    """(cost_usd_micros, cost_floor_usd_micros, not_measured) of a run's messages [(model, tokens)] and its output
+    tokens (``COST_IS``)."""
+    if not messages:
+        return None, None, "no_usage"
+    floor = 0
+    for model, tokens in messages:
+        if tokens is None:
+            return None, None, "usage_unreadable"
+        row = (prices or {}).get(model)
+        if row is None or basis.get(model) in (None, UNKNOWN_BASIS):
+            return None, None, f"price_unknown:{model}"
+        floor += sum(tokens[k] * row[k] for k in IN_KEYS)
+    if out is None:
+        return None, micros(floor), "output_tokens_unlogged"
+    return micros(floor + out * prices[messages[0][0]]["out"]), micros(floor), None
+
+
+def session_runs(path: Path, prices: dict | None) -> dict:
+    """One transcript's agent calls, Workflow calls and agent runs (``SOURCES["delegation"]``)."""
+    models, kinds, flows, used, cli, own = Counter(), Counter(), 0, [], {}, None
+    calls: dict[str, dict] = {}  # tool_use_id -> the call, in the order the calls were made
+    said: dict[tuple, tuple] = {}  # (parent, message id) -> (model, tokens): each API message once
+    ended: dict[str, dict] = {}  # tool_use_id -> its task_notification
+    with path.open("r", encoding="utf-8", errors="replace") as fh:
+        for line in fh:
+            compact = line.replace(" ", "")
+            if not any(k in compact for k in ('"tool_use"', '"type":"result"', '"parent_tool_use_id":"',
+                                              '"task_notification"', '"subtype":"init"', '"tool_use_result"')):
+                continue
+            try:
+                event = json.loads(line)
+            except (ValueError, RecursionError):
+                continue
+            if not isinstance(event, dict):
+                continue
+            if event.get("type") == "system" and event.get("subtype") == "init" and own is None:
+                own = word(event.get("model"))
+            if event.get("type") == "result" and isinstance(event.get("modelUsage"), dict):
+                used = sorted(m for m in map(word, event["modelUsage"]) if m)
+                cli = {m: model_cli(u) for m, u in event["modelUsage"].items() if word(m)}
+            if event.get("type") == "system" and event.get("subtype") == "task_notification" \
+                    and isinstance(event.get("tool_use_id"), str):
+                ended[event["tool_use_id"]] = event
+            result = event.get("tool_use_result") if event.get("type") == "user" else None
+            if isinstance(result, dict) and isinstance(result.get("usage"), dict):  # a foreground run's last message
+                for item in (event.get("message") or {}).get("content") or []:
+                    if isinstance(item, dict) and isinstance(item.get("tool_use_id"), str):
+                        said[(item["tool_use_id"], None)] = (word(result.get("resolvedModel")) or "unrecorded",
+                                                             message_tokens(result["usage"]))
+            parent = event.get("parent_tool_use_id") if isinstance(event.get("parent_tool_use_id"), str) else None
+            message = event.get("message") if event.get("type") == "assistant" and isinstance(event.get("message"),
+                                                                                                 dict) else {}
+            if parent is not None and message:
+                key = (parent, message.get("id") if isinstance(message.get("id"), str) else event.get("uuid"))
+                said[key] = (word(message.get("model")) or "unrecorded", message_tokens(message.get("usage")))
+            content = message.get("content")
+            for item in content if isinstance(content, list) else []:
+                if not isinstance(item, dict) or item.get("type") != "tool_use":
+                    continue
+                given = item.get("input") if isinstance(item.get("input"), dict) else {}
+                if item.get("name") in AGENT_TOOLS:
+                    models[word(given.get("model")) or "inherit"] += 1
+                    kinds[word(given.get("subagent_type")) or "default"] += 1
+                    if isinstance(item.get("id"), str):
+                        calls.setdefault(item["id"], {"subagent_type": word(given.get("subagent_type")),
+                                                      "effort": word(given.get("effort")), "parent": parent})
+                elif item.get("name") == "Workflow":
+                    flows += 1
+    basis = {m: fact["cost_basis"] for m, fact in cli.items()}
+    table = (prices or {}).get("models")
+    runs_of = {use_id: [said[key] for key in said if key[0] == use_id] for use_id in calls}
+    served = {use_id: sorted({model for model, _t in messages}) for use_id, messages in runs_of.items()}
+    alone = Counter(names[0] for names in served.values() if len(names) == 1)  # runs per served model
+    runs = []
+    for use_id, call in calls.items():
+        messages, names = runs_of[use_id], served[use_id]
+        sole = len(names) == 1 and alone[names[0]] == 1 and names[0] != own
+        out = (cli.get(names[0]) or {}).get("out") if sole else None
+        tokens = None
+        if messages and all(t is not None for _m, t in messages):
+            tokens = dict({k: sum(t[k] for _m, t in messages) for k in IN_KEYS}, out=out)
+        cost, floor, why = run_cost(messages, out, table, basis)
+        note = ended.get(use_id) or {}
+        wall = count(note["usage"].get("duration_ms")) if isinstance(note.get("usage"), dict) else None
+        runs.append({"tool_use_id": word(use_id), "subagent_type": call["subagent_type"],
+                     "model": "+".join(names) or None, "effort": call["effort"], "parent": word(call["parent"]),
+                     "status": word(note.get("status")) or "unfinished", "wall_ms": wall, "tokens": tokens,
+                     "out_from": "cli_model_line" if out is not None else None, "cost_usd_micros": cost,
+                     "cost_floor_usd_micros": floor, "cost_basis": None if floor is None else "derived:price_table",
+                     "not_measured": why})
+    return {"agent_calls": sum(models.values()), "agent_models": dict(models), "agent_types": dict(kinds),
+            "workflow_calls": flows, "models_used": used, "session_model": own,
+            "models_cli": {m: cli[m] for m in sorted(cli)}, "runs": runs[:RUNS_MAX],
+            "runs_left_out": max(0, len(runs) - RUNS_MAX)}
+
+
+def delegation(logs: Path, stamps: list[str], prices=None) -> dict:
+    nulls = {}
+    try:
+        table = price_table(prices)
+    except ValueError as exc:
+        table = None
+        nulls["prices"] = f"seed/founder/prices.json: {exc}"
     sessions = []
     for stamp in stamps:
         path = logs / stamp / f"session-{stamp}.jsonl"
@@ -486,37 +704,12 @@ def delegation(logs: Path, stamps: list[str]) -> dict:
             sessions.append({"stamp": stamp, "agent_calls": None,
                              "reason": "no transcript" if not path.is_file() else "transcript too large"})
             continue
-        models, kinds, calls, flows, used = Counter(), Counter(), 0, 0, []
-        with path.open("r", encoding="utf-8", errors="replace") as fh:
-            for line in fh:
-                compact = line.replace(" ", "")
-                if '"tool_use"' not in compact and '"type":"result"' not in compact:
-                    continue
-                try:
-                    event = json.loads(line)
-                except ValueError:
-                    continue
-                if not isinstance(event, dict):
-                    continue
-                if event.get("type") == "result" and isinstance(event.get("modelUsage"), dict):
-                    used = sorted(m for m in map(word, event["modelUsage"]) if m)
-                content = (event.get("message") or {}).get("content") if event.get("type") == "assistant" else None
-                for item in content if isinstance(content, list) else []:
-                    if not isinstance(item, dict) or item.get("type") != "tool_use":
-                        continue
-                    given = item.get("input") if isinstance(item.get("input"), dict) else {}
-                    if item.get("name") in AGENT_TOOLS:
-                        calls += 1
-                        models[word(given.get("model")) or "inherit"] += 1
-                        kinds[word(given.get("subagent_type")) or "default"] += 1
-                    elif item.get("name") == "Workflow":
-                        flows += 1
-        sessions.append({"stamp": stamp, "agent_calls": calls, "agent_models": dict(models),
-                         "agent_types": dict(kinds), "workflow_calls": flows, "models_used": used})
+        sessions.append(dict({"stamp": stamp}, **session_runs(path, table)))
     read = [s for s in sessions if s["agent_calls"] is not None]
     return {"window": f"the newest {SESSIONS_MAX} session folders before this one", "sessions": sessions,
             "sessions_read": len(read), "sessions_with_agent_calls": sum(1 for s in read if s["agent_calls"]),
-            "agent_calls": sum(s["agent_calls"] for s in read)}
+            "agent_calls": sum(s["agent_calls"] for s in read), "prices": table, "cost_is": COST_IS,
+            "exactness": EXACTNESS, "null_reasons": nulls}
 
 
 # ---- waiting -----------------------------------------------------------------------------------------------------
