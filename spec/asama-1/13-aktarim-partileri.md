@@ -42,7 +42,8 @@ protokolünün dar hâlidir (`tohum/01a`, `tohum/02`):
 | P1 | 12 | `yaz` `candidates/<id>/`'yi sonuçlardan hash'iyle okur (`tohum/26j`) | 58 | — |
 | P2 | 1 | `security.derive` ve `security.run` (`tohum/30d`) | `30d`'nin profil testleri | — |
 | P3 | 1 | `operating{}` sınırlarının bant içinde ayarı (`tohum/18a`); sahip kararıyla ertelendi (`tohum/26h`) | 52 | — |
-| P3 | 2 | Düzeltme gidiş-dönüşü `koş` → `çağır` → `koş` (§1.5 3; `tohum/26h`) | P3'ün tablosuyla | — |
+| P3 | 2 | Düzeltme gidiş-dönüşü `koş` → `çağır` → `koş` (§1.5 3; `tohum/26h`, `tohum/26s`) | 59 | — |
+| P3 | 3 | Sonda döngüsü ve kalkışı (`tohum/28`; `tohum/28a` L3, `tohum/26s`) | 60 | — |
 | Aşama 1 çıkışı | 1 | `exit.sample` (§1.13a); payda tohumun `census` vektörü (`tohum/29za`) | 27 | `census` |
 | Aşama 1 çıkışı | 2 | `spec.lint` (`tohum/02` listesi) | 33 | — |
 | Aşama 1 çıkışı | 3 | `exit.adversarial`: düzeltici istemine prompt injection, kaçan diff, gizlenmiş ya da kodlanmış sır (`tohum/29za`, E648) | 54 | — |
