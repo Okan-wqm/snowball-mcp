@@ -55,11 +55,6 @@ Gözcü'nün yedi yolu da vardır: `constitutional.monthly_cap_usd`, `constituti
 `performance.windows.measure` (`28a`); teslimden itibaren onlar da okunması zorunlu yollardır. Fikstürlerin kesirleri
 `01c`'nin altı ondalıklı dizgileridir (seed-082).
 
-**P3'ün yolları** (rapor masası uzlaşısı (2026-11-23), P1 çıkış dönemi). `constitutional.stage_params.fix_call_max_usd`,
-`constitutional.stage_params.fix_call_max_s` ve `performance.rules.probe_cycle` P3'ün tablosu açılınca okunması zorunlu
-yollar olur, bu dönemin tesliminde değil: o zamana kadar `required.json`'da değildir ve hiçbiri
-`policy_reads_required_absent` kırmızısı vermez. Fikstürler iki fren anahtarını teslimden taşır (`26s`).
-
 **Döngüde eksik anahtar** (bağımsız inceleme ekibi kararı (2026-11-21), seed-083, seed-084). Aşama 1'in satırındaki
 bir yol döngünün okuduğu `policy.json`'da yoksa ya da biçim dışıysa politika kullanılamaz: döngü ilk yazımından önce
 temiz durur, yolu adlandırır ve hiçbir şey yazmaz. Olmayan yol tüketicisine asla `None` ya da varsayılan olarak
@@ -68,3 +63,8 @@ verilmez; asla "yargılanmadı, devam" değildir (`18a`: anahtarı olmayan eşik
 **Okunuş.** `29t` "Okunuş" gibidir: bulgu yalnız testleri koşulan push'ta vardır, kırmızı push'ta da koşu yapılır;
 Docker'ın kendi hatası (125) bulgu değil kesintidir (`kos:docker`). Geçmek, komutun adlandırdığı değerlerin kendi
 yollarından geldiğini söyler; döngünün her okumasının komutta adlandırıldığını söylemez (E589).
+
+**P3'ün yolları** (rapor masası uzlaşısı (2026-11-23), P1 çıkış dönemi). `constitutional.stage_params.fix_call_max_usd`,
+`constitutional.stage_params.fix_call_max_s` ve `performance.rules.probe_cycle` P3'ün tablosu açılınca okunması zorunlu
+yollar olur, bu dönemin tesliminde değil: o zamana kadar `required.json`'da değildir ve hiçbiri
+`policy_reads_required_absent` kırmızısı vermez. Fikstürler iki fren anahtarını teslimden taşır (`26s`).

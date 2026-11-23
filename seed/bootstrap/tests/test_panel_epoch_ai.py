@@ -214,6 +214,15 @@ class BrakesTest(unittest.TestCase):
                       "300 saniyelik tavanı kimin uyguladığını P3 MF2 adlandırır"):
             self.assertIn(words, text, words)
 
+    def test_29v_keeps_its_cited_lines(self):  # ai_29v_cited_lines_moved
+        """CHANGELOG-10 and the brain's confirmed seed-084 and seed-085 cite `29v:52-61` and `29v:58-61`: the P3
+        paragraph is the page's last, so no cited line moves."""
+        lines = page("29v").splitlines()
+        self.assertTrue(lines[57].startswith("**Döngüde eksik anahtar**"), lines[57])
+        self.assertTrue(lines[51].startswith("**Gözcü'nün yolları**"), lines[51])
+        self.assertTrue(lines[62].startswith("**Okunuş.**"), lines[62])
+        self.assertEqual([i for i, line in enumerate(lines) if line.startswith("**P3'ün yolları**")], [66])
+
     def test_required_only_when_p3_opens(self):  # ai_brakes_required_now ai_29v_p3_required_now ai_fixture_brake_missing
         text = section("26s", *BRAKE)
         self.assertIn("P3'ün tablosu açılınca okunması zorunlu yollar olur (`29v`), bu dönemin tesliminde değil;", text)
@@ -266,8 +275,16 @@ class DeferralsTest(unittest.TestCase):
         text = flat(page("26n"))
         self.assertNotIn("→ P1 çıkış dönemi:", text)
         self.assertIn("bugün puanlanan her parmak izini hakemin kendi yazıcısı yapar (L-AH1 dışında, `26q`).", text)
-        self.assertIn("ilk hüküm `exit.sample`'dır (test 27, `asama-1/13:47`)", text)
-        self.assertTrue(stage1("13").splitlines()[46].startswith("| Aşama 1 çıkışı | 1 | `exit.sample`"))
+        # delivered pages cite asama-1/13 by its rows: the brain's copy of asama-1 is the Founder's (E180)
+        self.assertIn("ilk hüküm `exit.sample`'dır (test 27, `asama-1/13`'ün \"Aşama 1 çıkışı\" satırı)", text)
+        self.assertIn("(`asama-1/13`'ün \"Aşama 4\" partisi, \"ilk LLM avcısından önce\"; P1 çıkış döneminde karar)", text)
+        self.assertIn("P3 `asama-1/13`'ün \"P3 ertelenenler\" satırının sırasıyla", flat(page("26s")))
+        for prefix in ("26n", "26s", "26r"):
+            self.assertNotRegex(page(prefix), r"asama-1/13:[0-9]", prefix)
+        self.assertNotRegex(changelog(), r"asama-1/13:[0-9]")
+        thirteen = stage1("13")
+        for row in ("| P3 ertelenenler |", "| Aşama 1 çıkışı | 1 | `exit.sample`", "| Aşama 4 | ilk LLM avcısından önce |"):
+            self.assertIn(row, thirteen, row)
 
 
 class RecordsTest(unittest.TestCase):
@@ -302,13 +319,18 @@ class RecordsTest(unittest.TestCase):
         self.assertIn("ertelendi: ilk LLM avcısını getiren döneme, en geç Aşama 4 partisi", deferrals[1])
         self.assertIn("reddedildi (`26n:22-25` listenin tanımıdır", deferrals[2])
 
-    def test_the_register_rows(self):  # ai_rows_open ai_e734_unscoped ai_e696_open ai_e702_open ai_e703_closed
+    def test_the_register_rows(self):
+        # ai_rows_open ai_e734_unscoped ai_e696_open ai_e702_open ai_e703_closed ai_e734_risk_dropped
         for eid in ("E733", "E734", "E735", "E696", "E702"):
             with self.subTest(eid=eid):
                 self.assertIn("| kapandı (tohum dönemi AI", register_row(eid))
                 self.assertEqual(register_row(eid).count("|"), 7, eid)
         self.assertIn("Gevşetme L-P1E", register_row("E734"))
         self.assertIn("Kapsamı P1'dir, P1'in aktarımıyla biter", register_row("E734"))
+        for words in ("MF9'un kendi kanıtı canlı rettir (`26j:40-41`) ve bir koruma onu engellemezdi",
+                      "erken bir giriş güvenliğe değil MF5'in reddinin kanıtına mal olur"):
+            self.assertIn(words, register_row("E734"), words)
+        self.assertIn("erken bir giriş güvenliğe değil MF5'in reddinin kanıtına mal olur", flat(changelog()))
         self.assertIn("Sıkılaştırma yok.", register_row("E733"))
         self.assertIn("L-AF1 bitti", register_row("E702"))
         self.assertTrue(register_row("E703").endswith("| açık (operatörün işi, adlı dönemlerde) |"))

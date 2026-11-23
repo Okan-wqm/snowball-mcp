@@ -10,7 +10,7 @@ Okunma: Aşama 1'de P3 seçilirken ya da yazılırken, P3'ün çıkış isteğin
 operatör kararı, sahibin yetkisiyle; frenler sahip kararı (2026-11-23)). Arayüz olgularıdır; kodun nasıl yazılacağı
 Kurucu'nundur. Tablo `26e`'ninkinin biçimindedir.
 
-**Yeri.** P3 `asama-1/13:24`'ün sırasıyla P2'den sonradır: (A)'sı Aşama 1 MF6'dan ve P2'den sonra, MF4 `fixer.llm`'in
+**Yeri.** P3 `asama-1/13`'ün "P3 ertelenenler" satırının sırasıyla P2'den sonradır: (A)'sı Aşama 1 MF6'dan ve P2'den sonra, MF4 `fixer.llm`'in
 canlı koşusundan öncedir (`26h:34-36`). Tablo P2'den sonra açılır. Bu tohum onun makine kopyasını taşımaz:
 `stages/stage1-P3.json` yoktur ve `P3` önyükleme hakeminin parti listesine o kopyayla girer; o zamana kadar P1 ve P2
 aktarılınca açık tablo boştur (`26e:41-44`).

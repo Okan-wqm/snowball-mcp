@@ -5562,6 +5562,11 @@ MUTANTS = [
      'E733: the changelog index does not say the entry opens with its first task'),
     ('ai_answers_missing', 'seed/bootstrap/reports/answers.json', '      "id": "seed-073-organ-definition-layout-and-carriage-unstated",\n      "changelog": "CHANGELOG-18",', '      "id": "seed-073-organ-definition-layout-and-carriage-unstated",\n      "changelog": "CHANGELOG-17",',
      'E733: the answers file does not name the epoch that answered seed-073'),
+    # ---- seed epoch AI, the adversarial review of PR #38: 29v's cited lines stay, what L-P1E risks
+    ('ai_29v_cited_lines_moved', 'spec/tohum/29v-politika-okumasi.md', '**Döngüde eksik anahtar**', '\n**Döngüde eksik anahtar**',
+     "M1 (review of PR #38): 29v's cited lines move"),
+    ('ai_e734_risk_dropped', 'docs/eksik-kaydi.md', "; erken bir giriş güvenliğe değil MF5'in reddinin kanıtına mal olur: giren organ önyükleme hakeminin kabul ettiği bir organdır ve adayı yine diff-guard'dan, üç lint koşusundan, test koşusundan ve kırmızı kontrolden geçer (`26j:54-56`)", '',
+     'S2 (review of PR #38): the register drops what L-P1E risks'),
 ]
 
 

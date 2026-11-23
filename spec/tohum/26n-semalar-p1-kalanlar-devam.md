@@ -54,8 +54,8 @@ hücreye de uygulanır ve hiçbir `spec.lint` bu hücreyi muaf tutmaz. "Bulgu ba
 
 **Açıkça ertelenenler** (rapor masası uzlaşısı; her biri adlı bir döneme ya da aşamaya, nedeniyle):
 - K4'ün sayımı (seed-091 (4)) → Aşama 3: K4 orada gelir (`03:63`).
-- `cases/dev.jsonl`'un hash zinciri (seed-090 (1)) → Aşama 1 çıkış partisi (P1 çıkış döneminde karar): setin bütün geçmişini okuyan ilk hüküm `exit.sample`'dır (test 27, `asama-1/13:47`). O zamana kadar yalnız ekleme önek kuralı (`26m:34-37`, `01b:33`) ve `28`'in beyan dışı bir aktörün `brain/*` ref değişikliğindeki sert duruşu tutar.
-- Puanlayıcıda parmak izinin snapshot baytlarından yeniden türetilmesi (seed-091 (1)) → ilk LLM avcısını getiren dönem, en geç Aşama 4 partisi (`asama-1/13:27`, `asama-1/13:51`; P1 çıkış döneminde karar): bugün
+- `cases/dev.jsonl`'un hash zinciri (seed-090 (1)) → Aşama 1 çıkış partisi (P1 çıkış döneminde karar): setin bütün geçmişini okuyan ilk hüküm `exit.sample`'dır (test 27, `asama-1/13`'ün "Aşama 1 çıkışı" satırı). O zamana kadar yalnız ekleme önek kuralı (`26m:34-37`, `01b:33`) ve `28`'in beyan dışı bir aktörün `brain/*` ref değişikliğindeki sert duruşu tutar.
+- Puanlayıcıda parmak izinin snapshot baytlarından yeniden türetilmesi (seed-091 (1)) → ilk LLM avcısını getiren dönem, en geç Aşama 4 partisi (`asama-1/13`'ün "Aşama 4" partisi, "ilk LLM avcısından önce"; P1 çıkış döneminde karar): bugün
   puanlanan her parmak izini hakemin kendi yazıcısı yapar (L-AH1 dışında, `26q`). L-AH1 iki dosyalı vektör komutunda kalır.
 - Test 11'in tam yol listesi (seed-092 (4)) → reddedildi (P1 çıkış döneminde karar): listenin tanımı `26n:22-25`'tir (bir Aşama 0 ya da P1 aracının sıfırdan yarattığı yollar); sabit bir liste her yeni yazıcıda bir sayfa düzeltmesi isterdi ve daha güçlü olmazdı. P1'in test 11 satırı P1 çıkışında o kuralla okunur.
 - Özel bir hedefin etkinlik okumasının kimliği ve izni (seed-094 (3)) → ilk özel hedefin dönemi: Aşama 1'in hedefleri açık.

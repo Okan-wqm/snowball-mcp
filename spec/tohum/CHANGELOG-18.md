@@ -55,11 +55,13 @@ Okunma: bir sayfanın geçmişi aranırken
     L-P1E). Nedenler: `referee/` yalnız partilerle değişir; P1'in kodu kendi aktarımından, P2 açıkken canlıdır, "P1
     açık" koruması yalnız testlerde tetiklenebilirdi; test 55 P1'de bir `accept` satırı yazar; P1'de organ yoktur
     (`accept_unknown`); çift anahtarı (`26j:38`) erken bir çiftin MF5'i kalıcı olarak engelleyemeyeceğini söyler; MF5 →
-    MF6 sırasını MF5'in kırmızı testi ve kod isteğinin incelemesi (`29b`) tutar. Yeni test ve vektör yok (MF9'un grubu
-    yok, `26e:26`).
+    MF6 sırasını MF5'in kırmızı testi ve kod isteğinin incelemesi (`29b`) tutar; MF9'un kendi kanıtı canlı rettir
+    (`26j:40-41`), bir koruma onu engellemezdi; erken bir giriş güvenliğe değil MF5'in reddinin kanıtına mal olur:
+    giren organ önyükleme hakeminin kabul ettiği bir organdır ve adayı yine diff-guard'dan, üç lint koşusundan, test
+    koşusundan ve kırmızı kontrolden geçer (`26j:54-56`). Yeni test ve vektör yok (MF9'un grubu yok, `26e:26`).
   E703'ün "P1 çıkış dönemi" ertelemeleri (`26n:57-60`), bu dönemde karara bağlandı:
   - `cases/dev.jsonl`'un hash zinciri (seed-090 (1)): ertelendi: Aşama 1 çıkış partisine (setin bütün geçmişini okuyan ilk
-    hüküm `exit.sample`, test 27, `asama-1/13:47`); o zamana kadar yalnız ekleme önek kuralı ve `28`'in sert duruşu tutar;
+    hüküm `exit.sample`, test 27, `asama-1/13`'ün "Aşama 1 çıkışı" satırı); o zamana kadar yalnız ekleme önek kuralı ve `28`'in sert duruşu tutar;
   - puanlayıcıda parmak izinin yeniden türetilmesi (seed-091 (1)): ertelendi: ilk LLM avcısını getiren döneme, en geç
     Aşama 4 partisi; o zamana kadar her puanlanan parmak izini hakemin tek fonksiyonu yapar, L-AH1 vektör komutunda kalır;
   - test 11'in tam yol listesi (seed-092 (4)): reddedildi (`26n:22-25` listenin tanımıdır; sabit liste her yeni yazıcıda
