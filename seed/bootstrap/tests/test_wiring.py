@@ -1735,11 +1735,15 @@ class MutationShardTest(unittest.TestCase):
     mutants at a time (`--jobs`, the runner's four cores), so the bound holds per worker: with no hint at all (each
     mutant runs the whole suite), a worker's share at the worst mutant seen ends in three quarters of the timeout. Four
     at a time a mutant takes longer: run 44763833954 (1513 mutants, 20 shards, no hint) took 118 s on average (88 s
-    alone in run 44718091394) and at worst 332 s, so the worst is now six minutes."""
+    alone in run 44718091394) and at worst 332 s, so the worst is now six minutes. E737 (2026-11-23): the matrix was a
+    fixed list this test bounded (24 shards, 2112 mutants; 2101 there), and each epoch that added mutants past the bound
+    raised it by hand (20 to 21 in AE, 21 to 23 in AG, 23 to 24 in AH). The plan job now sizes it from the commit's own
+    mutants (`mutate.shard_count`); this test holds the plan to the timeout and ci.yml to the plan."""
 
     WORST_MINUTES = 6  # the worst mutant seen, the whole suite, four at a time (run 44763833954: 332 s)
     SHARE = 0.75  # of the job's timeout, as before (E410: 15 mutants at 3 minutes in 60)
     CORES = 4  # a standard Linux runner of a public repository
+    SHARDS_MIN = 24  # E737: the plan never gives fewer shards than the fixed matrix had
 
     @staticmethod
     def mutate():
@@ -1804,25 +1808,62 @@ class MutationShardTest(unittest.TestCase):
         self.assertEqual(seen, {name: True for name in read})
 
     def test_the_shards_hold_every_mutant_inside_the_timeout(self):
-        import importlib.util
-        spec = importlib.util.spec_from_file_location("mutate", BOOT / "local" / "mutate.py")
-        mutate = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(mutate)
+        # mutation_shard_count_fixed mutation_shards_below_the_minimum mutation_matrix_limit_unchecked
+        # mutation_shard_cap_ignores_the_workers mutation_worst_mutant_forgotten mutation_timeout_out_of_step
+        """E737: the plan's shard count holds every mutant inside the timeout, for this commit's mutants and for any
+        count the list may grow to, until GitHub's 256-job matrix, where the plan is refused instead of run."""
+        mutate = self.mutate()
         job = self.ci_job("mutation")
-        shards = json.loads(re.search(r"(?m)^        shard: (\[[0-9, ]+\])$", job).group(1))
-        count = int(re.search(r'--shard "\$SHARD/([0-9]+)"', job).group(1))
-        self.assertEqual(shards, list(range(count)), "the matrix and --shard K/N name different shards")
-        jobs = int(re.search(r'--shard "\$SHARD/[0-9]+" --jobs ([0-9]+) ', job).group(1))
+        jobs = int(re.search(r'--shard "\$SHARD/\$SHARDS" --jobs ([0-9]+) ', job).group(1))
         minutes = int(re.search(r"(?m)^    timeout-minutes: ([0-9]+)$", job).group(1))
         self.assertTrue(1 <= jobs <= self.CORES, jobs)
-        per_shard = -(-len(mutate.MUTANTS) // count)
-        per_worker = -(-per_shard // jobs)
-        self.assertLessEqual(per_worker * self.WORST_MINUTES, minutes * self.SHARE,
-                             f"{len(mutate.MUTANTS)} mutants in {count} shards of {jobs} workers: add shards to ci.yml")
+        self.assertEqual((mutate.SHARD_JOBS, mutate.SHARD_TIMEOUT_MINUTES), (jobs, minutes), "the plan reads ci.yml")
+        self.assertGreaterEqual(mutate.WORST_MUTANT_MINUTES, self.WORST_MINUTES)  # the worst seen is never forgotten
+        self.assertLessEqual(mutate.TIMEOUT_SHARE, self.SHARE)
+
+        def fits(total: int, count: int) -> bool:  # at the plan's own worst and share, held above to the seen ones
+            per_shard = -(-total // count)
+            per_worker = -(-per_shard // jobs)
+            return per_worker * mutate.WORST_MUTANT_MINUTES <= minutes * mutate.TIMEOUT_SHARE
+        last = mutate.MATRIX_MAX * mutate.shard_cap()
+        self.assertEqual(mutate.MATRIX_MAX, 256)  # GitHub's limit of jobs in one matrix
+        for total in sorted({1, len(mutate.MUTANTS), *range(0, last + 1, 97), last}):
+            if total == 0:
+                continue
+            count = mutate.shard_count(total)
+            with self.subTest(total=total):
+                self.assertGreaterEqual(count, self.SHARDS_MIN)
+                self.assertTrue(fits(total, count), f"{total} mutants in {count} shards of {jobs} workers")
+                self.assertTrue(count == self.SHARDS_MIN or not fits(total, count - 1), "more shards than needed")
+        self.assertEqual(mutate.shard_count(1), self.SHARDS_MIN)
+        with self.assertRaises(ValueError):
+            mutate.shard_count(last + 1)  # past the matrix: the plan job turns red, nothing is dropped
+
+    def test_ci_runs_the_plans_shards(self):
+        # mutation_shards_back_to_eight mutation_plan_not_from_the_mutants mutation_run_ignores_the_plan
+        """E737: the plan job writes the count and the matrix from `mutate.py --shard-plan`; the matrix is the plan's and
+        every shard splits the mutants by the plan's count, so the matrix and `--shard K/N` cannot disagree."""
+        mutate = self.mutate()
+        plan = self.ci_job("mutation-plan")
+        self.assertIn("      count: ${{ steps.plan.outputs.count }}\n", plan)
+        self.assertIn("      shards: ${{ steps.plan.outputs.shards }}\n", plan)
+        self.assertIn('          python3 seed/bootstrap/local/mutate.py --shard-plan | tee -a "$GITHUB_OUTPUT"\n', plan)
+        job = self.ci_job("mutation")
+        self.assertIn("        shard: ${{ fromJSON(needs.mutation-plan.outputs.shards) }}\n", job)
+        self.assertIn("          SHARDS: ${{ needs.mutation-plan.outputs.count }}\n", job)
+        self.assertIn('python3 local/mutate.py --shard "$SHARD/$SHARDS" --jobs ', job)
+        self.assertNotRegex(job, r"(?m)^        shard: \[")  # no fixed matrix
+        count = mutate.shard_count(len(mutate.MUTANTS))
+        lines = dict(line.split("=", 1) for line in mutate.shard_plan(len(mutate.MUTANTS)).splitlines())
+        self.assertEqual(lines, {"count": str(count), "shards": json.dumps(list(range(count)))})
+        self.assertEqual(json.loads(lines["shards"]), list(range(int(lines["count"]))))
+        with mock.patch("sys.argv", ["mutate.py", "--shard-plan"]), mock.patch("sys.stdout", io.StringIO()) as out:
+            self.assertEqual(mutate.main(), 0)
+        self.assertEqual(out.getvalue(), mutate.shard_plan(len(mutate.MUTANTS)))
 
     def test_the_shards_are_every_mutant_exactly_once(self):  # mutate_shard_partition_overlaps
         mutate = self.mutate()
-        count = int(re.search(r'--shard "\$SHARD/([0-9]+)"', self.ci_job("mutation")).group(1))
+        count = mutate.shard_count(len(mutate.MUTANTS))
         every = list(enumerate(mutate.MUTANTS))
         for n in (1, 7, count):
             ran = [i for k in range(n) for i, _m in mutate.shard(every, k, n)]

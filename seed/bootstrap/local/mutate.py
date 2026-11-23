@@ -8,6 +8,7 @@ anchor that no longer matches fails loudly, so the list cannot rot while the cod
     cd seed/bootstrap && python3 local/mutate.py [--only NAME[,NAME...]] [--list] [--shard K/N] [--jobs J]
                                                  [--hints FILE] [--record FILE]
     cd seed/bootstrap && python3 local/mutate.py --check-records DIR [--hints-out FILE]
+    cd seed/bootstrap && python3 local/mutate.py --shard-plan
 
 Run it on Linux (several tests need a POSIX shell). Exit 0 means every mutant was killed.
 
@@ -16,7 +17,8 @@ Run it on Linux (several tests need a POSIX shell). Exit 0 means every mutant wa
 alone against this tree with the mutant, and the mutant counts as killed only when it fails there and passes alone on
 the unmutated tree; otherwise the whole suite runs, as without a hint. A stale or forged hint can only cost time.
 `--record FILE` writes one line per mutant run; `--check-records` reads the shards' records and fails unless every
-mutant was run exactly once and killed (the CI job `mutation-complete`).
+mutant was run exactly once and killed (the CI job `mutation-complete`). `--shard-plan` prints how many shards a full
+run needs (`shard_count`): the CI job `mutation-plan` sizes the matrix with it, so the shards follow the mutants.
 """
 
 from __future__ import annotations
@@ -37,15 +39,36 @@ BOOT = Path(__file__).resolve().parents[1]
 ROOT = BOOT.parents[1]
 
 
-def _ci_mutation_shards() -> int:
-    """N of the mutation job's `--shard "$SHARD/N"` in ci.yml, 0 when it is not there. The anchor of
-    `mutation_shards_back_to_eight` is the matrix of N shards: written as a number, it was left behind when a shard
-    was added (the verifier of 9600c4e: range(76) against 77 shards stopped every shard before its first mutant).
-    A matrix that disagrees with N is still a stale anchor."""
-    path = ROOT / ".github" / "workflows" / "ci.yml"
-    text = path.read_text(encoding="utf-8") if path.is_file() else ""
-    found = re.search(r'local/mutate\.py --shard "\$SHARD/([0-9]+)"', text)
-    return int(found.group(1)) if found else 0
+# CI's mutation job runs the mutants in shards, and the number of shards follows the number of mutants (E737). The
+# bound is per worker: with no hint at all each mutant runs the whole suite, and a worker's share at the worst mutant
+# seen ends within TIMEOUT_SHARE of the job's timeout (E410, E502; `test_wiring.MutationShardTest` holds ci.yml to it).
+SHARD_TIMEOUT_MINUTES = 180  # the mutation job's timeout-minutes in ci.yml
+SHARD_JOBS = 4  # mutants at a time in a shard (`--jobs`), the four cores of a standard Linux runner
+WORST_MUTANT_MINUTES = 6  # the worst mutant seen, the whole suite, four at a time (run 44763833954: 332 s)
+TIMEOUT_SHARE = 0.75  # of the job's timeout a shard may fill (E410: 15 mutants at 3 minutes in 60)
+SHARDS_MIN = 24  # never fewer: the run's wall time stays what it was at 24 shards, 16 at a time (E525)
+MATRIX_MAX = 256  # GitHub runs at most 256 jobs of one matrix; a plan past it cannot run
+
+
+def shard_cap() -> int:
+    """The most mutants one shard may hold: each of its SHARD_JOBS workers runs at most the mutants that fit, at the
+    worst mutant seen, into TIMEOUT_SHARE of the timeout (today 22 a worker, 88 a shard)."""
+    return int(SHARD_TIMEOUT_MINUTES * TIMEOUT_SHARE // WORST_MUTANT_MINUTES) * SHARD_JOBS
+
+
+def shard_count(total: int) -> int:
+    """The shards a full run of TOTAL mutants needs: enough that none holds more than `shard_cap()`, never fewer than
+    SHARDS_MIN. A count past MATRIX_MAX is refused, so the plan job turns red instead of a shard timing out."""
+    count = max(SHARDS_MIN, -(-total // shard_cap()))
+    if count > MATRIX_MAX:
+        raise ValueError(f"{total} mutants need {count} shards of at most {shard_cap()}; a matrix holds {MATRIX_MAX}")
+    return count
+
+
+def shard_plan(total: int) -> str:
+    """The plan job's outputs (`$GITHUB_OUTPUT` lines): the shard count and the matrix of shard numbers."""
+    count = shard_count(total)
+    return f"count={count}\nshards={json.dumps(list(range(count)))}\n"
 
 
 PKG = "seed/bootstrap/snowball_bootstrap"
@@ -2680,9 +2703,35 @@ MUTANTS = [
      "      max-parallel: 16" + chr(10), "",
      "E525: every shard starts at once and the referee's runs queue behind them"),
     ("mutation_shards_back_to_eight", ".github/workflows/ci.yml",
-     "        shard: [" + ", ".join(str(k) for k in range(_ci_mutation_shards())) + "]\n",
+     "        shard: ${{ fromJSON(needs.mutation-plan.outputs.shards) }}\n",
      "        shard: [0, 1, 2, 3, 4, 5, 6, 7]\n",
      "E410: fewer shards than the mutants need, and the mutation run hits its timeout and is cancelled"),
+    # E737: the shard count follows the mutant count (`shard_count`), so no epoch raises a fixed matrix by hand
+    ("mutation_shard_count_fixed", "seed/bootstrap/local/mutate.py",
+     "    count = max(SHARDS_MIN, -(-total // shard_cap()))\n", "    count = SHARDS_MIN\n",
+     "E737: a fixed shard count again; past its bound the shards grow and hit the job's timeout"),
+    ("mutation_shards_below_the_minimum", "seed/bootstrap/local/mutate.py",
+     "    count = max(SHARDS_MIN, -(-total // shard_cap()))\n", "    count = max(1, -(-total // shard_cap()))\n",
+     "E737: fewer than 24 shards while the mutants fit, and the run's wall time grows"),
+    ("mutation_matrix_limit_unchecked", "seed/bootstrap/local/mutate.py",
+     "    if count > MATRIX_MAX:\n", "    if False:\n",
+     "E737: a plan past GitHub's 256 jobs a matrix passes, and the run fails late instead of the plan"),
+    ("mutation_shard_cap_ignores_the_workers", "seed/bootstrap/local/mutate.py",
+     "TIMEOUT_SHARE // WORST_MUTANT_MINUTES) * SHARD_JOBS\n", "TIMEOUT_SHARE // WORST_MUTANT_MINUTES) * SHARD_JOBS * 2\n",
+     "E737: a shard holds twice what its workers finish in the timeout"),
+    ("mutation_worst_mutant_forgotten", "seed/bootstrap/local/mutate.py",
+     "\nWORST_MUTANT_MINUTES = 6  #", "\nWORST_MUTANT_MINUTES = 3  #",
+     "E502: the bound forgets the six-minute mutant seen, and the shards hold twice what fits"),
+    ("mutation_timeout_out_of_step", "seed/bootstrap/local/mutate.py",
+     "\nSHARD_TIMEOUT_MINUTES = 180  #", "\nSHARD_TIMEOUT_MINUTES = 240  #",
+     "E737: the plan assumes a longer timeout than ci.yml gives, and the shards it sizes hit the real one"),
+    ("mutation_plan_not_from_the_mutants", ".github/workflows/ci.yml",
+     '          python3 seed/bootstrap/local/mutate.py --shard-plan | tee -a "$GITHUB_OUTPUT"\n',
+     '          echo "count=24" >> "$GITHUB_OUTPUT"\n',
+     "E737: the plan job writes a fixed count again, whatever the mutants"),
+    ("mutation_run_ignores_the_plan", ".github/workflows/ci.yml",
+     '--shard "$SHARD/$SHARDS"', '--shard "$SHARD/24"',
+     "E737: the shards split the mutants by a fixed count while the matrix follows the plan"),
     # CI speed (2026-11-20): main's runs are never cancelled, the shards are every mutant once, a hint is re-run and
     # verified, never replayed, and the daily run uses none
     ("ci_main_run_cancellable", ".github/workflows/ci.yml",
@@ -5748,7 +5797,12 @@ def main() -> int:
     parser.add_argument("--check-records", help="a folder of the shards' records: fail unless they are every mutant "
                                                 "once, each killed")
     parser.add_argument("--hints-out", help="with --check-records: write the killers as the next run's hints")
+    parser.add_argument("--shard-plan", action="store_true",
+                        help="print CI's plan for every mutant: count=N and shards=[0..N-1] (`shard_count`)")
     args = parser.parse_args()
+    if args.shard_plan:
+        print(shard_plan(len(MUTANTS)), end="")
+        return 0
     if args.check_records:
         return check_main(args.check_records, args.hints_out)
     if args.jobs < 1:
