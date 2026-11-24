@@ -1011,6 +1011,33 @@ class ContextTest(unittest.TestCase):
         out = w.mirror()["context"]
         self.assertEqual([s["stamp"] for s in out["sessions"]], stamps[2:])
 
+    def test_a_too_large_transcript_is_said_in_each_section_that_reads_it(self):
+        # context_too_large_unread session_time_too_large_unread delegation_too_large_unread
+        w = Work()
+        one = "20261118T010000Z"
+        w.rows(cycle(one))
+        w.folder(one, **{f"session-{one}.jsonl": [{"type": "system", "subtype": "init"}, compacted(5)]})
+        with mock.patch.object(M, "TRANSCRIPT_MAX", 10):
+            note = w.mirror()
+        self.assertEqual(note["context"]["sessions"][0]["not_measured"],
+                         {k: "transcript too large" for k in ("compactions", "first_compaction_min", "each")})
+        self.assertEqual(note["session_time"]["sessions"][0]["null_reasons"]["api_s"], "transcript too large")
+        self.assertEqual(note["delegation"]["sessions"][0]["reason"], "transcript too large")
+
+    def test_the_minute_reads_any_events_timestamp_and_the_tokens_their_keys(self):
+        # context_minute_own_only context_cache_key_required context_input_unrequired
+        w = Work()
+        one = "20261118T010000Z"
+        w.rows(cycle(one))
+        w.folder(one, **{f"session-{one}.jsonl": [own("2026-11-18T01:01:00Z", {"input_tokens": 4}),
+                                                    own("2026-11-18T01:05:00Z", {"input_tokens": 9}, parent="toolu_a"),
+                                                    compacted()]})
+        each = w.mirror()["context"]["sessions"][0]["each"]
+        self.assertEqual([(e["minute"], e["input_tokens_before"]) for e in each], [(5.0, 4)])  # SOURCES: any event
+        self.assertEqual(M.context_tokens({"input_tokens": 5, "cache_read_input_tokens": 7}), 12)
+        for usage in ({"cache_read_input_tokens": 7}, {"input_tokens": True}, None):
+            self.assertIsNone(M.context_tokens(usage), usage)
+
     def test_an_event_time_keeps_its_fraction(self):  # context_fraction_dropped
         self.assertEqual(M.event_time("2026-11-18T01:03:30.25Z"),
                          datetime(2026, 11, 18, 1, 3, 30, 250000, tzinfo=timezone.utc))

@@ -6,9 +6,10 @@ referee is, how often a session handed work to agents, how long the pilot stood 
 time and the quota buckets went (epoch Z), which micro-features of Stage 1's first slice (`26h`) are not accepted
 yet, and how often each session's context was compacted (epoch AK, E742). Facts only: no
 advice, no ranking, no judgement of what could have been seen earlier (no-feeding). Every section names its source and
-its window. A metric that cannot be computed is null and its reason is in the section's ``null_reasons``; a section that
-fails is ``{"value": null, "reason": ...}`` and the others stand. Every list has a cap and says what it left out. The
-same files give the same bytes: no clock is read, the session's stamp is the time. Nothing here reaches the network:
+its window. A metric that cannot be computed is null and its reason is in the section's ``null_reasons`` (in
+``context``, epoch AK: per session and per compaction in ``not_measured``, E742); a section that fails is
+``{"value": null, "reason": ...}`` and the others stand. Every list has a cap and says what it left out. The same
+files give the same bytes: no clock is read, the session's stamp is the time. Nothing here reaches the network:
 the launcher's own records on disk, the referee repository's tarball the launcher downloads for /vec anyway, the
 seed's own batch table, and the accepted manifest's `done_mf` the launcher read for it (``accepted``).
 """
