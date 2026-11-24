@@ -40,7 +40,7 @@ sınama.**
   satırın yükü `{summary, refs[], recheck}`'tir (`26g:12`); başlatıcı en yeni 100 dersi listeler (`26g:48`).
 - Olgu (beyin): `tests/lesson_recheck.py` yürürlükteki her dersin `recheck`'ini koşar, birer birer, defter sırasıyla
   (`tests/lesson_recheck.py:1`, `:25`). 20261123T201159Z oturumunda bu koşu oturumun kendi 25 dakikalık sınırına
-  sığmadı, `f1972`'de durdu ve yeniden koşuldu (commit `0fa9ef6`'nın mesajı).
+  sığmadı, `f1972`'de durdu ve yeniden koşuldu (commit `0fa9ef6`'nın mesajı; defter satırı `f2082`).
 - Görev: dersler büyüdükçe onları okumanın ve yeniden sınamanın maliyeti her oturumda bütün kümeyle büyümez, ve bir ders
   ilgili olduğu işe ulaşır. Nasıl olacağını sen tasarlarsın (`22`'nin kendi alanları, `26g`); ölçersin: oturum başına
   süre ve bağlam, korudukları işin andığı dersler. Yanlışlanabilir: bu görevle geçen 5 oturumdan sonra.

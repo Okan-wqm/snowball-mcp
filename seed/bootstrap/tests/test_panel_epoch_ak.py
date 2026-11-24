@@ -114,7 +114,7 @@ class LessonHintTest(unittest.TestCase):
 
     def test_the_facts_the_duty_and_each_citation(self):
         # ak_h3_unlabelled ak_h3_count_changed ak_h3_scope_fact_dropped ak_h3_22_miscited ak_h3_26g_miscited
-        # ak_h3_recheck_fact_dropped ak_h3_grows_with_the_set ak_h3_design_prescribed ak_h3_not_falsifiable
+        # ak_h3_recheck_fact_dropped ak_h3_rerun_row_dropped ak_h3_grows_with_the_set ak_h3_design_prescribed ak_h3_not_falsifiable
         text = hint("E741")
         self.assertTrue(text.startswith("**Sahibin ipucu (bu kez kural esnetildi; 2026-11-23, E741; görev, reçete "
                                         "değil). Dersler büyür: bulma ve yeniden sınama.**"))
@@ -124,7 +124,8 @@ class LessonHintTest(unittest.TestCase):
                       "(`26g:12`); başlatıcı en yeni 100 dersi listeler (`26g:48`).",
                       "`tests/lesson_recheck.py` yürürlükteki her dersin `recheck`'ini koşar, birer birer, defter "
                       "sırasıyla (`tests/lesson_recheck.py:1`, `:25`). 20261123T201159Z oturumunda bu koşu oturumun "
-                      "kendi 25 dakikalık sınırına sığmadı, `f1972`'de durdu ve yeniden koşuldu",
+                      "kendi 25 dakikalık sınırına sığmadı, `f1972`'de durdu ve yeniden koşuldu (commit `0fa9ef6`'nın mesajı; defter "
+                      "satırı `f2082`).",
                       "- Görev: dersler büyüdükçe onları okumanın ve yeniden sınamanın maliyeti her oturumda bütün "
                       "kümeyle büyümez, ve bir ders ilgili olduğu işe ulaşır. Nasıl olacağını sen tasarlarsın",
                       "Yanlışlanabilir: bu görevle geçen 5 oturumdan sonra."):

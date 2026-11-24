@@ -5945,6 +5945,20 @@ MUTANTS = [
      'AK: INDEX does not list CHANGELOG-20'),
     ('ak_answers_missing', 'seed/bootstrap/reports/answers.json', '"id": "seed-102-where-a-running-referee-finds-a-target-s-census-rule-set-is-unstated",\n      "changelog": "CHANGELOG-20",', '"id": "seed-102-where-a-running-referee-finds-a-target-s-census-rule-set-is-unstated",\n      "changelog": "CHANGELOG-19",',
      "AK: answers.json does not name seed-102's changelog"),
+    ('context_too_large_unread', MIRROR, '        if not path.is_file() or path.stat().st_size > TRANSCRIPT_MAX:\n            why = "no transcript" if not path.is_file() else "transcript too large"\n            sessions.append(', '        if not path.is_file():\n            why = "no transcript" if not path.is_file() else "transcript too large"\n            sessions.append(',
+     'E742: a too large transcript is read'),
+    ('session_time_too_large_unread', MIRROR, '        if not path.is_file() or path.stat().st_size > TRANSCRIPT_MAX:\n            why = "no transcript" if not path.is_file() else "transcript too large"\n            fact["null_reasons"]', '        if not path.is_file():\n            why = "no transcript" if not path.is_file() else "transcript too large"\n            fact["null_reasons"]',
+     'E677: a too large transcript is read'),
+    ('delegation_too_large_unread', MIRROR, '        if not path.is_file() or path.stat().st_size > TRANSCRIPT_MAX:\n            sessions.append({"stamp": stamp, "agent_calls": None,', '        if not path.is_file():\n            sessions.append({"stamp": stamp, "agent_calls": None,',
+     'E720: a too large transcript is read'),
+    ('context_minute_own_only', MIRROR, '            if at is not None:\n                last_at = at\n', '            if at is not None and own:\n                last_at = at\n',
+     "E742: the minute skips a subagent's timestamp, against SOURCES"),
+    ('context_cache_key_required', MIRROR, 'parts = [count(usage.get(key) or 0) for key in CONTEXT_KEYS]', 'parts = [count(usage.get(key)) for key in CONTEXT_KEYS]',
+     'E742: a message without a cache key has no context tokens'),
+    ('context_input_unrequired', MIRROR, 'if not isinstance(usage, dict) or count(usage.get("input_tokens")) is None:', 'if not isinstance(usage, dict):',
+     'E742: a message without input_tokens counts its cache alone'),
+    ('ak_h3_rerun_row_dropped', 'spec/tohum/00g-gorev-haritasi-sahibin-ipuclari-5.md', "yeniden koşuldu (commit `0fa9ef6`'nın mesajı; defter satırı `f2082`).", "yeniden koşuldu (commit `0fa9ef6`'nın mesajı).",
+     "E741: the rerun's ledger row is not cited"),
 ]
 
 
