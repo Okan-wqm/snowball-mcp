@@ -128,6 +128,7 @@ Okunma: sayfa ararken; görev seçmek için `tohum/00b-gorev-haritasi.md`
 | `tohum/31h-catismalar-ve-tarama.md` | Mimari İlkeler VIII: Çatışmalar ve Tarama Sinyalleri | iki ilke aynı durumda farklı yön gösterdiğinde; bir repo ilkeler açısından taranırken; rakip bir tasarımı çürütmeye çalışırken |
 | `tohum/CHANGELOG.md` | Değişiklik Günlüğü — Tohum | bir sayfanın geçmişi aranırken |
 | `tohum/CHANGELOG-22.md` | Değişiklik Günlüğü — Tohum, 2.2'nin Yirmi Birinci Kayıtları | bir sayfanın geçmişi aranırken |
+| `tohum/CHANGELOG-21.md` | Değişiklik Günlüğü — Tohum, 2.2'nin Yirminci Kayıtları | bir sayfanın geçmişi aranırken |
 | `tohum/CHANGELOG-20.md` | Değişiklik Günlüğü — Tohum, 2.2'nin On Dokuzuncu Kayıtları | bir sayfanın geçmişi aranırken |
 | `tohum/CHANGELOG-19.md` | Değişiklik Günlüğü — Tohum, 2.2'nin On Sekizinci Kayıtları | bir sayfanın geçmişi aranırken |
 | `tohum/CHANGELOG-18.md` | Değişiklik Günlüğü — Tohum, 2.2'nin On Yedinci Kayıtları | bir sayfanın geçmişi aranırken |

@@ -6100,6 +6100,8 @@ MUTANTS = [
      'E744: a case names units its rule is not enabled in'),
     ('census_copy_29za_line_moved', 'spec/tohum/29za-vektor-arayuzleri-asama-1-cikisi.md', '**Kopya hedefin vektörü** (operatör kararı', '\n**Kopya hedefin vektörü** (operatör kararı',
      "E744: 29za's cited lines move"),
+    ('census_copy_union_reason', 'spec/tohum/29za-vektor-arayuzleri-asama-1-cikisi.md', 'bir birime ekilen vaka hangi birimde olursa olsun sayılmalıdır)', 'yalnız bir birimin vakası sayılır)',
+     'E744: the union decision loses its reason'),
     ('census_copy_29zc_count_wrong', 'spec/tohum/29zc-vektor-arayuzleri-kopyanin-census-vektoru.md', '`libs/storage` 130', '`libs/storage` 129',
      "E744: 29zc's unit count is not the record's"),
     ('census_copy_29zc_enabled_off', 'spec/tohum/29zc-vektor-arayuzleri-kopyanin-census-vektoru.md', '"off" ve 0 değildir', '"off" ve 0 da etkindir',
@@ -6108,6 +6110,12 @@ MUTANTS = [
      "E744: a unit's set drops a rule its committed rules objects enable"),
     ('census_copy_29zc_web_unsaid', 'spec/tohum/29zc-vektor-arayuzleri-kopyanin-census-vektoru.md', "`29za:15-17`'nin koşulu onların vakalarını bu", "`29za:15-17`'nin koşulu onların vakasını istemez, bu",
      "E744: 29zc does not say the web-only rules need cases in the web units"),
+    ('census_copy_status_unsaid', 'spec/tohum/29za-vektor-arayuzleri-asama-1-cikisi.md', "cümlesi 2026-11-20'nin durumudur.", 'cümlesi bugün de geçerlidir.',
+     "E744: 29za does not say the vector exists"),
+    ('census_copy_e744_open', 'docs/eksik-kaydi.md', '| E671; E669; E743 | kapandı (tohum dönemi AL) |', '| E671; E669; E743 | açık |',
+     'E744: the register row stays open'),
+    ('census_copy_e671_open', 'docs/eksik-kaydi.md', '| operatör (2026-11-20); E669 | kapandı (tohum dönemi AL; E744) |', '| operatör (2026-11-20); E669 | açık (operatörün işi) |',
+     "E744: E671 stays open after its vector exists"),
 ]
 
 

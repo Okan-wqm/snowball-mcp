@@ -16,6 +16,7 @@ ROOT = BOOT.parents[1]
 TOHUM = ROOT / "spec" / "tohum"
 RECORD = BOOT / "local" / "census_copy.json"
 BASE_SHA = "4f479013a42f4b750e0784cc2500bd17d932af1a"  # the referee's setup/summary.json, targets[kind=copy].base_sha
+VECTOR_COMMIT = "e273244"  # the commit that adds the census_copy group, as 29za cites it
 UNITS = ["platform/libs/outbox", "libs/storage", "web/modules/messaging-module", "web/modules/hr-module"]
 TOY_RULES = {"dot-notation", "no-var", "object-shorthand", "operator-assignment", "prefer-const", "prefer-template",
              "yoda"}
@@ -175,3 +176,45 @@ class PageTest(unittest.TestCase):
         web = [r for r, units in rec["union"].items() if all(u.startswith("web/modules/") for u in units)]
         self.assertIn(f"{len(web)} kural yalnız `web/modules/*` birimlerinde etkindir", text)
         self.assertIn("`29za:15-17`'nin koşulu onların vakalarını bu birimlerde ister.", text)
+
+
+class RecordsTest(unittest.TestCase):
+    """`29za`'s appended paragraph (no cited line moves), the register (E744 new, E671 closed by it), the changelog."""
+
+    def test_29za_lines_stay_and_the_facts_are_appended(self):
+        # census_copy_29za_line_moved census_copy_union_reason census_copy_status_unsaid
+        lines = page("29za").splitlines()
+        self.assertTrue(lines[21].endswith("Bugün açık bir operatör işidir."))  # 29za:22, as it was
+        self.assertEqual(lines[56], "  taşır.")  # 29za:57, the end of E743's paragraph, as it was
+        self.assertEqual(lines[57], "")
+        text = flat("\n".join(lines[57:]))
+        self.assertEqual(text.count("**Kopyanın `census` vektörü var**"), 1)
+        for words in ("**Kopyanın `census` vektörü var** (tohum dönemi AL, 2026-11-24; E744).",
+                      "`29za:22`'nin \"Bugün açık bir operatör işidir\" cümlesi 2026-11-20'nin durumudur.",
+                      f"Vektör `vectors.json`'un `census_copy` grubudur (commit `{VECTOR_COMMIT}`), arayüzü `29zc`'dir",
+                      f"Kopyanın `base_sha`'sı `{BASE_SHA}`'dır",
+                      "kopyanın kümesi birim kümelerinin birleşimidir (operatör kararı, 2026-11-24: bir birime ekilen "
+                      "vaka hangi birimde olursa olsun sayılmalıdır) ve her kural etkin olduğu birimleri taşır.",
+                      f"Birleşim {len(record()['union'])} kuraldır; oyuncağın yedi kuralı değildir, Kurucu'nun "
+                      "kataloğu da değildir.",
+                      f"`seed/bootstrap/local/census_copy.json`'dur (sha256 `{record_sha256()}`)"):
+            self.assertIn(words, text, words)
+
+    def test_the_register_and_the_changelog(self):  # census_copy_e744_open census_copy_e671_open
+        row, rec = register_row("E744"), record()
+        self.assertTrue(row.endswith("| E671; E669; E743 | kapandı (tohum dönemi AL) |"), row)
+        self.assertIn(f"`census_copy.json` (sha256 `{record_sha256()}`", row)
+        self.assertIn("bir birime ekilen vaka hangi birimde olursa olsun sayılmalıdır", row)
+        counts = ", ".join(str(len(rec["units"][unit]["enabled"])) for unit in UNITS)
+        self.assertIn(f"Birim başına {counts} kural; birleşim {len(rec['union'])}", row)
+        self.assertTrue(register_row("E671").endswith("| kapandı (tohum dönemi AL; E744) |"))
+        entry = flat((TOHUM / "CHANGELOG-21.md").read_text(encoding="utf-8"))
+        for words in ("- 2.2 (2026-11-24, E744; tohum dönemi AL;", "**İlk iş** (`25` 10b).",
+                      "bu dönem bir vektör grubu ekler (`census_copy`), hiçbir tablo onu adlandırmaz ve bugün koşmaz",
+                      "Gevşetme yok."):
+            self.assertIn(words, entry, words)
+        log = (TOHUM / "CHANGELOG.md").read_text(encoding="utf-8").splitlines()
+        self.assertTrue(log[6].startswith("- 2.2 (2026-11-24, E744; tohum dönemi AL,"))  # the newest entry first
+        self.assertTrue(log[6].endswith("`CHANGELOG-21.md`; başında **İlk iş**."))
+        self.assertIn("| `tohum/CHANGELOG-21.md` | Değişiklik Günlüğü — Tohum, 2.2'nin Yirminci Kayıtları |",
+                      (ROOT / "spec" / "INDEX.md").read_text(encoding="utf-8"))
