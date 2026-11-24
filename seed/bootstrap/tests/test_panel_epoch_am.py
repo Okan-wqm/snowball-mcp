@@ -91,10 +91,10 @@ class FailedWriteTest(unittest.TestCase):
 
     def test_an_interruption_not_a_hard_stop(self):
         # am_103_hard_stop am_103_kept am_103_job_word_hard_stop am_103_activation_dropped am_103_l1_unnamed
-        # am_103_28_miscited
+        # am_103_28_miscited am_103_first_write_excluded
         text = cited("28", 51, 60)
-        for words in ("Bir `yaz` işinin ilk yazımından sonra hedefe başarısız olan bir GitHub yazımı bu sayfanın sert "
-                      "duruşu değildir: tetikleri (`28:35-38`, `26i:24-25`'in kapalı kümesi) değişmez ve onu saymaz.",
+        for words in ("Bir `yaz` işinde hedefe başarısız olan bir GitHub yazımı (ilk yazımı da, sonrakiler de) bu "
+                      "sayfanın sert duruşu değildir: tetikleri (`28:35-38`, `26i:24-25`'in kapalı kümesi) değişmez ve onu saymaz.",
                       "`28:19-20`'nin HTTP 429'u gibi bir kesintidir: iş biter ve hiçbir şey tutmaz (satır yok, "
                       "`status.md` duruşu yok, operatör adımı yok)",
                       "`yaz` işinin satırı bu sonu `hard_stop`'tan ayrı bir adla adlandırır; `hard_stop` yalnız bu "
@@ -158,11 +158,12 @@ class LiveLoopHintTest(unittest.TestCase):
     def test_the_facts_the_duty_and_each_citation(self):
         # am_h_unlabelled am_h_runs_changed am_h_touch_called_a_fix am_h_transfer_fact_dropped am_h_01a_miscited
         # am_h_path_prescribed am_h_session_end_dropped am_h_loosened am_h_not_falsifiable am_h_00g_line_moved
+        # am_h_transfer_owner_dropped am_h_order_conflict
         lines = page("00g").splitlines()
         self.assertEqual((lines[63], lines[64], len(lines)), ("  3. Yanlışlanabilir: E739 ve E740 kendi testleriyle; "
                                                              "E741 ve E742 5 oturumdan sonra aynanın ve defterin "
-                                                             "sayılarıyla.", "", 79))
-        text = cited("00g", 66, 79)
+                                                             "sayılarıyla.", "", 80))
+        text = cited("00g", 66, 80)
         self.assertTrue(text.startswith("**Sahibin ipucu (bu kez kural esnetildi; 2026-11-24, E750; görev, reçete "
                                         "değil). Canlı döngünün sağlığı önce gelir.**"))
         for words in ("hakem reposunun `loop` koşuları 2026-11-23 21:22Z'den (45268983995) 2026-11-24 10:42Z'ye "
@@ -178,10 +179,16 @@ class LiveLoopHintTest(unittest.TestCase):
                       "- Korkuluklar (bu ipucu için): hiçbir gevşetme yok, yeni hakem kuralı yok, bugünkü hiçbir push'u "
                       "kırmızı yapan bir şey yok.",
                       "Yanlışlanabilir: sonraki oturumlar ya P1'in çıkış isteğini yapar ya da onu engelleyeni madde "
-                      "madde adlandırır."):
+                      "madde adlandırır.",
+                      "Aktarılmış kodu Kurucu değiştirmez (`01a:60-61`); onu canlı döngüye taşımak aktarımdır."):
             self.assertIn(words, text, words)
         self.assertIn("beyin reposundaki pinli SHA'nın `referee/` ağacıyla aynı olmalıdır", cited("01a", 56, 58))
         self.assertIn("`referee/` yalnız partilerle değişir", cited("26j", 9, 10))
+        self.assertIn("aktarılmış kodun değişikliğini şerit yazarı yazar (`29`): Kurucu değildir", cited("01a", 60, 61))
+        self.assertIn("P1'in çıkış isteği MF1–MF12'nin hepsi bitmeden geçmez", flat(
+            (TOHUM / "CHANGELOG-14.md").read_text(encoding="utf-8").splitlines()[9]))
+        self.assertIn("Bu öncelik `CHANGELOG-14`'ün iş sırasıyla çelişmez: o sıra P1'in çıkış isteğiyle biter "
+                      "(`CHANGELOG-14:10`)", flat(changelog()))
         self.assertTrue(cited("02", 46, 49).startswith("6. **Parti çıkışı.**"))
         self.assertIn("parti çıkış isteği (A), operatör aktarımı", cited("02", 46, 49))
         self.assertEqual([n for n, line in enumerate(lines, 1) if len(line) > 120], [])
@@ -190,7 +197,7 @@ class LiveLoopHintTest(unittest.TestCase):
                       "Görev, reçete değil", "hiçbir gevşetme yok, yeni hakem kuralı yok"):
             self.assertIn(words, row, words)
         self.assertTrue(row.endswith("| kapandı (tohum dönemi AM; yol Kurucu'nun) |"))
-        self.assertIn("Sahibin ipucu (bu kez kural esnetildi; görev, reçete değil; `00g:66-79`)", flat(changelog()))
+        self.assertIn("Sahibin ipucu (bu kez kural esnetildi; görev, reçete değil; `00g:66-80`)", flat(changelog()))
 
 
 class PlacementTest(unittest.TestCase):

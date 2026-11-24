@@ -12,14 +12,15 @@ Okunma: bir sayfanın geçmişi aranırken
   benimsendi. Yeni iş üç sıkılaştırmadır: `branch_differs` yalnız o adayın reddidir (devir sürer), `candidate_id_used`
   ve `pull_closed`; ayrıca başarısız yazımın `yaz` satırındaki adı `hard_stop` değildir (`28` sonu). Raporların teyidi
   `26l`'nin kuralı olarak kalır, bu listenin bir maddesi değildir. Sahibin ipucu (bu kez kural esnetildi; görev, reçete
-  değil; `00g:66-79`): canlı döngünün sağlığı önce gelir; kurulmuş düzeltmeleri canlı döngüye taşıyan yolu Kurucu seçer
+  değil; `00g:66-80`): canlı döngünün sağlığı önce gelir; kurulmuş düzeltmeleri canlı döngüye taşıyan yolu Kurucu seçer
   (sayfaların yolu P1'in çıkış isteğidir) ve `session_end` satırında önündekini söyler; gevşetme ve yeni hakem kuralı
-  yok. **Gevşetme L-AM1** (sahibe bildirilir; `28:51-60`): hedefe başarısız bir GitHub yazımı `28`'in sert duruşu değil,
-  bir kesintidir, operatör adımı istemez. **Gevşetme L-AM2** (sahibe bildirilir; `07:78-79`, `01b:78`): yazarın
-  korumasına iki okuma yolu: `GET commits/<sha>/pulls` (kurulmuş, `f02cb97`) ve kapalı PR'ların okuması (yeni); yazma,
-  merge ve ref kuralı değişmez. **Gevşetme L-AM3** (sahibe bildirilir; `07:79-80`, `26p:75`): yazarın bu devirde
-  yapmadığı duran commit, ağacı ve ebeveynleri tam olarak işinki ise devralınır; mesajı ve yazarı karşılaştırılmaz.
-  Başka gevşetme yok.
+  yok. Bu öncelik `CHANGELOG-14`'ün iş sırasıyla çelişmez: o sıra P1'in çıkış isteğiyle biter (`CHANGELOG-14:10`);
+  aktarılmış kodu Kurucu değiştirmez (`01a:60-61`). **Gevşetme L-AM1** (sahibe bildirilir; `28:51-60`): hedefe başarısız
+  bir GitHub yazımı `28`'in sert duruşu değil, bir kesintidir, operatör adımı istemez. **Gevşetme L-AM2** (sahibe
+  bildirilir; `07:78-79`, `01b:78`): yazarın korumasına iki okuma yolu: `GET commits/<sha>/pulls` (kurulmuş, `f02cb97`)
+  ve kapalı PR'ların okuması (yeni); yazma, merge ve ref kuralı değişmez. **Gevşetme L-AM3** (sahibe bildirilir;
+  `07:79-80`, `26p:75`): yazarın bu devirde yapmadığı duran commit, ağacı ve ebeveynleri tam olarak işinki ise
+  devralınır; mesajı ve yazarı karşılaştırılmaz. Başka gevşetme yok.
   Yanıtlanan raporlar; her madde raporun yazıldığı hâliyle, kendi etiketiyle bir satırdır:
   `seed-103-a-revert-that-ended-before-its-merge-has-no-rule-for-the-next-cycle-and-no-field-that-shows-it` →
   `07:66-80`, `28:51-60`, `26f:80`:
@@ -45,9 +46,8 @@ Okunma: bir sayfanın geçmişi aranırken
   - (3) `yaz` işinin başarısız GitHub yazımındaki `hard_stop`'u `28`'in sert duruşu mu: yanıtlandı, değil (`28:51-60`):
     tetik kümesi kapalıdır (`28:35-38`, `26i:24-25`), döngü `lift` yazmaz (`26i:26`); `28:19-20`'nin 429'u ve
     `25a:41-46`'nın dış kesintisi gibi bir kesintidir, hiçbir şey tutulmaz; sıkılaştırma (Opus): işin satırı onu
-    `hard_stop`'tan ayrı adlandırır (uzlaşı bunu Sonnet'in "işin kendi sonunun adı" okumasına yeğledi); değişmeyen:
-    genesis devrinde `activation` (`28:37`), (B)'de yazdıktan sonra kırmızı koşu yeniden tetiklenmez (`25a:44-46`);
-    gevşetme L-AM1;
+    `hard_stop`'tan ayrı adlandırır (uzlaşı; Sonnet'in okuması yerine); değişmeyen: genesis devrinde `activation`
+    (`28:37`), (B)'de yazdıktan sonra kırmızı koşu yeniden tetiklenmez (`25a:44-46`); gevşetme L-AM1;
   - (3, soru) `28`'in duruşuysa nerede tutulur: yanıtlandı, uygulanmaz (duruş değildir, tutulan yok; sonraki devir
     hedefi ve defteri yeniden okur; `13:56-57`'nin `çek` reddi olduğu gibidir);
   - (3, bağımlılık) bu itmenin devralması o okumaya dayanır: teyit edildi (yapımda değişecek bir şey yok);

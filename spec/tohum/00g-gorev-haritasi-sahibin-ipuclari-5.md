@@ -77,3 +77,4 @@ sınama.**
   durduğunu söylersin.
 - Korkuluklar (bu ipucu için): hiçbir gevşetme yok, yeni hakem kuralı yok, bugünkü hiçbir push'u kırmızı yapan bir şey
   yok. Yanlışlanabilir: sonraki oturumlar ya P1'in çıkış isteğini yapar ya da onu engelleyeni madde madde adlandırır.
+  Aktarılmış kodu Kurucu değiştirmez (`01a:60-61`); onu canlı döngüye taşımak aktarımdır.
