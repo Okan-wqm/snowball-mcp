@@ -3,8 +3,8 @@
 Facts the Founder reads at each session start: what each model version cost and what the referee said of its pushes,
 what the live loop's runs did after each transfer, which rejection and red classes came back, how large the transferred
 referee is, how often a session handed work to agents, how long the pilot stood between sessions, where each session's
-time and the quota buckets went (epoch Z), and which micro-features of Stage 1's first slice (`26h`) are not accepted
-yet. Facts only: no
+time and the quota buckets went (epoch Z), which micro-features of Stage 1's first slice (`26h`) are not accepted
+yet, and how often each session's context was compacted (epoch AK, E742). Facts only: no
 advice, no ranking, no judgement of what could have been seen earlier (no-feeding). Every section names its source and
 its window. A metric that cannot be computed is null and its reason is in the section's ``null_reasons``; a section that
 fails is ``{"value": null, "reason": ...}`` and the others stand. Every list has a cap and says what it left out. The
@@ -38,6 +38,7 @@ TRANSCRIPT_MAX = 64 * 1024 * 1024
 USD_LABEL = "cli_estimate"  # the CLI's own total_cost_usd: an estimate, never an invoice
 AGENT_TOOLS = ("Agent", "Task")  # the CLI's subagent tool, under both of its names
 RUNS_MAX = 50  # agent runs listed per session; the rest are counted in runs_left_out
+COMPACTIONS_MAX = 20  # compactions listed per session; the rest are counted in each_left_out
 # The operator's price table (seed/founder/prices.json): USD micros per million tokens of each kind (seed-097, E720)
 PRICE_KEYS = ("in", "out", "cache_read", "cache_write_5m", "cache_write_1h")
 UNKNOWN_BASIS = "unknown"
@@ -65,6 +66,8 @@ REJECTED = ("rejected", "frozen")
 INTERVENTION = "intervention"  # a launcher start's metrics row (launch.py)
 STAMP_RE = re.compile(r"[0-9]{8}T[0-9]{6}Z")
 TIME_RE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z")
+EVENT_TIME_RE = re.compile(r"([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2})(?:\.([0-9]{1,6}))?Z")
+CONTEXT_KEYS = ("input_tokens", "cache_read_input_tokens", "cache_creation_input_tokens")  # a message's input side
 SHA_RE = re.compile(r"[0-9a-f]{40}")
 WORD_RE = re.compile(r"[A-Za-z0-9_.:@/+\[\]-]{1,80}")  # a model id may carry brackets: claude-x[1m]
 CONTROL, IMPORTS = "control.json", "setup/imports.jsonl"  # the operator's files in the referee repository
@@ -130,6 +133,13 @@ SOURCES = {
             "last_accepted_sha does not list in done_mf, the launcher's read of it; none once the referee tarball's "
             "setup/imports.jsonl has P1's transfer row. Stage 1's own micro-features are in no table and no signed "
             "record accepts them, so they are listed apart",
+    "context": "logs/<stamp>/session-<stamp>.jsonl: the session's own compact_boundary system events, in transcript "
+               "order (one with a parent_tool_use_id is a subagent's and not counted). compactions: their count; "
+               "each: per compaction, minute (from the session's stamp to the last event before it that carries a "
+               "timestamp, one decimal), input_tokens_before (the event's compact_metadata.pre_tokens; when it has "
+               "none, the input, cache read and cache write tokens of the session's own last assistant message "
+               "before it) and tokens_from (pre_tokens or last_usage); first_compaction_min: the first one's minute. "
+               "A value that is not there is null and not_measured names why",
 }
 
 
@@ -150,6 +160,7 @@ def mirror(stamp: str, metrics: Path, logs: Path, referee: dict | None, spec: Pa
         "waiting": lambda: waiting(cycles(metrics, stamp), starts(metrics), at),
         "session_time": lambda: session_time(logs, before(), cycles(metrics, stamp)),
         "path": lambda: path(accepted, referee, stages),
+        "context": lambda: context(logs, before()),
     }
     note = {"mirror": VERSION, "stamp": stamp, "facts_only": FACTS_ONLY}
     for name, build in sections.items():
@@ -843,3 +854,82 @@ def path(accepted: dict | None, referee: dict | None, stages: Path | None) -> di
             "path_mfs_left": left, "path_mfs_left_count": None if left is None else len(left),
             "path_mfs_unrecorded": [f"stage1:MF{k}" for k in SLICE_OWN], "organ_merges_copy": None,
             "null_reasons": nulls}
+
+
+# ---- context and compaction (epoch AK, E742, `26o`) -------------------------------------------------------------
+def event_time(text) -> datetime | None:
+    """A transcript event's ``timestamp`` (``2026-11-23T15:26:22.445Z``), or None."""
+    found = EVENT_TIME_RE.fullmatch(text) if isinstance(text, str) else None
+    if not found:
+        return None
+    try:
+        at = datetime.strptime(found.group(1), "%Y-%m-%dT%H:%M:%S").replace(tzinfo=timezone.utc)
+    except ValueError:  # the shape of a time that is none (month 13)
+        return None
+    return at + timedelta(microseconds=int((found.group(2) or "0").ljust(6, "0")))
+
+
+def context_tokens(usage) -> int | None:
+    """One message's input-side tokens: input, cache read and cache write; None when one is not a count."""
+    if not isinstance(usage, dict) or count(usage.get("input_tokens")) is None:
+        return None
+    parts = [count(usage.get(key) or 0) for key in CONTEXT_KEYS]
+    return None if None in parts else sum(parts)
+
+
+def transcript_context(path: Path, began: datetime) -> dict:
+    """The compactions of one session's transcript (``SOURCES["context"]``)."""
+    each, last_at, last_in = [], None, None
+    with path.open("r", encoding="utf-8", errors="replace") as fh:
+        for line in fh:
+            if '"timestamp"' not in line and "compact_boundary" not in line:
+                continue
+            try:
+                event = json.loads(line)
+            except (ValueError, RecursionError):
+                continue
+            if not isinstance(event, dict):
+                continue
+            own = not isinstance(event.get("parent_tool_use_id"), str)
+            at = event_time(event.get("timestamp"))
+            if event.get("type") == "system" and event.get("subtype") == "compact_boundary" and own:
+                meta = event.get("compact_metadata") if isinstance(event.get("compact_metadata"), dict) else {}
+                pre, missing = count(meta.get("pre_tokens")), {}
+                tokens = pre if pre is not None else last_in
+                if last_at is None:
+                    missing["minute"] = "no event before it carries a timestamp"
+                if tokens is None:
+                    missing["input_tokens_before"] = "no pre_tokens and no usage of an own message before it"
+                each.append({"minute": None if last_at is None else round((last_at - began).total_seconds() / 60, 1),
+                             "input_tokens_before": tokens,
+                             "tokens_from": "pre_tokens" if pre is not None else "last_usage" if tokens is not None
+                             else None, "not_measured": missing})
+            if at is not None:
+                last_at = at
+            if event.get("type") == "assistant" and own and isinstance(event.get("message"), dict):
+                tokens = context_tokens(event["message"].get("usage"))
+                if tokens is not None:
+                    last_in = tokens
+    fact = {"compactions": len(each), "first_compaction_min": each[0]["minute"] if each else None,
+            "each": each[:COMPACTIONS_MAX], "each_left_out": max(0, len(each) - COMPACTIONS_MAX), "not_measured": {}}
+    if not each:
+        fact["not_measured"]["first_compaction_min"] = "no compaction in the transcript"
+    elif each[0]["minute"] is None:
+        fact["not_measured"]["first_compaction_min"] = each[0]["not_measured"]["minute"]
+    return fact
+
+
+def context(logs: Path, stamps: list[str]) -> dict:
+    sessions = []
+    for stamp in stamps:
+        path = logs / stamp / f"session-{stamp}.jsonl"
+        if not path.is_file() or path.stat().st_size > TRANSCRIPT_MAX:
+            why = "no transcript" if not path.is_file() else "transcript too large"
+            sessions.append({"stamp": stamp, "compactions": None, "first_compaction_min": None, "each": None,
+                             "each_left_out": None, "not_measured": {k: why for k in ("compactions",
+                                                                                      "first_compaction_min", "each")}})
+            continue
+        sessions.append(dict({"stamp": stamp}, **transcript_context(path, stamp_time(stamp))))
+    read = [s for s in sessions if s["compactions"] is not None]
+    return {"window": f"the newest {SESSIONS_MAX} session folders before this one", "sessions": sessions,
+            "sessions_read": len(read), "sessions_compacted": sum(1 for s in read if s["compactions"])}
