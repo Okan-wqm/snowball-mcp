@@ -109,6 +109,7 @@ Okunma: sayfa ararken; görev seçmek için `tohum/00b-gorev-haritasi.md`
 | `tohum/29z-cikis-kanaryasi.md` | Çıkış Kanaryası: (B)'den Önce Gerçek Bir Konteyner | çıkış isteği yazılırken, bir `canary:` eksiği okunurken ve `runner.contained`'ın `run` komutu değişirken |
 | `tohum/29za-vektor-arayuzleri-asama-1-cikisi.md` | Vektör Arayüzleri: Aşama 1 Çıkışının Sayımı ve Saldırgan Set | `cases.build` ve `exit.sample` yazılırken ve Aşama 1 çıkış partisi tasarlanırken |
 | `tohum/29zb-vektor-arayuzleri-p1-durum-dosyalari.md` | Vektör Arayüzleri: P1'in Durum Dosyalı Kökü | P1 MF8'in kökü yazılırken ve `root_files` grubu okunurken |
+| `tohum/29zc-vektor-arayuzleri-kopyanin-census-vektoru.md` | Vektör Arayüzleri: Kopyanın `census` Vektörü | kopya hedefin K0 sayımı okunurken ve `census_copy` grubu okunurken |
 | `tohum/30-guvenlik-katalogu.md` | Güvenlik Kataloğu: İlkeler, Zamanlama, Ortak Kader | her güvenlik işinde, her bildirimde ve yeni bir hedefe bağlanırken |
 | `tohum/30a-katalog-erisim-ve-enjeksiyon.md` | Güvenlik Kataloğu I: Erişim, Kimlik, Enjeksiyon, Web | kapsam bu sınıflara dokunduğunda; güvenlik avcısı, Kurucu ve K6 düzeltme işinde |
 | `tohum/30b-katalog-kiracilik-ve-graphql.md` | Güvenlik Kataloğu II: Çok Kiracılık, GraphQL, Kaynak Tüketimi | profil `tenancy.model` `none` değilse ya da hedef GraphQL sunuyorsa; güvenlik avcısı ve K6 işinde |
@@ -127,6 +128,7 @@ Okunma: sayfa ararken; görev seçmek için `tohum/00b-gorev-haritasi.md`
 | `tohum/31h-catismalar-ve-tarama.md` | Mimari İlkeler VIII: Çatışmalar ve Tarama Sinyalleri | iki ilke aynı durumda farklı yön gösterdiğinde; bir repo ilkeler açısından taranırken; rakip bir tasarımı çürütmeye çalışırken |
 | `tohum/CHANGELOG.md` | Değişiklik Günlüğü — Tohum | bir sayfanın geçmişi aranırken |
 | `tohum/CHANGELOG-22.md` | Değişiklik Günlüğü — Tohum, 2.2'nin Yirmi Birinci Kayıtları | bir sayfanın geçmişi aranırken |
+| `tohum/CHANGELOG-21.md` | Değişiklik Günlüğü — Tohum, 2.2'nin Yirminci Kayıtları | bir sayfanın geçmişi aranırken |
 | `tohum/CHANGELOG-20.md` | Değişiklik Günlüğü — Tohum, 2.2'nin On Dokuzuncu Kayıtları | bir sayfanın geçmişi aranırken |
 | `tohum/CHANGELOG-19.md` | Değişiklik Günlüğü — Tohum, 2.2'nin On Sekizinci Kayıtları | bir sayfanın geçmişi aranırken |
 | `tohum/CHANGELOG-18.md` | Değişiklik Günlüğü — Tohum, 2.2'nin On Yedinci Kayıtları | bir sayfanın geçmişi aranırken |
