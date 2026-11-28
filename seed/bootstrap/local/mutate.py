@@ -6245,6 +6245,20 @@ MUTANTS = [
      '"id": "seed-106-a-merge-that-landed-before-a-failed-state-commit-is-a-chain-break-to-the-next-cek",\n      "changelog": "CHANGELOG-24",', '"id": "seed-106-a-merge-that-landed-before-a-failed-state-commit-is-a-chain-break-to-the-next-cek",\n      "changelog": "CHANGELOG-23",', "E753: the report's answer is not recorded"),
     ('ao_archive_entry_dropped', 'spec/tohum/CHANGELOG-arsiv.md',
      '- 2.2 (2026-11-16, E600–E605; Kurucu raporları, sahibin onayı): yeni `29z`.', '- 2.2 (2026-11-16, E600–E605): yeni `29z`.', 'E753: the moved index entry is changed'),
+    ('ao_106_a_reasons_relabelled', 'spec/tohum/CHANGELOG-24.md',
+     'Sonnet ayrıca: kanıt defterde', 'Opus ayrıca: kanıt defterde', "E753: Sonnet's reasons on (a) are given to Opus"),
+    ('ao_106_b_sonnet_shown_choosing', 'spec/tohum/CHANGELOG-24.md',
+     '(`28:62-71`; `write_cycle.py:82-96`, `integration.py:21`) (Opus); Sonnet', '(`28:62-71`; `write_cycle.py:82-96`) (Opus ve Sonnet); Sonnet', 'E753: Sonnet is shown choosing (b)'),
+    ('ao_106_c_sonnet_dropped', 'spec/tohum/CHANGELOG-24.md',
+     'Sonnet yazıldığı gibi yapılamaz dedi ve kendi biçiminde seçti; ', '', "E753: Sonnet's position on (c) is dropped"),
+    ('ao_106_owner_b_sonnet_dropped', 'spec/tohum/CHANGELOG-24.md',
+     "Sonnet bunu (b)'yi reddetme nedeni saydı; ", '', "E753: Sonnet's position on owner-(b) is dropped"),
+    ('ao_106_soru_unattributed', 'spec/tohum/CHANGELOG-24.md',
+     "yanıtlandı: (b) (Opus); Sonnet (c)'yi", "yanıtlandı: (b); Sonnet (c)'yi", 'E753: the choice of (b) is not attributed to Opus'),
+    ('ao_106_owner_a_unmarked', 'spec/tohum/CHANGELOG-24.md',
+     "verilmedi; Sonnet'in bu maddeye kendi seçeneğine bağlı eki reddedildi: operatör kararı (b),", 'verilmedi;', "E753: Sonnet's part of owner-(a) is dropped unmarked"),
+    ('ao_e753_sonnet_unsaid', 'docs/eksik-kaydi.md',
+     "Sonnet'in seçtiği biçim (sahip kararı ve iki gevşetme ister) benimsenmedi", "Sonnet'in biçimi", "E753: the register does not say Sonnet's choice was not adopted"),
 ]
 
 

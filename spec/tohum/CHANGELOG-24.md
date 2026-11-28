@@ -38,7 +38,8 @@ Okunma: bir sayfanın geçmişi aranırken
   - (a) (sonraki devir açık bir kararın kanıtlanabilir merge'ünü devralır, satırlarını o zaman yazar): reddedildi
     (Opus ve Sonnet): `13:50-52`'nin kurcalama kuralını (E637) gevşetir, sahibin anayasal seçimidir; verilmedi
     (`28:62-71`); Sonnet ayrıca: kanıt defterde değil GitHub'ın sözündedir, sonraki karar ayrılırsa çıkmaz kalır, geri
-    alma ve prova için kuralı yoktur;
+    alma ve prova için kuralı yoktur; Sonnet'in bu maddeye kendi seçeneğine bağlı eki reddedildi: operatör kararı
+    (b), bkz. kayıt (E753);
   - (b) (böyle bir baş `13`'ün kırığıdır, `28:54-55` merge'den önceki yazımlara daralır): seçildi, kurulduğu gibi
     benimsendi (`28:62-71`; `write_cycle.py:82-96`, `integration.py:21`) (Opus); Sonnet merge'den sonraki yazımlar için
     reddetti (L-AM1; tek onarım yeni genesis, `25a:25-40`); karar: (b), operatör kararı; L-AM1 daraldı (E753);
@@ -46,7 +47,8 @@ Okunma: bir sayfanın geçmişi aranırken
     merge'e cevabıdır (`26d:35`), devir tek durum commit'i yazar (`13:40-41`), hiçbir sıra aradaki durumu kaldırmaz;
     Sonnet yazıldığı gibi yapılamaz dedi ve kendi biçiminde seçti; reddedildi: operatör kararı (b), bkz. kayıt (E753);
   - sahip (a) ("(a) `13`'ün kuralını kanıtlanmış bir biçim için gevşetir, sahibin vereceğidir", Y11): teyit edildi
-    (Opus ve Sonnet); verilmedi;
+    (Opus ve Sonnet); verilmedi; Sonnet'in bu maddeye kendi seçeneğine bağlı eki reddedildi: operatör kararı (b),
+    bkz. kayıt (E753);
   - sahip (b) ("(b) merge'den sonraki kesintiyi bir operatör adımı yapar, L-AM1 bunu istemez"): teyit edildi, bedel
     adlandırıldı: L-AM1 daraldı, sahibe bildirilir; adım yeni değildir, `25a:44-46` (E638) hedefe yazdıktan sonra
     kırmızı (B) koşusunu zaten Başarısızlık'a gönderir (Opus); Sonnet bunu (b)'yi reddetme nedeni saydı; karar: (b);

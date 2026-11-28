@@ -156,8 +156,8 @@ class RecordsTest(unittest.TestCase):
         for item, label in zip(items, labels):
             self.assertTrue(item.startswith(label), (label, item[:40]))
         rows = dict(zip(labels, items))
-        for label in ("ref (", "durum (", "çek (", "ikisi birden tutamaz:", "yapım (", "testler (", "(c) (", "soru (",
-                      "(bulunan, 2) "):  # Sonnet's rows for its declined choice
+        for label in ("ref (", "durum (", "çek (", "ikisi birden tutamaz:", "yapım (", "testler (", "(a) (", "(c) (",
+                      "sahip (a) (", "soru (", "(bulunan, 2) "):  # Sonnet's rows for its declined choice
             self.assertIn(DECLINED, rows[label], label)
         self.assertIn("seçildi, kurulduğu gibi benimsendi", rows["(b) ("])
         self.assertIn("karar: (b), operatör kararı; L-AM1 daraldı (E753)", rows["(b) ("])
@@ -175,6 +175,41 @@ class RecordsTest(unittest.TestCase):
         answers = json.loads((BOOT / "reports" / "answers.json").read_text(encoding="utf-8"))["answers"]
         self.assertEqual([(a["id"], a["kind"]) for a in answers if a["changelog"] == "CHANGELOG-24"],
                          [(R106, "answered")])
+
+    def test_who_held_what(self):
+        # ao_106_a_reasons_relabelled ao_106_b_sonnet_shown_choosing ao_106_c_sonnet_dropped ao_106_owner_b_sonnet_dropped
+        # ao_106_soru_unattributed ao_106_owner_a_unmarked ao_e753_sonnet_unsaid
+        log = changelog()
+        start = next(k for k, line in enumerate(log) if line.strip().startswith(f"`{R106}` →"))
+        rows: dict[str, str] = {}
+        key = ""
+        for line in log[start + 1:]:
+            if line.startswith("  - "):
+                body = line[4:]
+                key = body[:body.index(")") + 1] if body.startswith("(") else body.split(" (")[0]
+                if key == "sahip":
+                    key = body[:9]
+                rows[key] = body
+            elif line.startswith("    "):
+                rows[key] += " " + line.strip()
+            else:
+                break
+        held = {"(a)": ("reddedildi (Opus ve Sonnet): `13:50-52`'nin kurcalama kuralını (E637) gevşetir",
+                        "Sonnet ayrıca: kanıt defterde değil GitHub'ın sözündedir"),
+                "(b)": ("(`28:62-71`; `write_cycle.py:82-96`, `integration.py:21`) (Opus); Sonnet merge'den sonraki "
+                        "yazımlar için reddetti",),
+                "(c)": ("reddedildi (Opus): merge satırının", "Sonnet yazıldığı gibi yapılamaz dedi ve kendi biçiminde seçti;"),
+                "sahip (a)": ("teyit edildi (Opus ve Sonnet); verilmedi;",),
+                "sahip (b)": ("Başarısızlık'a gönderir (Opus); Sonnet bunu (b)'yi reddetme nedeni saydı; karar: (b);",),
+                "soru": ("yanıtlandı: (b) (Opus); Sonnet (c)'yi kendi biçiminde, sahip kararıyla seçti;",)}
+        for key, phrases in held.items():
+            for words in phrases:
+                self.assertIn(words, rows[key], (key, words))
+        self.assertNotIn("Opus ayrıca", rows["(a)"])
+        self.assertNotIn("(Opus ve Sonnet)", rows["(b)"])
+        self.assertIn(DECLINED, rows["sahip (a)"])
+        self.assertIn("Sonnet'in seçtiği biçim (sahip kararı ve iki gevşetme ister) benimsenmedi: sayfaları ve E638'i "
+                      "karşılayan, hiçbir şeyi gevşetmeyen ve yeni yapım istemeyen (b) seçildi", register_row("E753"))
 
 
 if __name__ == "__main__":
