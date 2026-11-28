@@ -427,7 +427,9 @@ class PagesTest(unittest.TestCase):
             self.assertNotIn(word, text.lower())
 
     def test_the_changelog_names_the_three_reports_by_lines_that_say_them(self):  # changelog_drops_seed_058
-        log = flat((ROOT / "spec" / "tohum" / "CHANGELOG.md").read_text(encoding="utf-8"))
+        # the index and its archive: epoch AO moved this entry to `CHANGELOG-arsiv.md` for room, unchanged
+        log = flat(" ".join((ROOT / "spec" / "tohum" / name).read_text(encoding="utf-8")
+                            for name in ("CHANGELOG.md", "CHANGELOG-arsiv.md")))
         says = {"seed-058-no-real-container-before-b": ("29b", 73, 73, "**Kanarya** (seed-058)"),
                 "seed-059-genesis-vector-toy-base-not-setups-form": ("29o", 45, 46, "boştur (`null`)"),
                 "seed-060-app-secret-form-not-stated": ("29s", 78, 80, "`WRITER_APP_PRIVATE_KEY`")}

@@ -58,3 +58,14 @@ sert duruşunu adlandırır (`26i:24`). Değişmeyenler: genesis devrinde başar
 satır 7); bir (B) koşusunda hedefe yazdıktan sonra kırmızı biten koşu yeniden tetiklenmez (`25a:44-46`); P1'den önce
 `çek`'in zincir kırığı reddi (`13:56-57`) olduğu gibidir. **Gevşetme L-AM1** (sahibe bildirilir): iki okumanın
 gevşeğidir; başarısız yazım operatör adımı istemez.
+
+**Merge indikten sonra başarısız yazım** (rapor masası uzlaşısı (2026-11-28), seed-106; kurulduğu gibi benimsendi:
+beyin `38715fe`, `referee/loop/write_cycle.py:82-96`, `referee/loop/integration.py:21`). Bir `yaz` işinin bir merge'ü
+`brain/integration`'a indikten sonra (bir düzeltmenin, bir geri almanın ya da provanın merge'ü, ya da GitHub'ın cevabı
+alınamamış ama inmiş bir merge) durum commit'i başarısız olursa baş, hiçbir satırın adlandırmadığı bir commit'tir:
+`13:50-52`'nin zincir kırığıdır (yapımda bir `cut` ya da `merge` satırından sonra `head_not_named`). Sonraki `çek` onu
+reddeder (`13:56-57`), döngü onu devralmaz; (B)'de onu yalnız `25a`'nın Başarısızlık yolu onarır (`25a:44-46`, E638;
+`13:58`). `28:54-55`'in "başarısız işin bıraktığını devralır"ı yalnız o merge'den önceki başarısızlıklar içindir.
+**L-AM1 daraldı** (bir sıkılaştırma, sahibe bildirilir): başarısız yazım yalnız merge inmeden önce operatör adımı
+istemez. `13`'ü gevşetmek sahibindir, verilmedi; iki yazımın hiçbir sırası aradaki durumu kaldırmaz (`26d:35`,
+`13:40-41`).

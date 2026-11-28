@@ -204,7 +204,7 @@ class LiveLoopHintTest(unittest.TestCase):
 class PlacementTest(unittest.TestCase):
     def test_appended_only_and_the_pages_fit(self):  # am_07_line_moved am_26p_grown am_28_line_moved
         for prefix, last, total in (("07", "yeniden denenmez. Kredi kök neden başınadır (çakışan hunk ya da aynı sembol).", 80),
-                                    ("28", "kuyruğu taşması Gözcü işaretidir: eylemi durdurmaz, şerit yazarına görev yazar.", 60),
+                                    ("28", "kuyruğu taşması Gözcü işaretidir: eylemi durdurmaz, şerit yazarına görev yazar.", 71),  # AO appended 61-71
                                     ("26p", "- Vektör: MF10–MF12'nin vektör grubu yoktur (`26e`); seed-098 ve seed-099 için "
                                             "vektör reddedildi, testler 56–58 bağlar.", 80),
                                     ("01b", "temiz bir duruştur.", 80)):
