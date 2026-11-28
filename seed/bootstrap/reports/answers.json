@@ -190,6 +190,11 @@
       "id": "seed-105-which-names-are-a-paket-manifesti-for-a-case-s-group",
       "changelog": "CHANGELOG-23",
       "kind": "answered"
+    },
+    {
+      "id": "seed-106-a-merge-that-landed-before-a-failed-state-commit-is-a-chain-break-to-the-next-cek",
+      "changelog": "CHANGELOG-24",
+      "kind": "answered"
     }
   ],
   "carried": {

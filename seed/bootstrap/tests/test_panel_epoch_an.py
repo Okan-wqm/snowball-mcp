@@ -211,8 +211,8 @@ class RecordsTest(unittest.TestCase):
         index = (ROOT / "spec" / "INDEX.md").read_text(encoding="utf-8")
         self.assertIn("| `tohum/CHANGELOG-23.md` | Değişiklik Günlüğü — Tohum, 2.2'nin Yirmi İkinci Kayıtları |", index)
         top = (TOHUM / "CHANGELOG.md").read_text(encoding="utf-8").splitlines()
-        self.assertTrue(top[6].startswith("- 2.2 (2026-11-28, E751–E752; tohum dönemi AN,"))  # the newest entry
-        self.assertTrue(top[6].endswith("`CHANGELOG-23.md`; başında **İlk iş**."))
+        self.assertTrue(top[7].startswith("- 2.2 (2026-11-28, E751–E752; tohum dönemi AN,"))  # under epoch AO's entry
+        self.assertTrue(top[7].endswith("`CHANGELOG-23.md`; başında **İlk iş**."))
         self.assertLessEqual(len(log.splitlines()), 80)
         self.assertEqual([n for n, line in enumerate(log.splitlines(), 1) if len(line) > 120], [])
 

@@ -4,9 +4,17 @@ Tarih: 2026-11-22 · Sürüm: 2.2
 Okunma: bir sayfanın geçmişi aranırken
 Çapa: git geçmişi ve zincirdeki spec hash satırları
 
-`CHANGELOG.md`'nin en eski dizin satırları, oradaki 80 satır sınırı için tohum dönemi AF'de taşındı; içerikleri
-değişmedi. Yeni girdiler `CHANGELOG.md`'dedir.
+`CHANGELOG.md`'nin en eski dizin satırları, oradaki 80 satır sınırı için tohum dönemi AF'de ve AO'da taşındı;
+içerikleri değişmedi. Yeni girdiler `CHANGELOG.md`'dedir.
 
+- 2.2 (2026-11-16, E600–E605; Kurucu raporları, sahibin onayı): yeni `29z`. Önyükleme hakemi çıkış isteğinde ayrı,
+  sırsız ve izinsiz `kanarya` işinde beynin `python -m runner.contained run`'ını konteynerin dışında, oyuncağın birim
+  tarifinin imajında bir kez koşturur; geçerli olmayan ya da kırmızı kanarya `exit.missing`'de `canary:<durum>`, iş
+  başarısızsa `canary:job_<sonuç>`; sonuç `exit.canary`'de imzalanır (E600–E602). `genesis` grubuna dört vaka (E603).
+  Yanıtlanan raporlar: `seed-058-no-real-container-before-b` → `29b:73`, `29z` (komut, istek, okunan, durumlar, kayıt);
+  `seed-059-genesis-vector-toy-base-not-setups-form` → `29o:45-46`, `29o:69-76` (kurulumun özetteki biçimi;
+  `toy_base_empty`, `toy_base_absent`, `copy_base_empty`, `seed_epoch_seed_null`: `29o:63-67`); `seed-060-app-secret-form-not-stated` → `29s:78-80` (iki sırrın
+  adı ve girilişi; `WRITER_APP_ID`'nin çevresindeki boşluk bilinmiyor). (B)'nin beşinci ve altıncı denemesi: `CHANGELOG-7.md`.
 - 2.2 (2026-11-14 – 2026-11-15, E585–E599): `29t` kendi haritası, `29u` çıkıştan sonra, `29v` politika okuması,
   `29y` döngü koşuları ve Kurucu'nun hafızasının yeri: `CHANGELOG-8.md`.
 - 2.2 (2026-11-12 – 2026-11-13, E569–E574, E577–E582): `29e` "Genellik okuması", hedeflerin `targets.json`'u, yasa

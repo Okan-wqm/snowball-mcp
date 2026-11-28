@@ -310,8 +310,8 @@ class RecordsTest(unittest.TestCase):
         self.assertIn("| `tohum/00g-gorev-haritasi-sahibin-ipuclari-5.md` | Görev Haritası, Devam: Sahibin İpuçları V | "
                       "her oturumda, görev seçilirken (`00f`'nin devamı) |", index)
         log = (TOHUM / "CHANGELOG.md").read_text(encoding="utf-8").splitlines()
-        self.assertTrue(log[9].startswith("- 2.2 (2026-11-23, E739–E743; tohum dönemi AK,"))  # under epochs AN's, AL's and AM's entries
-        self.assertTrue(log[9].endswith("`CHANGELOG-20.md`; başında **İlk iş**."))
+        self.assertTrue(log[10].startswith("- 2.2 (2026-11-23, E739–E743; tohum dönemi AK,"))  # under epochs AO's, AN's, AL's and AM's entries
+        self.assertTrue(log[10].endswith("`CHANGELOG-20.md`; başında **İlk iş**."))
         answers = json.loads((BOOT / "reports" / "answers.json").read_text(encoding="utf-8"))["answers"]
         self.assertEqual([(a["id"], a["kind"]) for a in answers if a["changelog"] == "CHANGELOG-20"],
                          [(REPORT, "answered")])

@@ -4,6 +4,7 @@ Tarih: 2026-10-29 · Sürüm: 2.2
 Okunma: bir sayfanın geçmişi aranırken
 Çapa: git geçmişi ve zincirdeki spec hash satırları
 
+- 2.2 (2026-11-28, E753; tohum dönemi AO, seed-106'ya rapor masası uzlaşısı: merge indikten sonra başarısız yazım zincir kırığıdır, `28`'in sonu, L-AM1 daraldı): `CHANGELOG-24.md`; başında **İlk iş**.
 - 2.2 (2026-11-28, E751–E752; tohum dönemi AN, tohumun kendi testleri gerçek bir gecikme beklemez: `tests/no_real_delays.py`, `04`'ün sonu; seed-105'e rapor masası uzlaşısı: vakanın grubu, `26m` ve `26n` sonu): `CHANGELOG-23.md`; başında **İlk iş**.
 - 2.2 (2026-11-24, E744; tohum dönemi AL, kopya hedefin `census` vektörü: `census_copy` grubu, yeni `29zc`): `CHANGELOG-21.md`; başında **İlk iş**.
 - 2.2 (2026-11-24, E745–E750; tohum dönemi AM, rapor masası uzlaşısı: seed-103 ve seed-104, yarım kalmış geri alma ve merge dalları kurulduğu gibi benimsendi, `candidate_id_used` ve `pull_closed` sıkılaştırma, gevşetmeler L-AM1–L-AM3; sahibin ipucu: canlı döngünün sağlığı önce gelir): `CHANGELOG-22.md`; başında **İlk iş**.
@@ -59,12 +60,4 @@ Okunma: bir sayfanın geçmişi aranırken
   için bir kez yeniden tetiklenir, insan dokunuşu olarak kaydedilir; yeni kod denetimi yok.
 - 2.2 (2026-11-16 – 2026-11-17, E606–E611; Kurucu raporları, olgu, sahip kararı): `seed-061`, `seed-062`, `seed-063`:
   `CHANGELOG-7.md`; yeni `26g`, Kurucu'nun dersi, başlatıcının ders dizini ve sahibin hedefi: `CHANGELOG-8.md`.
-- 2.2 (2026-11-16, E600–E605; Kurucu raporları, sahibin onayı): yeni `29z`. Önyükleme hakemi çıkış isteğinde ayrı,
-  sırsız ve izinsiz `kanarya` işinde beynin `python -m runner.contained run`'ını konteynerin dışında, oyuncağın birim
-  tarifinin imajında bir kez koşturur; geçerli olmayan ya da kırmızı kanarya `exit.missing`'de `canary:<durum>`, iş
-  başarısızsa `canary:job_<sonuç>`; sonuç `exit.canary`'de imzalanır (E600–E602). `genesis` grubuna dört vaka (E603).
-  Yanıtlanan raporlar: `seed-058-no-real-container-before-b` → `29b:73`, `29z` (komut, istek, okunan, durumlar, kayıt);
-  `seed-059-genesis-vector-toy-base-not-setups-form` → `29o:45-46`, `29o:69-76` (kurulumun özetteki biçimi;
-  `toy_base_empty`, `toy_base_absent`, `copy_base_empty`, `seed_epoch_seed_null`: `29o:63-67`); `seed-060-app-secret-form-not-stated` → `29s:78-80` (iki sırrın
-  adı ve girilişi; `WRITER_APP_ID`'nin çevresindeki boşluk bilinmiyor). (B)'nin beşinci ve altıncı denemesi: `CHANGELOG-7.md`.
-- 2026-11-15'e kadarki girdiler (2.2'nin E585–E599'u ve öncesi, 2.1 ve öncesi): `CHANGELOG-arsiv.md`.
+- 2026-11-16'ya kadarki girdiler (2.2'nin E600–E605'i ve öncesi, 2.1 ve öncesi): `CHANGELOG-arsiv.md`.

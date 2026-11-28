@@ -215,7 +215,7 @@ class RecordsTest(unittest.TestCase):
                       "Gevşetme yok."):
             self.assertIn(words, entry, words)
         log = (TOHUM / "CHANGELOG.md").read_text(encoding="utf-8").splitlines()
-        self.assertTrue(log[7].startswith("- 2.2 (2026-11-24, E744; tohum dönemi AL,"))  # under epoch AN's entry
-        self.assertTrue(log[7].endswith("`CHANGELOG-21.md`; başında **İlk iş**."))
+        self.assertTrue(log[8].startswith("- 2.2 (2026-11-24, E744; tohum dönemi AL,"))  # under epochs AO's and AN's entries
+        self.assertTrue(log[8].endswith("`CHANGELOG-21.md`; başında **İlk iş**."))
         self.assertIn("| `tohum/CHANGELOG-21.md` | Değişiklik Günlüğü — Tohum, 2.2'nin Yirminci Kayıtları |",
                       (ROOT / "spec" / "INDEX.md").read_text(encoding="utf-8"))
