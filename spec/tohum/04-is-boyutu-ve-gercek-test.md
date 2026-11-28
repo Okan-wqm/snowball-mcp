@@ -51,7 +51,9 @@ sonuçlarıyla birlikte geçersizdir: ölçüm aracı ölçmüyordur.
 `no_real_delays`'i içe aktarır; o, süreç boyunca `time.sleep`'in yerine geçer. Test klasörü ve standart kütüphane
 dışındaki bir dosyanın, yani tohumun kodunun (`launch.py`'de `gh_read`'in yeniden deneme gecikmeleri, başlatıcının
 ve `deliver_epoch.py`'nin beklemeleri) sıfırdan büyük her uykusu o anda `RealDelay` yükseltir; `RealDelay` bir
-`Exception` değildir, kodun `except Exception`'ı onu yutamaz ve test kırmızıdır. Bir yeniden deneme, geri çekilme ya
-da yoklama gecikmesini geri getiren mutant 900 s'lik zaman aşımıyla değil, bir kırmızıyla öldürülür (`04:28-29`;
-E679, E738). Testin kendi kısa yoklaması ve standart kütüphanenin beklemesi (`subprocess`) uyur; bir gecikmeyi
-sınayan test saati mock'lar (`04:38`).
+`Exception` değildir, kodun `except Exception`'ı onu yutamaz ve test kırmızıdır; bir işçi iş parçacığındaki uyku
+testi bitişinde kırmızı yapar. Tohumun kodunda `time.sleep` ile bekleyen bir yeniden deneme, geri çekilme ya da
+yoklama gecikmesini geri getiren mutant 900 s'lik zaman aşımıyla değil, bir kırmızıyla öldürülür (`04:28-29`; E679,
+E738). Muhafız yalnız test sürecinin `time.sleep`'ini görür: alt süreçler, `threading.Event.wait` ve standart
+kütüphanenin içinden uyuyanlar (`sched`, `subprocess`'in beklemesi) onun dışındadır. Testin kendi kısa yoklaması da
+uyur; bir gecikmeyi sınayan test saati mock'lar (`04:38`).

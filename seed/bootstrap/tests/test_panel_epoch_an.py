@@ -12,6 +12,7 @@ import json
 import re
 import subprocess
 import tempfile
+import threading
 import time
 import unittest
 from pathlib import Path
@@ -71,7 +72,8 @@ class GuardTest(unittest.TestCase):
         self.assertIsNot(no_real_delays.REAL_SLEEP, no_real_delays.guarded_sleep)
 
     def test_a_retry_delay_of_the_seed_is_red_at_once(self):
-        # no_delay_guard_sleeps no_delay_everyone_may_sleep
+        # no_delay_guard_sleeps no_delay_everyone_may_sleep no_delay_guard_removed
+        self.assertIs(time.sleep, no_real_delays.guarded_sleep)  # first: without the guard the call below waits
         launch = load_launch()
         calls = []
         started = time.monotonic()
@@ -84,7 +86,8 @@ class GuardTest(unittest.TestCase):
         self.assertEqual(launch.GH_RETRY_DELAYS_S[0], 10)
         self.assertIn("launch.py would sleep 10 s for real in a test", str(caught.exception))
 
-    def test_an_except_exception_does_not_swallow_it(self):  # no_delay_is_an_exception
+    def test_an_except_exception_does_not_swallow_it(self):  # no_delay_is_an_exception no_delay_guard_removed
+        self.assertIs(time.sleep, no_real_delays.guarded_sleep)  # first: without the guard the call below waits
         self.assertFalse(issubclass(RealDelay, Exception))
         launch = load_launch()
         with mock.patch.object(launch, "run", failing_gh([])), \
@@ -107,6 +110,24 @@ class GuardTest(unittest.TestCase):
             sleep_as(ROOT / "seed" / "founder" / "deliver_epoch.py", 15)
 
 
+class ThreadTest(unittest.TestCase):
+    """A RealDelay in a worker thread ends only that thread; the test it ran in still ends with the error."""
+
+    def test_a_delay_in_a_worker_thread_fails_its_test(self):  # no_delay_thread_unseen no_delay_thread_unrecorded
+        class Inner(unittest.TestCase):
+            def test_it(self):
+                worker = threading.Thread(target=sleep_as, args=(LAUNCH, 0.01))
+                worker.start()
+                worker.join()
+
+        result = unittest.TestResult()
+        with mock.patch("sys.stderr"):  # the thread's traceback, printed by the default hook
+            Inner("test_it").run(result)
+        self.assertEqual(len(result.errors), 1, result.errors)
+        self.assertIn("RealDelay", result.errors[0][1])
+        self.assertEqual(no_real_delays.THREAD_DELAYS, [])
+
+
 class LivePathTest(unittest.TestCase):
     """The failing mutant: the accepted manifest's read back on the retry delays is red at once, with no mock of
     `time.sleep` (only the guard)."""
@@ -124,8 +145,9 @@ class LivePathTest(unittest.TestCase):
 
 
 class EveryModuleTest(unittest.TestCase):
-    """Each test module imports the guard first, so a hint's test run alone is guarded too; no seed code binds `sleep`
-    by name, which the guard could not replace."""
+    """Each test module imports the guard first, so a hint's test run alone is guarded too. No seed code binds `sleep`
+    by name: a test that mocks `time.sleep` (`mock.patch.object(launch.time, "sleep", ...)`) does not reach a name
+    bound at import, so its call would meet the guard instead of the mock."""
 
     def test_every_test_module_imports_the_guard_first(self):  # no_delay_module_unguarded
         modules = sorted(TESTS.glob("test_*.py"))
@@ -149,12 +171,14 @@ class PageTest(unittest.TestCase):
     """The rule is a fact at the end of `04`; `04:1-48` stay where they were."""
 
     def test_the_rule_and_each_citation(self):  # an_04_rule_unsaid an_04_layer_unsaid an_04_kill_unsaid
-        text = cited("04", 50, 57)
+        text = cited("04", 50, 59)
         for words in ("**Tohumun kendi testleri gerçek bir gecikme beklemez** (E751).",
                       "`seed/bootstrap/tests`'in her test modülü önce `no_real_delays`'i içe aktarır",
                       "`RealDelay` yükseltir", "`except Exception`'ı onu yutamaz",
                       "zaman aşımıyla değil, bir kırmızıyla öldürülür", "(`04:28-29`; E679, E738)",
-                      "saati mock'lar (`04:38`)"):
+                      "saati mock'lar (`04:38`)",
+                      "Muhafız yalnız test sürecinin `time.sleep`'ini görür: alt süreçler, `threading.Event.wait`",
+                      "bir işçi iş parçacığındaki uyku testi bitişinde kırmızı yapar."):
             self.assertIn(words, text, words)
         self.assertTrue(cited("04", 28, 29).endswith("bir mutant ancak içe aktarma ya da sözdizimi hatası olmayan "
                                                      "bir kırmızıyla öldürülmüş sayılır. Taban değeri aşama "
@@ -172,7 +196,7 @@ class PageTest(unittest.TestCase):
 class RecordsTest(unittest.TestCase):
     def test_the_register_row(self):  # an_e751_open
         row = register_row("E751")
-        for words in ("`manifest_read_retries`", "46072742202", "`seed/bootstrap/tests/no_real_delays.py`", "`RealDelay`", "`04:50-57`"):
+        for words in ("`manifest_read_retries`", "46072742202", "`seed/bootstrap/tests/no_real_delays.py`", "`RealDelay`", "`04:50-59`"):
             self.assertIn(words, row, words)
         self.assertEqual(row.count("|"), 7)
         self.assertTrue(row.endswith("| kapandı (tohum dönemi AN) |"))

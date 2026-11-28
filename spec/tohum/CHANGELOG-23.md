@@ -13,7 +13,7 @@ Okunma: bir sayfanın geçmişi aranırken
   `manifest_read_retries` kabul edilmiş manifestin okumasını `gh_read`'in yeniden deneme gecikmelerine geri koyar,
   bir test onlara mock'suz ulaşıp gerçekten uyudu ve bütün takım 900 s'yi geçti (zaman aşımı, öldürme değil, E738).
   Sınıf testlerin kendi katmanında kapandı (E751): her test modülü önce `tests/no_real_delays.py`'yi içe aktarır ve
-  tohumun kodunun sıfırdan büyük her uykusu o anda kırmızıdır (`RealDelay`). Kural `04`'ün sonundadır (`04:50-57`);
+  tohumun kodunun sıfırdan büyük her uykusu o anda kırmızıdır (`RealDelay`). Kural `04`'ün sonundadır (`04:50-59`);
   `04:1-48` yer değiştirmedi. Testler `test_panel_epoch_an`; mutantlar, biri muhafızı kaldırır.
   Gevşetme yok.
   Yanıtlanan rapor (rapor masası uzlaşısı, Opus ve Sonnet paneli, iki panelin madde satırları birleşik; operatör
