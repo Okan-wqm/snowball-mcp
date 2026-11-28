@@ -8,6 +8,7 @@ red at once. The rule is appended to the end of `tohum/04`. The trailing comment
 
 import no_real_delays  # noqa: F401  (first: no test waits on a real delay, E751)
 import ast
+import json
 import re
 import subprocess
 import tempfile
@@ -181,16 +182,91 @@ class RecordsTest(unittest.TestCase):
         entry = flat(log.split("\n- 2.2 (2026-11-28, E751", 1)[1])
         self.assertIn("**İlk iş** (`25` 10b). Teslimden itibaren önyükleme hakeminin hiçbir denetimi kırmızı olmaz",
                       entry[:400])
-        for words in ("Kurucu'nun bugünkü işi sürer, sırası `CHANGELOG-14`'ünkidir.", "Yanıtlanan rapor yok.",
-                      "Gevşetme yok."):
+        for words in ("Kurucu'nun bugünkü işi sürer, sırası `CHANGELOG-14`'ünkidir.", "Gevşetme yok."):
             self.assertIn(words, entry, words)
         index = (ROOT / "spec" / "INDEX.md").read_text(encoding="utf-8")
         self.assertIn("| `tohum/CHANGELOG-23.md` | Değişiklik Günlüğü — Tohum, 2.2'nin Yirmi İkinci Kayıtları |", index)
         top = (TOHUM / "CHANGELOG.md").read_text(encoding="utf-8").splitlines()
-        self.assertTrue(top[6].startswith("- 2.2 (2026-11-28, E751; tohum dönemi AN,"))  # the newest entry
+        self.assertTrue(top[6].startswith("- 2.2 (2026-11-28, E751–E752; tohum dönemi AN,"))  # the newest entry
         self.assertTrue(top[6].endswith("`CHANGELOG-23.md`; başında **İlk iş**."))
         self.assertLessEqual(len(log.splitlines()), 80)
         self.assertEqual([n for n, line in enumerate(log.splitlines(), 1) if len(line) > 120], [])
+
+
+# ---- seed-105 (report desk, 2026-11-28): which names are a package manifest for a case's group (E752)
+R105 = "seed-105-which-names-are-a-paket-manifesti-for-a-case-s-group"
+
+
+class CaseGroupTest(unittest.TestCase):
+    """E752: the answer appended to the end of `26m` (77-80) and `26n` (73-78); each citation is read at its line."""
+
+    def test_the_names_and_the_walk(self):
+        # an_105_project_json_counts an_105_29k_miscited an_105_walk_above_unit an_105_fallback_dropped
+        text = cited("26m", 77, 80)
+        for words in ("**Vakanın grubu** (`26e:68-69`; seed-105; devamı `26n:73-78`).",
+                      "Paket manifesti temel adı `package.json` olan düzenli dosyadır (`29k:51`'in `manifest`'i), başka "
+                      "hiçbir şey değildir: Nx'in `project.json`'ı da, `pyproject.toml`, `Cargo.toml` ya da `go.mod` da "
+                      "grup işaretlemez.",
+                      "Arama değiştirilen dosyanın dizininden birimin köküne kadardır, kök dahil, üstüne çıkmaz;",
+                      "yolda manifest yoksa grup birimin köküdür.", "Sıkılaştırma: grup birimin kökü ya da altındadır."):
+            self.assertIn(words, text, words)
+        self.assertIn("`manifest` (temel adı `package.json`)", cited("29k", 51))
+        self.assertIn("paket manifesti taşıyan dizindir; öyle bir dizin yoksa birimin köküdür (bu bir sıkılaştırmadır)",
+                      cited("26e", 68, 69))
+        self.assertIn("bağımlılık manifestleri", cited("01b", 17))
+
+    def test_the_rest_and_each_citation(self):
+        # an_105_profile_names an_105_brain_miscited an_105_rows_edited an_105_loosened an_105_undecided_kept
+        text = cited("26n", 73, 78)
+        for words in ("**Vakanın grubu, devam** (seed-105; `26m:77-80`).", "Aşama 1'in tek aracı `eslint`'tir (`29za:25`).",
+                      "kendi sayfasında veri olarak getirir (`31c:23-27`); adları ne profil ne Kurucu koyar.",
+                      "okunmayan manifest (bağ, dizin) işaretlemez, ağacın kökü `.`'dır.",
+                      "Beynin `6f36fba`'sında arama birimin kökünün üstüne çıkar (`referee/cases/build.py:484-493`; "
+                      "`referee/tests/test_cases.py:903-904` onu sabitler).",
+                      "Açık grup kalmadı: `group_undecided` ara çözümünün yerini bu yanıt alır",
+                      "Yazılmış satır durur (`26m:35-36`).", "Vektör değişmez; gevşetme yok."):
+            self.assertIn(words, text, words)
+        self.assertIn("Araç `eslint`'tir.", cited("29za", 25))
+        self.assertTrue(cited("31c", 23, 27).startswith("**Yeni ekosistem kuralı.** Yeni bir ekosistem"))
+        self.assertIn("manifest ve kilit dosyası desenleri", cited("31c", 23, 27))
+        self.assertIn("dosyadaki bir kimlik yeniden yazılmaz", cited("26m", 35, 36))
+        self.assertIn("Bilinmeyen ekosistem kapalıya düşer", cited("31g", 35))
+        self.assertIn("dev/held-out bölmesi modül grubu bazındadır", cited("19", 69))
+        self.assertIn("census_min_groups", cited("18a", 51))
+
+    def test_appended_only_and_the_pages_fit(self):  # an_105_26m_line_moved an_105_26n_grown an_105_26e_touched
+        m, n = page("26m").splitlines(), page("26n").splitlines()
+        self.assertTrue(m[74].endswith("`26q`'dadır (seed-101)."))  # 26m:75, as it was
+        self.assertEqual((m[75], len(m)), ("", 80))
+        self.assertTrue(n[70].endswith("(yukarıda, `26s`)."))  # 26n:71, as it was
+        self.assertEqual((n[71], len(n)), ("", 78))
+        for lines, first in ((m, 76), (n, 72)):
+            self.assertEqual([k for k, line in enumerate(lines[first:], first + 1) if len(line) > 120], [])
+        self.assertEqual(len(page("26e").splitlines()), 80)
+
+    def test_the_register_row_the_changelog_and_the_answer(self):
+        # an_e752_open an_105_items_dropped an_105_answers_missing an_105_both_panels_unsaid
+        row = register_row("E752")
+        for words in ("seed-105 (Kurucu raporu)", "`26m:77-80`, `26n:73-78`", "Opus ve Sonnet paneli",
+                      "`referee/cases/build.py:134-136`", "Gevşetme yok"):
+            self.assertIn(words, row, words)
+        self.assertEqual(row.count("|"), 7)
+        self.assertRegex(row, r"\| kapandı \(tohum dönemi AN(; [^)]*)?\) \|$")
+        log = (TOHUM / "CHANGELOG-23.md").read_text(encoding="utf-8").splitlines()
+        starts = [k for k, line in enumerate(log) if line.strip().startswith(f"`{R105}` →")]
+        self.assertEqual(len(starts), 1)
+        items = []
+        for line in log[starts[0] + 1:]:
+            if not line.startswith("  - ") and not line.startswith("    "):
+                break
+            if line.startswith("  - "):
+                items.append(line[4:line.index(")") + 1] if line[4:].startswith("(") else line[4:].split(" ")[0])
+        self.assertEqual(items, ["(1)", "(1, olgu)", "(1, hedef)", "(1, hiç düzenlenmez)", "(1, yapım)", "(2)",
+                                 "(2, yapım)", "soru", "(kendi okumaları)", "not"])
+        self.assertIn("Opus ve Sonnet paneli, iki panelin madde satırları birleşik", flat("\n".join(log)))
+        answers = json.loads((BOOT / "reports" / "answers.json").read_text(encoding="utf-8"))["answers"]
+        self.assertEqual([(a["id"], a["kind"]) for a in answers if a["changelog"] == "CHANGELOG-23"],
+                         [(R105, "answered")])
 
 
 if __name__ == "__main__":
