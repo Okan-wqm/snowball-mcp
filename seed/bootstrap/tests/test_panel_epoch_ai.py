@@ -6,6 +6,7 @@ the brain, so each binding sentence is on a `tohum` page: new `26r` (the organ's
 `29v` and `26e` point there. P3's machine copy is not part of this epoch. Every item of the two reports has a line in
 `CHANGELOG-18`. The trailing comment on a test names the mutants it kills (`local/mutate.py`)."""
 
+import no_real_delays  # noqa: F401  (first: no test waits on a real delay, E751)
 import json
 import re
 import unittest

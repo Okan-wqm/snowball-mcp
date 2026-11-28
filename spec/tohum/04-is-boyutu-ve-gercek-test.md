@@ -46,3 +46,12 @@ testi yazan ajanın beyanında değil.
 **Kırmızı kontrol.** Kod yürüten her hakem koşusu, sonucu bilinen kötü bir adayı da koşturur ve
 o aday her koşuda kırmızı çıkmak zorundadır (`08`). Kırmızı kontrolü yeşil çıkan koşu, bütün
 sonuçlarıyla birlikte geçersizdir: ölçüm aracı ölçmüyordur.
+
+**Tohumun kendi testleri gerçek bir gecikme beklemez** (E751). `seed/bootstrap/tests`'in her test modülü önce
+`no_real_delays`'i içe aktarır; o, süreç boyunca `time.sleep`'in yerine geçer. Test klasörü ve standart kütüphane
+dışındaki bir dosyanın, yani tohumun kodunun (`launch.py`'de `gh_read`'in yeniden deneme gecikmeleri, başlatıcının
+ve `deliver_epoch.py`'nin beklemeleri) sıfırdan büyük her uykusu o anda `RealDelay` yükseltir; `RealDelay` bir
+`Exception` değildir, kodun `except Exception`'ı onu yutamaz ve test kırmızıdır. Bir yeniden deneme, geri çekilme ya
+da yoklama gecikmesini geri getiren mutant 900 s'lik zaman aşımıyla değil, bir kırmızıyla öldürülür (`04:28-29`;
+E679, E738). Testin kendi kısa yoklaması ve standart kütüphanenin beklemesi (`subprocess`) uyur; bir gecikmeyi
+sınayan test saati mock'lar (`04:38`).
